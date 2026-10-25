@@ -179,4 +179,44 @@ describe("Set-up and pause", () => {
 
     expect(lines).toEqual(["You died", "on P4 tick 54", "Paused once, for 12.5 s in all."]);
   });
+
+  test("a click still waiting out its input delay registers on the same P4 tick across a pause", async () => {
+    async function walkOrders(pause: boolean) {
+      localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { use3dView: false, inputDelay: 1000 } }));
+      const run = await openRun("/?seed=1&invincible=on");
+      run.page.click("start");
+      run.playTo(9);
+      await run.click(RING_NORTH);
+      run.play(100);
+      if (pause) {
+        run.page.click("pause");
+        run.play(10_000);
+        run.page.click("resume");
+      }
+      run.playTo(14);
+      const orders = run.region.fightLog().rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered").map((input) => ({ tick: row.tick, input })));
+      run.page.close();
+      return orders;
+    }
+    const unpaused = await walkOrders(false);
+    const paused = await walkOrders(true);
+
+    const registered = [{ tick: 11, input: { kind: "walk-ordered", destination: { x: 5, y: 3 }, pace: "run-setting" } }];
+    expect({ unpaused, paused }).toEqual({ unpaused: registered, paused: registered });
+  });
+
+  test("of nine clicks made while paused, the last decides where the player walks", async () => {
+    const run = await openRun("/?seed=1&invincible=on");
+    run.page.click("start");
+    run.playTo(4);
+    run.page.click("pause");
+    for (let click = 0; click < 8; click++) await run.click({ x: 8, y: 3 });
+    await run.click({ x: 3, y: 2 });
+    run.page.click("resume");
+    run.playTo(5);
+    const orders = run.region.fightLog().rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered"));
+    run.page.close();
+
+    expect({ count: orders.length, last: orders.at(-1) }).toEqual({ count: 8, last: { kind: "walk-ordered", destination: { x: 3, y: 2 }, pace: "run-setting" } });
+  });
 });
