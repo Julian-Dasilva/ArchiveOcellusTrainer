@@ -78,13 +78,15 @@ describe("Invincible", () => {
     drill.region.invincible = true;
     drill.walkTo({ x: 5, y: 5 });
     drill.tickTo(19);
+    drill.walkTo({ x: 3, y: 8 });
+    drill.tickTo(24);
     drill.walkTo({ x: 4, y: 8 });
-    drill.tickTo(25);
+    drill.tickTo(26);
     const observed = {
       spawned: drill.events("orb-spawned").map((e) => [e.at, e.tile, e.credit]),
       prevented: drill.events("death-prevented"),
       returned: drill.events("orb-returned").map((e) => [e.at, e.receipt]),
-      hpAfterReturn: drill.row(25).playerAtPostTick.hp,
+      hpAfterReturn: drill.row(26).playerAtPostTick.hp,
     };
     drill.dispose();
     expect(observed).toEqual({
@@ -93,7 +95,7 @@ describe("Invincible", () => {
         { kind: "death-prevented", at: 15, source: "floor-hit", clearedOrbCredit: 38 },
         { kind: "death-prevented", at: 24, source: "explosion-resolved", clearedOrbCredit: 0 },
       ],
-      returned: [[25, { requested: 0, applied: 0, beforeHp: 99, afterHp: 99 }]],
+      returned: [[26, { requested: 0, applied: 0, beforeHp: 99, afterHp: 99 }]],
       hpAfterReturn: 99,
     });
   });
@@ -104,12 +106,12 @@ describe("Invincible", () => {
       drill.region.invincible = invincible;
       drill.tickTo(12);
       drill.walkTo(drill.innerOrb());
-      drill.tickTo(25);
-      const observed = { returned: drill.events("orb-returned").map((e) => [e.at, e.receipt]), hp: drill.row(25).playerAtPostTick.hp };
+      drill.tickTo(24);
+      const observed = { returned: drill.events("orb-returned").map((e) => [e.at, e.receipt]), hp: drill.row(24).playerAtPostTick.hp };
       drill.dispose();
       return observed;
     };
-    const returned = { returned: [[25, { requested: 49, applied: 49, beforeHp: 50, afterHp: 99 }]], hp: 99 };
+    const returned = { returned: [[24, { requested: 49, applied: 49, beforeHp: 50, afterHp: 99 }]], hp: 99 };
     expect({ off: orbReturn(false), on: orbReturn(true) }).toEqual({ off: returned, on: returned });
   });
 

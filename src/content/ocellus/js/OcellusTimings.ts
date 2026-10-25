@@ -326,7 +326,14 @@ const LEAD_IN: LeadInRecipe = {
 const INNER_VOID: VoidRecipe<"inner-void"> = {
   kind: "inner-void",
   duration: selected(span(22), "footage-repeated", "team-4-and-5", "inner void visible 22 ticks", NO_WIKI_TICKS, vod("V1", "G33-G54, G93-G114, G153-G174"), vod("V2", "k48-k69, k108-k129, k168-k189, k228-k249")),
-  orbMaturesAfterHit: selected(span(12), "footage-repeated", "team-4-and-5", "orb glows teal 12 ticks after the hit", NO_WIKI_TICKS, vod("V1", "G49"), vod("V2", "k64"), cache("spotanim 4311 soul_fragment_spawn_12_ticks")),
+  orbMaturesAfterHit: selected(
+    span(12),
+    "footage-repeated",
+    "team-4-and-5",
+    "orb glows teal 12 ticks after the hit; the fight log has the game send the glowing orb, spotanim 4310, from S+16 in all three cycles it recorded",
+    NO_WIKI_TICKS, vod("V1", "G49"), vod("V2", "k64"), cache("spotanim 4311 soul_fragment_spawn_12_ticks"),
+    fightLog("L6", "4310 sent on the orb from S+16 to S+27, 4312 at S+28, cycles 1 to 3"),
+  ),
   orbLingersAfterClear: selected(
     span(5),
     "owner-estimated",
@@ -348,7 +355,14 @@ const AFTER_INNER: TransitionRecipe<"after-inner"> = {
 const OUTER_VOID: VoidRecipe<"outer-void"> = {
   kind: "outer-void",
   duration: selected(span(20), "footage-repeated", "team-4-and-5", "outer void visible 20 ticks", NO_WIKI_TICKS, vod("V1", "G64-G83, G124-G143"), vod("V2", "k79-k98, k139-k158, k199-k218")),
-  orbMaturesAfterHit: selected(span(6), "footage-repeated", "team-4-and-5", "outer orb first glows 5 to 6 ticks after the hit", NO_WIKI_TICKS, vod("V1", "G74"), vod("V2", "k88, k149"), cache("spotanim 4309 soul_fragment_spawn_6_ticks")),
+  orbMaturesAfterHit: selected(
+    span(6),
+    "footage-repeated",
+    "team-4-and-5",
+    "outer orb first glows 5 to 6 ticks after the hit; the fight log has the game send the glowing orb, spotanim 4310, from S+41, 6 ticks after the hit, in both cycles it recorded",
+    NO_WIKI_TICKS, vod("V1", "G74"), vod("V2", "k88, k149"), cache("spotanim 4309 soul_fragment_spawn_6_ticks"),
+    fightLog("L6", "4310 sent on the orb from S+41 to S+52, 4312 at S+53, cycles 1 and 2"),
+  ),
   orbLingersAfterClear: selected(
     span(2),
     "inferred",
@@ -615,6 +629,7 @@ type LifeforceOrbRecipe = Readonly<{
   drainDivisor: Selected<number>;
   orbDistance: Selected<Readonly<{ min: number; max: number }>>;
   returnAfterStep: Selected<TickSpan>;
+  returnAfterMaturing: Selected<TickSpan>;
   look: Readonly<Record<OrbVisual, Selected<number>>>;
 }>;
 
@@ -625,6 +640,14 @@ const LIFEFORCE_ORB: LifeforceOrbRecipe = {
   drainDivisor: selected(2, "footage-repeated", "team-4-and-5", "every player loses floor(current HP / 2); no overhead prayer reduces it", STRATEGIES, vod("V1", "G37 through Protect from Magic, G68 through Melee"), vod("V2", "k52 through Magic, k112 through Missiles")),
   orbDistance: selected({ min: 2, max: 5 }, "footage-repeated", "team-4-and-5", "a dark orb 2 to 5 tiles from its player, never under the boss or on a floor hole; with no allowed floor that close, the nearest allowed tiles, because the wiki puts the orb on a safe tile and no capture shows a player that far from one (inferred)", STRATEGIES, vod("V1", "G39"), vod("V2", "k53"), ORB_OFF_HOLES),
   returnAfterStep: selected(span(1), "footage-repeated", "team-4-and-5", "returns exactly the HP that hit took, the tick after the player steps on the orb, and can pass max HP (58 to 114)", NO_WIKI_TICKS, vod("V2", "k67 then k68, k95 then k96"), vod("V1", "G51, G79")),
+  returnAfterMaturing: selected(
+    span(0),
+    "log-repeated",
+    "unscaled",
+    "a player already standing on the orb gets the HP back on the tick it matures, not a tick later: 7 returns (spotanim 4314 on the player, with the heal) came at S+16, the tick the game first sends the glowing inner orb, over 4 cycles of two fights; one of those players had stood on the tile since S+14. No outer orb return came on its first ready tick, S+41: the two earliest were at S+42, which fits players who stepped on as it glowed (inferred)",
+    NO_WIKI_TICKS, fightLog("L2", "inner returns at S+16 on 3 players in cycle 1 and 2 in cycle 2; outer returns at S+42 on 2 players in cycle 1"),
+    fightLog("L6", "inner returns at S+16 in cycles 1 and 3; the glowing orb sent from S+16"),
+  ),
   look: {
     innerSpawn: selected(
       4311,

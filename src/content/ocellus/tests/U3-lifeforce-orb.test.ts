@@ -55,7 +55,7 @@ describe("U3 lifeforce hit and orb", () => {
     drill.dispose();
   });
 
-  test("guard: the inner orb forms on (9, 4) on the hit tick, 12, and returns the stolen HP once, the tick after the player stands on it ready", async () => {
+  test("guard: the inner orb forms on (9, 4) on the hit tick, 12, and returns the stolen HP once to a player waiting on it, on the tick it matures, 24", async () => {
     const drill = startDrill({ seed: INNER_ORB_SEED, selection: ORB_DRILL });
     drill.tickTo(12);
     expect(drill.events("orb-spawned").map((e) => [e.at, e.void, e.tile, e.credit])).toEqual([[12, "inner-void", { x: 9, y: 4 }, 49]]);
@@ -63,8 +63,8 @@ describe("U3 lifeforce hit and orb", () => {
     drill.tickTo(29);
     expect(drill.row(16).playerAtBossStep.tile).toEqual({ x: 9, y: 4 });
     expect(drill.events("orb-matured").map((e) => [e.at, e.tile])).toEqual([[24, { x: 9, y: 4 }]]);
-    expect(drill.events("orb-returned").map((e) => [e.at, e.tile, e.receipt])).toEqual([[25, { x: 9, y: 4 }, { requested: 49, applied: 49, beforeHp: 50, afterHp: 99 }]]);
-    expect(drill.row(25).playerAtPostTick.hp).toBe(99);
+    expect(drill.events("orb-returned").map((e) => [e.at, e.tile, e.receipt])).toEqual([[24, { x: 9, y: 4 }, { requested: 49, applied: 49, beforeHp: 50, afterHp: 99 }]]);
+    expect(drill.row(24).playerAtPostTick.hp).toBe(99);
     drill.dispose();
   });
 
@@ -106,7 +106,7 @@ describe("U3 lifeforce hit and orb", () => {
       return observed;
     };
     expect([await standBeside({ orbPickupRadius: "adjacent" }), await standBeside({})]).toEqual([
-      [[[25, 99]], []],
+      [[[24, 99]], []],
       [[], [35]],
     ]);
   });
@@ -179,9 +179,9 @@ describe("U3 lifeforce hit and orb", () => {
     const drill = startDrill({ selection: { ...ORB_DRILL, drillStart: "cycle-start" } });
     await drill.playCorrectlyTo(206);
     expect(drill.events("orb-returned").map((e) => [e.at, e.receipt.requested, e.receipt.beforeHp, e.receipt.afterHp])).toEqual([
-      [25, 49, 50, 99], [50, 49, 50, 99], [85, 49, 50, 99], [110, 49, 50, 99], [145, 49, 50, 99], [170, 49, 50, 99], [205, 49, 51, 100],
+      [24, 49, 50, 99], [49, 49, 50, 99], [84, 49, 50, 99], [109, 49, 50, 99], [144, 49, 50, 99], [169, 49, 50, 99], [204, 49, 51, 100],
     ]);
-    expect(drill.row(205).playerAtPostTick.hp).toBe(100);
+    expect(drill.row(204).playerAtPostTick.hp).toBe(100);
     drill.dispose();
   });
 

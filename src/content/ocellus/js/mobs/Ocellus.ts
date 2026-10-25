@@ -296,7 +296,7 @@ export class Ocellus extends Mob {
       case "lifeforce-hit":
         return [drain({ ...this.config, holes: this.holes }, this.orbs, beat.void, at, player.tile)];
       case "orb-matures":
-        return logs(...this.stepOrbs(matureOrb(this.orbs, beat.void, at)));
+        return logs(...this.stepOrbs(matureOrb(this.orbs, beat.void, at, player.tile, this.config.choices.orbPickupRadius.option.value)));
       case "orb-expires":
         return logs(...this.stepOrbs(expireOrb(this.orbs, beat.void, at)));
       case "unclaimed-orb-heals":
