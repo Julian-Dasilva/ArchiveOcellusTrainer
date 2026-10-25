@@ -266,6 +266,14 @@ PAUSE_HOLD_MS=3000
 PAUSE_REBIND_KEY=F7
 PRAYER_KEY=F3
 REPLACEMENT_HOLD_MS=1200
+SAVED_LOADOUTS_KEY="archive-ocellus:loadouts"
+SAVED_LOADOUT_PAGES='{"p4":"?seed=1","p3":"?phase=p3&seed=1"}'
+SAVED_LOADOUT_LAYOUT='{"worn":{"weapon":"scytheOfVitur","helmet":"inquisitorsGreatHelm","chest":"inquisitorsHauberk","legs":"inquisitorsPlateskirt","gloves":"ferociousGloves","cape":"infernalCape","necklace":"amuletOfRancour","feet":"avernicTreadsMax","ring":"ultorRing","ammo":"dragonArrows"},"inventory":["saradominBrew","superRestore","twistedBow","masoriMaskF","masoriBodyF","masoriChapsF","zaryteVambraces","dizanasQuiver","necklaceOfRupture","venatorRing","tonalzticsOfRalos",null,"bastionPotion","superCombatPotion",null,null,null,null,null,null,null,null,null,null,null,null,null,"saradominBrew"]}'
+SAVED_LOADOUT_INVENTORY='[6685,3024,20997,27235,27238,27241,26235,28951,33639,28310,28922,null,22461,12695,null,null,null,null,null,null,null,null,null,null,null,null,null,6685]'
+SAVED_LOADOUT_STORES_JS='((layout) => { const store = (ranged, version = 1) => JSON.stringify({ version, setups: { ranged } }); return { saved: store(layout), malformed: "{not json", "other-version": store(layout, 2), "unknown-item": store({ ...layout, inventory: ["dragonClaws", ...layout.inventory.slice(1)] }), "weapon-as-helmet": store({ ...layout, worn: { ...layout.worn, helmet: "twistedBow" } }), "27-slots": store({ ...layout, inventory: layout.inventory.slice(1) }) }; })'
+SAVED_LOADOUT_UNREADABLE="malformed other-version unknown-item weapon-as-helmet 27-slots"
+SAVED_LOADOUT_NOTE="Your saved Ranged loadout could not be read, so this run uses the default loadout."
+REFUSED_STORAGE_JS='Object.defineProperty(window, "localStorage", { configurable: true, get() { throw new DOMException("The user denied storage", "SecurityError"); } });'
 LOAD_RETRY_QUERY="?seed=1"
 GET_READY_QUERY="?seed=1"
 STORED_VIEW_QUERY="?seed=1"
@@ -1945,6 +1953,55 @@ drive_setup_pause() {
   return $verdict
 }
 
+saved_loadout_page() {
+  local seen
+  seen="$(ab --json errors | json data.errors.length)" || return 1
+  ab open "${URL}$(json "$1" <<<"$SAVED_LOADOUT_PAGES")" >/dev/null || return 1
+  ab wait --fn "document.getElementById('start')?.checkVisibility() === true || (window.__archiveOcellusProbe?.snapshot().tick ?? 0) >= 1" --timeout 60000 >/dev/null ||
+    log "the ${1} page with the ${2} store never showed Start" >&2
+  printf '{"page":%s,"errors":%s}\n' \
+    "$(ab --json eval "(() => { const carrier = window.__archiveOcellusProbe?.snapshot().fight?.player ?? null; return { start: document.getElementById('start')?.checkVisibility() === true, note: document.getElementById('loadout_note')?.textContent ?? null, worn: carrier?.equipped ?? null, inventory: carrier?.inventory ?? null }; })()" | json data.result)" \
+    "$(ab --json errors | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify(JSON.parse(s).data.errors.slice(Number(process.argv[1])))))' "$seen")"
+}
+
+drive_saved_loadouts() {
+  local START_ON_LOAD=0 store phase
+  ab open "${URL}$(json p4 <<<"$SAVED_LOADOUT_PAGES")" >/dev/null || return 1
+  for store in saved $SAVED_LOADOUT_UNREADABLE; do
+    ab eval "localStorage.setItem(\"${SAVED_LOADOUTS_KEY}\", ${SAVED_LOADOUT_STORES_JS}(${SAVED_LOADOUT_LAYOUT})[\"${store}\"])" >/dev/null || { log "the ${store} store was not saved"; return 1; }
+    for phase in p4 p3; do
+      saved_loadout_page "$phase" "$store" >"$VERIFY_DIR/saved-loadout-${phase}-${store}.json" || { log "the ${phase} page with the ${store} store was not captured"; return 1; }
+    done
+  done
+  ab eval "localStorage.removeItem(\"${SAVED_LOADOUTS_KEY}\")" >/dev/null || { log "the saved loadouts were not removed"; return 1; }
+
+  local BROWSER_SESSION="${BROWSER_SESSION}-refused"
+  echo "$REFUSED_STORAGE_JS" >"$VERIFY_DIR/refused-storage.js"
+  ab --init-script "$VERIFY_DIR/refused-storage.js" set viewport 1280 800 >/dev/null || { log "the refused-storage session did not start"; return 1; }
+  for phase in p4 p3; do
+    saved_loadout_page "$phase" refused >"$VERIFY_DIR/saved-loadout-${phase}-refused.json" || { log "the ${phase} page with refused storage was not captured"; return 1; }
+  done
+
+  node -e '
+    const fs = require("fs"), [dir, unreadable, savedWorn, savedInventory, defaultWorn, defaultInventory, note] = process.argv.slice(1);
+    const read = (phase, store) => JSON.parse(fs.readFileSync(`${dir}/saved-loadout-${phase}-${store}.json`, "utf8"));
+    const canonical = (value) => JSON.stringify(value, (_, part) => (part && typeof part === "object" && !Array.isArray(part) ? Object.fromEntries(Object.entries(part).sort()) : part));
+    const starts = ({ page, errors }, worn, inventory, shownNote) =>
+      page.start && page.note === shownNote && canonical(page.worn) === canonical(JSON.parse(worn)) && canonical(page.inventory) === canonical(JSON.parse(inventory)) && errors.length === 0;
+    const checks = {};
+    for (const phase of ["p4", "p3"]) {
+      checks[`${phase}-saved-worn-and-carried`] = starts(read(phase, "saved"), savedWorn, savedInventory, null);
+      for (const store of unreadable.split(" ")) checks[`${phase}-${store}-starts-the-default-with-a-note`] = starts(read(phase, store), defaultWorn, defaultInventory, note);
+      checks[`${phase}-refused-storage-starts-the-default`] = starts(read(phase, "refused"), defaultWorn, defaultInventory, null);
+    }
+    console.log(JSON.stringify({ saved: read("p4", "saved"), checks }, null, 2));
+    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
+  ' "$VERIFY_DIR" "$SAVED_LOADOUT_UNREADABLE" "$LOADOUT_MELEE_WORN" "$SAVED_LOADOUT_INVENTORY" "$LOADOUT_RANGED_WORN" "$SUPPLY_INVENTORY" "$SAVED_LOADOUT_NOTE" >"$VERIFY_DIR/saved-loadout-checks.json"
+  local verdict=$?
+  cat "$VERIFY_DIR/saved-loadout-checks.json"
+  [[ $verdict -eq 0 ]] || log "a saved loadout check failed"
+  return $verdict
+}
 
 record_get_ready() {
   ab eval '(() => {
@@ -2323,7 +2380,7 @@ drive() {
   ab set viewport 1280 800 >/dev/null || return 1
   # A new browser's first screenshot takes about 10 s, longer than the hidden lead-in, so it goes to a blank page.
   ab open about:blank >/dev/null && ab screenshot "$VERIFY_DIR/warm-up.png" >/dev/null || { log "warm-up screenshot failed"; return 1; }
-  drive_stored_view && drive_load_retry && drive_get_ready && drive_setup_pause && drive_settings_menu && drive_run_results && drive_whats_new && drive_telemetry || return 1
+  drive_stored_view && drive_load_retry && drive_get_ready && drive_setup_pause && drive_saved_loadouts && drive_settings_menu && drive_run_results && drive_whats_new && drive_telemetry || return 1
   ab open "${URL}${DRILL_QUERY}" >/dev/null || return 1
   drive_lead_in || return 1
   ab wait --fn "window.__archiveOcellusProbe?.snapshot().ticking === true && window.__archiveOcellusProbe.snapshot().tick >= 8" \
@@ -3032,6 +3089,7 @@ release_browser() {
   agent-browser --session "${BROWSER_SESSION}-autoplay" close >/dev/null 2>&1
   agent-browser --session "${BROWSER_SESSION}-mobile" close >/dev/null 2>&1
   agent-browser --session "${BROWSER_SESSION}-stored-view" close >/dev/null 2>&1
+  agent-browser --session "${BROWSER_SESSION}-refused" close >/dev/null 2>&1
   [[ -n "$LAUNCHED_PID" && -f "$STATE_FILE" && "$(state pid)" == "$LAUNCHED_PID" ]] || return 0
   stop
 }
