@@ -23,7 +23,7 @@ describe("Saved loadouts", () => {
   beforeEach(() => {
     localStorage.clear();
     localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { use3dView: false } }));
-    // Models never load offline, so the loading gate reports ready the way a loaded page does, and jsdom has no canvas to draw frames on.
+    // jsdom never fires load on an <img>, so the SDK's image gate would never open.
     vi.spyOn(TrainerInstance.prototype, "load").mockImplementation(async (options) => options?.onStateChange?.(READY));
     vi.spyOn(Viewport.prototype, "draw").mockReturnValue(undefined);
   });

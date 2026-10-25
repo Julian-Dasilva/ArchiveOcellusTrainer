@@ -53,9 +53,9 @@ describe("Set-up and pause", () => {
     localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { use3dView: false, inventory_key: "F4", prayer_key: "F5" } }));
     now = 1000;
     vi.spyOn(performance, "now").mockImplementation(() => now);
-    // jsdom has no frame loop; each test calls the SDK's browserLoop itself, once per 50 ms frame.
+    // Each test calls the SDK's browserLoop on its own mocked clock, so jsdom's frame timer must not call it too.
     vi.spyOn(window, "requestAnimationFrame").mockReturnValue(0);
-    // Models never load offline, so the loading gate reports ready the way a loaded page does, and jsdom has no canvas to draw frames on.
+    // jsdom never fires load on an <img>, so the SDK's image gate would never open.
     vi.spyOn(TrainerInstance.prototype, "load").mockImplementation(async (options) => options?.onStateChange?.(READY));
     vi.spyOn(Viewport.prototype, "draw").mockReturnValue(undefined);
   });
