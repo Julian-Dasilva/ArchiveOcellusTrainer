@@ -209,6 +209,7 @@ export class OcellusP2 extends Mob {
   }
 }
 
+/** What The Blade takes: each hit's own roll, before the SDK caps it to Ocellus's displayed HP, which The Blade does not share. */
 function landedDamage(incoming: readonly IncomingHit[]): number {
-  return incoming.reduce((sum, hit) => sum + hit.requested, 0);
+  return incoming.reduce((sum, hit) => sum + hit.rolled, 0);
 }
