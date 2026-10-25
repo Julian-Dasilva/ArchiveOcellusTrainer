@@ -72,7 +72,7 @@ const CASES: readonly FlickCase[] = [
 
 const said = (verdict: SpinVerdict): Said => (verdict.kind === "blocked" ? "blocked" : `struck ${verdict.why}`);
 
-async function flickRun(quadrant: 1 | 2 | 3, toggles: readonly number[], { flick, firstSpin }: Readonly<{ flick?: Rule; firstSpin?: 5 }> = {}) {
+async function flicked(quadrant: 1 | 2 | 3, toggles: readonly number[], { flick, firstSpin }: Readonly<{ flick?: Rule; firstSpin?: 5 }> = {}) {
   const drill = await startP3Drill({ seed: 1, invincible: true, start: quadrant === 1 ? undefined : quadrant, flick, firstSpin });
   drill.pray("Protect from Melee");
   for (const after of toggles) {
@@ -80,6 +80,11 @@ async function flickRun(quadrant: 1 | 2 | 3, toggles: readonly number[], { flick
     drill.pray("Protect from Melee");
   }
   drill.tickTo(LANDINGS[quadrant][LANDINGS[quadrant].length - 1] + 1);
+  return drill;
+}
+
+async function flickRun(quadrant: 1 | 2 | 3, toggles: readonly number[], options: Readonly<{ flick?: Rule; firstSpin?: 5 }> = {}) {
+  const drill = await flicked(quadrant, toggles, options);
   const spins = drill.events("player-hit").flatMap(({ at, hit, receipt }) => (hit.kind === "spin" ? [[at, hit.spin.nth, hit.spin.of, said(hit.verdict), receipt.requested, receipt.applied, receipt.prayer]] : []));
   drill.dispose();
   return spins;
@@ -110,6 +115,40 @@ describe("P3 smite flick", () => {
     { quadrant: 2, name: "off after S and S+5, on after S+4 and S+7 blocks 32 and 35", toggles: [S, S + 4, S + 5, S + 7], spins: [[32, 1, 2, "blocked", 0, 0, "melee"], [35, 2, 2, "blocked", 0, 0, "melee"]] },
   ] as const)("firstSpin=5 moves the first landing to S+5, quadrant $quadrant: $name", async ({ quadrant, toggles, spins }) => {
     expect(await flickRun(quadrant, toggles, { firstSpin: 5 })).toEqual(spins);
+  });
+
+  test.each([
+    {
+      quadrant: 2,
+      name: "spin 1 early, then spin 2 held from spin 1's landing: off after S-1, on after S+1",
+      toggles: [S - 1, S + 1],
+      chat: [
+        "Spin 1 of 2 hit you for 43. Protect from Melee was already off when the smite started.",
+        "Spin 2 of 2 hit you for 37. Protect from Melee stayed on. Turn it off after spin 1 lands, then back on for the spin.",
+        "Invincible: a smite spin would have killed you on tick 34.",
+      ],
+    },
+    {
+      quadrant: 2,
+      name: "spin 1 late leaves the prayer off when it lands, so spin 2 is early: off after S, on after S+4",
+      toggles: [S, S + 4],
+      chat: ["Spin 1 of 2 hit you for 43. Protect from Melee was not back on in time for the spin.", "Spin 2 of 2 hit you for 43. Protect from Melee was already off when spin 1 landed."],
+    },
+    {
+      quadrant: 3,
+      name: "spin 2 late leaves the prayer off when it lands, so spin 3 is early: off after S and S+4, on after S+3 and S+7",
+      toggles: [S, S + 3, S + 4, S + 7],
+      chat: [
+        "Spin 2 of 3 hit you for 43. Protect from Melee was not back on in time for the spin.",
+        "Spin 3 of 3 hit you for 38. Protect from Melee was already off when spin 2 landed.",
+        "Invincible: a smite spin would have killed you on tick 37.",
+      ],
+    },
+  ] as const)("a missed spin's chat names the moment that spin was judged from, quadrant $quadrant: $name", async ({ quadrant, toggles, chat }) => {
+    const drill = await flicked(quadrant, toggles);
+    const lines = drill.region.chat();
+    drill.dispose();
+    expect(lines).toEqual(chat);
   });
 
   test.each<Readonly<{ prayer: boolean; blow: HitReceipt }>>([
