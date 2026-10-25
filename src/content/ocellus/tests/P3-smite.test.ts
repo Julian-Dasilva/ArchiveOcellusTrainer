@@ -72,14 +72,14 @@ const CASES: readonly FlickCase[] = [
 
 const said = (verdict: SpinVerdict): Said => (verdict.kind === "blocked" ? "blocked" : `struck ${verdict.why}`);
 
-async function flickRun(quadrant: 1 | 2 | 3, toggles: readonly number[], flick?: Rule) {
-  const drill = await startP3Drill({ seed: 1, invincible: true, start: quadrant === 1 ? undefined : quadrant, flick });
+async function flickRun(quadrant: 1 | 2 | 3, toggles: readonly number[], { flick, firstSpin }: Readonly<{ flick?: Rule; firstSpin?: 5 }> = {}) {
+  const drill = await startP3Drill({ seed: 1, invincible: true, start: quadrant === 1 ? undefined : quadrant, flick, firstSpin });
   drill.pray("Protect from Melee");
   for (const after of toggles) {
     drill.tickTo(after);
     drill.pray("Protect from Melee");
   }
-  drill.tickTo(LANDINGS[quadrant][LANDINGS[quadrant].length - 1]);
+  drill.tickTo(LANDINGS[quadrant][LANDINGS[quadrant].length - 1] + 1);
   const spins = drill.events("player-hit").flatMap(({ at, hit, receipt }) => (hit.kind === "spin" ? [[at, hit.spin.nth, hit.spin.of, said(hit.verdict), receipt.requested, receipt.applied, receipt.prayer]] : []));
   drill.dispose();
   return spins;
@@ -100,9 +100,17 @@ describe("P3 smite flick", () => {
   test.each(CASES.flatMap((flickCase) => (["off-then-on", "held-blocks"] as const).map((rule) => ({ rule, ...flickCase }))))(
     "under flick=$rule, quadrant $quadrant, $name",
     async ({ rule, ...flickCase }) => {
-      expect(await flickRun(flickCase.quadrant, flickCase.toggles, rule)).toEqual(expectedSpins(flickCase, rule));
+      expect(await flickRun(flickCase.quadrant, flickCase.toggles, { flick: rule })).toEqual(expectedSpins(flickCase, rule));
     },
   );
+
+  test.each([
+    { quadrant: 1, name: "on after S+4 blocks the spin at 32", toggles: [S, S + 4], spins: [[32, 1, 1, "blocked", 0, 0, "melee"]] },
+    { quadrant: 1, name: "on after S+5 is one tick late for 32", toggles: [S, S + 5], spins: [[32, 1, 1, "struck late", 46, 46, null]] },
+    { quadrant: 2, name: "off after S and S+5, on after S+4 and S+7 blocks 32 and 35", toggles: [S, S + 4, S + 5, S + 7], spins: [[32, 1, 2, "blocked", 0, 0, "melee"], [35, 2, 2, "blocked", 0, 0, "melee"]] },
+  ] as const)("firstSpin=5 moves the first landing to S+5, quadrant $quadrant: $name", async ({ quadrant, toggles, spins }) => {
+    expect(await flickRun(quadrant, toggles, { firstSpin: 5 })).toEqual(spins);
+  });
 
   test.each<Readonly<{ prayer: boolean; blow: HitReceipt }>>([
     { prayer: true, blow: { requested: 2, applied: 2, beforeHp: 89, afterHp: 87, prayer: "melee" } },

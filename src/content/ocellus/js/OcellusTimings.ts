@@ -25,7 +25,8 @@ type Source =
   | Readonly<{ kind: "news"; url: string }>
   | Readonly<{ kind: "cache"; build: 2746; record: string }>
   | Readonly<{ kind: "owner"; date: OwnerDate; topic: string }>
-  | Readonly<{ kind: "guide"; url: string; at: string }>;
+  | Readonly<{ kind: "guide"; url: string; at: string }>
+  | Readonly<{ kind: "capture"; url: string; at: string }>;
 
 type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
 
@@ -44,6 +45,7 @@ const news = (url: string): Source => ({ kind: "news", url });
 const cache = (record: string): Source => ({ kind: "cache", build: 2746, record });
 const owner = (topic: string, date: OwnerDate = "2026-10-21"): Source => ({ kind: "owner", date, topic });
 const guide = (url: string, at: string): Source => ({ kind: "guide", url, at });
+const capture = (url: string, at: string): Source => ({ kind: "capture", url, at });
 const STRATEGIES_P4 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381030);
 const BOSS_INFOBOX = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15380968);
 const VOID_RIFT_PAGE = wiki("https://oldschool.runescape.wiki/w/Void_Rift", 15380527);
@@ -900,6 +902,7 @@ const BUBBA_GUIDE = "https://www.youtube.com/watch?v=Wn3TtnL_Pa8";
 const NOAHSCAPE_GUIDE = "https://www.youtube.com/watch?v=-bXHKfzS1V4";
 const FLICK_CLIP = "https://oldschool.runescape.wiki/w/File:Ocellus_flicking.mp4";
 const FLICK_CLIP_PAGE = wiki(FLICK_CLIP, 15379157);
+const RSPROX_P3 = "https://github.com/MRobertEvers/oldschool-clientc/blob/2b3352e2fb64f2288cd42a9522b21d7fcc42f4d4/docs/rsprox-analysis/guthixian_archive/ocellus_plan.md";
 const SMITE_COUNTS = guide(DEFBIGBEAST_GUIDE, "12:53 to 13:00 and 13:29 to 13:37 (quadrant 1), 17:43 to 17:51 (quadrant 2), 21:28 to 21:34 (quadrant 3): hitsplat on count 4, back on for count 4, then counts 2 and 1, then 4, 3 and 2");
 
 type AutoStep = Readonly<{ attack: AutoAttack; next: TickSpan }>;
@@ -911,7 +914,6 @@ type SwingDamage = Readonly<{ protectedDamage: DamageRange; unprotectedDamage: D
 type SmiteRecipe = Readonly<{
   spinsByQuadrant: Selected<Readonly<Record<Quadrant, SpinCount>>>;
   openingBlow: Selected<SwingDamage>;
-  firstLandsAfterStart: Selected<TickSpan>;
   spinGap: Selected<TickSpan>;
   autosResumeAfterLastSpin: Selected<TickSpan>;
   rubble: Readonly<{ landsAfterFirstSpin: Selected<TickSpan>; lasts: Selected<TickSpan>; damagePerTick: Selected<DamageRange> }>;
@@ -1012,7 +1014,6 @@ const P3: P3Recipe = {
       "a swing-like melee hit on the smite's first tick, which Protect from Melee takes down to the swing's chip; it hits wherever the player stands on the wedge (assumption)",
       STRATEGIES_P3, guide(DEFBIGBEAST_GUIDE, "12:50 'Look for the hit splat on your character. Tick four.'"), guide(PANFLEET_SOLO, "the blade trail at f478 of 5:20 to 5:45"),
     ),
-    firstLandsAfterStart: selected(span(4), "community-tested", "unscaled", "the first spin lands 4 ticks after the smite starts; counted on a 4-count tick counter, not frame-measured from the start", NO_WIKI_P3_TICKS, SMITE_COUNTS),
     spinGap: selected(
       span(3),
       "footage-repeated",
@@ -1054,6 +1055,10 @@ export const OCELLUS_P3 = {
     missedFlickDamage: choice("forty-three-to-fifty", {
       "forty-three-to-fifty": selected<DamageRange>({ min: 43, max: 50 }, "assumption", "unscaled", "a spin that is not flicked hits for 43 to 50; no clip shows a missed flick, so this is P4's wrong-prayer range", NO_WIKI_P3_TICKS),
       "swing-chip": selected<DamageRange>({ min: 0, max: 6 }, "assumption", "unscaled", "a missed flick hits for the swing's chip, to practise the timing without the damage", NO_WIKI_PRACTICE),
+    }),
+    firstSpin: choice("4", {
+      "4": selected(span(4), "community-tested", "unscaled", "the first spin lands 4 ticks after the smite starts; counted on a 4-count tick counter, not frame-measured from the start", NO_WIKI_P3_TICKS, SMITE_COUNTS),
+      "5": selected(span(5), "inferred", "unscaled", "the first spin lands 5 ticks after the smite starts, reading the smite's start as the capture's prayer_in tick I; no frame count from the start confirms that reading", NO_WIKI_P3_TICKS, capture(RSPROX_P3, "L328 '_prayer_out 5 + 3 x loops on'"), capture(RSPROX_P3, "L935 'blocked when it was back on the hit tick (175/175 at I+5)'")),
     }),
     start: choice("1", {
       "1": selected<Quadrant>(1, "inferred", "unscaled", "the run starts on quadrant 1, the north-east wedge, at full HP; the smite spins once", NO_WIKI_P3_ARENA, owner("the quadrants run in a fixed order", "2026-10-24")),
@@ -1189,6 +1194,7 @@ export type P3Choices = Readonly<{
   reach: ResolvedP3Choice<"reach">;
   flick: ResolvedP3Choice<"flick">;
   missedFlickDamage: ResolvedP3Choice<"missedFlickDamage">;
+  firstSpin: ResolvedP3Choice<"firstSpin">;
   start: ResolvedP3Choice<"start">;
 }>;
 export type P3Config = Readonly<{ seed: Seed; choices: P3Choices; bossEntryHp: number | null }>;
@@ -1236,6 +1242,7 @@ function parseP3Request(url: URL, freshSeed: () => number): ParsedP3 {
     reach: p3Choice("reach"),
     flick: p3Choice("flick"),
     missedFlickDamage: p3Choice("missedFlickDamage"),
+    firstSpin: p3Choice("firstSpin"),
     start: p3Choice("start"),
   };
   if (run.rejected !== null) rejected.push(run.rejected);

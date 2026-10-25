@@ -32,9 +32,9 @@ function autosTable(): readonly Slot<P3Phase, P3Beat>[] {
   });
 }
 
-function smiteTable(count: SpinCount): readonly Slot<P3Phase, P3Beat>[] {
+function smiteTable(count: SpinCount, firstSpin: TickSpan): readonly Slot<P3Phase, P3Beat>[] {
   const stage = SMITE_STAGE[count];
-  const first = atLeastOne("the smite's first spin", OCELLUS_P3.smite.firstLandsAfterStart.value);
+  const first = atLeastOne("the smite's first spin", firstSpin);
   const gap = atLeastOne("the gap between spins", OCELLUS_P3.smite.spinGap.value);
   const resume = atLeastOne("the autos after the last spin", OCELLUS_P3.smite.autosResumeAfterLastSpin.value);
   const landings = new Map(SPINS[count].map((spin, k) => [first + k * gap, spin]));
@@ -45,10 +45,10 @@ function smiteTable(count: SpinCount): readonly Slot<P3Phase, P3Beat>[] {
   });
 }
 
-export function compileP3Schedule(start: Quadrant): P3Schedule {
+export function compileP3Schedule(start: Quadrant, firstSpin: TickSpan): P3Schedule {
   const { firstAttackAfterStart, thresholds, smite } = OCELLUS_P3;
   const arrive = Array.from({ length: firstAttackAfterStart.value }, () => slot("arrive"));
-  const smiteStage = (count: SpinCount) => ({ slots: slotTable(smiteTable(count), SMITE_STAGE[count]), breakable: true, then: (): P3Stage => "autos" });
+  const smiteStage = (count: SpinCount) => ({ slots: slotTable(smiteTable(count, firstSpin), SMITE_STAGE[count]), breakable: true, then: (): P3Stage => "autos" });
   const script: Script<P3Stage, P3Phase, P3Beat> = {
     first: "arrive",
     stages: {

@@ -37,7 +37,7 @@ export class OcellusP3 extends Mob {
     super(region, OCELLUS_P3.arena.bossAnchor.value);
     this.setAggro(target);
     const { choices } = config;
-    this.rules = { seed: config.seed, start: choices.start.option.value, flick: choices.flick.option.value, missedFlickDamage: choices.missedFlickDamage.option.value };
+    this.rules = { seed: config.seed, start: choices.start.option.value, flick: choices.flick.option.value, missedFlickDamage: choices.missedFlickDamage.option.value, firstSpin: choices.firstSpin.option.value };
     this.fight = startFight(this.rules);
     this.binding = new EncounterBinding(config.seed, tick(0), target, this.hooks);
   }

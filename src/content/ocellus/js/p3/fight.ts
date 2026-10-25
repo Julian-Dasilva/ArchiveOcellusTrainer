@@ -1,6 +1,6 @@
 import type { DamageRange } from "../OcellusTimings";
 import { OCELLUS_P3 } from "../OcellusTimings";
-import type { Seed, Tick, Tile } from "../../../../sim/brands";
+import type { Seed, Tick, TickSpan, Tile } from "../../../../sim/brands";
 import { after, tick } from "../../../../sim/brands";
 import type { BossHp } from "../../../../sim/schedule";
 import type { HitRequest, Logged } from "../../../../sim/sdk/EncounterBinding";
@@ -12,7 +12,7 @@ import { armFlick, judgeSpin, stepFlick } from "./flick";
 import type { P3Schedule } from "./schedule";
 import { compileP3Schedule } from "./schedule";
 
-export type P3Rules = Readonly<{ seed: Seed; start: Quadrant; flick: FlickRule; missedFlickDamage: DamageRange }>;
+export type P3Rules = Readonly<{ seed: Seed; start: Quadrant; flick: FlickRule; missedFlickDamage: DamageRange; firstSpin: TickSpan }>;
 export type Hazard = Readonly<{ kind: "rubble"; tile: Tile; landsAt: Tick; until: Tick }>;
 export type P3Fight = Readonly<{ schedule: P3Schedule; flick: Flick; hazards: readonly Hazard[] }>;
 export type Reach = "in-reach" | "out-of-reach";
@@ -27,7 +27,7 @@ const logged = (event: P3Event): Logged<P3Event> => ({ kind: "event", event });
 const sameTile = (a: Tile, b: Tile) => a.x === b.x && a.y === b.y;
 
 export function startFight(rules: P3Rules): P3Fight {
-  return { schedule: compileP3Schedule(rules.start), flick: "unarmed", hazards: [] };
+  return { schedule: compileP3Schedule(rules.start, rules.firstSpin), flick: "unarmed", hazards: [] };
 }
 
 function meleeHit(seed: Seed, at: Tick, { protectedDamage, unprotectedDamage }: Readonly<{ protectedDamage: DamageRange; unprotectedDamage: DamageRange }>, cause: P3Hit): HitRequest<P3Hit> {
