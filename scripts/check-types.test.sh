@@ -153,6 +153,12 @@ no_wiki_answer_followed_by_a_wiki_reference_fails() {
     "is not assignable to parameter of type 'Citations<Source>'."
 }
 
+fight_log_registry_with_an_unlisted_id_fails() {
+  expect_compile_error src/content/ocellus/js/OcellusTimings.ts \
+    '  L8: { recorded: "2026-10-23", fight: "raid"' '  L9: { recorded: "2026-10-23", fight: "raid"' \
+    "is not assignable to type 'Readonly<Record<FightLog,"
+}
+
 failed=0
 for t in \
   clean_tree_passes \
@@ -185,7 +191,8 @@ for t in \
   helmet_factory_rejects_a_weapon \
   void_masks_reject_a_swapped_mask \
   sourced_value_without_a_wiki_answer_fails \
-  no_wiki_answer_followed_by_a_wiki_reference_fails; do
+  no_wiki_answer_followed_by_a_wiki_reference_fails \
+  fight_log_registry_with_an_unlisted_id_fails; do
   if ("$t") >"$WORK/$t.log" 2>&1; then
     echo "PASS $t"
   else
