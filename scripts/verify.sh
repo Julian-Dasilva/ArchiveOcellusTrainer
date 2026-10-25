@@ -3019,7 +3019,12 @@ production_port_free() {
 }
 
 serve_static() {
-  python3 -m http.server "$PRODUCTION_PORT" --bind 127.0.0.1 --directory "$1" >"$2" 2>&1 &
+  # `python3 -m http.server` opens one connection per request with a listen backlog of 5. On a loaded
+  # host it resets enough of a page's requests that an image fails all of the SDK's retries.
+  python3 -c 'import functools, http.server, sys
+class Handler(http.server.SimpleHTTPRequestHandler): protocol_version = "HTTP/1.1"
+class Server(http.server.ThreadingHTTPServer): request_queue_size = 128
+Server(("127.0.0.1", int(sys.argv[1])), functools.partial(Handler, directory=sys.argv[2])).serve_forever()' "$PRODUCTION_PORT" "$1" >"$2" 2>&1 &
   PRODUCTION_PID=$!
   log "started static server PID ${PRODUCTION_PID} on http://127.0.0.1:${PRODUCTION_PORT}/"
   for _ in $(seq 1 30); do
