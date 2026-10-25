@@ -14,6 +14,7 @@ const FIRST_ATTACK_ON_SEED_100 = {
 type Drill = ReturnType<typeof startDrill>;
 
 const NORTH_EAST_RIFT = { x: 10, y: 2 } as const;
+const NORTH_WEST_RIFT = { x: 2, y: 2 } as const;
 
 async function attackNorthEastRift(drill: Drill, special: boolean) {
   drill.tickTo(68);
@@ -283,6 +284,20 @@ describe("U6 boss overheads, heals and rifts", () => {
       bursts,
       chat,
       northEastRiftSequences,
+    ]);
+    drill.dispose();
+  });
+
+  test("destroying a rift resets the attack delay: the bow's shot at the other rift goes on the destroy tick, 73, and lands at 76, 2 ticks sooner than its 5-tick delay allows", async () => {
+    const drill = startDrill({ selection: { focus: "rifts" } });
+    drill.tickTo(68);
+    await drill.click(NORTH_EAST_RIFT);
+    drill.tickTo(72);
+    await drill.click(NORTH_WEST_RIFT);
+    drill.tickTo(78);
+    expect([drill.events("rift-hit").map((e) => [e.at, e.rift, e.damage]), drill.events("rift-destroyed").map((e) => [e.at, e.rift, e.attackDelay])]).toEqual([
+      [[72, "rift-67-1", 44], [76, "rift-67-0", 44]],
+      [[73, "rift-67-1", { before: 2, after: 0 }], [77, "rift-67-0", { before: 2, after: 0 }]],
     ]);
     drill.dispose();
   });

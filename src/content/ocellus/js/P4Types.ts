@@ -61,10 +61,12 @@ export type Burst = readonly [RiftId, ...RiftId[]];
 
 export type HealReceipt = Readonly<{ requested: number; applied: number; beforeHp: number; afterHp: number }>;
 export type HealCause = Readonly<{ kind: "unclaimed-orb" }> | Readonly<{ kind: "soul-split"; ordinal: Ordinal }>;
-/** `attackDelay` is the player's SDK attack clock at the impact, before and after a dodge cuts it. */
+/** The player's SDK attack clock before and after a mechanic changes it. */
+export type AttackDelayChange = Readonly<{ before: number; after: number }>;
+/** `attackDelay` is the player's attack clock at the impact, before and after a dodge cuts it. */
 export type ExplosionOutcome =
   | Readonly<{ kind: "hit"; receipt: HitReceipt }>
-  | Readonly<{ kind: "dodged"; attackDelay: Readonly<{ before: number; after: number }> }>
+  | Readonly<{ kind: "dodged"; attackDelay: AttackDelayChange }>
   | Readonly<{ kind: "avoided" }>;
 export type SpecialAttack<V extends Special = Special> = { [K in V]: Readonly<{ at: Tick; ordinal: Ordinal; variant: K; style: SpecialStyle<K> }> }[V];
 export type HitJudgement = "passed" | "invulnerable" | "blocked" | "reduced";
@@ -103,7 +105,7 @@ export type FightEvent =
   | Readonly<{ kind: "special-sounded"; at: Tick; ordinal: Ordinal; cue: TransitionCue }>
   | Readonly<{ kind: "rift-spawned"; at: Tick; rift: RiftId; tile: Tile }>
   | Readonly<{ kind: "rift-hit"; at: Tick; rift: RiftId; style: IncomingStyle; damage: number }>
-  | Readonly<{ kind: "rift-destroyed"; at: Tick; rift: RiftId; tile: Tile }>
+  | Readonly<{ kind: "rift-destroyed"; at: Tick; rift: RiftId; tile: Tile; attackDelay: AttackDelayChange }>
   | Readonly<{ kind: "rift-burst"; at: Tick; rifts: Burst; receipt: HitReceipt }>
   | Readonly<{ kind: "death-prevented"; at: Tick; source: PlayerHitSource; clearedOrbCredit: number }>
   | Readonly<{ kind: "run-ended"; at: Tick; reason: RunEnd }>;

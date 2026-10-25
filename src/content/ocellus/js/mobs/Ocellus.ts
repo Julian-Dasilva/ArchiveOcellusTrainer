@@ -7,6 +7,7 @@ import { bossBonuses, withDefenceFloor } from "../bossStats";
 import type { Cycle, Tick, Tile } from "../../../../sim/brands";
 import { after, span, tick, tile } from "../../../../sim/brands";
 import type { IncomingStyle, Style } from "../../../../sim/combat";
+import { cutAttackDelay } from "../../../../sim/combat";
 import type { AttackDelayCut, FrameOf, Heal, HitRequest, Hooks, InFlight, IncomingHit, Judgement, Landed, Logged } from "../../../../sim/sdk/EncounterBinding";
 import { EncounterBinding, incomingStyle } from "../../../../sim/sdk/EncounterBinding";
 import type {
@@ -239,7 +240,7 @@ export class Ocellus extends Mob {
     const moment = this.schedule.at(at);
     const phased = logs(...phaseEvents(at > 0 ? this.schedule.at(tick(at - 1)).phase : null, moment.phase, at));
     if (this.currentStats.hitpoint <= 0) return { outputs: [...phased, ...logs({ kind: "run-ended", at, reason: "kill" })], ending: "kill" };
-    const destroyed = logs(...this.destroyFallenRifts(at));
+    const destroyed = this.destroyFallenRifts(at, player.attackDelay);
     this.rifts.forEach((rift) => rift.mob.charge(span(at - rift.spawnedAt)));
     const reactions = moment.beats.flatMap((beat) => this.react(beat, at, player));
     return { outputs: [...phased, ...destroyed, ...reactions, ...this.strikeHole(at, player)], ending: null };
@@ -367,10 +368,14 @@ export class Ocellus extends Mob {
     });
   }
 
-  private destroyFallenRifts(at: Tick): FightEvent[] {
+  /** A destroyed rift empowers the player, resetting the attack delay (`OCELLUS_P4.rifts.killEmpowers`). */
+  private destroyFallenRifts(at: Tick, attackDelay: number): readonly TurnOutput[] {
     const fallen = this.rifts.filter((rift) => rift.hpAtPostTick <= 0);
     this.rifts = this.rifts.filter((rift) => rift.hpAtPostTick > 0);
-    return fallen.map((rift) => ({ kind: "rift-destroyed", at, rift: rift.id, tile: rift.tile }));
+    if (fallen.length === 0) return [];
+    const reset = span(Math.max(0, attackDelay));
+    const change = { before: attackDelay, after: cutAttackDelay(attackDelay, reset) };
+    return [{ kind: "cut-attack-delay", by: reset }, ...logs(...fallen.map((rift): FightEvent => ({ kind: "rift-destroyed", at, rift: rift.id, tile: rift.tile, attackDelay: change })))];
   }
 
   /** Every rift due bursts, and together they hit the player once. */

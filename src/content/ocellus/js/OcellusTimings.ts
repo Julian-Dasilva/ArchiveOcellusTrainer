@@ -182,6 +182,7 @@ type RiftRecipe = Readonly<{
   burstDamage: Selected<DamageRange>;
   standardRangedAndMeleeRoll: Selected<Readonly<{ guaranteedHit: boolean; maxDamage: boolean }>>;
   killChat: Selected<string>;
+  killEmpowers: Selected<"resets-attack-delay">;
   poses: Readonly<Record<RiftPose, Selected<number>>>;
   burstFlare: Selected<number>;
 }>;
@@ -495,7 +496,14 @@ const RIFTS: RiftRecipe = {
     owner("rifts almost always one-shot", "2026-10-22"),
     owner("Gnomonkey, playing the trainer on stream: melee attacks also always max-hit void rifts", "2026-10-24"),
   ),
-  killChat: selected("Destroying the void rift empowers you!", "footage-repeated", "team-4-and-5", "game chat line when a rift dies; what the empower does is not shown", NO_WIKI_P4, vod("V1", "3:55:21.98"), vod("V2", "k116")),
+  killChat: selected("Destroying the void rift empowers you!", "footage-repeated", "team-4-and-5", "game chat line when a rift dies; the wiki says what the empower does (killEmpowers)", NO_WIKI_P4, vod("V1", "3:55:21.98"), vod("V2", "k116")),
+  killEmpowers: selected(
+    "resets-attack-delay",
+    "spec-single",
+    "unscaled",
+    "the wiki: \"It empowers you, resetting your tick cool down.\"; read as the player's attack delay set to 0, so the next attack can go at once; it applies on the tick the rift is destroyed, the tick the chat line shows, because the wiki gives no tick (inferred)",
+    VOID_RIFT_PAGE,
+  ),
   poses: {
     idle: pose(14895, "vfx_ocellus_voidflare_default_idle", "spec-confirmed", "rift stand and walk animation"),
     spawn: pose(14896, "vfx_ocellus_voidflare_default_spawn", "inferred", "rift appearing, 1 tick, frame sound 12643"),
