@@ -1,4 +1,5 @@
-export type Basis = "footage-repeated" | "footage-once" | "spec-confirmed" | "spec-single" | "community-tested" | "owner-estimated" | "inferred" | "assumption";
+/** `log-repeated`: seen in more than one fight log, the game's own events by tick as a client recorded them. */
+export type Basis = "log-repeated" | "footage-repeated" | "footage-once" | "spec-confirmed" | "spec-single" | "community-tested" | "owner-estimated" | "inferred" | "assumption";
 
 export type WikiRef = Readonly<{ kind: "wiki"; page: string; oldid: number | null }>;
 export type NoWiki = Readonly<{ kind: "no-wiki"; why: string }>;
