@@ -142,11 +142,12 @@ INVINCIBLE_LAST_TICK=56
 INVINCIBLE_EXPECTED='{"prevented":[[54,"floor-hit"]],"hp":[[53,1],[54,99]],"chat":"Invincible: the void floor would have killed you on tick 54."}'
 INVINCIBLE_ORB_QUERY="?seed=1&invincible=on"
 INVINCIBLE_ORB_UNDER_BOSS_CLICK_UP_PX=100
-INVINCIBLE_ORB_CLICK_TICK=19
-INVINCIBLE_ORB_CLICK_RIGHT_PX=50
-INVINCIBLE_ORB_CLICK_UP_PX=75
-INVINCIBLE_ORB_LAST_TICK=26
-INVINCIBLE_ORB_EXPECTED='{"revived":[15,"floor-hit",38],"returned":[[25,{"requested":0,"applied":0,"beforeHp":99,"afterHp":99}]],"hp":[25,99],"maxHp":99}'
+INVINCIBLE_ORB_BESIDE_TICK=19
+INVINCIBLE_ORB_BESIDE_TILE='{"x":3,"y":8}'
+INVINCIBLE_ORB_STEP_ON_TICK=24
+INVINCIBLE_ORB_TILE='{"x":4,"y":8}'
+INVINCIBLE_ORB_LAST_TICK=27
+INVINCIBLE_ORB_EXPECTED='{"revived":[15,"floor-hit",38],"returned":[[26,{"requested":0,"applied":0,"beforeHp":99,"afterHp":99}]],"hp":[26,99],"maxHp":99}'
 ORB_DRILL="lifeforce-orb"
 ORB_SEED=75
 ORB_DORMANT_TICK=20
@@ -232,8 +233,8 @@ ICON_BOX='{"minX":-40,"maxX":40,"minY":-290,"maxY":-190}'
 RIFT_CLICK_TICK=68
 NORTH_EAST_RIFT_CLICK_LEFT_PX=270
 NORTH_EAST_RIFT_CLICK_UP_PX=52
-RIFT_BURST_TICK=90
-RIFT_CHARGED_SHOT_TICK=89
+RIFT_BURST_TICK=97
+RIFT_CHARGED_SHOT_TICK=96
 RIFT_TIMER_BOX='{"minX":156,"maxX":185,"minY":-85,"maxY":-81}'
 RIFT_TIMER_MAX_EARLY_SHARE=10
 RIFT_TIMER_MIN_FULL_SHARE=85
@@ -282,14 +283,14 @@ REFLECT_SPLAT_BOX='{"minX":-14,"maxX":14,"minY":-52,"maxY":-24}'
 REFLECT_MIN_SPLAT_SHARE=5
 REFLECT_MAX_CLEAR_SHARE=1
 SOUL_SPLIT_HEAL_TICK=39
-RIFT_EXPECTED='{"spawned":[[67,"rift-67-0",{"x":2,"y":2}],[67,"rift-67-1",{"x":10,"y":2}]],"destroyed":"rift-67-1","bursts":[[90,"rift-67-0",{"requested":14,"applied":14,"beforeHp":99,"afterHp":85,"prayer":null}]]}'
+RIFT_EXPECTED='{"spawned":[[67,"rift-67-0",{"x":2,"y":2}],[67,"rift-67-1",{"x":10,"y":2}]],"destroyed":"rift-67-1","attackDelay":{"before":2,"after":0},"bursts":[[97,["rift-67-0"],{"requested":36,"applied":36,"beforeHp":99,"afterHp":63,"prayer":null}]]}'
 SOUL_SPLIT_EXPECTED='[[39,{"kind":"soul-split","ordinal":0},{"requested":49,"applied":49,"beforeHp":1312,"afterHp":1361}],[67,{"kind":"soul-split","ordinal":1},{"requested":47,"applied":47,"beforeHp":1361,"afterHp":1408}]]'
 KILL_CHAT="Destroying the void rift empowers you!"
 RIFT_SOUND_SAMPLES='{"12640":11025,"12641":14332,"12642":26460,"12643":7717}'
 RIFT_SPAWN_SOUNDS='[[67.2,12643],[67.2,12643]]'
 RIFT_KILL_SOUND='[0.27,12640]'
-RIFT_BURST_SOUNDS='[[90.13,12641],[90.93,12642]]'
-RIFT_SOUND_WINDOW='[66,92]'
+RIFT_BURST_SOUNDS='[[97.13,12641],[97.93,12642]]'
+RIFT_SOUND_WINDOW='[66,99]'
 CUE_QUERY="?seed=${ORB_SEED}&focus=${ORB_DRILL}&drillStart=cycle-start&outerOrbTile=safe-floor"
 CUE_TOGGLE_TICK=6
 CUE_CHAT_BEFORE_TICK=10
@@ -323,6 +324,25 @@ P3_BOSS_TILE='{"x":20,"y":7}'
 P3_BOSS_CLICK_TICK=2
 P3_CLEAR='{"panel":{"lines":["Quadrant 1 cleared (interim end)","P3 time: 5 ticks (0:03.0)"],"buttons":["Repeat P3","Retry seed","Start P4"]},"tick":5,"bossHp":3937}'
 P3_START_P4='{"search":"?phase=p4&setup=ranged","bossHp":1312}'
+# Phase 4 as RuneLite fight logs recorded on 2026-10-23 show it: the lead-in, an orb taken by a player waiting on it, and a rift kill's reset.
+RECORDED_LEAD_IN_QUERY="?seed=100"
+RECORDED_RING_TILE='{"x":5,"y":3}'
+RECORDED_BOSS_TILE='{"x":5,"y":5}'
+RECORDED_LEAD_IN_SHOT_TICK=4
+RECORDED_LEAD_IN_LAST_TICK=9
+RECORDED_LEAD_IN_EXPECTED='{"states":[[0,"hidden"],[4,"present-damageable"],[8,"present-out-of-melee-reach"]],"judged":[[7,"passed",54]],"bossHp":[7,{"atBossStep":1312,"atPostTick":1258}]}'
+RECORDED_ORB_QUERY="?seed=75&focus=lifeforce-orb"
+RECORDED_ORB_TILE='{"x":9,"y":4}'
+RECORDED_ORB_CLICK_TICK=12
+RECORDED_ORB_LAST_TICK=25
+RECORDED_ORB_EXPECTED='{"matured":[[24,{"x":9,"y":4}]],"returned":[[24,{"requested":49,"applied":49,"beforeHp":50,"afterHp":99}]]}'
+RECORDED_RIFT_QUERY="?seed=1&focus=rifts&drillStart=cycle-start"
+RECORDED_NORTH_EAST_RIFT='{"x":10,"y":2}'
+RECORDED_NORTH_WEST_RIFT='{"x":2,"y":2}'
+RECORDED_RIFT_FIRST_TICK=68
+RECORDED_RIFT_SECOND_TICK=72
+RECORDED_RIFT_LAST_TICK=79
+RECORDED_RIFT_EXPECTED='{"hits":[[72,"rift-67-1","ranged",44],[76,"rift-67-0","ranged",44]],"destroyed":[[73,"rift-67-1",{"before":2,"after":0}],[77,"rift-67-0",{"before":2,"after":0}]]}'
 CREDIT_LINE="Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex."
 
 log() { echo "verify: $*"; }
@@ -1465,7 +1485,11 @@ drive_invincible() {
   fight_tick_at_least 0 120000 || { log "the invincible full fight never took its first P4 step"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_at "$CX" $((CY - INVINCIBLE_ORB_UNDER_BOSS_CLICK_UP_PX)) || { log "the walk under the boss was not clicked"; return 1; }
-  click_after_tick "$INVINCIBLE_ORB_CLICK_TICK" "$INVINCIBLE_ORB_CLICK_RIGHT_PX" "-$INVINCIBLE_ORB_CLICK_UP_PX" || { log "the walk to the orb was not clicked"; return 1; }
+  # Wait beside the orb through the revival at 24, then step on, so the orb is taken after the revival cleared its credit.
+  tile_pixel invincible-orb "$INVINCIBLE_ORB_BESIDE_TILE" "$INVINCIBLE_ORB_BESIDE_TICK" || return 1
+  click_after_tick "$INVINCIBLE_ORB_BESIDE_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the walk beside the orb was not clicked"; return 1; }
+  tile_pixel invincible-orb "$INVINCIBLE_ORB_TILE" "$INVINCIBLE_ORB_STEP_ON_TICK" || return 1
+  click_after_tick "$INVINCIBLE_ORB_STEP_ON_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the step onto the orb was not clicked"; return 1; }
   fight_tick_at_least "$INVINCIBLE_ORB_LAST_TICK" 30000 || { log "the invincible full fight never stepped to P4 tick ${INVINCIBLE_ORB_LAST_TICK}"; return 1; }
   ab screenshot "$VERIFY_DIR/invincible-orb.png" >/dev/null || { log "invincible orb screenshot failed"; return 1; }
   probe "log()" >"$VERIFY_DIR/invincible-orb.json"
@@ -2133,6 +2157,74 @@ drive_p3_drill() {
   return $verdict
 }
 
+click_tile_after_tick() {
+  tile_pixel "$1" "$2" "$3" || return 1
+  canvas_centre || { log "$1: canvas box unreadable"; return 1; }
+  click_after_tick "$3" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "$1: the click on $2 after P4 tick $3 was not sent"; return 1; }
+}
+
+drive_recorded_fights() {
+  ab open "${URL}${RECORDED_LEAD_IN_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the lead-in page never started"; return 1; }
+  click_tile_after_tick recorded-lead-in "$RECORDED_RING_TILE" 0 || return 1
+  click_tile_after_tick recorded-lead-in "$RECORDED_BOSS_TILE" "$RECORDED_LEAD_IN_SHOT_TICK" || return 1
+  fight_tick_at_least "$RECORDED_LEAD_IN_LAST_TICK" 30000 || { log "the lead-in page never reached P4 tick ${RECORDED_LEAD_IN_LAST_TICK}"; return 1; }
+  ab screenshot "$VERIFY_DIR/recorded-lead-in.png" >/dev/null || { log "lead-in hit screenshot failed"; return 1; }
+  p3_page_done recorded-lead-in || return 1
+
+  ab open "${URL}${RECORDED_ORB_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the waiting orb page never started"; return 1; }
+  click_tile_after_tick recorded-orb "$RECORDED_ORB_TILE" "$RECORDED_ORB_CLICK_TICK" || return 1
+  shot_after_tick $((RECORDED_ORB_LAST_TICK - 2)) 0 recorded-orb-waiting.png || { log "waiting orb screenshot failed"; return 1; }
+  fight_tick_at_least "$RECORDED_ORB_LAST_TICK" 30000 || { log "the waiting orb page never reached P4 tick ${RECORDED_ORB_LAST_TICK}"; return 1; }
+  ab screenshot "$VERIFY_DIR/recorded-orb-returned.png" >/dev/null || { log "returned orb screenshot failed"; return 1; }
+  p3_page_done recorded-orb || return 1
+
+  ab open "${URL}${RECORDED_RIFT_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the rift reset page never started"; return 1; }
+  click_tile_after_tick recorded-rift "$RECORDED_NORTH_EAST_RIFT" "$RECORDED_RIFT_FIRST_TICK" || return 1
+  click_tile_after_tick recorded-rift "$RECORDED_NORTH_WEST_RIFT" "$RECORDED_RIFT_SECOND_TICK" || return 1
+  fight_tick_at_least "$RECORDED_RIFT_LAST_TICK" 30000 || { log "the rift reset page never reached P4 tick ${RECORDED_RIFT_LAST_TICK}"; return 1; }
+  p3_page_done recorded-rift || return 1
+
+  local capture
+  for capture in recorded-lead-in.png recorded-lead-in.json recorded-lead-in-page-errors.json recorded-orb-waiting.png recorded-orb-returned.png recorded-orb.json recorded-orb-page-errors.json \
+    recorded-rift.json recorded-rift-page-errors.json; do
+    [[ -s "$VERIFY_DIR/$capture" ]] || { log "required capture ${capture} is missing or empty"; return 1; }
+  done
+
+  node -e '
+    const fs = require("fs"), [dir, leadIn, orb, rift] = process.argv.slice(1);
+    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
+    const events = (log, kind) => log.rows.flatMap((row) => row.events).filter((event) => event.kind === kind);
+    const [leadInLog, orbLog, riftLog] = ["recorded-lead-in.json", "recorded-orb.json", "recorded-rift.json"].map(read);
+    const hpAt = (log, t) => log.rows.find((row) => row.tick === t)?.bossHp ?? null;
+    const expected = { leadIn: JSON.parse(leadIn), orb: JSON.parse(orb), rift: JSON.parse(rift) };
+    const observed = {
+      leadIn: {
+        states: events(leadInLog, "boss-state-changed").map((e) => [e.at, e.state]),
+        judged: events(leadInLog, "player-hit-judged").map((e) => [e.at, e.outcome, e.requested]),
+        bossHp: [expected.leadIn.bossHp[0], hpAt(leadInLog, expected.leadIn.bossHp[0])],
+      },
+      orb: { matured: events(orbLog, "orb-matured").map((e) => [e.at, e.tile]), returned: events(orbLog, "orb-returned").map((e) => [e.at, e.receipt]) },
+      rift: { hits: events(riftLog, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]), destroyed: events(riftLog, "rift-destroyed").map((e) => [e.at, e.rift, e.attackDelay]) },
+    };
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const checks = {
+      leadInShotLandsInFull: same(observed.leadIn, expected.leadIn),
+      orbReturnsOnMaturityToWaitingPlayer: same(observed.orb, expected.orb),
+      riftKillResetsTheNextShot: same(observed.rift, expected.rift),
+      noRecordedFightPageErrors: ["recorded-lead-in-page-errors.json", "recorded-orb-page-errors.json", "recorded-rift-page-errors.json"].map(read).every((list) => list.length === 0),
+    };
+    console.log(JSON.stringify({ observed, checks }, null, 2));
+    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
+  ' "$VERIFY_DIR" "$RECORDED_LEAD_IN_EXPECTED" "$RECORDED_ORB_EXPECTED" "$RECORDED_RIFT_EXPECTED" >"$VERIFY_DIR/recorded-checks.json"
+  local verdict=$?
+  cat "$VERIFY_DIR/recorded-checks.json"
+  [[ $verdict -eq 0 ]] || log "a recorded-fight check failed"
+  return $verdict
+}
+
 drive() {
   ab set viewport 1280 800 >/dev/null || return 1
   # A new browser's first screenshot takes about 10 s, longer than the hidden lead-in, so it goes to a blank page.
@@ -2577,7 +2669,8 @@ drive() {
       rifts: {
         spawned: kindOf(riftLog.rows, "rift-spawned").map((e) => [e.at, e.rift, e.tile]),
         destroyed: kindOf(riftLog.rows, "rift-destroyed").map((e) => [e.at, e.rift]),
-        bursts: kindOf(riftLog.rows, "rift-burst").map((e) => [e.at, e.rift, e.receipt]),
+        destroyedAttackDelay: kindOf(riftLog.rows, "rift-destroyed").map((e) => e.attackDelay),
+        bursts: kindOf(riftLog.rows, "rift-burst").map((e) => [e.at, e.rifts, e.receipt]),
         hits: kindOf(riftLog.rows, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]),
         ralosHits: kindOf(ralosLog.rows, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]),
         meleeHits: kindOf(meleeRiftLog.rows, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]),
@@ -2739,6 +2832,7 @@ drive() {
       riftsSpawnBesideBoss: sameJson(rifts.spawned, JSON.stringify(expectedRifts.spawned)),
       riftKilledByClick: rifts.destroyed.length === 1 && rifts.destroyed[0][1] === expectedRifts.destroyed && rifts.destroyed[0][0] <= Number(burstTick),
       killChatShown: rifts.chat === killChat,
+      riftKillResetsAttackDelay: sameJson(rifts.destroyedAttackDelay, JSON.stringify([expectedRifts.attackDelay])),
       standingRiftBursts: sameJson(rifts.bursts, JSON.stringify(expectedRifts.bursts)),
       riftsTakeStandardRangedMaxHits: sameJson(rifts.hits, riftOneHit) && sameJson(rifts.ralosHits, riftRalosHits),
       riftsTakeStandardMeleeMaxHits: sameJson(rifts.meleeHits, riftMeleeHits),
@@ -2838,6 +2932,7 @@ drive() {
   local verdict=$?
   cat "$VERIFY_DIR/observed.json"
   drive_p3_drill || verdict=1
+  drive_recorded_fights || verdict=1
   return $verdict
 }
 
