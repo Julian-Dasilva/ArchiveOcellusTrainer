@@ -62,12 +62,26 @@ describe("Performance beacon Worker", () => {
     });
   });
 
+  test("guard: a 2D summary from a page loaded before the trainer dropped 2D answers 204 and keeps its 2d label", async () => {
+    const { env, written } = bindings();
+    const response = await send(env, "/t", { method: "POST", body: JSON.stringify({ ...SUMMARY, view: "2d" }) });
+    expect({ status: response.status, written }).toEqual({
+      status: 204,
+      written: [
+        {
+          blobs: ["2026.10.25.2", "2d", "nvidia", "chrome", "after-inner", "kill"],
+          doubles: [0.4, 31, 1100, 16, 33, 50, 4, 600, 640, 812.5, 1, 1.25, 1600, 1000, 8],
+          indexes: ["2026.10.25.2"],
+        },
+      ],
+    });
+  });
+
   test.each([
     { name: "a body that is not JSON", init: { method: "POST", body: "{not json" }, status: 400 },
     { name: "a summary with an extra field", init: { method: "POST", body: JSON.stringify({ ...SUMMARY, userAgent: "Mozilla/5.0" }) }, status: 400 },
     { name: "a summary missing a field", init: { method: "POST", body: JSON.stringify({ ...SUMMARY, cores: undefined }) }, status: 400 },
     { name: "a GPU family outside the list", init: { method: "POST", body: JSON.stringify({ ...SUMMARY, gpu: "NVIDIA GeForce RTX 4090" }) }, status: 400 },
-    { name: "a 2D view from a page loaded before the trainer dropped 2D", init: { method: "POST", body: JSON.stringify({ ...SUMMARY, view: "2d" }) }, status: 400 },
     { name: "a sample rate of 0", init: { method: "POST", body: JSON.stringify({ ...SUMMARY, sampleRate: 0 }) }, status: 400 },
     { name: "cores replaced by constructor", init: { method: "POST", body: JSON.stringify({ ...SUMMARY_WITHOUT_CORES, constructor: "unexpected" }) }, status: 400 },
     { name: "cores replaced by __proto__", init: { method: "POST", body: JSON.stringify({ ...SUMMARY_WITHOUT_CORES, ["__proto__"]: "unexpected" }) }, status: 400 },

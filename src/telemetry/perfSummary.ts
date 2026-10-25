@@ -1,6 +1,6 @@
 import type { RunEnd, Stage } from "../content/ocellus/js/P4Types";
 
-export const VIEWS = ["3d"] as const;
+export const VIEWS = ["2d", "3d"] as const;
 export const GPU_FAMILIES = ["nvidia", "amd", "intel-arc", "intel", "apple", "adreno", "mali", "powervr", "software", "other", "unavailable"] as const;
 export const BROWSER_FAMILIES = ["edge", "opera", "samsung", "firefox", "chrome", "safari", "other"] as const;
 const STAGES = ["lead-in", "inner-void", "after-inner", "outer-void", "after-outer"] as const satisfies readonly Stage[];
