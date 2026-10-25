@@ -10,7 +10,7 @@ import type { BossOverhead, HoveringBoss, Mechanic, Special, Stage, TransitionKi
 import type { AutoAttack, Quadrant, ReachRule } from "./P3Types";
 import { roll } from "./roll";
 
-type Scale = "unscaled" | "team-4" | "team-5" | "team-4-and-5" | "solo";
+type Scale = "unscaled" | "team-4" | "team-5" | "team-4-and-5" | "team-7" | "team-8" | "team-7-and-8" | "solo";
 
 const VODS = {
   V1: { streamer: "Molgoatkirby", url: "https://www.twitch.tv/videos/2906214879", tickPrefix: "G", clipTickAtP4Zero: 25 },
@@ -18,9 +18,29 @@ const VODS = {
 } as const;
 type Vod = keyof typeof VODS;
 
+/**
+ * RuneLite fight logs recorded on 2026-10-23, in recording order: the game's animations, spotanims, projectiles, hitsplats
+ * and NPC spawns by tick, as seen by one client. A cite's `at` counts ticks from S, the tick his Deflect rise (seq 14863)
+ * starts a phase 4 cycle, or names the phase and its own marks.
+ */
+type FightLog = "L1" | "L2" | "L3" | "L4" | "L5" | "L6" | "L7" | "L8";
+type FightLogEntry = Readonly<{ recorded: "2026-10-23"; fight: "spectated kill" | "raid"; players: number; reached: string; records: string }>;
+const FIGHT_LOGS: Readonly<Record<FightLog, FightLogEntry>> = {
+  L1: { recorded: "2026-10-23", fight: "spectated kill", players: 8, reached: "the kill", records: "every boss animation, shout and floor graphic, his projectiles, each player's hitsplats with the overhead they had up, the boss's hitsplats and HP, player positions through each Untether and each phase 2 volley" },
+  L2: { recorded: "2026-10-23", fight: "spectated kill", players: 8, reached: "the kill", records: "as L1, plus the spotanims on the boss and on every player, NPC spawns, and each player's position and overhead on every tick of each spin" },
+  L3: { recorded: "2026-10-23", fight: "raid", players: 4, reached: "a wipe in phase 3's first quadrant", records: "by a player in the raid, with ticks counted from entering the arena and no phase marks: the boss's animations with his facing, floor graphics, projectiles, the spotanims on the boss and the players, each player's hitsplats with their overhead, NPC spawns and the chat" },
+  L4: { recorded: "2026-10-23", fight: "raid", players: 7, reached: "a wipe in phase 3, after two quadrants fell", records: "as L3" },
+  L5: { recorded: "2026-10-23", fight: "raid", players: 7, reached: "a wipe in phase 4's third cycle", records: "as L3" },
+  L6: { recorded: "2026-10-23", fight: "raid", players: 7, reached: "a wipe in phase 4's fifth cycle", records: "by a player in the raid, with phase marks: as L2, plus that player's own hitsplats with their type and prayer, the floor graphics the game sent that player, its own lifeforce orbs among them, and where it stepped into the 5x5" },
+  L7: { recorded: "2026-10-23", fight: "raid", players: 7, reached: "a wipe in phase 3, after two quadrants fell", records: "as L6" },
+  L8: { recorded: "2026-10-23", fight: "raid", players: 7, reached: "a wipe in phase 3, after one quadrant fell", records: "as L6" },
+};
+
 type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24";
 
 type Source =
+  | Readonly<{ kind: "fight-log"; log: FightLog; at: string }>
+  | Readonly<{ kind: "analysis"; url: string; at: string }>
   | Readonly<{ kind: "vod"; vod: Vod; at: string }>
   | Readonly<{ kind: "news"; url: string }>
   | Readonly<{ kind: "cache"; build: 2746; record: string }>
@@ -39,6 +59,9 @@ function choice<O extends Options>(defaultKey: keyof O & string, options: O): Ch
   return { default: defaultKey, options };
 }
 
+const fightLog = (log: FightLog, at: string): Source => ({ kind: "fight-log", log, at });
+/** A written analysis of packet captures, such as the RSProx notes on the raid. */
+const analysis = (url: string, at: string): Source => ({ kind: "analysis", url, at });
 const vod = (which: Vod, at: string): Source => ({ kind: "vod", vod: which, at });
 const news = (url: string): Source => ({ kind: "news", url });
 const cache = (record: string): Source => ({ kind: "cache", build: 2746, record });
@@ -774,6 +797,7 @@ const drill = (first: Mechanic, ...rest: Mechanic[]): Selected<Focus<Mechanic>> 
 
 export const OCELLUS_P4 = {
   vods: VODS,
+  fightLogs: FIGHT_LOGS,
   boss: BOSS,
   leadIn: LEAD_IN,
   cycle: CYCLE,
