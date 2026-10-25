@@ -3003,6 +3003,7 @@ production_listener() {
 watch_production_page() {
   local name=$1
   ab wait --fn "window.__orbs?.first !== null" --timeout 90000 >/dev/null || log "${name}: the minimap orbs never drew their numbers"
+  start_run || return 1
   sleep "$PRODUCTION_WATCH_SECONDS"
   ab --json eval "({ text: document.body.innerText, orbs: window.__orbs })" | json data.result >"$VERIFY_DIR/${name}.json" || { log "${name}: page state capture failed"; return 1; }
   ab screenshot "$VERIFY_DIR/${name}.png" >/dev/null || { log "${name}: screenshot failed"; return 1; }

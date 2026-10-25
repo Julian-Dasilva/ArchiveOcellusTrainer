@@ -9,6 +9,7 @@ Every page opens in a set-up state. The arena, the player, the side panel and th
 - `pause-holds` stops the world tick while paused and shows a Resume button.
 - `keybind-while-paused` binds a tab key while paused, and the key works after Resume.
 - `resume-same-tick` continues with the next world tick after the one the pause held.
+- `paused-input` holds each click's input delay while paused, so a click registers on the same P4 tick as in a run with no pause. A click made while paused acts as if made when the pause began. When more than eight inputs register before one tick, the newest eight run, so the last click decides. Vitest owns both cases in `SetUpAndPause.test.tsx`.
 - `pause-key` toggles pause and resume with P. P does nothing before Start, in the seed field, while a key is being bound, or once a tab is bound to P.
 - `pause-logged` lists each pause in `log().pauses` with its world tick and length in ms, and the result panel reads "Paused once, for N s in all." or "Paused N times, ...".
 - `pause-not-timed` leaves the pause out of the telemetry summary's frame and tick gaps.
