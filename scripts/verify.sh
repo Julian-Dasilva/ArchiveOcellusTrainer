@@ -323,6 +323,23 @@ P3_BOSS_TILE='{"x":20,"y":7}'
 P3_BOSS_CLICK_TICK=2
 P3_CLEAR='{"panel":{"lines":["Quadrant 1 cleared (interim end)","P3 time: 5 ticks (0:03.0)"],"buttons":["Repeat P3","Retry seed","Start P4"]},"tick":5,"bossHp":3937}'
 P3_START_P4='{"search":"?phase=p4&setup=ranged","bossHp":1312}'
+PRESENT_QUERY="?seed=1&invincible=on"
+PRESENT_RESIZED_VIEWPORT="1000 700"
+PRESENT_DEVICE_SCALE=2
+PRESENT_RESIZED_TILE='{"x":8,"y":3}'
+PRESENT_SCALED_TILE='{"x":10,"y":1}'
+PRESENT_CENTRE_TILE='{"x":5,"y":5}'
+PRESENT_CENTRE_HALF_PX=30
+PRESENT_LIT_LEVEL_SUM=30
+PRESENT_DRAWN_MIN_SHARE=10
+PRESENT_LOST_MAX_SHARE=5
+PRESENT_LEVEL_TOLERANCE=2
+PRESENT_MAX_OFF_SHARE=0.1
+PRESENT_HOLD_MS=2000
+PRESENT_LOST_MS=1500
+PRESENT_CONTEXT_LOST_LOG="[osrs-sdk] WebGL context lost while rendering the 3D viewport"
+PRESENT_FRAME_WAIT_LIMIT=120
+PRESENT_WEBGL_HOOKS_JS='(() => { const contexts = []; window.__webglContexts = contexts; window.__webglClears = 0; for (const Canvas of [HTMLCanvasElement, OffscreenCanvas]) { const getContext = Canvas.prototype.getContext; Canvas.prototype.getContext = function (type, ...rest) { const context = getContext.call(this, type, ...rest); if (type === "webgl2" && context && !contexts.includes(context)) contexts.push(context); return context; }; } const clear = WebGL2RenderingContext.prototype.clear; WebGL2RenderingContext.prototype.clear = function (...args) { window.__webglClears++; return clear.apply(this, args); }; })();'
 CREDIT_LINE="Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex."
 
 log() { echo "verify: $*"; }
@@ -952,7 +969,7 @@ tile_pixel() {
 }
 
 click_tile() {
-  local page="$1" tile="$2" modifier="${4:-none}"
+  local page="$1" tile="$2" modifier="${4:-none}" record="$VERIFY_DIR/${5:-tile-clicks}.jsonl"
   tile_pixel "$page" "$tile" "$3" || return 1
   case "$modifier" in
     none) printf '[["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"]]' "$CLICK_X" "$CLICK_Y" | ab batch --bail >/dev/null ;;
@@ -963,11 +980,11 @@ click_tile() {
   ab --json eval "(() => {
     const orders = window.__archiveOcellusProbe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered');
     return { page: '${page}', tile: ${tile}, at: { x: ${CLICK_X}, y: ${CLICK_Y} }, ordered: orders[${WALK_ORDERS}]?.destination ?? null };
-  })()" | json data.result >>"$VERIFY_DIR/tile-clicks.jsonl" && echo >>"$VERIFY_DIR/tile-clicks.jsonl"
+  })()" | json data.result >>"$record" && echo >>"$record"
 }
 
 walk_to_tile() {
-  click_tile "$1" "$2" now "${4:-none}" || return 1
+  click_tile "$1" "$2" now "${4:-none}" "${5:-tile-clicks}" || return 1
   ab wait --fn "(() => { const s = window.__archiveOcellusProbe.snapshot(), to = $3; return s.player.x === to.x && s.player.y === to.y; })()" \
     --timeout 15000 >/dev/null || log "player never stood on $3"
 }
@@ -2133,6 +2150,221 @@ drive_p3_drill() {
   return $verdict
 }
 
+pause_by_tab_switch() {
+  local trainer
+  trainer="$(ab --json tab list | node -e 'let s="";process.stdin.on("data",(d)=>(s+=d)).on("end",()=>console.log(JSON.parse(s).data.tabs.find((tab)=>tab.active).tabId))')" || return 1
+  ab tab new about:blank >/dev/null && ab tab close >/dev/null && ab tab "$trainer" >/dev/null || { log "the tab switch that pauses the trainer failed"; return 1; }
+  ab wait --fn "window.__archiveOcellusProbe.snapshot().ticking === false && [...document.querySelectorAll('button')].some((button) => button.textContent === 'Resume')" --timeout 5000 >/dev/null ||
+    { log "switching tabs did not pause the trainer"; return 1; }
+}
+
+click_resume() {
+  ab find role button click --name Resume >/dev/null && ab wait --fn "window.__archiveOcellusProbe.snapshot().ticking === true" --timeout 5000 >/dev/null || log "Resume did not restart the trainer"
+}
+
+# The WebGL layer reads back blank outside a frame that drew it, so the expected screen waits for a frame callback after a 3D render.
+frame_present() {
+  ab --json eval "new Promise((done) => {
+    let clears = window.__webglClears, waited = 0;
+    const compose = () => {
+      const drew = window.__webglClears !== clears;
+      clears = window.__webglClears;
+      if (!drew && waited++ < ${PRESENT_FRAME_WAIT_LIMIT}) return requestAnimationFrame(compose);
+      const world = document.querySelector('#world'), area = world.parentElement, edges = world.getBoundingClientRect();
+      const box = (e) => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; };
+      const meets = (b) => b.width > 0 && b.height > 0 && b.right > edges.left && b.left < edges.right && b.bottom > edges.top && b.top < edges.bottom;
+      const covers = (b) => b.left <= edges.left && b.top <= edges.top && b.right >= edges.right && b.bottom >= edges.bottom;
+      const layers = [...area.querySelectorAll(':scope > canvas')].filter((canvas) => !canvas.hidden);
+      const overlays = [...area.children, ...document.body.children].filter((e) => !layers.includes(e) && !e.contains(world) && getComputedStyle(e).visibility !== 'hidden' && meets(e.getBoundingClientRect()));
+      const backdrops = overlays.filter((e) => covers(e.getBoundingClientRect()));
+      const expected = new OffscreenCanvas(world.width, world.height), context = expected.getContext('2d');
+      context.fillStyle = 'black';
+      context.fillRect(0, 0, world.width, world.height);
+      for (const layer of layers) context.drawImage(layer, 0, 0);
+      for (const backdrop of backdrops) {
+        context.fillStyle = getComputedStyle(backdrop).backgroundColor;
+        context.fillRect(0, 0, world.width, world.height);
+      }
+      const frame = {
+        ticking: window.__archiveOcellusProbe.snapshot().ticking,
+        drew,
+        devicePixelRatio,
+        centre: window.__archiveOcellusProbe.tileCentre(${PRESENT_CENTRE_TILE}),
+        world: { ...box(world), backing: [world.width, world.height] },
+        layers: layers.map((layer) => ({ ...box(layer), backing: [layer.width, layer.height] })),
+        excluded: overlays.flatMap((e) => (backdrops.includes(e) ? [...e.children] : [e])).map(box),
+      };
+      expected.convertToBlob({ type: 'image/png' }).then((blob) => {
+        const reader = new FileReader();
+        reader.onload = () => done({ ...frame, expected: String(reader.result).split(',')[1] });
+        reader.readAsDataURL(blob);
+      });
+    };
+    requestAnimationFrame(compose);
+  })" | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      const { success, data } = JSON.parse(s);
+      if (!success) process.exit(1);
+      const { expected, ...frame } = data.result;
+      require("fs").writeFileSync(`${process.argv[1]}-expected.png`, Buffer.from(expected, "base64"));
+      require("fs").writeFileSync(`${process.argv[1]}.json`, JSON.stringify(frame));
+    });
+  ' "$VERIFY_DIR/$1" || { log "$1: the expected frame was not composed"; return 1; }
+  ab screenshot "$VERIFY_DIR/$1-screen.png" >/dev/null || { log "$1: screenshot failed"; return 1; }
+}
+
+camera_still() {
+  [[ "$(ab --json eval "new Promise((done) => {
+    const seen = [], started = performance.now();
+    const look = () => {
+      seen.push(JSON.stringify(window.__archiveOcellusProbe.tileCentre($1)));
+      if (seen.length >= 5 && seen.slice(-5).every((at) => at === seen.at(-1))) return done(true);
+      if (performance.now() - started > 10000) return done(false);
+      setTimeout(look, 100);
+    };
+    look();
+  })" | json data.result)" == true ]] || log "the camera never settled on $1"
+}
+
+live_present() {
+  ab --json eval "({ lost: window.__webglContexts[0].isContextLost(), contexts: window.__webglContexts.length, centre: window.__archiveOcellusProbe.tileCentre(${PRESENT_CENTRE_TILE}) })" |
+    json data.result >"$VERIFY_DIR/$1.json" || { log "$1: context state capture failed"; return 1; }
+  ab screenshot "$VERIFY_DIR/$1.png" >/dev/null || { log "$1: screenshot failed"; return 1; }
+}
+
+drive_layered_present() {
+  local BROWSER_SESSION="${BROWSER_SESSION}-present"
+  echo "$PRESENT_WEBGL_HOOKS_JS" >"$VERIFY_DIR/present-webgl-hooks.js"
+  ab --init-script "$VERIFY_DIR/present-webgl-hooks.js" set viewport 1280 800 >/dev/null || { log "the present session did not start"; return 1; }
+  ab open "${URL}${PRESENT_QUERY}" >/dev/null && wait_until_ticking || return 1
+
+  ab set viewport $PRESENT_RESIZED_VIEWPORT >/dev/null || return 1
+  ab wait --fn "(([width, height], world) => world.width === width && world.height === height)([${PRESENT_RESIZED_VIEWPORT// /,}], document.querySelector('#world'))" --timeout 5000 >/dev/null ||
+    { log "#world never took the ${PRESENT_RESIZED_VIEWPORT} viewport"; return 1; }
+  camera_still "$PRESENT_RESIZED_TILE"
+  walk_to_tile present-resized "$PRESENT_RESIZED_TILE" "$PRESENT_RESIZED_TILE" none present-tile-clicks || return 1
+  pause_by_tab_switch && frame_present present-resized && click_resume || return 1
+
+  ab set viewport $PRESENT_RESIZED_VIEWPORT "$PRESENT_DEVICE_SCALE" >/dev/null || return 1
+  ab wait --fn "devicePixelRatio === ${PRESENT_DEVICE_SCALE}" --timeout 5000 >/dev/null || { log "the device scale never became ${PRESENT_DEVICE_SCALE}"; return 1; }
+  camera_still "$PRESENT_SCALED_TILE"
+  walk_to_tile present-scaled "$PRESENT_SCALED_TILE" "$PRESENT_SCALED_TILE" none present-tile-clicks || return 1
+  pause_by_tab_switch && frame_present present-scaled && click_resume || return 1
+
+  ab set viewport 1280 800 >/dev/null && ab wait --fn "devicePixelRatio === 1 && document.querySelector('#world').width === 1280" --timeout 5000 >/dev/null || return 1
+  pause_by_tab_switch && frame_present present-paused || return 1
+  ab wait "$PRESENT_HOLD_MS" >/dev/null && ab screenshot "$VERIFY_DIR/present-paused-held-screen.png" >/dev/null || { log "held pause screenshot failed"; return 1; }
+  click_resume
+  probe "snapshot().ticking" >"$VERIFY_DIR/present-resumed.json"
+
+  ab eval "(window.__loseContext = window.__webglContexts[0].getExtension('WEBGL_lose_context')).loseContext()" >/dev/null || { log "the WebGL context could not be lost"; return 1; }
+  ab wait "$PRESENT_LOST_MS" >/dev/null && live_present present-context-lost || return 1
+  ab eval "window.__loseContext.restoreContext()" >/dev/null || { log "the WebGL context could not be restored"; return 1; }
+  ab wait --fn "!window.__webglContexts[0].isContextLost()" --timeout 5000 >/dev/null || log "the WebGL context was never restored"
+  ab wait "$PRESENT_LOST_MS" >/dev/null && live_present present-context-restored-live || return 1
+  pause_by_tab_switch && frame_present present-context-restored && click_resume || return 1
+  ab console >"$VERIFY_DIR/present-console.log" 2>&1 || { log "console capture failed"; return 1; }
+  ab --json errors | json data.errors >"$VERIFY_DIR/present-page-errors.json" || { log "page error capture failed"; return 1; }
+
+  local capture
+  for capture in present-webgl-hooks.js present-tile-clicks.jsonl present-resumed.json present-context-lost.json present-context-lost.png present-context-restored-live.json present-context-restored-live.png present-paused-held-screen.png present-console.log present-page-errors.json \
+    $(for frame in resized scaled paused context-restored; do echo "present-${frame}.json present-${frame}-expected.png present-${frame}-screen.png"; done); do
+    [[ -s "$VERIFY_DIR/$capture" ]] || { log "required capture ${capture} is missing or empty"; return 1; }
+  done
+
+  node -e '
+    const fs = require("fs"), zlib = require("zlib");
+    const [dir, resizedViewport, deviceScale, centreHalf, litLevelSum, drawnMin, lostMax, tolerance, maxOff, lostLog] = process.argv.slice(1);
+    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
+    function decode(file) {
+      const buf = fs.readFileSync(`${dir}/${file}`);
+      let at = 8, width = 0, channels = 4;
+      const idat = [];
+      while (at < buf.length) {
+        const len = buf.readUInt32BE(at), type = buf.toString("ascii", at + 4, at + 8), data = buf.subarray(at + 8, at + 8 + len);
+        if (type === "IHDR") [width, channels] = [data.readUInt32BE(0), data[9] === 6 ? 4 : 3];
+        if (type === "IDAT") idat.push(data);
+        at += 12 + len;
+      }
+      const raw = zlib.inflateSync(Buffer.concat(idat)), stride = width * channels, height = raw.length / (stride + 1), px = Buffer.alloc(height * stride);
+      for (let y = 0; y < height; y++) {
+        for (let i = 0; i < stride; i++) {
+          const a = i >= channels ? px[y * stride + i - channels] : 0, b = y ? px[(y - 1) * stride + i] : 0, c = y && i >= channels ? px[(y - 1) * stride + i - channels] : 0;
+          const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+          px[y * stride + i] = (raw[y * (stride + 1) + 1 + i] + [0, a, b, (a + b) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? b : c][raw[y * (stride + 1)]]) & 255;
+        }
+      }
+      return { width, height, channels, at: (x, y) => [0, 1, 2].map((c) => px[(y * width + x) * channels + c]) };
+    }
+    const round = (share) => Math.round(share * 1000) / 1000;
+    const litShare = (screen, centre, scale, excluded = () => false) => {
+      if (!centre) return 0;
+      let lit = 0, all = 0;
+      for (let y = centre.y - Number(centreHalf); y <= centre.y + Number(centreHalf); y++) {
+        for (let x = centre.x - Number(centreHalf); x <= centre.x + Number(centreHalf); x++) {
+          if (excluded(x, y)) continue;
+          all++;
+          if (screen.at(Math.floor(x * scale), Math.floor(y * scale)).reduce((sum, level) => sum + level, 0) > Number(litLevelSum)) lit++;
+        }
+      }
+      return all === 0 ? 0 : round((100 * lit) / all);
+    };
+    const composed = (name, screenFile = `${name}-screen.png`) => {
+      const frame = read(`${name}.json`), expected = decode(`${name}-expected.png`), screen = decode(screenFile), scale = frame.devicePixelRatio;
+      const excluded = (x, y) => frame.excluded.some((e) => x >= Math.floor(e.x) && x < Math.ceil(e.x + e.width) && y >= Math.floor(e.y) && y < Math.ceil(e.y + e.height));
+      let compared = 0, off = 0;
+      for (let y = 0; y < expected.height; y++) {
+        for (let x = 0; x < expected.width; x++) {
+          const pageX = frame.world.x + x, pageY = frame.world.y + y;
+          if (excluded(pageX, pageY)) continue;
+          const want = expected.at(x, y), got = screen.at(Math.floor(pageX * scale), Math.floor(pageY * scale));
+          compared++;
+          if (want.some((level, c) => Math.abs(level - got[c]) > Number(tolerance))) off++;
+        }
+      }
+      const sameBox = (layer) => ["x", "y", "width", "height"].every((key) => layer[key] === frame.world[key]) && layer.backing.join() === frame.world.backing.join();
+      return {
+        ticking: frame.ticking, drew: frame.drew, devicePixelRatio: scale, screen: [screen.width, screen.height], world: frame.world, layers: frame.layers.length,
+        layersShareWorldBox: frame.layers.every(sameBox) && frame.world.backing.join() === [frame.world.width, frame.world.height].join(),
+        compared, offShare: round((100 * off) / compared), centreLitShare: litShare(screen, frame.centre, scale, excluded),
+      };
+    };
+    const live = (name) => { const state = read(`${name}.json`); return { ...state, centreLitShare: litShare(decode(`${name}.png`), state.centre, 1) }; };
+    const observed = {
+      resized: composed("present-resized"),
+      scaled: composed("present-scaled"),
+      paused: composed("present-paused"),
+      held: composed("present-paused", "present-paused-held-screen.png"),
+      resumed: read("present-resumed.json"),
+      lost: live("present-context-lost"),
+      restoredLive: live("present-context-restored-live"),
+      restored: composed("present-context-restored"),
+      clicks: fs.readFileSync(`${dir}/present-tile-clicks.jsonl`, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)),
+      lostLogs: fs.readFileSync(`${dir}/present-console.log`, "utf8").split("\n").filter((line) => line.includes(lostLog)).length,
+    };
+    const [width, height] = resizedViewport.split(" ").map(Number);
+    const linedUp = (frame) => frame.ticking === false && frame.layersShareWorldBox && frame.offShare <= Number(maxOff) && frame.centreLitShare >= Number(drawnMin);
+    const checks = {
+      resizedLayersLineUp: linedUp(observed.resized) && observed.resized.world.backing.join() === [width, height].join() && observed.resized.devicePixelRatio === 1,
+      scaledLayersLineUp: linedUp(observed.scaled) && observed.scaled.devicePixelRatio === Number(deviceScale) && observed.scaled.screen.join() === [width * deviceScale, height * deviceScale].join(),
+      clicksAfterResizeOrderTheirTiles: observed.clicks.length === 2 && observed.clicks.every(({ tile, ordered }) => ordered?.x === tile.x && ordered?.y === tile.y),
+      pausedFrameStaysDrawn: linedUp(observed.paused) && linedUp(observed.held) && observed.resumed === true,
+      contextLossBlanksTheScene: observed.lost.lost === true && observed.lost.contexts === 1 && observed.lost.centreLitShare <= Number(lostMax),
+      restoredSceneDraws: observed.restoredLive.lost === false && observed.restoredLive.centreLitShare >= Number(drawnMin) && linedUp(observed.restored),
+      contextLossLoggedOnce: observed.lostLogs === 1,
+      noPresentPageErrors: read("present-page-errors.json").length === 0,
+    };
+    console.log(JSON.stringify({ observed, checks }, null, 2));
+    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
+  ' "$VERIFY_DIR" "$PRESENT_RESIZED_VIEWPORT" "$PRESENT_DEVICE_SCALE" "$PRESENT_CENTRE_HALF_PX" "$PRESENT_LIT_LEVEL_SUM" "$PRESENT_DRAWN_MIN_SHARE" "$PRESENT_LOST_MAX_SHARE" \
+    "$PRESENT_LEVEL_TOLERANCE" "$PRESENT_MAX_OFF_SHARE" "$PRESENT_CONTEXT_LOST_LOG" >"$VERIFY_DIR/present-checks.json"
+  local verdict=$?
+  cat "$VERIFY_DIR/present-checks.json"
+  [[ $verdict -eq 0 ]] || log "a layered present check failed"
+  return $verdict
+}
+
 drive() {
   ab set viewport 1280 800 >/dev/null || return 1
   # A new browser's first screenshot takes about 10 s, longer than the hidden lead-in, so it goes to a blank page.
@@ -2838,6 +3070,7 @@ drive() {
   local verdict=$?
   cat "$VERIFY_DIR/observed.json"
   drive_p3_drill || verdict=1
+  drive_layered_present || verdict=1
   return $verdict
 }
 
@@ -2846,6 +3079,7 @@ release_browser() {
   agent-browser --session "${BROWSER_SESSION}-autoplay" close >/dev/null 2>&1
   agent-browser --session "${BROWSER_SESSION}-mobile" close >/dev/null 2>&1
   agent-browser --session "${BROWSER_SESSION}-stored-view" close >/dev/null 2>&1
+  agent-browser --session "${BROWSER_SESSION}-present" close >/dev/null 2>&1
   [[ -n "$LAUNCHED_PID" && -f "$STATE_FILE" && "$(state pid)" == "$LAUNCHED_PID" ]] || return 0
   stop
 }
