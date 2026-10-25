@@ -1172,14 +1172,15 @@ function parseP3Request(url: URL, freshSeed: () => number): ParsedP3 {
   return { config: { seed: run.seed, choices, bossEntryHp }, invincible, rejected };
 }
 
-export type DrillRequest = (Readonly<{ phase: "p4" }> & ParsedDrill) | (Readonly<{ phase: "p3" }> & ParsedP3);
+export type DrillRequest = (Readonly<{ phase: "p4" }> & ParsedDrill) | (Readonly<{ phase: "p3" }> & ParsedP3) | (Readonly<{ phase: "p1" }> & ParsedP1);
 
 export function parseRequest(url: URL, freshSeed: () => number, flags: BuildFlags): DrillRequest {
-  if (!flags.p3) return { phase: "p4", ...parseDrillRequest(url, freshSeed) };
+  if (!flags.p3 && !flags.p1) return { phase: "p4", ...parseDrillRequest(url, freshSeed) };
   const phase = url.searchParams.get("phase");
   const rest = new URL(url.href);
   rest.searchParams.delete("phase");
-  if (phase === "p3") return { phase: "p3", ...parseP3Request(rest, freshSeed) };
+  if (phase === "p3" && flags.p3) return { phase: "p3", ...parseP3Request(rest, freshSeed) };
+  if (phase === "p1" && flags.p1) return { phase: "p1", ...parseP1Request(rest, freshSeed) };
   const p4 = parseDrillRequest(rest, freshSeed);
   return { phase: "p4", ...p4, rejected: phase === null || phase === "p4" ? p4.rejected : [`phase=${phase}`, ...p4.rejected] };
 }
