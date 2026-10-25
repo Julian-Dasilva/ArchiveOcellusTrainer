@@ -93,7 +93,6 @@ function landedDamage(verdict: Verdict, hit: IncomingHit): number {
 function damageable(state: BossState): boolean {
   switch (state) {
     case "hidden":
-    case "present-invulnerable":
       return false;
     case "present-out-of-melee-reach":
     case "present-damageable":

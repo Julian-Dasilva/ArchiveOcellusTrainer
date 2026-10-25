@@ -107,6 +107,7 @@ type BossRecipe = Readonly<{
 type LeadInRecipe = Readonly<{
   hiddenFor: Selected<TickSpan>;
   presentFor: Selected<TickSpan>;
+  presentBoss: Selected<"present-damageable">;
   shout: Selected<Readonly<{ text: string; at: TickSpan; lasts: TickSpan }>>;
 }>;
 
@@ -301,8 +302,25 @@ const BOSS: BossRecipe = {
 
 const LEAD_IN: LeadInRecipe = {
   hiddenFor: selected(span(4), "footage-repeated", "team-4-and-5", "boss model gone from t = 0, back on the main platform at t = 4", NO_WIKI_TICKS, vod("V1", "G25 to G29"), vod("V2", "k40 to k44")),
-  presentFor: selected(span(4), "footage-repeated", "team-4-and-5", "present from t = 4 but no splats until the first inner void at t = 8", NO_WIKI_TICKS, vod("V1", "G29 to G33, first hit G35"), vod("V2", "k44 to k48, first splats k48")),
-  shout: selected({ text: "End...", at: span(5), lasts: span(3) }, "footage-repeated", "team-4-and-5", "overhead text from t = 5 for 3 ticks", STRATEGIES_P4, vod("V1", "G30 to G32"), vod("V2", "k45 to k47")),
+  presentFor: selected(span(4), "footage-repeated", "team-4-and-5", "present from t = 4, the first inner void at t = 8", NO_WIKI_TICKS, vod("V1", "G29 to G33, first hit G35"), vod("V2", "k44 to k48, first splats k48")),
+  presentBoss: selected(
+    "present-damageable",
+    "log-repeated",
+    "unscaled",
+    "players' hits land on him once he is back, before his first Deflect: at S-1 (t = 7) in one kill and at S-3 and S-1 (t = 5 and 7) in the other; both clips show no splat before t = 8, but a logged hitsplat is direct evidence where a clip only shows that nobody hit him, so he takes damage from t = 4",
+    NO_WIKI_TICKS, fightLog("L1", "4 hits on him at S-1"),
+    fightLog("L2", "a hit on him at S-3 and 3 at S-1"),
+    vod("V1", "G29 to G33, first hit G35"),
+    vod("V2", "k44 to k48, first splats k48"),
+  ),
+  shout: selected(
+    { text: "End...", at: span(5), lasts: span(3) },
+    "footage-repeated",
+    "team-4-and-5",
+    "overhead text from t = 5 for 3 ticks; the fight logs have it 3 ticks before his first Deflect in all four logged fights that reached phase 4, as here",
+    STRATEGIES_P4, vod("V1", "G30 to G32"), vod("V2", "k45 to k47"),
+    fightLog("L1", "S-3"), fightLog("L2", "S-3"), fightLog("L5", "S-3"), fightLog("L6", "S-3"),
+  ),
 };
 
 const INNER_VOID: VoidRecipe<"inner-void"> = {

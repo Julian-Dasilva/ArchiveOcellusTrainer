@@ -6,7 +6,6 @@ type Presence = Readonly<{ visible: boolean; targetable: boolean }>;
 
 const PRESENCE = {
   hidden: { visible: false, targetable: false },
-  "present-invulnerable": { visible: true, targetable: true },
   "present-out-of-melee-reach": { visible: true, targetable: true },
   "present-damageable": { visible: true, targetable: true },
 } satisfies Record<BossState, Presence>;
@@ -24,7 +23,7 @@ describe("boss states", () => {
     }
     drill.dispose();
     expect({ reached: [...new Set(observations.map(({ state }) => state))], ...stateContractBreaks(PRESENCE, observations) }).toEqual({
-      reached: ["hidden", "present-invulnerable", "present-out-of-melee-reach", "present-damageable"],
+      reached: ["hidden", "present-damageable", "present-out-of-melee-reach"],
       mismatches: [],
       unreached: [],
     });
