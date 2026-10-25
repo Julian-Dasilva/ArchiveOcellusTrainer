@@ -1,15 +1,23 @@
 import type { CacheAssets } from "osrs-sdk/asset-manifest";
 import type { SpriteFrame } from "./content/ocellus/js/OcellusTimings";
-import { OCELLUS_P3, OCELLUS_P4 } from "./content/ocellus/js/OcellusTimings";
+import { OCELLUS_P1, OCELLUS_P3, OCELLUS_P4 } from "./content/ocellus/js/OcellusTimings";
 
 const { boss, gear, presentation, lifeforceOrb, rifts, explosion, geometry, floorHoles } = OCELLUS_P4;
 
 const sequences = (poses: Readonly<Record<string, Readonly<{ value: number }>>>) => Object.fromEntries(Object.entries(poses).map(([pose, sequence]) => [pose, sequence.value]));
 
+const P1_LOOK = OCELLUS_P1.presentation;
+const p1CrackPieces = [...Object.values(P1_LOOK.crackPieces.straight), ...Object.values(P1_LOOK.crackPieces.diagonal)].flatMap(({ value }) => [value.start, value.piece, value.end]);
+const p1SpotAnims = [
+  ...Object.entries(P1_LOOK.spotAnims).map(([name, spotAnim]) => [`p1${name.charAt(0).toUpperCase()}${name.slice(1)}`, { id: spotAnim.value }]),
+  ...[...p1CrackPieces, ...P1_LOOK.floorExplosions.value.pieces].map((id) => [`p1Floor${id}`, { id }]),
+];
+
 export const ARCHIVE_OCELLUS_ASSETS = {
   npcs: {
     ocellus: { id: boss.npcId.value, animations: { ...sequences(presentation.bossPoses), ...sequences(OCELLUS_P3.bossPoses) } },
     voidRift: { id: rifts.npcId.value, animations: sequences(rifts.poses) },
+    ocellusP1: { id: OCELLUS_P1.boss.npcId.value, animations: sequences(P1_LOOK.bossPoses) },
   },
   models: {
     brazier: { id: geometry.brazier.value.model, animations: { burning: geometry.brazier.value.burning } },
@@ -21,6 +29,7 @@ export const ARCHIVE_OCELLUS_ASSETS = {
     ...Object.entries(presentation.transitionTells).map(([variant, spotAnim]) => [`${variant.replace(/-(.)/g, (_, letter: string) => letter.toUpperCase())}Tell`, { id: spotAnim.value }]),
     ["riftFlare", { id: rifts.burstFlare.value }],
     ["explosion", { id: explosion.spotAnim.value }],
+    ...p1SpotAnims,
   ]),
   sounds: Object.fromEntries(Object.entries(presentation.sounds).map(([cue, sound]) => [cue, { id: sound.value }])),
 } as const satisfies CacheAssets;
@@ -34,7 +43,7 @@ export const ARCHIVE_OCELLUS_OVERRIDES = {
 } as const satisfies CacheAssets;
 
 /** The asset tool extracts no sprites, so scripts/extract-sprites.mjs writes these beside its output. */
-export const ARCHIVE_OCELLUS_SPRITES: readonly SpriteFrame[] = Object.values(presentation.overheadIcons).map((icon) => icon.value);
+export const ARCHIVE_OCELLUS_SPRITES: readonly SpriteFrame[] = [...Object.values(presentation.overheadIcons).map((icon) => icon.value), P1_LOOK.overheadIcon.value];
 
 export function spriteFile({ archive, frame }: SpriteFrame): string {
   return `sprites/${archive}-${frame}.png`;
