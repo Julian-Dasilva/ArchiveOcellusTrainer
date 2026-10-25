@@ -1,9 +1,8 @@
 (() => {
-  const view = new URLSearchParams(location.hash.slice(1)).get("perf-view");
-  if (view !== "3d" && view !== "2d") return;
+  if (location.hash !== "#perf") return;
   const SETTINGS = "osrs-sdk:settings";
   const saved = JSON.parse(localStorage.getItem(SETTINGS) ?? '{"version":1,"values":{}}');
-  saved.values = { ...saved.values, use3dView: view === "3d", playsAudio: false, playsAreaAudio: false };
+  saved.values = { ...saved.values, playsAudio: false, playsAreaAudio: false };
   localStorage.setItem(SETTINGS, JSON.stringify(saved));
 
   const frames = [];
@@ -96,7 +95,6 @@
     p4Tick,
     noteHeap: (usedBytes, backingBytes) => heap.push({ p4: p4Tick(), usedBytes, backingBytes }),
     capture: () => ({
-      view,
       viewport: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio },
       frames,
       ticks,

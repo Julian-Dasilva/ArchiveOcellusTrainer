@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BaseLimits, Capture, Line, Pair } from "./gate";
-import { SIDES, VIEWS, budgetRaises, judge, parseBaseLimits, parseCapture, parseConfig, passes, runMetrics } from "./gate";
+import { SIDES, budgetRaises, judge, parseBaseLimits, parseCapture, parseConfig, passes, runMetrics } from "./gate";
 
 const USAGE = "usage: VERIFY_PERF_BASE=<rev> check.ts <perfGate.json> <captures directory>";
 const GATE_PATH = "src/perf/perfGate.json";
@@ -23,7 +23,7 @@ function describe(line: Line): string {
     case "budget":
       return `${line.name}: ${line.observed} against a budget of ${line.budget}`;
     case "timing":
-      return `${line.measure} ${line.view}: head/base median ratio ${line.medianRatio.toFixed(3)} against a limit of ${line.limit} (base ${line.base.map((v) => v.toFixed(1)).join(", ")}; head ${line.head.map((v) => v.toFixed(1)).join(", ")})`;
+      return `${line.measure}: head/base median ratio ${line.medianRatio.toFixed(3)} against a limit of ${line.limit} (base ${line.base.map((v) => v.toFixed(1)).join(", ")}; head ${line.head.map((v) => v.toFixed(1)).join(", ")})`;
     case "raise":
       return line.exception === null
         ? `${line.limit}: raised from ${line.base} to ${line.head} against the base. A raise needs an entry in the exceptions list of ${GATE_PATH}, added in this pull request, naming the budget, the old and new values (from, to), the reason and the evidence path`
@@ -43,17 +43,14 @@ function main(args: readonly string[]): void {
   if (configFile === undefined || dir === undefined || args.length !== 2 || base === undefined || base === "") throw new Error(USAGE);
   const config = parseConfig(read(configFile));
   const capture = (name: string): Capture => parseCapture(read(join(dir, `${name}.json`)));
-  const pairs = Array.from({ length: config.timing.pairs }, (_, i): Pair => {
-    const sides = (view: (typeof VIEWS)[number]) => ({ base: capture(`base-${view}-${i + 1}`), head: capture(`head-${view}-${i + 1}`) });
-    return { "3d": sides("3d"), "2d": sides("2d") };
-  });
-  const long = capture("long-3d");
+  const pairs = Array.from({ length: config.timing.pairs }, (_, i): Pair => ({ base: capture(`base-${i + 1}`), head: capture(`head-${i + 1}`) }));
+  const long = capture("long");
   const lines = [...budgetRaises(baseLimits(base), config), ...judge(config, { pairs, long })];
   const measured = lines.every(({ kind }) => kind !== "measurement");
   const runs = measured
     ? Object.fromEntries([
-        ...pairs.flatMap((pair, i) => VIEWS.flatMap((view) => SIDES.map((side) => [`${side}-${view}-${i + 1}`, runMetrics(pair[view][side], config.workload.window)]))),
-        ["long-3d", runMetrics(long, config.workload.resources)],
+        ...pairs.flatMap((pair, i) => SIDES.map((side) => [`${side}-${i + 1}`, runMetrics(pair[side], config.workload.window)])),
+        ["long", runMetrics(long, config.workload.resources)],
       ])
     : {};
   for (const line of lines) console.error(`perf: ${passes(line) ? "PASS" : "FAIL"} ${describe(line)}`);

@@ -3094,8 +3094,8 @@ throttle_perf() {
 }
 
 perf_capture() {
-  local name=$1 side=$2 view=$3 until=$4 heap_from=${5:-} at
-  ab open about:blank >/dev/null && ab open "http://127.0.0.1:${PRODUCTION_PORT}/${side}/$(perf_gate workload.query)#perf-view=${view}" >/dev/null || { log "perf: the ${name} page did not open"; return 1; }
+  local name=$1 side=$2 until=$3 heap_from=${4:-} at
+  ab open about:blank >/dev/null && ab open "http://127.0.0.1:${PRODUCTION_PORT}/${side}/$(perf_gate workload.query)#perf" >/dev/null || { log "perf: the ${name} page did not open"; return 1; }
   for at in $heap_from "$until"; do
     ab wait --fn "window.__perfGate.p4Tick() >= ${at}" --timeout $((until * 600 + 120000)) >/dev/null || { log "perf: the ${name} run did not reach P4 tick ${at}"; return 1; }
     [[ -z "$heap_from" ]] || node --import tsx src/perf/devtools.ts heap "$(ab get cdp-url)" "$(perf_tab)" >>"$VERIFY_DIR/perf/heap.log" || { log "perf: no heap reading at P4 tick ${at} of ${name}"; return 1; }
@@ -3106,20 +3106,18 @@ perf_capture() {
 }
 
 drive_perf() {
-  local pair view side order
+  local pair side order
   ab --init-script "$ROOT/src/perf/observer.js" set viewport 1280 800 >/dev/null || { log "the perf session did not start"; return 1; }
   throttle_perf || return 1
   for pair in $(seq 1 "$(perf_gate timing.pairs)"); do
     order=(base head)
     ((pair % 2 == 0)) && order=(head base)
-    for view in 3d 2d; do
-      for side in "${order[@]}"; do
-        perf_capture "${side}-${view}-${pair}" "$side" "$view" "$(perf_gate workload.window.to)" || return 1
-      done
+    for side in "${order[@]}"; do
+      perf_capture "${side}-${pair}" "$side" "$(perf_gate workload.window.to)" || return 1
     done
   done
   release_throttle
-  perf_capture long-3d head 3d "$(perf_gate workload.resources.to)" "$(perf_gate workload.resources.from)" || return 1
+  perf_capture long head "$(perf_gate workload.resources.to)" "$(perf_gate workload.resources.from)" || return 1
   VERIFY_PERF_BASE="$(cat "$VERIFY_DIR/perf/base-revision")" node node_modules/.bin/tsx src/perf/check.ts "$PERF_GATE" "$VERIFY_DIR/perf/captures" >"$VERIFY_DIR/perf-checks.json"
 }
 
