@@ -264,6 +264,8 @@ SETUP_WATCH_MS=3000
 PAUSE_AT_TICK=10
 PAUSE_HOLD_MS=3000
 PAUSE_REBIND_KEY=F7
+PRAYER_KEY=F3
+REPLACEMENT_HOLD_MS=1200
 LOAD_RETRY_QUERY="?seed=1"
 GET_READY_QUERY="?seed=1"
 STORED_VIEW_QUERY="?seed=1"
@@ -1682,15 +1684,23 @@ click_result() {
   reloaded_from "$loaded" || { log "#$1 never loaded a new run"; return 1; }
 }
 
+pause_over_result() {
+  local paused
+  ab click "#pause" >/dev/null && ab wait 300 >/dev/null || return 1
+  paused="$(ab --json eval "(() => { const box = document.getElementById('resume')?.getBoundingClientRect(); const top = box ? document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) : null; return { resume: box !== undefined, onTop: top?.id ?? null }; })()" | json data.result)" || return 1
+  ab click "#resume" >/dev/null && ab wait 300 >/dev/null || return 1
+  printf '{"paused":%s,"resumed":%s}\n' "$paused" "$(result_panel)"
+}
+
 drive_run_results() {
-  local start
+  local start replaced=0
   ab open "${URL}${DEATH_RESULT_QUERY}" >/dev/null || return 1
   ab wait --fn "window.__archiveOcellusProbe?.snapshot().fight?.run.kind === 'ended'" --timeout 120000 >/dev/null || { log "the player on the flood never died"; return 1; }
   ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
   result_panel >"$VERIFY_DIR/death-result.json" || { log "death result capture failed"; return 1; }
   ab screenshot "$VERIFY_DIR/death-result.png" >/dev/null || { log "death result screenshot failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/death-result-page-errors.json" || { log "page error capture failed"; return 1; }
-  click_result result_restart || return 1
+  replace_run result_restart result-restart || replaced=1
   next_run >"$VERIFY_DIR/death-restart.json" || { log "restarted run capture failed"; return 1; }
 
   ab open "${URL}${KILL_RESULT_QUERY}" >/dev/null || return 1
@@ -1705,17 +1715,19 @@ drive_run_results() {
   ab set viewport $MENU_SMALL_VIEWPORT >/dev/null && ab wait 600 >/dev/null && ab screenshot "$VERIFY_DIR/kill-result-small.png" >/dev/null || { log "small kill result screenshot failed"; return 1; }
   ab set viewport 1280 800 >/dev/null && ab wait 600 >/dev/null || return 1
   ab --json errors | json data.errors >"$VERIFY_DIR/kill-result-page-errors.json" || { log "page error capture failed"; return 1; }
-  click_result result_retry || return 1
+  pause_over_result >"$VERIFY_DIR/result-paused.json" || { log "the result page was not paused and resumed"; return 1; }
+  replace_run result_retry result-retry || replaced=1
   printf '{"start":%s,"retry":%s}\n' "$start" "$(next_run)" >"$VERIFY_DIR/kill-retry.json" || { log "retried run capture failed"; return 1; }
 
   node -e '
     const fs = require("fs"), [dir, deathLines, killLines, buttons, killBossHp] = process.argv.slice(1);
     const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
-    const [death, restart, kill, retry] = ["death-result.json", "death-restart.json", "kill-result.json", "kill-retry.json"].map(read);
+    const [death, paused, restart, kill, retry] = ["death-result.json", "result-paused.json", "death-restart.json", "kill-result.json", "kill-retry.json"].map(read);
     const params = (search) => Object.fromEntries(new URLSearchParams(search));
     const same = (a, b) => JSON.stringify(a) === b;
     const checks = {
       deathResultShown: death.visible && same(death.lines, deathLines) && same(death.buttons, buttons) && death.run?.kind === "ended" && death.run.reason === "death" && death.run.at === 54,
+      resumeShowsOverTheResult: paused.paused.resume && paused.paused.onTop === "resume" && paused.resumed.visible && same(paused.resumed.buttons, buttons),
       resultRestartDrawsFreshSeed: same(params(restart.search), JSON.stringify({ focus: "void-floor", setup: "ranged" })) && restart.seed !== 1 && restart.panel === false,
       bossHpLinkStartsLow: retry.start.bossHp === Number(killBossHp) && same(params(retry.start.search), JSON.stringify({ seed: "4", bosshp: killBossHp })),
       killResultShown: kill.visible && same(kill.lines, killLines) && same(kill.buttons, buttons) && kill.run?.kind === "ended" && kill.run.reason === "kill" && kill.run.at === 16,
@@ -1729,7 +1741,7 @@ drive_run_results() {
   local verdict=$?
   cat "$VERIFY_DIR/result-checks.json"
   [[ $verdict -eq 0 ]] || log "a run result check failed"
-  return $verdict
+  [[ $verdict -eq 0 && $replaced -eq 0 ]]
 }
 
 telemetry_box() {
@@ -1831,6 +1843,45 @@ gate_state() {
   ab --json eval "({ start: document.getElementById('start')?.checkVisibility() === true, pause: document.getElementById('pause')?.checkVisibility() === true, resume: document.getElementById('resume')?.checkVisibility() === true })" | json data.result
 }
 
+click_with_departing_input() {
+  canvas_centre || return 1
+  printf '[["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["press","%s"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["press","%s"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["click","#%s"]]' \
+    $((CX - WALK_CLICK_LEFT_PX)) $((CY - WALK_CLICK_UP_PX)) "$PRAYER_KEY" $((CX + PROTECT_MAGIC_RIGHT_PX)) $((CY + PROTECT_DOWN_PX)) \
+    "$KEYBIND_DEFAULT_KEY" "$LOADOUT_SLOT_X" "$LOADOUT_SLOT_Y" "$1" | ab batch --bail >/dev/null
+}
+
+replace_run() {
+  local button="$1" name="$2" origin waiting first_tick first_row
+  origin="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
+  click_with_departing_input "$button" || { log "${name}: the walk, prayer and inventory clicks or #${button} were not sent"; return 1; }
+  ab wait --fn "performance.timeOrigin !== $origin && document.getElementById('start')?.checkVisibility() === true" --timeout 60000 >/dev/null || log "${name}: no new page showed Start"
+  ab wait "$REPLACEMENT_HOLD_MS" >/dev/null
+  waiting="$(ab --json eval "(() => { const probe = window.__archiveOcellusProbe, snapshot = probe.snapshot(); return { reloaded: performance.timeOrigin !== $origin, search: location.search, start: document.getElementById('start')?.checkVisibility() === true, pause: document.getElementById('pause') !== null, tick: snapshot.tick, ticking: snapshot.ticking, rows: probe.log().rows.length }; })()" | json data.result)" || return 1
+  [[ "$(json start <<<"$waiting")" != true ]] || ab click "#start" >/dev/null || { log "${name}: Start was not clicked"; return 1; }
+  ab wait --fn "window.__archiveOcellusProbe.snapshot().tick > $(json tick <<<"$waiting")" --timeout 30000 >/dev/null || log "${name}: the world never ticked"
+  first_tick="$(ab --json eval "(() => { const snapshot = window.__archiveOcellusProbe.snapshot(), carrier = snapshot.fight?.player; return { tick: snapshot.tick, player: snapshot.player, destination: snapshot.destination, weapon: carrier?.equipped.weapon ?? null, slot0: carrier?.inventory[0] ?? null }; })()" | json data.result)" || return 1
+  ab wait --fn "window.__archiveOcellusProbe.log().rows.length > $(json rows <<<"$waiting")" --timeout 30000 >/dev/null || log "${name}: the boss never stepped"
+  first_row="$(probe "log().rows.map((row) => ({ tick: row.tick, tile: row.playerAtPostTick.tile, prayer: row.playerAtPostTick.prayer, inputs: row.inputs })).at(-1) ?? null")" || return 1
+  printf '{"waiting":%s,"firstTick":%s,"firstRow":%s}\n' "$waiting" "$first_tick" "$first_row" >"$VERIFY_DIR/${name}.json"
+
+  node -e '
+    const fs = require("fs"), [file, spawn, weapon, slot0] = process.argv.slice(1);
+    const { waiting, firstTick, firstRow } = JSON.parse(fs.readFileSync(file, "utf8"));
+    const from = JSON.parse(spawn), at = (tile) => tile?.x === from.x && tile?.y === from.y;
+    const checks = { waitsAtStart: waiting.reloaded && waiting.start && !waiting.pause && waiting.tick === 0 && waiting.ticking === false && waiting.rows === 0 };
+    const guards = {
+      carriesNoInput: firstTick.tick >= 1 && at(firstTick.player) && (firstTick.destination === null || at(firstTick.destination)) && firstTick.weapon === Number(weapon) && firstTick.slot0 === Number(slot0) &&
+        firstRow !== null && firstRow.prayer === null && at(firstRow.tile) && firstRow.inputs.length === 0,
+    };
+    console.log(JSON.stringify({ waiting, firstTick, firstRow, checks, guards }, null, 2));
+    process.exit([...Object.values(checks), ...Object.values(guards)].every(Boolean) ? 0 : 1);
+  ' "$VERIFY_DIR/${name}.json" "$SPAWN_TILE" "$(json weapon <<<"$LOADOUT_RANGED_WORN")" "$(json 0 <<<"$SUPPLY_INVENTORY")" >"$VERIFY_DIR/${name}-checks.json"
+  local verdict=$?
+  cat "$VERIFY_DIR/${name}-checks.json"
+  [[ $verdict -eq 0 ]] || log "${name}: the new page did not wait at Start, or it carried input from the run it replaced"
+  return $verdict
+}
+
 drive_setup_pause() {
   local held
   START_ON_LOAD=0 ab open "${URL}${SETUP_QUERY}" >/dev/null || return 1
@@ -1889,8 +1940,11 @@ drive_setup_pause() {
   local verdict=$?
   cat "$VERIFY_DIR/setup-pause-checks.json"
   [[ $verdict -eq 0 ]] || log "a set-up or pause check failed"
+  ab click "#pause" >/dev/null || { log "Pause was not clicked before Restart"; return 1; }
+  replace_run restart restart-paused || verdict=1
   return $verdict
 }
+
 
 record_get_ready() {
   ab eval '(() => {
