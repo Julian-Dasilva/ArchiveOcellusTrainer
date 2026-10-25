@@ -525,8 +525,8 @@ export function ArchiveOcellusApp() {
         <TrainerLoadingSplash state={loading} />
         <GameChat region={drill.region} />
         <DrillControls drill={drill} flags={flags} clock={clock} />
-        <RunGate clock={clock} ready={loading?.status === "ready"} unreadableLoadout={unreadableLoadout ? label(drill.config.choices.setup.key) : null} />
         <RunResultPanel drill={drill} clock={clock} />
+        <RunGate clock={clock} ready={loading?.status === "ready"} unreadableLoadout={unreadableLoadout ? label(drill.config.choices.setup.key) : null} />
         <footer id="credits">
           <p id="maker_credit">
             Made by {MAKER}{" "}
