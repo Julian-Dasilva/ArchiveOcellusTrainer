@@ -1,4 +1,4 @@
-import { Settings, Viewport } from "osrs-sdk";
+import { Viewport } from "osrs-sdk";
 import type { OcellusRegion } from "../content/ocellus/js/OcellusRegion";
 import { CHANGELOG } from "../content/ocellus/changelog";
 import { browserFamily, gpuFamily, webglRenderer } from "./device";
@@ -66,7 +66,7 @@ function summarise(region: OcellusRegion, recorder: RunRecorder, sampleRate: num
   const { canvas } = Viewport.viewport;
   return {
     version: CHANGELOG[0].version,
-    view: Settings.use3dView ? "3d" : "2d",
+    view: "3d",
     gpu: gpuFamily(webglRenderer()),
     browser: browserFamily(navigator.userAgent),
     stage: last.phase.stage,
