@@ -192,6 +192,7 @@ EXPLOSION_OVERHEAD_MIN_SHARE=0.2
 EXPLOSION_OVERHEAD_SHOT_FRACTION=0.05
 EXPLOSION_OUTSIDE_TICKS="15 29"
 EXPLOSION_GLOW_SHOT_FRACTION=0.6
+EXPLOSION_GLOW_FRAME_FRACTION=0.8
 EXPLOSION_MARKED_SHOT_FRACTIONS="0.6 0.8"
 EXPLOSION_RUN_END_QUERY="?seed=38&bosshp=1&focus=explosions"
 EXPLOSION_KILL_CLICK_TICK=14
@@ -507,6 +508,20 @@ shot_in_fight_tick() {
 shot_in_world_tick() {
   printf '[["wait","--fn","((t) => t > %d || (t === %d && (performance.now() - (window.__worldTickStarts[%d] ?? Infinity)) / 600 >= %s))(window.__archiveOcellusProbe.snapshot().tick)","--timeout","30000"],["screenshot","%s"]]' \
     "$1" "$1" "$1" "$2" "$VERIFY_DIR/$3" | ab batch --bail >/dev/null
+}
+
+canvas_in_fight_tick() {
+  ab eval "(() => {
+    window.__canvasFrame = undefined;
+    const grab = () => {
+      if (performance.now() - (window.__tickStarts[$1] ?? Infinity) >= 600 * $2) return void (window.__canvasFrame = document.querySelector('#world').toDataURL('image/png'));
+      requestAnimationFrame(grab);
+    };
+    requestAnimationFrame(grab);
+  })()" >/dev/null &&
+    ab wait --fn "window.__canvasFrame !== undefined" --timeout 30000 >/dev/null &&
+    ab --json eval "window.__canvasFrame" | json data.result |
+    node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>require("fs").writeFileSync(process.argv[1],Buffer.from(s.replace(/^data:image\/png;base64,/,""),"base64")))' "$VERIFY_DIR/$3"
 }
 
 record_tick_starts() {
@@ -1252,7 +1267,7 @@ drive_explosions() {
   canvas_centre || { log "canvas box unreadable"; return 1; }
   shot_in_fight_tick "${outside[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-before.png || { log "pre-series screenshot failed"; return 1; }
   click_after_tick $((inner[0] - 1)) "$DODGE_CLICK_SIDE_PX" "$STEP_CLICK_DOWN_PX" || { log "the first dodge was not clicked"; return 1; }
-  shot_in_fight_tick "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-left.png || { log "left marker screenshot failed"; return 1; }
+  canvas_in_fight_tick "${inner[0]}" "$EXPLOSION_GLOW_FRAME_FRACTION" explosion-left.png || { log "left marker canvas capture failed"; return 1; }
   step_on_marks "-$DODGE_CLICK_SIDE_PX" "${inner[@]:1}" || { log "the other dodges were not clicked"; return 1; }
   shot_in_fight_tick "${outside[1]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-after.png || { log "post-series screenshot failed"; return 1; }
   printf '[["wait","--fn","(window.__archiveOcellusProbe?.snapshot().fight?.run.tick ?? -1) >= %d","--timeout","60000"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["wait","--fn","window.__archiveOcellusProbe?.snapshot().fight?.run.tick === %d && (performance.now() - (window.__tickStarts[%d] ?? Infinity)) / 600 >= %s","--timeout","5000"],["screenshot","%s"]]' \
@@ -1269,7 +1284,7 @@ drive_explosions() {
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick 0 0 "-$UNDER_BOSS_CLICK_UP_PX" || { log "the walk under the hidden boss was not clicked"; return 1; }
   record_tick_starts || { log "the tick watch was not installed"; return 1; }
-  shot_in_fight_tick "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-under.png || { log "under-boss screenshot failed"; return 1; }
+  canvas_in_fight_tick "${inner[0]}" "$EXPLOSION_GLOW_FRAME_FRACTION" explosion-under.png || { log "under-boss canvas capture failed"; return 1; }
   fight_tick_at_least "$EXPLOSION_UNDER_LAST_TICK" 30000 || { log "the camping drill never stepped to P4 tick ${EXPLOSION_UNDER_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/explosions-under.json"
   ab console >"$VERIFY_DIR/explosion-under-console.log" 2>&1 || { log "console capture failed"; return 1; }
