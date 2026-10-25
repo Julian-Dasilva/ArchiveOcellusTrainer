@@ -1,3 +1,4 @@
+import type { CacheRenderBundleManifest } from "osrs-sdk";
 import type { CacheAssets } from "osrs-sdk/asset-manifest";
 import type { SpriteFrame } from "./content/ocellus/js/OcellusTimings";
 import { OCELLUS_P3, OCELLUS_P4 } from "./content/ocellus/js/OcellusTimings";
@@ -24,6 +25,24 @@ export const ARCHIVE_OCELLUS_ASSETS = {
   ]),
   sounds: Object.fromEntries(Object.entries(presentation.sounds).map(([cue, sound]) => [cue, { id: sound.value }])),
 } as const satisfies CacheAssets;
+
+type RenderCategory = "npcs" | "models" | "spotAnims";
+
+const RENDERED: Readonly<Record<RenderCategory, Readonly<Record<string, Readonly<{ id: number }>>>>> = ARCHIVE_OCELLUS_ASSETS;
+
+const SERVED: readonly (readonly [RenderCategory, (manifest: CacheRenderBundleManifest, id: number) => boolean])[] = [
+  ["npcs", (manifest, id) => `npc:${id}` in manifest.references],
+  ["models", (manifest, id) => `model:${id}` in manifest.references],
+  ["spotAnims", (manifest, id) => manifest.spotAnims?.[id] !== undefined],
+];
+
+export function reportUnservedAssets(manifest: CacheRenderBundleManifest): void {
+  for (const [category, served] of SERVED) {
+    for (const [name, { id }] of Object.entries(RENDERED[category])) {
+      if (!served(manifest, id)) console.error(`assets: osrs-assets/manifest.json has no ${category}.${name} (${id}); rebuild public/osrs-assets with npm run assets`);
+    }
+  }
+}
 
 export const ITEM_ICON_DIR = "item-icons";
 export const itemIconFile = (itemId: number) => `${ITEM_ICON_DIR}/${itemId}.png`;
