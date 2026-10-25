@@ -338,23 +338,7 @@ ensure_deps() {
 }
 
 manifest_ready() {
-  [[ -f "$MANIFEST" ]] && node --input-type=module -e '
-    import { loadConfig } from "osrs-sdk-assets";
-    import { existsSync, readFileSync } from "node:fs";
-    import { dirname, join } from "node:path";
-    const { assets } = await loadConfig();
-    const m = JSON.parse(readFileSync(process.argv[1], "utf8"));
-    const npcs = Object.values(assets.npcs).every(({ id }) => m.assets?.[`npc-${id}`]);
-    const items = Object.values(assets.items).every(({ id }) => m.playerItems?.[`item:${id}`]);
-    const spotAnims = Object.values(assets.spotAnims).every(({ id }) => m.spotAnims?.[id]);
-    const models = Object.values(assets.models).every(({ id }) => m.assets?.[`model-${id}`]);
-    const pack = m.soundEffects && join(dirname(process.argv[1]), m.soundEffects.file);
-    const bytes = pack && existsSync(pack) ? readFileSync(pack) : Buffer.alloc(6);
-    const packed = new Set();
-    for (let at = 6, n = 0; n < bytes.readUInt16BE(4); n++, at += 4 + bytes.readUInt16BE(at + 2)) packed.add(bytes.readUInt16BE(at));
-    const sounds = Object.values(assets.sounds).every(({ id }) => packed.has(id));
-    process.exit(m.cache?.source === "openrs2:2746" && npcs && items && spotAnims && models && sounds ? 0 : 1);
-  ' "$MANIFEST" && node scripts/extract-sprites.mjs --check
+  node_modules/.bin/tsx src/assetBundle/check.ts
 }
 
 stage_build() {
@@ -375,12 +359,12 @@ stage_test() {
 
 stage_assets() {
   local flags=(--cache-dir "$OSRS_CACHE_DIR" --reader-path "$OSRS_CACHE_READER")
-  if manifest_ready; then
-    log "assets: manifest already has every configured npc, model, item, spotanim and sound from openrs2:2746, and every sprite, skipping the model rebuild" | tee "$VERIFY_DIR/assets.log"
+  if manifest_ready >"$VERIFY_DIR/assets.log" 2>&1; then
+    log "assets: public/osrs-assets already has every configured asset and sprite, skipping the model rebuild" | tee -a "$VERIFY_DIR/assets.log"
     npm run item-icons -- "${flags[@]}" >>"$VERIFY_DIR/assets.log" 2>&1
     return
   fi
-  npm run assets -- "${flags[@]}" >"$VERIFY_DIR/assets.log" 2>&1 && manifest_ready
+  npm run assets -- "${flags[@]}" >>"$VERIFY_DIR/assets.log" 2>&1 && manifest_ready
 }
 
 port_listener() {
@@ -3116,7 +3100,7 @@ case "${1:-}" in
 esac
 
 stages=("$@")
-[[ ${#stages[@]} -gt 0 ]] || stages=(build types test assets browser production)
+[[ ${#stages[@]} -gt 0 ]] || stages=(assets build types test browser production)
 for stage in "${stages[@]}"; do
   case "$stage" in build | types | test | assets | browser | production | perf) ;; *) log "unknown stage: ${stage}"; exit 2 ;; esac
 done

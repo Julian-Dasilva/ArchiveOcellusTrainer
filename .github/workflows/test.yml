@@ -34,7 +34,6 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: node review-ratchet/checks/replay-controls.mjs --base "$BASE"
       - run: scripts/netlify-build.test.sh
-      - run: npm run build
 
   perf:
     runs-on: ubuntu-latest

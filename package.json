@@ -12,8 +12,8 @@
     "node": ">=22 <23"
   },
   "scripts": {
-    "start": "webpack serve --mode development",
-    "build": "webpack --mode production && tsx src/cacheHeaders/check.ts dist",
+    "start": "tsx src/assetBundle/check.ts && webpack serve --mode development",
+    "build": "tsx src/assetBundle/check.ts && webpack --mode production && tsx src/cacheHeaders/check.ts dist",
     "test": "vitest run",
     "typecheck": "tsgo --noEmit --moduleResolution bundler && node scripts/check-types.mjs",
     "typecheck:tsc": "tsc --noEmit && node scripts/check-types.mjs",

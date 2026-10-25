@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { randomUUID } from "node:crypto";
-import { access, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -25,13 +25,6 @@ try {
   await rm(compiled, { force: true });
 }
 const targets = assets.ARCHIVE_OCELLUS_SPRITES.map((sprite) => ({ sprite, file: path.join(config.outDir, assets.spriteFile(sprite)) }));
-
-if (args.includes("--check")) {
-  const missing = [];
-  for (const { file } of targets) await access(file).catch(() => missing.push(path.relative(root, file)));
-  if (missing.length > 0) console.log(`extract-sprites: missing ${missing.join(", ")}`);
-  process.exit(missing.length === 0 ? 0 : 1);
-}
 
 const { RSCache } = await import(pathToFileURL(path.join(config.readerPath, "src/index.js")).href);
 const { createCanvas } = createRequire(path.join(config.readerPath, "package.json"))("canvas");
