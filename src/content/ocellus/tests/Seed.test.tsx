@@ -16,7 +16,7 @@ function drawRandomSeeds(values: readonly number[]) {
 const runSeed = () => window.__archiveOcellusProbe?.log().header.seed ?? null;
 
 describe("Seed per run", () => {
-  beforeEach(() => localStorage.setItem("osrs-sdk:settings", JSON.stringify({ version: 1, values: { use3dView: false } })));
+  beforeEach(() => localStorage.removeItem("osrs-sdk:settings"));
 
   test("a run without a typed seed draws a fresh one and shows it, and Restart replays a seed only when one is typed, even the one already shown", () => {
     drawRandomSeeds([4242, 77, 55]);

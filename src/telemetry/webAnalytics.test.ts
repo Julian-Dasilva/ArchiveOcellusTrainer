@@ -28,7 +28,6 @@ async function openAFreshBuild({ token, sampleRate, optedOut }: Build) {
 describe("Cloudflare Web Analytics", () => {
   beforeEach(() => {
     localStorage.clear();
-    localStorage.setItem("osrs-sdk:settings", JSON.stringify({ version: 1, values: { use3dView: false } }));
     document.querySelectorAll("script").forEach((script) => script.remove());
     vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance", "setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
   });

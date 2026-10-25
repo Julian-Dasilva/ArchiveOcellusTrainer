@@ -164,7 +164,7 @@ describe("Invincible", () => {
   });
 
   test("the Invincible box starts unchecked, a link with invincible=on starts it checked, and Restart carries what the box shows", () => {
-    localStorage.setItem("osrs-sdk:settings", JSON.stringify({ version: 1, values: { use3dView: false } }));
+    localStorage.removeItem("osrs-sdk:settings");
     const navigation = captureNavigation();
     const plain = loadPage("/?seed=7");
     const checkedOnLoad = [plain.checked("invincible")];

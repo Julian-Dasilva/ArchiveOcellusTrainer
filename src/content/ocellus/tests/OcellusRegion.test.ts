@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { Settings } from "osrs-sdk";
 import { paintedStyleAt, paintedTiles } from "../../../../test/paintedTiles";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { startDrill } from "./drill";
@@ -140,7 +139,7 @@ describe("Ocellus arena", () => {
     });
   });
 
-  test("the back wall draws one straight diagonal from the end of the straight run to the jut, and the flood meets it along that diagonal on the map and from above in 3D", () => {
+  test("guard: the back wall draws one straight diagonal from the end of the straight run to the jut, and the flood meets it along that diagonal from above in 3D", () => {
     const drill = startDrill({ selection: { focus: "void-floor" } });
     const { region } = drill;
     const [wall, flood] = [OCELLUS_P4.geometry.walkway.value.top, OCELLUS_P4.floor.look.value.void];
@@ -163,12 +162,6 @@ describe("Ocellus arena", () => {
     };
     const ground = raster(paintedStyleAt((context, scale) => region.drawWorldBackground(context, scale)));
     drill.tickTo(45);
-    const flooded = raster(
-      paintedStyleAt((context, scale) => {
-        region.drawWorldBackground(context, scale);
-        region.entities.forEach((entity) => entity.draw(0, context));
-      }, Settings.tileSize),
-    );
     const scene = new THREE.Scene();
     region.entities.forEach((entity) => entity.get3dModel()?.draw(scene, 0, 0, entity.getPerceivedLocation(0), 0, 0, entity.visible(0), []));
     scene.updateMatrixWorld(true);
@@ -187,29 +180,6 @@ describe("Ocellus arena", () => {
     });
     drill.dispose();
     expect(drill.row(45).phase.stage).toBe("outer-void");
-    expect(flooded).toEqual([
-      "vvvvvvvvvvvvvvvwww",
-      "vvvvvvvvvvvvvvvwww",
-      "vvvvvvvvvvvvvvvwww",
-      "###vvvvvvvvvvvvwww",
-      "###vvvvvvvvvvvvwww",
-      "###vvvvvvvvvvvvwww",
-      "###vvvvvvvvvvvvwww",
-      "###vvvvvvvvvvvwwww",
-      "###vvvvvvvvvvwwwww",
-      "###vvvvvvvvvwww...",
-      "###vvvvvvvvwwww...",
-      "###vvvvvvvwwwww...",
-      "###vvvvvvwww......",
-      "###vvvvvwwww......",
-      "###vvvvwwwww......",
-      "###wwwwww.........",
-      "###wwwwww.........",
-      "###wwwwww.........",
-      "wwwwww............",
-      "wwwwww............",
-      "wwwwww............",
-    ]);
     expect(fromAbove).toEqual([
       "vvvvvvvvvvvvvvvwww",
       "vvvvvvvvvvvvvvvwww",

@@ -17,7 +17,7 @@ function savedKey(): unknown {
 const bindingSettled = () => new Promise((resolve) => setTimeout(resolve, 30));
 
 describe("U7 key bindings", () => {
-  beforeEach(() => localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { use3dView: false, inventory_key: "F4" } })));
+  beforeEach(() => localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { inventory_key: "F4" } })));
 
   test("the Keybinds button opens the key bindings, and a key bound there opens its tab after a reload", async () => {
     const first = loadPage("/?seed=1");

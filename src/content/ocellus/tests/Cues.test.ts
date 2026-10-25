@@ -51,7 +51,7 @@ describe("timing cues", () => {
     // jsdom runs no phone browser, so the user agent the SDK reads stands in for one.
     vi.spyOn(navigator, "userAgent", "get").mockReturnValue(userAgent);
     Settings._isMobileResult = null;
-    localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { use3dView: false } }));
+    localStorage.removeItem(SAVED_SETTINGS);
     const toggles = (page: ReturnType<typeof loadPage>) => [page.checked("sound"), page.checked("area_sound")];
     const saved = () => {
       const { playsAudio, playsAreaAudio } = JSON.parse(localStorage.getItem(SAVED_SETTINGS) ?? "{}").values;

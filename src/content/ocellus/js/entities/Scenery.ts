@@ -92,8 +92,6 @@ export class Walkway extends Entity {
     return LineOfSightMask.NONE;
   }
 
-  override draw(): void {}
-
   protected override create3dModel(): Model {
     return new WalkwayModel();
   }
@@ -115,8 +113,6 @@ export class Brazier extends Entity {
   override getPerceivedLocation(): Location3 {
     return { ...this.location, z: LOOK.height };
   }
-
-  override draw(): void {}
 
   protected override create3dModel(): Model {
     return CacheRenderInstancedModel.forRenderable(this, CacheRenderReferences.model(BRAZIER.model));

@@ -12,7 +12,7 @@ function choose(id: string, value: string, page: ReturnType<typeof loadPage>) {
 }
 
 describe("Settings menu", () => {
-  beforeEach(() => localStorage.setItem("osrs-sdk:settings", JSON.stringify({ version: 1, values: { use3dView: false } })));
+  beforeEach(() => localStorage.removeItem("osrs-sdk:settings"));
 
   test("the Settings button opens the menu, a click inside keeps it open, and a second click, Escape, Escape in the seed box or a click outside closes it", () => {
     const page = loadPage("/?seed=1");

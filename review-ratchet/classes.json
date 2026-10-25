@@ -1,21 +1,6 @@
 {
   "classes": [
     {
-      "id": "render-path-parity-gap",
-      "description": "A visual change reaches one render path and not the other, so 2D and 3D show a cue over different parts of a tick.",
-      "occurrences": [
-        { "ref": "review:archive-ocellus/explosion-visual-review-sol", "date": "2026-10-23", "note": "The 2D explosion mark drew only its still-transparent glow, so it was invisible through half of the mark tick while 3D showed the shards." },
-        { "ref": "review:archive-ocellus/explosion-fix-review-sol", "date": "2026-10-23", "note": "The 2D repair was proved only by a single draw-method probe, with no check of the assembled 2D view over the mark tick." }
-      ],
-      "check": {
-        "path": "review-ratchet/checks/render-paths.mjs",
-        "fixtures": "review-ratchet/fixtures/render-path-parity",
-        "violation": { "fixture": "violation.json", "args": ["{fixture}"] },
-        "clean": { "fixture": "clean.json", "args": ["{fixture}"] },
-        "used_by": ["src/content/ocellus/tests/RenderPaths.test.ts"]
-      }
-    },
-    {
       "id": "replay-fails-for-wrong-reason",
       "description": "A claimed regression fails on the base because the overlaid head test code does not run there, not at the assertion it claims.",
       "occurrences": [

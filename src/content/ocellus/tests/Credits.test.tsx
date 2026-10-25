@@ -1,6 +1,6 @@
 import { loadPage } from "./page";
 
-beforeEach(() => localStorage.setItem("osrs-sdk:settings", JSON.stringify({ version: 1, values: { use3dView: false } })));
+beforeEach(() => localStorage.removeItem("osrs-sdk:settings"));
 
 test("the footer credits the makers with GitHub and X links that open in a new tab, above the unchanged Jagex credit line", () => {
   const page = loadPage("/?seed=1");

@@ -23,7 +23,6 @@ export type Phase =
   | Readonly<{ stage: "after-outer"; cycle: Cycle; boss: "present-damageable"; overhead: "deflect-range" | "soul-split" | null }>;
 export type Stage = Phase["stage"];
 export type VoidKind = "inner-void" | "outer-void";
-export type RenderView = "2d" | "3d";
 export type TransitionKind = "after-inner" | "after-outer";
 export type BossState = Phase["boss"];
 export type BossOverhead = NonNullable<Phase["overhead"]>;

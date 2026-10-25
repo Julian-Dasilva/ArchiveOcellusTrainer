@@ -1,5 +1,5 @@
 import type { At } from "./drill";
-import { FLOOD_NORTH_OF_RING, RING_NORTH, SPAWN_ON_FLOOD, UNDER_BOSS, drawOverUnits, startDrill } from "./drill";
+import { FLOOD_NORTH_OF_RING, RING_NORTH, SPAWN_ON_FLOOD, UNDER_BOSS, startDrill } from "./drill";
 
 const EXPLOSIONS = { focus: "explosions" } as const;
 const BESIDE_SPAWN: At = { x: 6, y: 1 };
@@ -56,35 +56,15 @@ describe("U4 personal explosions", () => {
     drill.dispose();
   });
 
-  test("in 2D, the mark's shards close in on the player's tile through the first half of the mark tick, then give way to the glow", () => {
-    const drill = startDrill({ selection: EXPLOSIONS });
-    drill.tickTo(17);
-    const reach = [0.1, 0.25, 0.45, 0.75].map((t) => drill.drawnShardReach(SPAWN_ON_FLOOD, t).map((tiles) => Math.round(tiles * 10) / 10));
-    expect(reach).toEqual([Array(7).fill(0.7), Array(7).fill(0.5), Array(7).fill(0.3), []]);
-    drill.dispose();
-  });
-
-  test("in 2D, the void shards draw over the units, so over the player's square, on each mark tick of both series and on no tick between or after them", () => {
-    const drill = startDrill({ selection: EXPLOSIONS });
-    drill.region.invincible = true;
-    const shardTicks: number[] = [];
-    for (let t = 15; t <= 61; t++) {
-      drill.tickTo(t);
-      if (drill.drawnShardReach(SPAWN_ON_FLOOD, 0.25, drawOverUnits).length > 0) shardTicks.push(t);
-    }
-    expect(shardTicks).toEqual([17, 19, 21, 23, 25, 27, 48, 50, 52, 54, 56, 58]);
-    drill.dispose();
-  });
-
   test("a kill on an impact tick ends the run with the pending mark no longer drawn", async () => {
     const drill = startDrill({ seed: BOW_ROLLS_24_9_13_53, bossHp: 1, selection: EXPLOSIONS });
     await drill.click(RING_NORTH);
     drill.tickTo(15);
     await drill.click(UNDER_BOSS);
     drill.tickTo(17);
-    const marked = drill.drawnShardReach(RING_NORTH, 0.25).length;
+    const marked = drill.drawnMarks();
     drill.tickTo(18);
-    expect([marked, drill.events("run-ended").map((e) => [e.at, e.reason]), drill.drawnShardReach(RING_NORTH, 0.25)]).toEqual([7, [[18, "kill"]], []]);
+    expect([marked, drill.events("run-ended").map((e) => [e.at, e.reason]), drill.drawnMarks()]).toEqual([[RING_NORTH], [[18, "kill"]], []]);
     drill.dispose();
   });
 

@@ -8,7 +8,7 @@ import { P3Region } from "./content/ocellus/js/P3Region";
 import type { DrillConfig, DrillRequest, P3Config } from "./content/ocellus/js/OcellusTimings";
 import { OCELLUS_P4, parseRequest } from "./content/ocellus/js/OcellusTimings";
 import type { P3End, P3Log, P3Snapshot } from "./content/ocellus/js/P3Types";
-import type { FightLog, FightSnapshot, RenderView, RunEnd } from "./content/ocellus/js/P4Types";
+import type { FightLog, FightSnapshot, RunEnd } from "./content/ocellus/js/P4Types";
 import type { Tick } from "./sim/brands";
 import type { BuildFlags } from "./flags";
 import { readBuildFlags } from "./flags";
@@ -64,10 +64,10 @@ function drawnIcons(items: readonly (Item | null | undefined)[]): VerificationPr
 
 type Drill = Readonly<{ phase: "p4"; region: OcellusRegion; config: DrillConfig }> | Readonly<{ phase: "p3"; region: P3Region; config: P3Config }>;
 
-function mount(request: DrillRequest, view: RenderView): Drill {
+function mount(request: DrillRequest): Drill {
   switch (request.phase) {
     case "p4":
-      return { phase: "p4", region: new OcellusRegion(request.config, view), config: request.config };
+      return { phase: "p4", region: new OcellusRegion(request.config), config: request.config };
     case "p3":
       return { phase: "p3", region: new P3Region(request.config), config: request.config };
     default: {
@@ -103,6 +103,7 @@ function exposeVerificationProbe(trainer: TrainerInstance, region: OcellusRegion
 }
 
 const SOUNDS_START_ON = true;
+const THREE_D_VIEW = { use3dView: true, rotated: "north" } as const;
 
 type SoundChoice = Partial<Pick<SettingsState, "playsAudio" | "playsAreaAudio">>;
 
@@ -125,7 +126,7 @@ function readSettings() {
   // The SDK saves its own off defaults on a first load and turns sound off on every mobile load, so the player's choice is read before it loads.
   const saved = savedSoundChoice();
   Settings.readFromStorage();
-  Settings.set({ playsAudio: saved.playsAudio ?? SOUNDS_START_ON, playsAreaAudio: saved.playsAreaAudio ?? SOUNDS_START_ON });
+  Settings.set({ ...THREE_D_VIEW, playsAudio: saved.playsAudio ?? SOUNDS_START_ON, playsAreaAudio: saved.playsAreaAudio ?? SOUNDS_START_ON });
 }
 
 function createTrainer() {
@@ -133,10 +134,9 @@ function createTrainer() {
   readSettings();
   const flags = readBuildFlags();
   const request = parseRequest(new URL(window.location.href), () => crypto.getRandomValues(new Uint32Array(1))[0], flags);
-  const view: RenderView = Settings.use3dView ? "3d" : "2d";
-  const drill = mount(request, view);
+  const drill = mount(request);
   drill.region.invincible = request.invincible;
-  const trainer = new TrainerInstance(drill.region, { force2d: view === "2d" });
+  const trainer = new TrainerInstance(drill.region);
   if (process.env.NODE_ENV !== "production") exposeVerificationProbe(trainer, drill.region, request.rejected);
   loadWebAnalytics();
   if (drill.phase === "p4") void startPerfTelemetry(drill.region);

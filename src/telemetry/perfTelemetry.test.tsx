@@ -79,7 +79,6 @@ function hidePage(hidden: boolean) {
 describe("Performance telemetry", () => {
   beforeEach(() => {
     localStorage.clear();
-    localStorage.setItem("osrs-sdk:settings", JSON.stringify({ version: 1, values: { use3dView: false } }));
     Object.defineProperty(navigator, "hardwareConcurrency", { configurable: true, value: 12 });
     vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance", "setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
   });
@@ -103,7 +102,7 @@ describe("Performance telemetry", () => {
         url: "http://localhost/t",
         summary: {
           version: "2026.10.25.3",
-          view: "2d",
+          view: "3d",
           gpu: "unavailable",
           browser: "other",
           stage: "outer-void",

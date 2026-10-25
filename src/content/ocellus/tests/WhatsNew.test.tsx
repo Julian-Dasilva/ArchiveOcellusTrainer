@@ -39,7 +39,6 @@ function whatsNew(page: ReturnType<typeof loadPage>) {
 describe("What's new", () => {
   beforeEach(() => {
     localStorage.clear();
-    localStorage.setItem("osrs-sdk:settings", JSON.stringify({ version: 1, values: { use3dView: false } }));
   });
 
   test("a first visit shows the dot until What's new is opened from Settings, the panel lists the releases newest first, and a reload keeps the dot cleared", () => {

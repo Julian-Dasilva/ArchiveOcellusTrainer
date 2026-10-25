@@ -36,7 +36,7 @@ async function openFight(url: string) {
 }
 
 describe("Run result", () => {
-  beforeEach(() => localStorage.setItem("osrs-sdk:settings", JSON.stringify({ version: 1, values: { use3dView: false } })));
+  beforeEach(() => localStorage.removeItem("osrs-sdk:settings"));
 
   test("guard: a kill shows Ocellus defeated with the P4 time in ticks and game time; Restart draws a new seed and Retry seed replays it, both keeping bosshp", async () => {
     const navigation = captureNavigation();

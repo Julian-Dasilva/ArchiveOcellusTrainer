@@ -575,7 +575,6 @@ type LifeforceOrbRecipe = Readonly<{
   orbDistance: Selected<Readonly<{ min: number; max: number }>>;
   returnAfterStep: Selected<TickSpan>;
   look: Readonly<Record<OrbVisual, Selected<number>>>;
-  marker: Selected<Readonly<{ dormant: string; ready: string }>>;
 }>;
 
 const spotAnim = (id: number, name: string, basis: Basis, note: string): Selected<number> =>
@@ -610,26 +609,12 @@ const LIFEFORCE_ORB: LifeforceOrbRecipe = {
     tell: spotAnim(4313, "soul_fragment_player_idle", "assumption", "played on the player at the lifeforce tell, where the footage shows a teal swirl; the spec pairs it with the pickup"),
     regain: spotAnim(4314, "soul_fragment_player_regain", "inferred", "the fragment returning to the player"),
   },
-  marker: selected({ dormant: "#20251e", ready: "#7cecb2" }, "footage-repeated", "team-5", "the 2D orb: median of the darkest fifth of the new orb and the brightest fifth of the glowing one", NO_WIKI_PRESENTATION, vod("V2", "k53"), vod("V2", "k64")),
 };
 
 type ExplosionSeriesRecipe = Readonly<{
   seriesStartsAfterHit: Selected<TickSpan>;
   spotAnim: Selected<number>;
-  shards: Selected<string>;
-  look: Selected<ExplosionLook>;
   dodge: Selected<Readonly<{ radius: number; attackDelayCut: TickSpan }>>;
-}>;
-type Between = readonly [from: number, to: number];
-type ExplosionLook = Readonly<{
-  glow: string;
-  glowOpacity: number;
-  glowTiles: number;
-  shardTiles: number;
-  shardsFadeIn: number;
-  glowFrom: number;
-  glowRamp: number;
-  shardRadius: Between;
 }>;
 
 const EXPLOSION: ExplosionSeriesRecipe = {
@@ -643,30 +628,6 @@ const EXPLOSION: ExplosionSeriesRecipe = {
     cache("spotanim 4339 vfx_void_chain_explosion: model 62616, seq 14933 vfx_void_chain_explosion_full, 21 frames, 55 client cycles; 1990 of 2135 faces opaque and 145 with base alphas, none textured"),
     vod("V1", "3:54:06.40 to 3:54:07.35, shards high around the head at 6.45 to 6.55, glow on the left tile from 6.75, burst at 7.0"),
     owner("the void shards come in high over the player's head at the start of each mark, not at the feet", "2026-10-24"),
-  ),
-  shards: selected(
-    "#5e317b",
-    "footage-repeated",
-    "team-5",
-    "the 2D view's stand-in for the shards of spotanim 4339: median colour of the shards on four mark ticks",
-    STRATEGIES, vod("V2", "k57, k59, k61, k65"),
-  ),
-  look: selected(
-    {
-      glow: "#761ba2",
-      glowOpacity: 0.85,
-      glowTiles: 1.2,
-      shardTiles: 0.12,
-      shardsFadeIn: 0.1,
-      glowFrom: 0.5,
-      glowRamp: 0.2,
-      shardRadius: [0.8, 0.25],
-    },
-    "footage-repeated",
-    "unscaled",
-    "the 2D view's stand-in for spotanim 4339 on the mark tick: square shards close in on the marked tile over the units, so they show over the player's square, and for the tick's second half a translucent hexagonal purple glow fills the tile under them. Three cycles at 20 fps put the glow from 6 to 8 of the tick's 12 frames, so it starts halfway and ramps in over about 2 frames. The glow colour and opacity solve the 120, 55, 150 glow seen over the 126, 140, 115 floor. The glow size, the shard squares' size and the shards' path (radius in tiles) are chosen by eye against the same frames; times are fractions of the tick",
-    NO_WIKI_PRESENTATION, owner("explosion mark in https://www.twitch.tv/videos/2907533010 from 8:38:50 to 8:38:53, frames at 20 fps", "2026-10-22"),
-    owner("friends' screenshot of the explosion mark", "2026-10-22"),
   ),
   dodge: selected(
     { radius: 1, attackDelayCut: span(3) },

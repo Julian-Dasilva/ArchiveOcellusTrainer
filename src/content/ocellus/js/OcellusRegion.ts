@@ -5,7 +5,7 @@ import { OCELLUS_P4 } from "./OcellusTimings";
 import { dress, loadoutSnapshot } from "./OcellusLoadout";
 import { OcellusPlayer } from "./OcellusPlayer";
 import type { SoundId, Tile } from "../../../sim/brands";
-import type { FightEvent, FightLog, FightSnapshot, PlayerHitSource, RenderView, VoidKind } from "./P4Types";
+import type { FightEvent, FightLog, FightSnapshot, PlayerHitSource, VoidKind } from "./P4Types";
 import { ExplosionViews } from "./entities/ExplosionViews";
 import { BossLook, FloorHole, FragmentFlash, OrbView, PlayerLook, VoidField } from "./entities/P4Views";
 import { Brazier, Walkway } from "./entities/Scenery";
@@ -126,7 +126,7 @@ export class OcellusRegion extends Region {
   private mounted: Mounted = { kind: "unmounted" };
   invincible = false;
 
-  constructor(private readonly config: DrillConfig, private readonly view: RenderView) {
+  constructor(private readonly config: DrillConfig) {
     super();
   }
 
@@ -192,7 +192,7 @@ export class OcellusRegion extends Region {
       holes: ocellus.holes.tiles().map((at) => new FloorHole(this, at)),
       orbs: { "inner-void": new OrbView(this), "outer-void": new OrbView(this) },
       fragment: new FragmentFlash(this),
-      explosions: new ExplosionViews(this, this.view),
+      explosions: new ExplosionViews(this),
       boss: new BossLook(ocellus),
       player: new PlayerLook(player),
       chat: [],
