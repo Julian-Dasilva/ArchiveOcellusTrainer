@@ -6,7 +6,7 @@ import { dress, loadoutSnapshot } from "./OcellusLoadout";
 import { OcellusPlayer } from "./OcellusPlayer";
 import type { Tile } from "../../../sim/brands";
 import type { HitReceipt } from "../../../sim/combat";
-import type { FlickMiss, P3Event, P3Hit, P3HitSource, P3Log, P3Snapshot, P3Stage } from "./P3Types";
+import type { FlickMiss, P3Event, P3Hit, P3HitSource, P3Log, P3Snapshot, P3Stage, Spin } from "./P3Types";
 import { OcellusP3 } from "./mobs/OcellusP3";
 import { ARENA_SIZE, FLOOR, QUADRANT_1_FLOOR, RIM } from "./p3/arena";
 import { RubbleView, SmiteBlades } from "./entities/P3Views";
@@ -19,10 +19,18 @@ const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   rubble: "the rubble",
 };
 
-const MISSED_FLICK: Readonly<Record<FlickMiss, string>> = {
-  held: "Protect from Melee stayed on. Turn it off after the blades start, then back on for the spin.",
-  late: "Protect from Melee was not back on in time for the spin.",
-  early: "Protect from Melee was already off when the smite started.",
+type FlickReference = Readonly<{ happened: string; happens: string }>;
+
+const FLICK_REFERENCE: Readonly<Record<Spin["nth"], FlickReference>> = {
+  1: { happened: "the smite started", happens: "the blades start" },
+  2: { happened: "spin 1 landed", happens: "spin 1 lands" },
+  3: { happened: "spin 2 landed", happens: "spin 2 lands" },
+};
+
+const MISSED_FLICK: Readonly<Record<FlickMiss, (reference: FlickReference) => string>> = {
+  held: ({ happens }) => `Protect from Melee stayed on. Turn it off after ${happens}, then back on for the spin.`,
+  late: () => "Protect from Melee was not back on in time for the spin.",
+  early: ({ happened }) => `Protect from Melee was already off when ${happened}.`,
 };
 
 const { bossPoses } = OCELLUS_P3;
@@ -47,7 +55,7 @@ function presentHit(hit: P3Hit, receipt: HitReceipt, { boss, blades, chat }: Sho
       return;
     case "spin":
       blades.land(hit.spin);
-      if (hit.verdict.kind === "struck") chat.push(`Spin ${hit.spin.nth} of ${hit.spin.of} hit you for ${receipt.applied}. ${MISSED_FLICK[hit.verdict.why]}`);
+      if (hit.verdict.kind === "struck") chat.push(`Spin ${hit.spin.nth} of ${hit.spin.of} hit you for ${receipt.applied}. ${MISSED_FLICK[hit.verdict.why](FLICK_REFERENCE[hit.spin.nth])}`);
       return;
     case "rubble":
       return;
