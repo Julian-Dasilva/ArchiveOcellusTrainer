@@ -62,7 +62,7 @@ export function startDrill(options: DrillOptions = {}) {
   if (rejected.length > 0) throw new Error(`the drill link has options the trainer rejects: ${rejected.join(", ")}`);
   const view: RenderView = "2d";
   const region = new OcellusRegion(config, view);
-  const trainer = new TrainerInstance(region, { force2d: view === "2d" });
+  const trainer = new TrainerInstance(region);
   trainer.mount(document.createElement("canvas"), document.createElement("div"));
   // The world tick after the last held one ends GET READY and is the boss's first step, P4 tick 0.
   const tickThroughGetReady = () => region.world.tickWorld(region.world.getReadyTimer - 1);

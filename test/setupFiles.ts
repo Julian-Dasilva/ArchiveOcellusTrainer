@@ -1,32 +1,7 @@
 /// <reference types="vitest/globals" />
+import "./jsdomCanvas";
+import { Viewport } from "osrs-sdk";
 
-const canvasContext = new Proxy({}, {
-  get: (target, property) =>
-    property === "measureText" ? () => ({ width: 0 })
-    : property === "createImageData" ? (width: number, height: number) => ({ width, height, data: new Uint8ClampedArray(4 * width * height) })
-    : () => undefined,
-  set: () => true,
-});
-
-global.OffscreenCanvas = class {
-  constructor(public width: number, public height: number) {}
-  getContext() {
-    return canvasContext;
-  }
-} as unknown as typeof OffscreenCanvas;
-
-HTMLCanvasElement.prototype.getContext = (() => canvasContext) as unknown as typeof HTMLCanvasElement.prototype.getContext;
-
-// The SDK preloads remote models at import time; tests stay offline.
-global.fetch = (() => Promise.resolve({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) })) as unknown as typeof fetch;
-
-global.ResizeObserver = class {
-  constructor(private readonly callback: ResizeObserverCallback) {}
-  observe() {
-    queueMicrotask(() => this.callback([{ contentRect: { width: 800, height: 800 } } as ResizeObserverEntry], this));
-  }
-  unobserve() {}
-  disconnect() {}
-};
-
-export {};
+// jsdom has no WebGL for the trainer's 3D viewport, so tests mount the SDK's canvas viewport in its place.
+const setupViewport = Viewport.setupViewport;
+Viewport.setupViewport = (region, canvas, resizeTarget) => setupViewport(region, canvas, resizeTarget, true);
