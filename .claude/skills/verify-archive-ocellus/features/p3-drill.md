@@ -6,7 +6,7 @@ A second drill, phase 3, sits behind the build flag `ARCHIVE_P3`. Production bui
 
 - `p3-flag` opens P4 for `?phase=p3` and draws no Phase box when the build leaves `ARCHIVE_P3` off.
 - `p3-open` opens P3 on the north-east wedge with NPC 16677 at 5250 HP when the flag is on.
-- `p3-arena` draws the open wedge lighter than the closed floor, with the olive rim, in 2D and 3D.
+- `p3-arena` draws the open wedge lighter than the closed floor, with the olive rim.
 - `p3-swings` swings at 7, 10, 17 and 20 with chip under Protect from Melee.
 - `p3-void-shot` turns a swing into a void shot of 20 when the player is out of reach after the boss steps.
 - `p3-wave` logs `wave-cast` with the player's tile at 14 and 24 and deals nothing.
@@ -25,10 +25,9 @@ A second drill, phase 3, sits behind the build flag `ARCHIVE_P3`. Production bui
 Preconditions:
 
 - The baseline preconditions in the index hold, with the dev server started by `scripts/verify.sh serve` so the flag is on.
-- The view setting is saved before the page that needs it opens: `use3dView` true for 3D and false for 2D.
 
-- **Arena.** Open `?phase=p3&seed=1` and wait for P3 tick 3. Read `window.__archiveOcellusProbe.tileCentre(tile)` for the open tiles (25, 11) and (26, 11), the closed tiles (16, 13) and (17, 13), and the rim tile (28, 10), then take a screenshot. In both views the mean colour around each open tile is lighter than each closed tile by at least 12, and the rim's green exceeds its blue by at least 20.
-- **Swings.** On the same 3D page, click Protect from Melee after P3 tick 1, at the canvas centre plus (`PROTECT_MELEE_RIGHT_PX`, `PROTECT_DOWN_PX`). By tick 21 the log's `player-hit` events are swings at 7, 10, 17 and 20 requesting 5, 2, 1 and 2 with prayer `melee`, and the boss bar drew `5250 / 5250 (100.0%)`.
+- **Arena.** Open `?phase=p3&seed=1` and wait for P3 tick 3. Read `window.__archiveOcellusProbe.tileCentre(tile)` for the open tiles (25, 11) and (26, 11), the closed tiles (16, 13) and (17, 13), and the rim tile (28, 10), then take a screenshot. The mean colour around each open tile is lighter than each closed tile by at least 12, and the rim's green exceeds its blue by at least 20.
+- **Swings.** On the same page, click Protect from Melee after P3 tick 1, at the canvas centre plus (`PROTECT_MELEE_RIGHT_PX`, `PROTECT_DOWN_PX`). By tick 21 the log's `player-hit` events are swings at 7, 10, 17 and 20 requesting 5, 2, 1 and 2 with prayer `melee`, and the boss bar drew `5250 / 5250 (100.0%)`.
 - **Void shot.** Reopen `?phase=p3&seed=1`, click Protect from Melee after tick 1, then click the pixel `tileCentre({ x: 27, y: 9 })` returns after tick 6. The log has a swing of 5 at 7 and a `void-shot` of 20 at 10.
 - **Interim clear.** Open `?phase=p3&seed=100&bosshp=3991` and click `tileCentre({ x: 20, y: 7 })` after tick 2, which attacks the boss. The bow's first shot of 54 lands on tick 5. The row for tick 5 has `bossHp.atPostTick` 3937 and a `run-ended` event, and the panel reads "Quadrant 1 cleared (interim end)", "P3 time: 5 ticks (0:03.0)" with Repeat P3, Retry seed and Start P4.
 - **Start P4.** Click `#result_start_p4`. The new page's `location.search` is `?phase=p4&setup=ranged`, the boss has 1312 HP, the log header has no `phase`, and `#phase` shows `p4`.
