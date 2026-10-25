@@ -57,6 +57,17 @@ function portalLooks(views: Views): readonly PortalView[] {
   return views.portals.map((portal): PortalView => ({ arm: portal.arm, tiles: portal.tiles, look: lit.has(portal) ? "lit" : "inactive" }));
 }
 
+/** The portal views for the current lighting, rebuilt only when the portals rise or the lighting changes, not per frame. */
+function cachedPortalLooks(views: Views): () => readonly PortalView[] {
+  let built: Readonly<{ raised: boolean; lit: Lit; looks: readonly PortalView[] }> | null = null;
+  return () => {
+    if (built === null || built.raised !== views.raised || built.lit !== views.lit) {
+      built = { raised: views.raised, lit: views.lit, looks: portalLooks(views) };
+    }
+    return built.looks;
+  };
+}
+
 export class P2Region extends Region {
   private mounted: Mounted = { kind: "unmounted" };
   invincible = false;
@@ -118,7 +129,7 @@ export class P2Region extends Region {
       chat: [],
     };
     for (const edge of ROOM.surround().tiles()) this.addEntity(new InvisibleMovementBlocker(this, { ...edge }));
-    [new PortalCross(this, () => portalLooks(views)), views.repair, views.drop, views.burst].forEach((view) => this.addEntity(view));
+    [new PortalCross(this, cachedPortalLooks(views)), views.repair, views.drop, views.burst].forEach((view) => this.addEntity(view));
     views.portals.forEach((portal) => this.addMob(portal.emitter));
     this.addPlayer(player);
     this.addMob(boss);

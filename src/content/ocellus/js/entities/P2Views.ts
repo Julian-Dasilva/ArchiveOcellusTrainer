@@ -14,35 +14,45 @@ const LOOKS = OCELLUS_P2.portals.looks.value;
 const ROTATION = OCELLUS_P2.portals.rotation.value;
 
 type Shown = Readonly<{ look: PortalLookKind; model: CacheRenderInstancedModel }>;
+type Placed = Readonly<{ key: string; look: PortalLookKind; location: Location3; yaw: number }>;
 
 /** The portals are 2x1 locs: one instanced cache model each, swapped between the inactive and the lit model. */
 class PortalModel implements Model {
   private readonly shown = new Map<string, Shown>();
+  private portals: readonly PortalView[] | null = null;
+  private placed: readonly Placed[] = [];
 
   constructor(private readonly cross: PortalCross) {}
 
   draw(scene: THREE.Scene, clockDelta: number, tickPercent: number, location: Location3, angleRadians: number, pitchRadians: number, visible: boolean): void {
-    const wanted = new Set<string>();
-    for (const portal of this.cross.portals()) {
-      const [a, b] = portal.tiles;
-      const key = `${a.x},${a.y}`;
-      wanted.add(key);
-      let shown = this.shown.get(key);
-      if (shown !== undefined && shown.look !== portal.look) {
-        shown.model.destroy(scene);
-        shown = undefined;
-      }
-      if (shown === undefined) {
-        shown = { look: portal.look, model: CacheRenderInstancedModel.forRenderable(this.cross, CacheRenderReferences.model(LOOKS[portal.look].model)) };
-        this.shown.set(key, shown);
-      }
-      // A 2x1 loc draws about the middle of its footprint, and its rotation 0 already lies along x, so the quarter turn the instanced model adds for actors comes back off.
-      shown.model.draw(scene, clockDelta, tickPercent, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: 0 }, (-(ROTATION[portal.arm] + 1) * Math.PI) / 2, pitchRadians, visible, []);
+    const portals = this.cross.portals();
+    if (portals !== this.portals) this.place(scene, portals);
+    for (const { key, location: at, yaw } of this.placed) {
+      this.shown.get(key)?.model.draw(scene, clockDelta, tickPercent, at, yaw, pitchRadians, visible, []);
     }
+  }
+
+  /** Runs when the portals or their looks change (a few times a round), never per frame. */
+  private place(scene: THREE.Scene, portals: readonly PortalView[]): void {
+    this.portals = portals;
+    // A 2x1 loc draws about the middle of its footprint, and its rotation 0 already lies along x, so the quarter turn the instanced model adds for actors comes back off.
+    this.placed = portals.map(({ arm, tiles: [a, b], look }): Placed => ({
+      key: `${a.x},${a.y}`,
+      look,
+      location: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: 0 },
+      yaw: (-(ROTATION[arm] + 1) * Math.PI) / 2,
+    }));
+    const wanted = new Set(this.placed.map(({ key }) => key));
     for (const [key, shown] of this.shown) {
       if (wanted.has(key)) continue;
       shown.model.destroy(scene);
       this.shown.delete(key);
+    }
+    for (const { key, look } of this.placed) {
+      const shown = this.shown.get(key);
+      if (shown !== undefined && shown.look === look) continue;
+      shown?.model.destroy(scene);
+      this.shown.set(key, { look, model: CacheRenderInstancedModel.forRenderable(this.cross, CacheRenderReferences.model(LOOKS[look].model)) });
     }
   }
 
