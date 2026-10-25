@@ -4,7 +4,7 @@ A free practice simulator for phase 4 of the Ocellus fight in The Fractured Arch
 
 **Status: early development.** Mechanics come from the community wiki and release-day reports. Timings are unverified and will change.
 
-Play it at https://archive-ocellus-trainer.raid-sims.workers.dev. Add `?invincible=on` to the link to practise without dying, or open **Settings** in the game and tick **Invincible**. Pick a single mechanic to drill from **Focus** in the same menu. Hold Control while clicking a tile to walk there instead of running, as in game.
+Play it at https://archive-ocellus-trainer.raid-sims.workers.dev. Add `?invincible=on` to the link to practise without dying, or open **Settings** in the game and tick **Invincible**. Pick a single mechanic to drill from **Focus** in the same menu. Hold Control while clicking a tile to walk there instead of running, as in game. The fight waits until you press **Start**, so you can set keybinds and settings first. Press **P** or **Pause** to pause; keybinds and settings work while paused, and the fight resumes on the same tick.
 
 Built on [osrs-sdk](https://github.com/OldSchoolSDK/osrs-sdk), following the layout of [ColosseumTrainer](https://github.com/Supalosa/ColosseumTrainer).
 

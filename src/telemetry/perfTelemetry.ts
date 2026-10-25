@@ -1,5 +1,6 @@
 import { Viewport } from "osrs-sdk";
 import type { OcellusRegion } from "../content/ocellus/js/OcellusRegion";
+import type { RunClock } from "../sim/sdk/RunClock";
 import { CHANGELOG } from "../content/ocellus/changelog";
 import { browserFamily, gpuFamily, webglRenderer } from "./device";
 import type { PerfSummary } from "./perfSummary";
@@ -82,13 +83,14 @@ function summarise(region: OcellusRegion, recorder: RunRecorder, sampleRate: num
 
 type Sampling = Readonly<{ kind: "waiting" }> | Readonly<{ kind: "measuring"; recorder: RunRecorder }> | Readonly<{ kind: "done" }>;
 
-export async function startPerfTelemetry(region: OcellusRegion): Promise<void> {
+export async function startPerfTelemetry(region: OcellusRegion, clock: RunClock): Promise<void> {
   if (!perfDataAllowed()) return;
   const rate = await sampleRate();
   if (rate === null || Math.random() >= rate) return;
   const { world } = region;
   let sampling: Sampling = { kind: "waiting" };
   let seenTick = world.globalTickCounter;
+  let pausedSince: number | null = null;
 
   const finish = () => {
     if (sampling.kind !== "measuring") return;
@@ -101,6 +103,14 @@ export async function startPerfTelemetry(region: OcellusRegion): Promise<void> {
   const onFrame = (now: number) => {
     if (sampling.kind === "done") return;
     window.requestAnimationFrame(onFrame);
+    if (clock.state().kind === "paused") {
+      pausedSince ??= now;
+      return;
+    }
+    if (pausedSince !== null) {
+      if (sampling.kind === "measuring") sampling.recorder.excludePause(now - pausedSince);
+      pausedSince = null;
+    }
     if (world.globalTickCounter !== seenTick) {
       seenTick = world.globalTickCounter;
       const run = region.snapshot()?.run;

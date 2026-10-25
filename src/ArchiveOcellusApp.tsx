@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { CacheRender, ControlPanelController, SETTINGS_STORAGE_KEY, Settings, SoundCache, TrainerInstance, TrainerLoadingState, Viewport } from "osrs-sdk";
 import type { Item, SettingsState } from "osrs-sdk";
@@ -10,6 +10,8 @@ import { OCELLUS_P4, parseRequest } from "./content/ocellus/js/OcellusTimings";
 import type { P3End, P3Log, P3Snapshot } from "./content/ocellus/js/P3Types";
 import type { FightLog, FightSnapshot, RunEnd } from "./content/ocellus/js/P4Types";
 import type { Tick } from "./sim/brands";
+import type { ClockState, Pause } from "./sim/sdk/RunClock";
+import { RunClock } from "./sim/sdk/RunClock";
 import type { BuildFlags } from "./flags";
 import { readBuildFlags } from "./flags";
 import { CHANGELOG } from "./content/ocellus/changelog";
@@ -34,11 +36,13 @@ declare global {
   interface Window {
     __archiveOcellusProbe?: Readonly<{
       snapshot(): VerificationProbeSnapshot;
-      log(): FightLog | P3Log;
+      log(): RunLog;
       tileCentre(at: Readonly<{ x: number; y: number }>): Readonly<{ x: number; y: number }> | null;
     }>;
   }
 }
+
+type RunLog = (FightLog | P3Log) & Readonly<{ pauses: readonly Pause[] }>;
 
 type VerificationProbeSnapshot = Readonly<{
   ticking: boolean;
@@ -77,7 +81,7 @@ function mount(request: DrillRequest): Drill {
   }
 }
 
-function exposeVerificationProbe(trainer: TrainerInstance, region: OcellusRegion | P3Region, rejected: readonly string[]) {
+function exposeVerificationProbe(trainer: TrainerInstance, clock: RunClock, region: OcellusRegion | P3Region, rejected: readonly string[]) {
   window.__archiveOcellusProbe = Object.freeze({
     snapshot(): VerificationProbeSnapshot {
       const { player, world } = trainer.getSnapshot();
@@ -97,7 +101,7 @@ function exposeVerificationProbe(trainer: TrainerInstance, region: OcellusRegion
         icons: player ? drawnIcons([...player.inventory, ...Object.values(player.equipment)]) : {},
       };
     },
-    log: () => region.fightLog(),
+    log: () => ({ ...region.fightLog(), pauses: clock.pauses() }),
     tileCentre: (at) => Viewport.viewport.projectTile(at, trainer.getSnapshot().world),
   });
 }
@@ -137,10 +141,11 @@ function createTrainer() {
   const drill = mount(request);
   drill.region.invincible = request.invincible;
   const trainer = new TrainerInstance(drill.region);
-  if (process.env.NODE_ENV !== "production") exposeVerificationProbe(trainer, drill.region, request.rejected);
+  const clock = new RunClock(trainer);
+  if (process.env.NODE_ENV !== "production") exposeVerificationProbe(trainer, clock, drill.region, request.rejected);
   loadWebAnalytics();
-  if (drill.phase === "p4") void startPerfTelemetry(drill.region);
-  return { trainer, drill, flags };
+  if (drill.phase === "p4") void startPerfTelemetry(drill.region, clock);
+  return { trainer, clock, drill, flags };
 }
 
 const SETUP_KEYS = Object.keys(OCELLUS_P4.choices.setup.options);
@@ -196,7 +201,7 @@ const UnseenDot = () => <span className="unseen_dot" role="img" aria-label="new"
 
 type MenuView = "closed" | "settings" | "whats-new";
 
-function DrillControls({ drill, flags }: Readonly<{ drill: Drill; flags: BuildFlags }>) {
+function DrillControls({ drill, flags, clock }: Readonly<{ drill: Drill; flags: BuildFlags; clock: RunClock }>) {
   const { config, region } = drill;
   const [setup, setSetup] = useState<string>(config.choices.setup.key);
   const [typedSeed, setTypedSeed] = useState<string | null>(null);
@@ -207,6 +212,7 @@ function DrillControls({ drill, flags }: Readonly<{ drill: Drill; flags: BuildFl
   const settingsButton = useRef<HTMLButtonElement>(null);
   const whatsNewTitle = useRef<HTMLHeadingElement>(null);
   const { playsAudio, playsAreaAudio } = useSettingsSnapshot();
+  const running = useClockState(clock).kind === "running";
   const restart = (focus: string | null) => {
     const seed = typedSeed?.trim() || null;
     startRun(focus === null ? { phase: "p3", setup, seed, invincible: region.invincible } : { phase: "p4", setup, focus, seed, invincible: region.invincible });
@@ -303,8 +309,61 @@ function DrillControls({ drill, flags }: Readonly<{ drill: Drill; flags: BuildFl
         ⚙ Settings{unseen && <UnseenDot />}
       </button>
       <button id="restart" type="submit">Restart</button>
+      {running && <button id="pause" type="button" onClick={() => clock.pause()}>Pause (P)</button>}
     </form>
   );
+}
+
+const PAUSE_KEY = "p";
+
+const tabKeys = () => [Settings.inventory_key, Settings.spellbook_key, Settings.prayer_key, Settings.equipment_key, Settings.combat_key];
+const isTyping = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement;
+
+function useClockState(clock: RunClock): ClockState {
+  return useSyncExternalStore((changed) => clock.subscribe(changed), () => clock.state());
+}
+
+function isPauseKey(event: KeyboardEvent): boolean {
+  if (event.key.toLowerCase() !== PAUSE_KEY || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return false;
+  return !isTyping(event.target) && !tabKeys().some((key) => key.toLowerCase() === PAUSE_KEY);
+}
+
+function RunGate({ clock, ready }: Readonly<{ clock: RunClock; ready: boolean }>) {
+  const state = useClockState(clock);
+  useEffect(() => {
+    const togglePause = (event: KeyboardEvent) => {
+      if (!isPauseKey(event)) return;
+      if (clock.state().kind === "running") clock.pause();
+      else clock.resume();
+    };
+    document.addEventListener("keydown", togglePause);
+    return () => document.removeEventListener("keydown", togglePause);
+  }, [clock]);
+
+  switch (state.kind) {
+    case "set-up":
+      return ready ? (
+        <section id="start_panel" role="dialog" aria-labelledby="start_title">
+          <h2 id="start_title">Ready?</h2>
+          <p>Set your keybinds and settings first. Press P to pause during the run.</p>
+          <button id="start" type="button" autoFocus onClick={() => clock.start()}>Start</button>
+        </section>
+      ) : null;
+    case "paused":
+      return (
+        <section id="paused_panel" role="dialog" aria-labelledby="paused_title">
+          <h2 id="paused_title">Paused</h2>
+          <p>Change your keybinds or settings, then resume.</p>
+          <button id="resume" type="button" autoFocus onClick={() => clock.resume()}>Resume (P)</button>
+        </section>
+      );
+    case "running":
+      return null;
+    default: {
+      const unhandled: never = state;
+      return unhandled;
+    }
+  }
 }
 
 const SECONDS_TENTHS_PER_TICK = 6;
@@ -398,7 +457,13 @@ function RunResultText({ result }: Readonly<{ result: DrillOutcome }>) {
 
 const RESULT_POLL_MS = 300;
 
-function RunResultPanel({ drill }: Readonly<{ drill: Drill }>) {
+function PausedNote({ pauses }: Readonly<{ pauses: readonly Pause[] }>) {
+  if (pauses.length === 0) return null;
+  const seconds = (pauses.reduce((total, pause) => total + pause.ms, 0) / 1000).toFixed(1);
+  return <p id="run_result_paused">Paused {pauses.length === 1 ? "once" : `${pauses.length} times`}, for {seconds} s in all.</p>;
+}
+
+function RunResultPanel({ drill, clock }: Readonly<{ drill: Drill; clock: RunClock }>) {
   const [result, setResult] = useState<DrillOutcome | null>(null);
   useEffect(() => {
     if (result) return;
@@ -418,6 +483,7 @@ function RunResultPanel({ drill }: Readonly<{ drill: Drill }>) {
   return (
     <section id="run_result" role="dialog" aria-labelledby="run_result_title">
       <RunResultText result={result} />
+      <PausedNote pauses={clock.pauses()} />
       <button id="result_restart" type="button" onClick={() => again(null)}>{cleared ? "Repeat P3" : "Restart"}</button>
       <button id="result_retry" type="button" onClick={() => again(String(config.seed))}>Retry seed</button>
       {cleared && <button id="result_start_p4" type="button" onClick={() => startPhase("p4", setup, region.invincible)}>Start P4</button>}
@@ -446,16 +512,17 @@ function GameChat({ region }: Readonly<{ region: Readonly<{ chat(): readonly str
 }
 
 export function ArchiveOcellusApp() {
-  const [{ trainer, drill, flags }] = useState(createTrainer);
+  const [{ trainer, clock, drill, flags }] = useState(createTrainer);
   const [loading, setLoading] = useState<TrainerLoadingState>();
 
   return (
-    <TrainerApp trainer={trainer} onLoadingStateChange={setLoading}>
+    <TrainerApp trainer={trainer} autoStart={false} onLoadingStateChange={setLoading}>
       <GameOverlay>
         <TrainerLoadingSplash state={loading} />
         <GameChat region={drill.region} />
-        <DrillControls drill={drill} flags={flags} />
-        <RunResultPanel drill={drill} />
+        <DrillControls drill={drill} flags={flags} clock={clock} />
+        <RunGate clock={clock} ready={loading?.status === "ready"} />
+        <RunResultPanel drill={drill} clock={clock} />
         <footer id="credits">
           <p id="maker_credit">
             Made by {MAKER}{" "}

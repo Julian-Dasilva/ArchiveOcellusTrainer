@@ -24,6 +24,28 @@ describe("Run recorder", () => {
     });
   });
 
+  test("an excluded pause is taken out of the frame and tick gaps that span it", async () => {
+    const { RunRecorder } = await loadRecorderInEachTest();
+    const recorder = new RunRecorder();
+    [0, 16, 32].forEach((at) => recorder.frame(at));
+    [0, 600].forEach((at) => recorder.tick(at));
+    recorder.excludePause(60_000);
+    [60_048, 60_064].forEach((at) => recorder.frame(at));
+    [61_200, 61_800].forEach((at) => recorder.tick(at));
+    expect(recorder.timings()).toEqual({
+      frames: 4,
+      frameMedianMs: 16,
+      frameP95Ms: 16,
+      frameP99Ms: 16,
+      framesOver50Ms: 0,
+      runTicks: 3,
+      tickMedianMs: 600,
+      tickP95Ms: 600,
+      tickMaxMs: 600,
+      lateTicks: 0,
+    });
+  });
+
   test("a gap past the last bucket still counts and reports the true maximum", async () => {
     const { RunRecorder } = await loadRecorderInEachTest();
     const recorder = new RunRecorder();
