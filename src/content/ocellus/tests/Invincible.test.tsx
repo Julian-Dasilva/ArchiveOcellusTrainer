@@ -118,31 +118,31 @@ describe("Invincible", () => {
   test.each([
     {
       lethal: "two reflections land on one tick and the second is lethal",
-      seed: 20, at: 255,
-      blocked: [["melee", "blocked", 17], ["melee", "blocked", 16], ["melee", "blocked", 0]],
-      hits: [["deflect-reflected", 1, 1, 2, 1], ["deflect-reflected", 1, 1, 1, 0]],
+      focus: "explosions", seed: 167, at: 30,
+      blocked: [["melee", "blocked", 20], ["melee", "blocked", 16], ["melee", "blocked", 0]],
+      hits: [["deflect-reflected", 2, 2, 3, 1], ["deflect-reflected", 1, 1, 1, 0]],
       source: "deflect-reflected",
-      chat: "Invincible: a deflected hit's reflection would have killed you on tick 255.",
+      chat: "Invincible: a deflected hit's reflection would have killed you on tick 30.",
     },
     {
-      lethal: "a lethal reflection lands before two rift bursts",
-      seed: 13, at: 270,
-      blocked: [["melee", "blocked", 24], ["melee", "blocked", 0], ["melee", "blocked", 2]],
-      hits: [["deflect-reflected", 2, 1, 1, 0], ["rift-burst", 14, 0, 0, 0], ["rift-burst", 14, 0, 0, 0]],
+      lethal: "a lethal reflection lands before a second one",
+      focus: "explosions", seed: 3, at: 30,
+      blocked: [["melee", "blocked", 31], ["melee", "blocked", 16], ["melee", "blocked", 0]],
+      hits: [["deflect-reflected", 3, 1, 1, 0], ["deflect-reflected", 1, 0, 0, 0]],
       source: "deflect-reflected",
-      chat: "Invincible: a deflected hit's reflection would have killed you on tick 270.",
+      chat: "Invincible: a deflected hit's reflection would have killed you on tick 30.",
     },
     {
-      lethal: "a reflection leaves 3 HP and the rift burst after it is lethal",
-      seed: 2, at: 270,
-      blocked: [["melee", "blocked", 1], ["melee", "blocked", 10], ["melee", "blocked", 0]],
-      hits: [["deflect-reflected", 1, 1, 4, 3], ["rift-burst", 14, 3, 3, 0], ["rift-burst", 14, 0, 0, 0]],
+      lethal: "the rift burst is lethal",
+      focus: "rifts", seed: 1, at: 217,
+      blocked: [],
+      hits: [["rift-burst", 37, 26, 26, 0]],
       source: "rift-burst",
-      chat: "Invincible: a void rift burst would have killed you on tick 270.",
+      chat: "Invincible: a void rift burst would have killed you on tick 217.",
     },
-  ] as const)("scythe swings into Deflect Melee, $lethal: off, the run dies on those receipts; on, one death is prevented, naming the first lethal hit", ({ seed, at, blocked, hits, source, chat }) => {
+  ] as const)("scythe swings into Deflect Melee, $lethal: off, the run dies on those receipts; on, one death is prevented, naming the first lethal hit", ({ focus, seed, at, blocked, hits, source, chat }) => {
     const scytheTheBoss = (invincible: boolean) => {
-      const drill = startDrill({ seed, selection: { focus: "rifts", setup: "melee", hoverMeleeReach: "reachable", drillStart: "cycle-start" } });
+      const drill = startDrill({ seed, selection: { focus, setup: "melee", hoverMeleeReach: "reachable", drillStart: "cycle-start" } });
       drill.region.invincible = invincible;
       drill.tickTo(13);
       drill.player().setAggro(drill.boss());

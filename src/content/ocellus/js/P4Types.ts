@@ -56,6 +56,8 @@ export type RiftId = `rift-${number}-${number}`;
 export function riftId(spawnedAt: Tick, slot: number): RiftId {
   return `rift-${spawnedAt}-${slot}`;
 }
+/** The rifts that burst on one tick. Together they hit the player once. */
+export type Burst = readonly [RiftId, ...RiftId[]];
 
 export type HealReceipt = Readonly<{ requested: number; applied: number; beforeHp: number; afterHp: number }>;
 export type HealCause = Readonly<{ kind: "unclaimed-orb" }> | Readonly<{ kind: "soul-split"; ordinal: Ordinal }>;
@@ -73,7 +75,7 @@ export type PlayerHit =
   | Readonly<{ kind: "lifeforce-drained"; at: Tick; void: VoidKind; orb: Tile }>
   | Readonly<{ kind: "explosion-resolved"; at: Tick; void: VoidKind; pulse: number; tile: Tile; underBoss: boolean }>
   | (Readonly<{ kind: "special-hit" }> & SpecialAttack)
-  | Readonly<{ kind: "rift-burst"; at: Tick; rift: RiftId; tile: Tile }>;
+  | Readonly<{ kind: "rift-burst"; at: Tick; rifts: Burst }>;
 export type PlayerHitSource = PlayerHit["kind"];
 
 export type FightEvent =
@@ -102,7 +104,7 @@ export type FightEvent =
   | Readonly<{ kind: "rift-spawned"; at: Tick; rift: RiftId; tile: Tile }>
   | Readonly<{ kind: "rift-hit"; at: Tick; rift: RiftId; style: IncomingStyle; damage: number }>
   | Readonly<{ kind: "rift-destroyed"; at: Tick; rift: RiftId; tile: Tile }>
-  | Readonly<{ kind: "rift-burst"; at: Tick; rift: RiftId; tile: Tile; receipt: HitReceipt }>
+  | Readonly<{ kind: "rift-burst"; at: Tick; rifts: Burst; receipt: HitReceipt }>
   | Readonly<{ kind: "death-prevented"; at: Tick; source: PlayerHitSource; clearedOrbCredit: number }>
   | Readonly<{ kind: "run-ended"; at: Tick; reason: RunEnd }>;
 

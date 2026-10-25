@@ -256,23 +256,20 @@ describe("U6 boss overheads, heals and rifts", () => {
 
   test.each([
     {
-      killLandsAt: 89,
-      destroyed: [[90, "rift-67-1"]],
-      bursts: [[90, "rift-67-0", { requested: 14, applied: 14, beforeHp: 99, afterHp: 85, prayer: null }]],
+      killLandsAt: 96,
+      destroyed: [[97, "rift-67-1"]],
+      bursts: [[97, ["rift-67-0"], { requested: 36, applied: 36, beforeHp: 99, afterHp: 63, prayer: null }]],
       chat: ["Destroying the void rift empowers you!"],
       northEastRiftSequences: [14896, 14897],
     },
     {
-      killLandsAt: 90,
+      killLandsAt: 97,
       destroyed: [],
-      bursts: [
-        [90, "rift-67-0", { requested: 14, applied: 14, beforeHp: 99, afterHp: 85, prayer: null }],
-        [90, "rift-67-1", { requested: 14, applied: 14, beforeHp: 85, afterHp: 71, prayer: null }],
-      ],
+      bursts: [[97, ["rift-67-0", "rift-67-1"], { requested: 36, applied: 36, beforeHp: 99, afterHp: 63, prayer: null }]],
       chat: [],
       northEastRiftSequences: [14896, 14898],
     },
-  ])("a rift dead by the end of 89 despawns and is destroyed at 90, and a standing one detonates and bursts for 14: north-east rift killed by a hit landing at $killLandsAt", ({ killLandsAt, destroyed, bursts, chat, northEastRiftSequences }) => {
+  ])("a rift dead by the end of 96 despawns and is destroyed at 97, and the rifts still standing at 97, 30 ticks after they rose, detonate and hit the player once: north-east rift killed by a hit landing at $killLandsAt", ({ killLandsAt, destroyed, bursts, chat, northEastRiftSequences }) => {
     const drill = startDrill({ selection: { focus: "rifts" } });
     drill.tickTo(68);
     const northEast = northEastRift(drill);
@@ -280,8 +277,8 @@ describe("U6 boss overheads, heals and rifts", () => {
     northEast.setAnimationListener({ animationChanged: (id) => Promise.resolve(void sequences.push(id)), modelChanged: () => undefined });
     drill.tickTo(killLandsAt - 1);
     drill.hit(drill.player(), northEast, 44);
-    drill.tickTo(91);
-    expect([drill.events("rift-destroyed").map((e) => [e.at, e.rift]), drill.events("rift-burst").map((e) => [e.at, e.rift, e.receipt]), drill.region.chat(), sequences]).toEqual([
+    drill.tickTo(98);
+    expect([drill.events("rift-destroyed").map((e) => [e.at, e.rift]), drill.events("rift-burst").map((e) => [e.at, e.rifts, e.receipt]), drill.region.chat(), sequences]).toEqual([
       destroyed,
       bursts,
       chat,
@@ -291,14 +288,14 @@ describe("U6 boss overheads, heals and rifts", () => {
   });
 
   test.each([
-    { lands: "on the tick it bursts", delays: [2], logged: [[90, "rift-67-1", "ranged", 44]] },
-    { lands: "on the tick it is destroyed, after the hit that killed it", delays: [1, 2], logged: [[89, "rift-67-1", "ranged", 44], [90, "rift-67-1", "ranged", 44]] },
+    { lands: "on the tick it bursts", delays: [2], logged: [[97, "rift-67-1", "ranged", 44]] },
+    { lands: "on the tick it is destroyed, after the hit that killed it", delays: [1, 2], logged: [[96, "rift-67-1", "ranged", 44], [97, "rift-67-1", "ranged", 44]] },
   ] as const)("guard: a hit landing on the north-east rift $lands logs its rift-hit", ({ delays, logged }) => {
     const drill = startDrill({ selection: { focus: "rifts" } });
-    drill.tickTo(88);
+    drill.tickTo(95);
     const northEast = northEastRift(drill);
     delays.forEach((delay) => drill.hit(drill.player(), northEast, 44, "range", delay));
-    drill.tickTo(91);
+    drill.tickTo(98);
     expect(drill.events("rift-hit").map((e) => [e.at, e.rift, e.style, e.damage])).toEqual(logged);
     drill.dispose();
   });
@@ -306,7 +303,7 @@ describe("U6 boss overheads, heals and rifts", () => {
   test("under each rift's HP bar a yellow timer bar of the same size fills from the left as the rift charges, full on the burst tick", () => {
     const drill = startDrill({ selection: { focus: "rifts" } });
     const drawn: Record<number, readonly Fill[]> = {};
-    for (const t of [67, 69, 78, 89, 90]) {
+    for (const t of [67, 69, 82, 96, 97]) {
       drill.tickTo(t);
       const northWest = [...drill.region.mobs, ...drill.region.newMobs].find((mob) => mob.location.x === 2 && mob.location.y === 2);
       drawn[t] = northWest ? paintedFills((context) => northWest.drawHPBar(context, 1, 0)) : [];
@@ -317,9 +314,9 @@ describe("U6 boss overheads, heals and rifts", () => {
       { style: "#1e1e0c", x: -15, y: 5, width: 30, height: 5 },
       { style: "#e0c020", x: -15, y: 5, width: yellow, height: 5 },
     ];
-    expect([drawn, drill.events("rift-burst").map((e) => [e.at, e.rift])]).toEqual([
-      { 67: bars(0), 69: bars(60 / 23), 78: bars(330 / 23), 89: bars(660 / 23), 90: bars(30) },
-      [[90, "rift-67-0"], [90, "rift-67-1"]],
+    expect([drawn, drill.events("rift-burst").map((e) => [e.at, e.rifts])]).toEqual([
+      { 67: bars(0), 69: bars(2), 82: bars(15), 96: bars(29), 97: bars(30) },
+      [[97, ["rift-67-0", "rift-67-1"]]],
     ]);
     drill.dispose();
   });

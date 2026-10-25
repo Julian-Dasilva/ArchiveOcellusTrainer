@@ -373,14 +373,15 @@ export class Ocellus extends Mob {
     return fallen.map((rift) => ({ kind: "rift-destroyed", at, rift: rift.id, tile: rift.tile }));
   }
 
+  /** Every rift due bursts, and together they hit the player once. */
   private burstRifts(forCycle: Cycle, at: Tick): readonly Output[] {
     const isDue = (rift: Rift) => rift.forCycle === forCycle;
     const due = this.rifts.filter(isDue);
     this.rifts = this.rifts.filter((rift) => !isDue(rift));
-    return due.map((rift, draw) => {
-      rift.mob.detonate();
-      return fixedHit(rollInt(this.config.seed, "riftBurst", at, OCELLUS_P4.rifts.burstDamage.value, draw), { kind: "rift-burst", at, rift: rift.id, tile: rift.tile });
-    });
+    if (due.length === 0) return [];
+    const [first, ...rest] = due;
+    due.forEach((rift) => rift.mob.detonate());
+    return [fixedHit(rollInt(this.config.seed, "riftBurst", at, OCELLUS_P4.rifts.burstDamage.value, 0), { kind: "rift-burst", at, rifts: [first.id, ...rest.map((rift) => rift.id)] })];
   }
 
   private healBoss(cause: HealCause, requested: number, at: Tick): FightEvent {

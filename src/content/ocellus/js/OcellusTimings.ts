@@ -437,13 +437,21 @@ const BOSS_HEALS: BossHealRecipe = {
 
 const RIFTS: RiftRecipe = {
   firstCycle: selected(cycle(2), "footage-repeated", "team-5", "rifts before every inner void after the first (C5)", STRATEGIES, vod("V2", "k107, k167, k227")),
-  spawnBeforeOnset: selected(span(1), "footage-repeated", "team-4-and-5", "rifts one tick before the next inner void", NO_WIKI_TICKS, vod("V1", "G152"), vod("V2", "k107, k167, k227")),
+  spawnBeforeOnset: selected(
+    span(1),
+    "footage-repeated",
+    "team-4-and-5",
+    "rifts one tick before the next inner void, as in every cycle of the fight logs",
+    NO_WIKI_TICKS, vod("V1", "G152"), vod("V2", "k107, k167, k227"),
+    fightLog("L2", "S-1 of cycle 2"), fightLog("L5", "S-1 of cycles 2 and 3"), fightLog("L6", "S-1 of cycles 2 to 5"),
+  ),
   chargeAfterSpawn: selected(
-    span(23),
-    "owner-estimated",
+    span(30),
+    "log-repeated",
     "unscaled",
-    "the owner reports that rifts last much longer than 6.6 s (11 ticks), that none of the footage they found shows one bursting, and that they watched two killed within about 10 s with about 4 s still on the timer: about 14 s, 23 ticks of 0.6 s (inferred); both clips show a rift standing after spawn + 11, V1 at G164 and V2 from k177 to k196",
-    NO_WIKI_TICKS, owner("rift charge timer", "2026-10-22"),
+    "every rift left alive in the fight logs burst 30 ticks after it appeared, at S+29: it played its detonate sequence, the void flare (spotanim 4306) showed on every player and each took the hit on that tick, and the rift was gone 2 ticks later; one rift in one raid and three over two cycles of the other. This replaces the owner's estimate of about 14 s, 23 ticks, from a timer watched in game; both clips show a rift standing after spawn + 11, V1 at G164 and V2 from k177 to k196, as 30 allows",
+    NO_WIKI_TICKS, fightLog("L5", "a rift from S-1 of cycle 3 bursts at S+29"),
+    fightLog("L6", "a rift from S-1 of cycle 2 and two from S-1 of cycle 3 burst at S+29"),
     vod("V1", "G152 to G168"),
     vod("V2", "k167 to k196"),
   ),
@@ -468,7 +476,16 @@ const RIFTS: RiftRecipe = {
     NO_WIKI_ARENA, vod("V1", "G152-G164"),
     vod("V2", "k167-k173"),
   ),
-  burstDamage: selected({ min: 14, max: 14 }, "inferred", "team-5", "the streamer took 14 from an unseen source 11 ticks after the rifts appeared, with a rift still standing; taken as the burst's damage, though the burst now lands 23 ticks after spawn (inferred)", noWiki("the wiki says an unkilled rift damages all players but gives no amount (Strategies rev 15381030)"), vod("V2", "k118, k178")),
+  burstDamage: selected(
+    { min: 28, max: 41 },
+    "log-repeated",
+    "team-7",
+    "one typeless hit on each player per burst, however many rifts burst: 41 and 40 on the two players left when one rift burst, both under Protect from Magic, and 30 and 28 when two burst together, one under Protect from Missiles, in the same raid; the other raid's one burst hit its last player for 3 on the tick the transition attack also hit him for 3, and he died, so both hits were cut to his last HP and give no amount (inferred). The 14 the streamer took 11 ticks after the rifts appeared is the next cycle's first explosion, at S+10, which hit 14 to 16 in the logs",
+    noWiki("the wiki says an unkilled rift damages all players but gives no amount (Strategies rev 15381030)"),
+    fightLog("L6", "41 and 40 at S+29 of cycle 2, one rift; 30 and 28 at S+29 of cycle 3, two rifts"),
+    fightLog("L5", "3 and 3 at S+29 of cycle 3 on a player who then died"),
+    vod("V2", "k118, k178"),
+  ),
   standardRangedAndMeleeRoll: selected(
     { guaranteedHit: true, maxDamage: true },
     "community-tested",
@@ -485,7 +502,15 @@ const RIFTS: RiftRecipe = {
     despawn: pose(14897, "vfx_ocellus_voidflare_default_despawn", "inferred", "rift dying, 1 tick, frame sound 12640"),
     detonate: pose(14898, "vfx_ocellus_voidflare_default_detonate", "inferred", "rift releasing its charge, 2 ticks, frame sounds 12641 and 12642"),
   },
-  burstFlare: selected(4306, "inferred", "unscaled", "vfx_human_ocellus_voidflare_default shares the rift's model 62369; played on the player as the charge lands", NO_WIKI_PRESENTATION, cache("spotanim 4306 vfx_human_ocellus_voidflare_default")),
+  burstFlare: selected(
+    4306,
+    "log-repeated",
+    "unscaled",
+    "vfx_human_ocellus_voidflare_default shares the rift's model 62369; played on each player on the burst tick, with the hit, in every burst of the fight logs",
+    NO_WIKI_PRESENTATION, cache("spotanim 4306 vfx_human_ocellus_voidflare_default"),
+    fightLog("L5", "S+29 of cycle 3"),
+    fightLog("L6", "S+29 of cycles 2 and 3"),
+  ),
 };
 
 const FLOOD_FRAMES = vod("V2", "k86, k95, k142, k156, k205, k212, k262, k269");
