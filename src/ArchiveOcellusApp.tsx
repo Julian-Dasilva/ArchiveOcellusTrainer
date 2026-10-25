@@ -13,6 +13,7 @@ import type { Tick } from "./sim/brands";
 import type { ClockState, Pause } from "./sim/sdk/RunClock";
 import { RunClock } from "./sim/sdk/RunClock";
 import { readSavedLoadout } from "./savedLoadouts";
+import { keepStorageUsable } from "./browserStorage";
 import type { BuildFlags } from "./flags";
 import { readBuildFlags } from "./flags";
 import { CHANGELOG } from "./content/ocellus/changelog";
@@ -135,6 +136,7 @@ function readSettings() {
 }
 
 function createTrainer() {
+  keepStorageUsable();
   CacheRender.configure(new URL("osrs-assets/manifest.json", window.location.href).href);
   readSettings();
   const flags = readBuildFlags();
