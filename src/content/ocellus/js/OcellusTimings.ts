@@ -45,8 +45,7 @@ type Source =
   | Readonly<{ kind: "news"; url: string }>
   | Readonly<{ kind: "cache"; build: 2746; record: string }>
   | Readonly<{ kind: "owner"; date: OwnerDate; topic: string }>
-  | Readonly<{ kind: "guide"; url: string; at: string }>
-  | Readonly<{ kind: "fight-log"; recorded: "2026-10-23"; at: string }>;
+  | Readonly<{ kind: "guide"; url: string; at: string }>;
 
 type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
 
@@ -68,8 +67,6 @@ const news = (url: string): Source => ({ kind: "news", url });
 const cache = (record: string): Source => ({ kind: "cache", build: 2746, record });
 const owner = (topic: string, date: OwnerDate = "2026-10-21"): Source => ({ kind: "owner", date, topic });
 const guide = (url: string, at: string): Source => ({ kind: "guide", url, at });
-/** RuneLite fight logs recorded on 2026-10-23, eight fights numbered in the order they were recorded; S is the tick he lands in his corner, U the tick Untether starts. */
-const fightLog = (at: string): Source => ({ kind: "fight-log", recorded: "2026-10-23", at });
 const STRATEGIES_P4 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381030);
 const BOSS_INFOBOX = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15380968);
 const VOID_RIFT_PAGE = wiki("https://oldschool.runescape.wiki/w/Void_Rift", 15380527);
@@ -924,12 +921,14 @@ const PANFLEET_SOLO = "https://www.youtube.com/watch?v=_upW4hBgHbA";
 const P3_CYCLE_FRAMES = guide(PANFLEET_SOLO, "5:20 to 5:45 at 1x: swings f114, f168, f294, f348, slashes landing f240, f421, the spin f478 (raid timer 30:13.00 at f0)");
 const P3_CHIP_FRAMES = guide(DEFBIGBEAST_GUIDE, "20:28 to 21:12 at 1x: slashes landing f310 and f490, the tank's chips red 2 at f363 and red 1 at f417");
 const DUO_GUIDE = "https://www.youtube.com/watch?v=HAgq_qg0OIY";
-const P3_CHAIN_LOGS = fightLog("fights 1 to 7, quadrant 1 from his landing S: swings S+4 and S+7, slash S+10, swings S+14 and S+17, slash S+20, the spin S+24, its end S+29 and his next swing S+33; fight 8 the same 3 ticks late after a panic at S+4");
-const P3_PANIC_LOGS = fightLog("fight 8: panic S+4, swing S+10, slash S+13; fight 3: swing S+33, panic S+36, slash S+42; fight 6: swing S+119, panic S+122, slash S+128");
-const P3_SPECIAL_LOGS = fightLog("fights 4 and 8, quadrant 1: spin S+24, Untether S+53 (fight 8: S+59 after two panics), spin, Insolence, spin, Untether, spin, Insolence, spin; fights 5 to 7 the same up to the fall");
+/** The fight logs a phase 3 value rests on, one `fight-log` source each; fight N in the notes is FIGHT_LOGS' LN. */
+const p3Logs = (logs: readonly [FightLog, ...FightLog[]], at: string): readonly Source[] => logs.map((log) => fightLog(log, at));
+const P3_CHAIN_LOGS = p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 7, quadrant 1 from his landing S: swings S+4 and S+7, slash S+10, swings S+14 and S+17, slash S+20, the spin S+24, its end S+29 and his next swing S+33; fight 8 the same 3 ticks late after a panic at S+4");
+const P3_PANIC_LOGS = p3Logs(["L3", "L6", "L8"], "fight 8: panic S+4, swing S+10, slash S+13; fight 3: swing S+33, panic S+36, slash S+42; fight 6: swing S+119, panic S+122, slash S+128");
+const P3_SPECIAL_LOGS = p3Logs(["L4", "L5", "L6", "L7", "L8"], "fights 4 and 8, quadrant 1: spin S+24, Untether S+53 (fight 8: S+59 after two panics), spin, Insolence, spin, Untether, spin, Insolence, spin; fights 5 to 7 the same up to the fall");
 const RSPROX_PLAN = "https://github.com/MRobertEvers/oldschool-clientc/blob/HEAD/docs/rsprox-analysis/guthixian_archive/ocellus_plan.md";
-const P3_DAMAGE_AUDIT = guide(RSPROX_PLAN, "damage audit, p3 rows: packet captures of six recorded fights");
-const P3_UNTETHER_LOGS = fightLog("fights 1 to 8: Untether U, the slam U+29, a fall shout U+31 in fights 1 and 2, and with the quadrant standing a swing or panic at U+37 in fights 3 to 8");
+const P3_DAMAGE_AUDIT = analysis(RSPROX_PLAN, "damage audit, p3 rows: packet captures of six recorded fights");
+const P3_UNTETHER_LOGS = p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: Untether U, the slam U+29, a fall shout U+31 in fights 1 and 2, and with the quadrant standing a swing or panic at U+37 in fights 3 to 8");
 
 type ChainStep = "afterSwing" | "afterSlash" | "afterPanic";
 type P3BossPose = "swing" | "panic" | "shadowSlash" | "spinStarts" | "spinLoops" | "spinEnds" | "untetherStarts" | "untetherLoops" | "slam" | "superiorSlash" | "quadrantFalls";
@@ -1022,71 +1021,71 @@ const P3: P3Recipe = {
     "team-4-and-5",
     "a quadrant falls on the tick after the first tick the boss is at or below the fraction of his max HP, whatever he is doing, except that during Untether it waits for its end; the wiki says only enough damage",
     NO_WIKI_P3_TICKS, guide(ROBINHOOD_GUIDE, "0:06:13"), guide(KIRBY_GUIDE, "5:37"),
-    fightLog("fight 7: swings S+169 and S+172, slash S+175, the fall shout S+178, a tick before his next move; fight 5: swing S+172 and the fall shout S+173; the logs show his HP only as a whole percentage, so the tick it reached the floor is not on record"),
+    ...p3Logs(["L5", "L7"], "fight 7: swings S+169 and S+172, slash S+175, the fall shout S+178, a tick before his next move; fight 5: swing S+172 and the fall shout S+173; the logs show his HP only as a whole percentage, so the tick it reached the floor is not on record"),
   ),
-  firstAttackAfterStart: selected(span(4), "footage-repeated", "unscaled", "P3 tick 0 is the tick he lands in his first corner; his first move comes 4 ticks later, 10 after phase 3 begins", NO_WIKI_P3_TICKS, P3_CHAIN_LOGS),
+  firstAttackAfterStart: selected(span(4), "log-repeated", "unscaled", "P3 tick 0 is the tick he lands in his first corner; his first move comes 4 ticks later, 10 after phase 3 begins", NO_WIKI_P3_TICKS, ...P3_CHAIN_LOGS),
   chain: {
-    afterSwing: selected(span(3), "footage-repeated", "unscaled", "a set is two swings and a shadow slash, each move timed from the one before: the second swing 3 ticks after the first and the slash 3 after the second; the wiki infobox's attack speed of 6 is not this gap", STRATEGIES_P3, BOSS_PAGE_P3, P3_CHAIN_LOGS, P3_CYCLE_FRAMES, P3_CHIP_FRAMES),
-    afterSlash: selected(span(4), "footage-repeated", "unscaled", "his next move, a swing or a special, 4 ticks after the slash's animation; the slash lands 1 tick after its animation, so footage shows it landing 3 ticks before the next swing", NO_WIKI_P3_TICKS, P3_CHAIN_LOGS, P3_CYCLE_FRAMES, P3_CHIP_FRAMES),
-    afterPanic: selected(span(6), "footage-repeated", "unscaled", "a panic shot takes a swing's place and his next move comes 6 ticks after it, so the rest of the chain runs 3 ticks late", NO_WIKI_P3_TICKS, P3_PANIC_LOGS),
-    setsBeforeSpecial: selected(2, "footage-repeated", "unscaled", "two sets, then a special, then two sets again", NO_WIKI_P3_TICKS, P3_CHAIN_LOGS, guide(KIRBY_GUIDE, "4:18")),
+    afterSwing: selected(span(3), "footage-repeated", "unscaled", "a set is two swings and a shadow slash, each move timed from the one before: the second swing 3 ticks after the first and the slash 3 after the second; the wiki infobox's attack speed of 6 is not this gap", STRATEGIES_P3, BOSS_PAGE_P3, ...P3_CHAIN_LOGS, P3_CYCLE_FRAMES, P3_CHIP_FRAMES),
+    afterSlash: selected(span(4), "footage-repeated", "unscaled", "his next move, a swing or a special, 4 ticks after the slash's animation; the slash lands 1 tick after its animation, so footage shows it landing 3 ticks before the next swing", NO_WIKI_P3_TICKS, ...P3_CHAIN_LOGS, P3_CYCLE_FRAMES, P3_CHIP_FRAMES),
+    afterPanic: selected(span(6), "log-repeated", "unscaled", "a panic shot takes a swing's place and his next move comes 6 ticks after it, so the rest of the chain runs 3 ticks late", NO_WIKI_P3_TICKS, ...P3_PANIC_LOGS),
+    setsBeforeSpecial: selected(2, "footage-repeated", "unscaled", "two sets, then a special, then two sets again", NO_WIKI_P3_TICKS, ...P3_CHAIN_LOGS, guide(KIRBY_GUIDE, "4:18")),
   },
   swing: {
     protectedDamage: selected<DamageRange>({ min: 0, max: 6 }, "footage-repeated", "solo", "chip through Protect from Melee: red 6, blue 0, red 6, blue 0 in panfleet's solo and red 2 and red 1 on DefBigbeast's tank; 6 is the most seen", NO_WIKI_P3_TICKS, P3_CYCLE_FRAMES, P3_CHIP_FRAMES, guide(ROBINHOOD_GUIDE, "0:02:09")),
     unprotectedDamage: selected<DamageRange>({ min: 0, max: 26 }, "inferred", "unscaled", "the monster melee max hit ⌊0.5 + (250 + 9) × (0 + 64) / 640⌋ = 26 at the cache's Strength 250 with no strength bonus (assumption); no clip shows an unprotected swing", noWiki("no wiki page gives the phase 3 swing's max hit (Ocellus rev 15381233)"), cache("npc 16677 stats [325, 250, 250, 5250, 300, 300]")),
   },
   panic: {
-    shout: selected("Your panic... is futile...", "footage-repeated", "unscaled", "his shout with a panic shot", NO_WIKI_P3_TICKS, fightLog("fights 3 to 8")),
-    landsAfter: selected(span(2), "footage-repeated", "unscaled", "a magic shot that lands 2 ticks after his animation, when nobody is in his melee reach as a swing comes; Protect from Magic blocks it", STRATEGIES_P3, fightLog("fights 1 and 3 to 8: every panic's hits land 2 ticks after its animation, 0 on each raider under Protect from Magic")),
-    damage: selected<DamageRange>({ min: 20, max: 26 }, "spec-single", "unscaled", "without Protect from Magic, from the wiki's 20+; the logs' unprotected hits as it lands run from 10 to 33, with other hits on the same tick, so they do not pin it", STRATEGIES_P3, guide(ROBINHOOD_GUIDE, "0:02:26 to 0:02:31"), fightLog("fights 1 and 3 to 8")),
+    shout: selected("Your panic... is futile...", "log-repeated", "unscaled", "his shout with a panic shot", NO_WIKI_P3_TICKS, ...p3Logs(["L3", "L4", "L5", "L6", "L7", "L8"], "fights 3 to 8")),
+    landsAfter: selected(span(2), "log-repeated", "unscaled", "a magic shot that lands 2 ticks after his animation, when nobody is in his melee reach as a swing comes; Protect from Magic blocks it", STRATEGIES_P3, ...p3Logs(["L1", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 and 3 to 8: every panic's hits land 2 ticks after its animation, 0 on each raider under Protect from Magic")),
+    damage: selected<DamageRange>({ min: 20, max: 26 }, "spec-single", "unscaled", "without Protect from Magic, from the wiki's 20+; the logs' unprotected hits as it lands run from 10 to 33, with other hits on the same tick, so they do not pin it", STRATEGIES_P3, guide(ROBINHOOD_GUIDE, "0:02:26 to 0:02:31"), ...p3Logs(["L1", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 and 3 to 8")),
   },
   shadowSlash: {
-    landsAfter: selected(span(1), "footage-repeated", "unscaled", "the slash's floor graphic and its hits come the tick after his animation", NO_WIKI_P3_TICKS, fightLog("fights 1 to 8: spotanim 4335 on the floor and the hits on the tick after each animation 14846")),
-    width: selected(3, "footage-repeated", "unscaled", "a band 3 tiles wide toward his tank, snapped to the nearest of the 8 directions from his middle tile, from the ring touching his body to the wedge's edge; straight bands are the 3 tiles in line with his body, diagonal ones start at his corner; solo, his tank is you", NO_WIKI_P3_TICKS, fightLog("fights 3 to 8: 111 bands of spotanim 4335, each aimed at the raider his swings hit")),
-    damage: selected<DamageRange>({ min: 25, max: 28 }, "footage-repeated", "unscaled", "typeless, so a protection prayer does not help", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, fightLog("fights 1 to 8: 57 of the 75 hits on raiders the tick after a slash's animation are 25 to 28")),
+    landsAfter: selected(span(1), "log-repeated", "unscaled", "the slash's floor graphic and its hits come the tick after his animation", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: spotanim 4335 on the floor and the hits on the tick after each animation 14846")),
+    width: selected(3, "log-repeated", "unscaled", "a band 3 tiles wide toward his tank, snapped to the nearest of the 8 directions from his middle tile, from the ring touching his body to the wedge's edge; straight bands are the 3 tiles in line with his body, diagonal ones start at his corner; solo, his tank is you", NO_WIKI_P3_TICKS, ...p3Logs(["L3", "L4", "L5", "L6", "L7", "L8"], "fights 3 to 8: 111 bands of spotanim 4335, each aimed at the raider his swings hit")),
+    damage: selected<DamageRange>({ min: 25, max: 28 }, "footage-repeated", "unscaled", "typeless, so a protection prayer does not help", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: 57 of the 75 hits on raiders the tick after a slash's animation are 25 to 28")),
   },
   specials: selected<readonly [P3Special, ...P3Special[]]>(
     ["spin", "untether", "spin", "insolence"],
     "footage-repeated",
     "unscaled",
     "after every two sets: the spin every other special, and between them Untether and Insolence in turn, Untether first; his HP plays no part, so a quadrant that stands through Untether goes on the same way; in later quadrants Insolence comes first, and the spin keeps alternating across a quadrant's fall, so a quadrant that falls after a spin opens with the other special",
-    NO_WIKI_P3_TICKS, P3_SPECIAL_LOGS,
+    NO_WIKI_P3_TICKS, ...P3_SPECIAL_LOGS,
   ),
   spin: {
-    saws: selected(1, "footage-repeated", "unscaled", "one saw in quadrant 1; one more for each quadrant destroyed", NO_WIKI_P3_TICKS, fightLog("fights 1 to 8: one cut in quadrant 1, two in quadrant 2 and three in quadrant 3")),
-    firstCut: selected(span(5), "footage-repeated", "unscaled", "the first saw cuts 5 ticks after the spin starts, on the tick his loop animation, or for the last saw his end animation, plays", NO_WIKI_P3_TICKS, P3_CHAIN_LOGS, fightLog("fight 2: per-tick overheads through each spin")),
-    cutEvery: selected(span(3), "footage-repeated", "unscaled", "each later saw 3 ticks after the one before", NO_WIKI_P3_TICKS, fightLog("fight 2, quadrant 3: loops at P+5 and P+8, the end at P+11")),
-    nextMoveAfterLastCut: selected(span(4), "footage-repeated", "unscaled", "his next move 4 ticks after the last cut", NO_WIKI_P3_TICKS, P3_CHAIN_LOGS),
-    damage: selected<DamageRange>({ min: 15, max: 27 }, "spec-single", "unscaled", "melee, 0 through Protect from Melee", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, fightLog("fights 1 to 8: zeros through Protect from Melee on each cut, and 11 to 29 on raiders with no overhead")),
-    severedFor: selected(span(3), "footage-once", "unscaled", "an overhead up on the tick before a cut is severed and stays off for 3 ticks, so the cut lands; turn it off for that tick and back on for the cut", NO_WIKI_P3_TICKS, guide(DUO_GUIDE, "18:53 to 18:55"), fightLog("fight 2: every raider's overhead off the tick before each cut and on for it")),
+    saws: selected(1, "log-repeated", "unscaled", "one saw in quadrant 1; one more for each quadrant destroyed", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: one cut in quadrant 1, two in quadrant 2 and three in quadrant 3")),
+    firstCut: selected(span(5), "log-repeated", "unscaled", "the first saw cuts 5 ticks after the spin starts, on the tick his loop animation, or for the last saw his end animation, plays", NO_WIKI_P3_TICKS, ...P3_CHAIN_LOGS, ...p3Logs(["L2"], "fight 2: per-tick overheads through each spin")),
+    cutEvery: selected(span(3), "log-repeated", "unscaled", "each later saw 3 ticks after the one before", NO_WIKI_P3_TICKS, ...p3Logs(["L2"], "fight 2, quadrant 3: loops at P+5 and P+8, the end at P+11")),
+    nextMoveAfterLastCut: selected(span(4), "log-repeated", "unscaled", "his next move 4 ticks after the last cut", NO_WIKI_P3_TICKS, ...P3_CHAIN_LOGS),
+    damage: selected<DamageRange>({ min: 15, max: 27 }, "spec-single", "unscaled", "melee, 0 through Protect from Melee", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: zeros through Protect from Melee on each cut, and 11 to 29 on raiders with no overhead")),
+    severedFor: selected(span(3), "footage-once", "unscaled", "an overhead up on the tick before a cut is severed and stays off for 3 ticks, so the cut lands; turn it off for that tick and back on for the cut", NO_WIKI_P3_TICKS, guide(DUO_GUIDE, "18:53 to 18:55"), ...p3Logs(["L2"], "fight 2: every raider's overhead off the tick before each cut and on for it")),
     severChat: selected(
       ["Ocellus disrupts your concentration, severing your prayer!", "You've been injured and can't use protection prayers!"],
       "footage-once",
       "unscaled",
       "the game chat as a prayer is severed",
-      NO_WIKI_P3_TICKS, guide(DUO_GUIDE, "18:53"), fightLog("fight 4: the second line in the chat"),
+      NO_WIKI_P3_TICKS, guide(DUO_GUIDE, "18:53"), ...p3Logs(["L4"], "fight 4: the second line in the chat"),
     ),
   },
   untether: {
-    shout: selected("Untether...", "footage-repeated", "unscaled", "his shout as Untether starts", STRATEGIES_P3, P3_UNTETHER_LOGS),
-    corner: selected(tile(21, 7), "footage-repeated", "unscaled", "he rises from his quadrant's corner: the south-west tile of his 3x3 at cache (37, 47) in quadrant 1", NO_WIKI_P3_ARENA, fightLog("fights 3 to 5: every Untether in quadrant 1 at cache (37, 47)")),
-    magic: selected([span(10), span(14), span(18), span(22)], "footage-repeated", "unscaled", "magic lands on everyone 10, 14, 18 and 22 ticks in, so Untether is prayed with Protect from Magic", NO_WIKI_P3_TICKS, guide(KIRBY_GUIDE, "4:37"), fightLog("fights 1 to 8: zeros on every raider under Protect from Magic at U+10, U+14, U+18 and U+22")),
+    shout: selected("Untether...", "log-repeated", "unscaled", "his shout as Untether starts", STRATEGIES_P3, ...P3_UNTETHER_LOGS),
+    corner: selected(tile(21, 7), "log-repeated", "unscaled", "he rises from his quadrant's corner: the south-west tile of his 3x3 at cache (37, 47) in quadrant 1", NO_WIKI_P3_ARENA, ...p3Logs(["L3", "L4", "L5"], "fights 3 to 5: every Untether in quadrant 1 at cache (37, 47)")),
+    magic: selected([span(10), span(14), span(18), span(22)], "footage-repeated", "unscaled", "magic lands on everyone 10, 14, 18 and 22 ticks in, so Untether is prayed with Protect from Magic", NO_WIKI_P3_TICKS, guide(KIRBY_GUIDE, "4:37"), ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: zeros on every raider under Protect from Magic at U+10, U+14, U+18 and U+22")),
     magicDamage: selected<DamageRange>({ min: 14, max: 29 }, "spec-single", "unscaled", "without Protect from Magic, from 12 unprayed hits; nearly every hit through Protect from Magic was 0", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT),
-    slam: selected(span(29), "footage-repeated", "unscaled", "the slam hits whoever is not under his 3x3 at the end of the tick before; the aftershock a tick later hits whoever is still under him at the end of the slam's tick; so be under him by U+28 and one tile out on U+29", NO_WIKI_P3_TICKS, guide(KIRBY_GUIDE, "5:00"), fightLog("fight 1: 36 on the one raider outside at U+29, 21 and 41 at U+30 on the two still under")),
-    slamDamage: selected<DamageRange>({ min: 34, max: 39 }, "footage-repeated", "unscaled", "typeless; the logs' slams run 34 to 41", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, fightLog("fights 1 to 8: hits at U+29")),
-    aftershockDamage: selected<DamageRange>({ min: 18, max: 41 }, "footage-repeated", "unscaled", "typeless; 18 and 19 on the tick after the slam in the packet captures, 18 to 42 in the logs", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, fightLog("fights 1 to 8: hits at U+30")),
-    fallsOrStandsAt: selected(span(31), "footage-repeated", "unscaled", "the quadrant falls 31 ticks after Untether starts if his HP is at its floor by then; otherwise it stands", NO_WIKI_P3_TICKS, P3_UNTETHER_LOGS),
-    swingsAgain: selected(span(37), "footage-repeated", "unscaled", "with the quadrant standing, his next move 37 ticks after Untether starts", NO_WIKI_P3_TICKS, P3_UNTETHER_LOGS),
+    slam: selected(span(29), "footage-repeated", "unscaled", "the slam hits whoever is not under his 3x3 at the end of the tick before; the aftershock a tick later hits whoever is still under him at the end of the slam's tick; so be under him by U+28 and one tile out on U+29", NO_WIKI_P3_TICKS, guide(KIRBY_GUIDE, "5:00"), ...p3Logs(["L1"], "fight 1: 36 on the one raider outside at U+29, 21 and 41 at U+30 on the two still under")),
+    slamDamage: selected<DamageRange>({ min: 34, max: 39 }, "footage-repeated", "unscaled", "typeless; the logs' slams run 34 to 41", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: hits at U+29")),
+    aftershockDamage: selected<DamageRange>({ min: 18, max: 41 }, "footage-repeated", "unscaled", "typeless; 18 and 19 on the tick after the slam in the packet captures, 18 to 42 in the logs", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: hits at U+30")),
+    fallsOrStandsAt: selected(span(31), "log-repeated", "unscaled", "the quadrant falls 31 ticks after Untether starts if his HP is at its floor by then; otherwise it stands", NO_WIKI_P3_TICKS, ...P3_UNTETHER_LOGS),
+    swingsAgain: selected(span(37), "log-repeated", "unscaled", "with the quadrant standing, his next move 37 ticks after Untether starts", NO_WIKI_P3_TICKS, ...P3_UNTETHER_LOGS),
   },
   insolence: {
-    shout: selected("Insolence...", "footage-repeated", "unscaled", "his shout as Insolence starts", NO_WIKI_P3_TICKS, fightLog("fights 1 to 8")),
-    slashes: selected([span(2), span(7), span(12)], "footage-repeated", "unscaled", "three superior slashes animate 2, 7 and 12 ticks after the shout; solo, all three come at you", NO_WIKI_P3_TICKS, fightLog("fights 1 and 5 to 7: animation 14848 at I+2, I+7 and I+12; the other fights log two of the three on those ticks")),
-    landsAfter: selected(span(3), "footage-repeated", "unscaled", "each lands 3 ticks after its animation", NO_WIKI_P3_TICKS, fightLog("fights 1, 2 and 4 to 8: hits of 38 to 48 three ticks after animation 14848")),
+    shout: selected("Insolence...", "log-repeated", "unscaled", "his shout as Insolence starts", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8")),
+    slashes: selected([span(2), span(7), span(12)], "log-repeated", "unscaled", "three superior slashes animate 2, 7 and 12 ticks after the shout; solo, all three come at you", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L5", "L6", "L7"], "fights 1 and 5 to 7: animation 14848 at I+2, I+7 and I+12; the other fights log two of the three on those ticks")),
+    landsAfter: selected(span(3), "log-repeated", "unscaled", "each lands 3 ticks after its animation", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L4", "L5", "L6", "L7", "L8"], "fights 1, 2 and 4 to 8: hits of 38 to 48 three ticks after animation 14848")),
     width: selected(3, "footage-once", "unscaled", "a band 3 tiles wide from just outside his body to the wedge's edge, at any angle, not snapped", NO_WIKI_P3_TICKS, guide(DUO_GUIDE, "20:24")),
-    damage: selected<DamageRange>({ min: 38, max: 46 }, "footage-repeated", "unscaled", "typeless; 39 to 41 in the packet captures, 38 to 48 in the logs, 46, 43 and 38 on one band in fight 1", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, fightLog("fights 1, 2 and 4 to 8")),
-    swingsAgain: selected(span(20), "footage-repeated", "unscaled", "his next move 20 ticks after the shout", NO_WIKI_P3_TICKS, fightLog("fights 1, 2, 4, 5, 7 and 8")),
+    damage: selected<DamageRange>({ min: 38, max: 46 }, "footage-repeated", "unscaled", "typeless; 39 to 41 in the packet captures, 38 to 48 in the logs, 46, 43 and 38 on one band in fight 1", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, ...p3Logs(["L1", "L2", "L4", "L5", "L6", "L7", "L8"], "fights 1, 2 and 4 to 8")),
+    swingsAgain: selected(span(20), "log-repeated", "unscaled", "his next move 20 ticks after the shout", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L4", "L5", "L7", "L8"], "fights 1, 2, 4, 5, 7 and 8")),
   },
-  fallShouts: selected(["Obliteration...", "Run... It matters not..."], "footage-repeated", "unscaled", "one of these as the quadrant falls", NO_WIKI_P3_TICKS, fightLog("fights 1 to 8")),
+  fallShouts: selected(["Obliteration...", "Run... It matters not..."], "log-repeated", "unscaled", "one of these as the quadrant falls", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8")),
   shoutLasts: selected(span(3), "assumption", "unscaled", "how long his overhead text shows", NO_WIKI_PRESENTATION),
   bossPoses: {
     swing: pose(14842, "npc_ocellus_phase3_melee_basic", "inferred", "the swing, 2 ticks; by its name"),
