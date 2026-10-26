@@ -224,7 +224,11 @@
         },
         {
           "policy": "an empty payload file counts as missing",
-          "mutation": [{ "find": "{ throwIfNoEntry: false })?.size ?? 0) > 0;", "replace": "{ throwIfNoEntry: false })?.size ?? 0) >= 0;" }]
+          "mutation": [{ "find": "stat.size > 0;", "replace": "stat.size >= 0;" }]
+        },
+        {
+          "policy": "a payload path that is not a regular file counts as missing",
+          "mutation": [{ "find": "stat.isFile() && ", "replace": "" }]
         }
       ]
     },

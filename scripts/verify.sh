@@ -351,7 +351,10 @@ manifest_ready() {
     import { dirname, join } from "node:path";
     const { assets } = await loadConfig();
     const m = JSON.parse(readFileSync(process.argv[1], "utf8"));
-    const payload = (key) => typeof m.assets?.[key]?.file === "string" && (statSync(join(dirname(process.argv[1]), m.assets[key].file), { throwIfNoEntry: false })?.size ?? 0) > 0;
+    const payload = (key) => {
+      const stat = typeof m.assets?.[key]?.file === "string" && statSync(join(dirname(process.argv[1]), m.assets[key].file), { throwIfNoEntry: false });
+      return !!stat && stat.isFile() && stat.size > 0;
+    };
     const npcs = Object.values(assets.npcs).every(({ id }) => payload(`npc-${id}`));
     const items = Object.values(assets.items).every(({ id }) => payload(m.playerItems?.[`item:${id}`]));
     const spotAnims = Object.values(assets.spotAnims).every(({ id }) => payload(m.spotAnims?.[id]));

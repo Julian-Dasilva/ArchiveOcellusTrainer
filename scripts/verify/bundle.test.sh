@@ -67,28 +67,26 @@ complete_bundle_passes() {
   grep -qx "PASS bundle" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "no PASS bundle line"; }
 }
 
-without_payload() {
+broken_payload_fails() {
+  local kind="$1" file
+  shift
   complete_bundle
   ready
   complete_bundle_passes
-  rm "$(payload "$1")"
-  if bundle; then cat "$WORK/out.txt"; fail "a bundle without a $1 payload passed"; fi
+  file="$(payload "$kind")"
+  rm "$file"
+  [[ $# -eq 0 ]] || "$@" "$file"
+  if bundle; then cat "$WORK/out.txt"; fail "a bundle whose $kind payload was removed and replaced by '$*' passed"; fi
   grep -qx "FAIL bundle" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "no FAIL bundle line"; }
 }
 
-missing_npc_payload_fails() { without_payload npc; }
-missing_model_payload_fails() { without_payload model; }
-missing_item_payload_fails() { without_payload player-item; }
-missing_spotanim_payload_fails() { without_payload spotanim; }
-
-empty_payload_fails() {
-  complete_bundle
-  ready
-  complete_bundle_passes
-  : >"$(payload spotanim)"
-  if bundle; then cat "$WORK/out.txt"; fail "a bundle with an empty payload passed"; fi
-  grep -qx "FAIL bundle" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "no FAIL bundle line"; }
-}
+missing_npc_payload_fails() { broken_payload_fails npc; }
+missing_model_payload_fails() { broken_payload_fails model; }
+missing_item_payload_fails() { broken_payload_fails player-item; }
+missing_spotanim_payload_fails() { broken_payload_fails spotanim; }
+empty_payload_fails() { broken_payload_fails spotanim touch; }
+directory_payload_fails() { broken_payload_fails spotanim mkdir; }
+guard:dangling_symlink_payload_fails() { broken_payload_fails spotanim ln -s missing.bin; }
 
 failed=0
 for t in \
@@ -96,7 +94,9 @@ for t in \
   missing_model_payload_fails \
   missing_item_payload_fails \
   missing_spotanim_payload_fails \
-  empty_payload_fails; do
+  empty_payload_fails \
+  directory_payload_fails \
+  guard:dangling_symlink_payload_fails; do
   if ("$t") >"$WORK/$t.log" 2>&1; then
     echo "PASS $t"
   else
