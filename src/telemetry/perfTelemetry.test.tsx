@@ -130,10 +130,12 @@ describe("Performance telemetry", () => {
   test.each([
     { name: "sampled in", sampleRate: 1, optedOut: false, untickAt: null, sent: ["death"] },
     { name: "sampled out at rate 0", sampleRate: 0, optedOut: false, untickAt: null, sent: [] },
+    { name: "with the shipped telemetry.json and the luckiest draw", sampleRate: shippedSampleRate(), optedOut: false, untickAt: null, sent: [], draw: 0 },
     { name: "with no readable telemetry.json", sampleRate: null, optedOut: false, untickAt: null, sent: [] },
     { name: "opted out before the page loaded", sampleRate: 1, optedOut: true, untickAt: null, sent: [] },
     { name: "opted out from Settings mid-run", sampleRate: 1, optedOut: false, untickAt: 20, sent: [] },
-  ])("a run $name sends $sent.length summaries", async ({ sampleRate, optedOut, untickAt, sent }) => {
+  ])("a run $name sends $sent.length summaries", async ({ sampleRate, optedOut, untickAt, sent, draw }) => {
+    if (draw !== undefined) vi.spyOn(Math, "random").mockReturnValue(draw);
     if (optedOut) localStorage.setItem("archive-ocellus:perf-data", "off");
     const beacons = network(sampleRate);
     const { page, playUntil, runEnded, atTick, close } = openRun(DEATH_RUN);

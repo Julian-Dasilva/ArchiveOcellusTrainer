@@ -35,9 +35,11 @@ To find what causes lag, a sample of runs sends one anonymous performance summar
 
 The share of runs that send a summary is `sampleRate` in `src/telemetry.json`, served as `/telemetry.json`. The Worker in `src/worker/worker.ts` accepts summaries at `/t` and writes each one to Workers Analytics Engine. `scripts/perf-report.mjs` summarises them.
 
+Until the Analytics Engine dataset and Web Analytics are set up, releases send nothing. `sampleRate` is 0, the build runs without `CF_WEB_ANALYTICS_TOKEN`, and `npx wrangler deploy --config wrangler.release.jsonc` deploys the Worker without its `PERF` binding, so `/t` answers 204 and stores nothing.
+
 ## Credit
 
-Made by Julian Dasilva / Moarhots ([@ShadowJdas](https://x.com/ShadowJdas) on X).
+Made by Julian Dasilva / Moarhots ([@ShadowJdas](https://x.com/ShadowJdas) on X), with help from [Alessandro Rodi](https://github.com/alessandrorodi).
 
 Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.
 
