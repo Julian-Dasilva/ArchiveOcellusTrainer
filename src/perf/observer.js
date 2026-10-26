@@ -101,7 +101,10 @@
       draws,
       heap,
       largestCanvas,
-      retired: (region?.fightLog().rows ?? []).flatMap((row) => row.events).filter(({ kind }) => kind === "rift-destroyed" || kind === "rift-burst").map(({ at }) => at),
+      // One tick per retired rift. A burst names every rift it retires; a base build before that logged one burst per rift.
+      retired: (region?.fightLog().rows ?? [])
+        .flatMap((row) => row.events)
+        .flatMap((event) => (event.kind === "rift-destroyed" ? [event.at] : event.kind === "rift-burst" ? (event.rifts ?? [event.rift]).map(() => event.at) : [])),
       errors,
     }),
   });

@@ -1,6 +1,6 @@
 # Lifeforce orb
 
-Four ticks after each void forms, Ocellus takes half the player's current HP, rounded down, whatever prayer is on. A teal swirl plays on the player a tick before the hit. On the hit tick an orb starts to form, never on a floor hole and never under the boss. The inner orb forms 2 to 5 tiles from the player, off the void. The outer orb forms on the 5x5 rim tile farthest from the tile where the player last stepped into the 5x5, or from the player when they are outside it. Its four chimes count down to the glow, and the dark orb shows a tick or two after the hit. Every tile of the measured platform is within 4 tiles of safe floor, so a near-player orb always lands within 5. It glows teal once it is ready, 12 ticks after an inner hit or 6 after an outer one. A player who ends a tick on the ready orb gets back exactly the HP that hit took, the tick after, even above 99. An orb stays pickable after its void clears: the inner orb for 5 ticks, into the transition tell, and the outer orb for 2. Then it vanishes, at 35 for the inner orb and 61 for the outer one. The tick after an outer orb nobody took vanishes, it heals the boss by the HP it held.
+Four ticks after each void forms, Ocellus takes half the player's current HP, rounded down, whatever prayer is on. A teal swirl plays on the player a tick before the hit. On the hit tick an orb starts to form, never on a floor hole and never under the boss. The inner orb forms 2 to 5 tiles from the player, off the void. The outer orb forms on the 5x5 rim tile farthest from the tile where the player last stepped into the 5x5, or from the player when they are outside it. Its four chimes count down to the glow, and the dark orb shows a tick or two after the hit. Every tile of the measured platform is within 4 tiles of safe floor, so a near-player orb always lands within 5. It glows teal once it is ready, 12 ticks after an inner hit or 6 after an outer one. A player who ends a tick on the ready orb gets back exactly the HP that hit took, the tick after, even above 99. A player already on the orb when it glows gets it back on that tick ([p4-recorded-fights.md](./p4-recorded-fights.md)). An orb stays pickable after its void clears: the inner orb for 5 ticks, into the transition tell, and the outer orb for 2. Then it vanishes, at 35 for the inner orb and 61 for the outer one. The tick after an outer orb nobody took vanishes, it heals the boss by the HP it held.
 
 ## Sub-features
 
@@ -8,7 +8,7 @@ Four ticks after each void forms, Ocellus takes half the player's current HP, ro
 - `lifeforce-hit` logs `lifeforce-drained` at 12 (and 43) with a receipt of `floor(HP / 2)`, through any protection prayer.
 - `orb-dormant` logs `orb-spawned` on the hit tick, 12 (and 43), and plays spotanim 4311 (inner) or 4309 (outer) on the orb's tile. Their frame sounds are the orb's four chimes, checked in the [timing cues](./timing-cues.md) recipe.
 - `orb-glow` logs `orb-matured` at 24 (and 49) and loops spotanim 4310.
-- `orb-return` logs `orb-returned` the tick after the player ends a tick on a ready orb, writes the HP back without the max-HP cap, and plays 4312 on the orb and 4314 on the player.
+- `orb-return` logs `orb-returned` the tick after the player ends a tick on a ready orb, or on the tick it matures when the player already stands on it, writes the HP back without the max-HP cap, and plays 4312 on the orb and 4314 on the player.
 - `orb-expiry` logs `orb-expired` at 35 (and 61) and plays 4312.
 - `unclaimed-orb-heal` logs `boss-healed` with cause `unclaimed-orb` at 62 when the outer orb was not collected.
 - `orb-opposite-entry` puts the default outer orb on the rim tile farthest in a straight line from the 5x5 entry tile. Equally far tiles are a seeded pick.
@@ -18,7 +18,7 @@ Four ticks after each void forms, Ocellus takes half the player's current HP, ro
 ## How to get to it (user POV)
 
 - Open `http://127.0.0.1:8002/` and watch the HP orb halve at P4 tick 12 and 43 in every cycle.
-- Click the orb's tile once it appears and stand on it until it glows. HP comes back the tick after.
+- Click the orb's tile once it appears and stand on it until it glows. HP comes back on the glow tick. A player who steps on after the glow gets it the tick after.
 - Pick `Lifeforce orb` in the `Focus` selector and press `Restart` to practise the orb alone, or `Orb retrieval` to practise it with the void floor.
 
 ## Driving it with agent-browser
