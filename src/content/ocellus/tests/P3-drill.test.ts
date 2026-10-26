@@ -68,7 +68,7 @@ describe("P3 drill", () => {
     { link: "?phase=p3&seed=1&focus=void-floor", expected: { phase: "p3", rejected: ["focus=void-floor"] } },
   ])("with the P3 flag on, parseRequest opens $expected.phase for $link and rejects $expected.rejected", async ({ link, expected }) => {
     const { parseRequest } = await loadTimings();
-    const request = parseRequest(new URL(`http://127.0.0.1:8002/${link}`), () => 99, { p3: true });
+    const request = parseRequest(new URL(`http://127.0.0.1:8002/${link}`), () => 99, { p3: true, p2: false });
     expect({ phase: request.phase, rejected: request.rejected }).toEqual(expected);
   });
 });
