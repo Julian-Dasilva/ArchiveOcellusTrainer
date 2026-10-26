@@ -57,7 +57,7 @@ export class Phase1 implements PhaseScript {
   begin(): void {
     const { fight } = this;
     fight.barColour = "#00b4b4";
-    fight.player.hopTo(at(0, -9));
+    fight.player.hop(at(0, -9));
     const hooded = fight.swapBoss("hooded", HOODED_SW, this.maxHp, this.maxHp);
     hooded.attackable = false;
     hooded.faceTile(at(0, 2));

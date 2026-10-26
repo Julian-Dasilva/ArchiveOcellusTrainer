@@ -430,10 +430,16 @@ export class FightPlayer extends EncounterPlayer {
     this.walkDirect(tile(s.x, s.y));
   }
 
-  /** A forced hop (stepping stones, the safe portal): land on the tile, drop any walk. */
-  hopTo(at: ATile): void {
-    const s = toSdk(at);
-    this.hop({ x: s.x, y: s.y });
+  /** A forced hop (stepping stones, the safe portal): land on the tile, drop any walk. A room tile still lands as the engine asked. */
+  override hop(at: ATile): void;
+  override hop(to: Readonly<{ x: number; y: number }>): void;
+  override hop(to: ATile | Readonly<{ x: number; y: number }>): void {
+    if ("z" in to) {
+      const s = toSdk(to);
+      super.hop({ x: s.x, y: s.y });
+      return;
+    }
+    super.hop(to);
   }
 }
 

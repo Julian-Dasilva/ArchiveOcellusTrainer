@@ -131,7 +131,7 @@ export class Phase3 implements PhaseScript {
     if (!fight.isWalkable(here)) {
       const q = quadrantOf(here) ?? sideQuadrant(here);
       const { sx, sz } = QUADRANT_SIGN[q];
-      fight.player.hopTo(at(Math.abs(here.x) < 3 ? 3 * sx : here.x, Math.abs(here.z) < 3 ? 3 * sz : here.z));
+      fight.player.hop(at(Math.abs(here.x) < 3 ? 3 * sx : here.x, Math.abs(here.z) < 3 ? 3 * sz : here.z));
     }
   }
 
@@ -866,7 +866,7 @@ export class Phase3 implements PhaseScript {
       this.crossing = null;
       return;
     }
-    fight.player.hopTo(next);
+    fight.player.hop(next);
     fight.player.freeze(1);
     if (crossing.hops.length === 0) this.crossing = null;
   }
