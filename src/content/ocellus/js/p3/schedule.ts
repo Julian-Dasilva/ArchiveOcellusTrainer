@@ -2,7 +2,7 @@ import { OCELLUS_P3 } from "../OcellusTimings";
 import { tick } from "../../../../sim/brands";
 import type { Script, Slot } from "../../../../sim/schedule";
 import { Schedule, slotTable } from "../../../../sim/schedule";
-import type { BossStance, P3Beat, P3Phase, P3Stage, Quadrant } from "../P3Types";
+import type { P3Beat, P3Phase, P3Stage, Quadrant } from "../P3Types";
 
 export type P3Schedule = Schedule<P3Stage, P3Phase, P3Beat, never>;
 
@@ -11,25 +11,21 @@ type Table = readonly [Slot<P3Phase, P3Beat>, ...Slot<P3Phase, P3Beat>[]];
 const QUADRANTS: readonly Quadrant[] = [1, 2, 3];
 const { chain, specials, spin, untether, insolence } = OCELLUS_P3;
 
-const slot = (stage: P3Stage, boss: BossStance, beats: readonly P3Beat[]): Slot<P3Phase, P3Beat> => {
-  const phase: P3Phase = { stage, boss };
-  return { phase: () => phase, beats: beats.map((beat) => () => beat) };
-};
+const slot = (phase: P3Phase, beats: readonly P3Beat[]): Slot<P3Phase, P3Beat> => ({ phase: () => phase, beats: beats.map((beat) => () => beat) });
 
-/** A table `length` long, whose slot at each offset gets that offset's beats and stance. */
-function table(stage: P3Stage, length: number, beatsAt: (offset: number) => readonly P3Beat[], stanceAt: (offset: number) => BossStance): Table {
+function table(length: number, beatsAt: (offset: number) => readonly P3Beat[], phaseAt: (offset: number) => P3Phase): Table {
+  const { stage } = phaseAt(0);
   if (length < 1) throw new RangeError(`the ${stage} stage needs at least 1 tick, not ${length}`);
-  return slotTable(Array.from({ length }, (_, offset) => slot(stage, stanceAt(offset), beatsAt(offset))), stage);
+  return slotTable(Array.from({ length }, (_, offset) => slot(phaseAt(offset), beatsAt(offset))), stage);
 }
 
-const chasing = (): BossStance => "chasing";
+const chasing = (stage: Extract<P3Phase, { boss: "chasing" }>["stage"]) => (): P3Phase => ({ stage, boss: "chasing" });
 const move = (beat: P3Beat) => (offset: number): readonly P3Beat[] => (offset === 0 ? [beat] : []);
 
 function spinTable(): Table {
   const saws = Array.from({ length: spin.saws.value }, (_, saw) => ({ saw, cut: spin.firstCut.value + saw * spin.cutEvery.value }));
   const lastCut = saws[saws.length - 1].cut;
   return table(
-    "spin",
     lastCut + spin.nextMoveAfterLastCut.value,
     (offset) => [
       ...(offset === 0 ? [{ kind: "spin-starts" } as const] : []),
@@ -40,7 +36,7 @@ function spinTable(): Table {
         return [];
       }),
     ],
-    (offset) => (offset < lastCut ? "standing" : "chasing"),
+    (offset) => ({ stage: "spin", boss: offset < lastCut ? "standing" : "chasing" }),
   );
 }
 
@@ -48,7 +44,6 @@ function untetherTable(): Table {
   const { magic, slam, fallsOrStandsAt } = untether;
   const at = (offset: number, ticks: readonly number[]) => ticks.some((t) => t === offset);
   return table(
-    "untether",
     fallsOrStandsAt.value,
     (offset) => [
       ...(offset === 0 ? [{ kind: "untether-starts" } as const] : []),
@@ -56,17 +51,16 @@ function untetherTable(): Table {
       ...(offset === slam.value ? [{ kind: "untether-slam" } as const] : []),
       ...(offset === slam.value + 1 ? [{ kind: "untether-aftershock" } as const] : []),
     ],
-    () => "levitating",
+    () => ({ stage: "untether", boss: "levitating" }),
   );
 }
 
 function insolenceTable(): Table {
   const slashes = insolence.slashes.value;
   return table(
-    "insolence",
     insolence.swingsAgain.value,
     (offset) => [...(offset === 0 ? [{ kind: "insolence-starts" } as const] : []), ...slashes.flatMap((t, nth): P3Beat[] => (t === offset ? [{ kind: "superior-slash", nth }] : []))],
-    chasing,
+    chasing("insolence"),
   );
 }
 
@@ -81,11 +75,11 @@ export function compileP3Schedule(): P3Schedule {
   const script: Script<P3Stage, P3Phase, P3Beat> = {
     first: "arrive",
     stages: {
-      arrive: { slots: table("arrive", firstAttackAfterStart.value, () => [], chasing), breakable: true, then: () => "swing" },
-      swing: { slots: table("swing", chain.afterSwing.value, move({ kind: "swing" }), chasing), breakable: true, then: (_, visits) => afterSwingOrPanic(visits) },
-      panic: { slots: table("panic", chain.afterPanic.value, move({ kind: "panic" }), chasing), breakable: true, then: (_, visits) => afterSwingOrPanic(visits) },
+      arrive: { slots: table(firstAttackAfterStart.value, () => [], chasing("arrive")), breakable: true, then: () => "swing" },
+      swing: { slots: table(chain.afterSwing.value, move({ kind: "swing" }), chasing("swing")), breakable: true, then: (_, visits) => afterSwingOrPanic(visits) },
+      panic: { slots: table(chain.afterPanic.value, move({ kind: "panic" }), chasing("panic")), breakable: true, then: (_, visits) => afterSwingOrPanic(visits) },
       "shadow-slash": {
-        slots: table("shadow-slash", chain.afterSlash.value, move({ kind: "shadow-slash" }), chasing),
+        slots: table(chain.afterSlash.value, move({ kind: "shadow-slash" }), chasing("shadow-slash")),
         breakable: true,
         then: (_, visits) => {
           if (visits("shadow-slash") % chain.setsBeforeSpecial.value !== 0) return "swing";
@@ -94,9 +88,9 @@ export function compileP3Schedule(): P3Schedule {
       },
       spin: { slots: spinTable(), breakable: true, then: () => "swing" },
       untether: { slots: untetherTable(), breakable: false, then: () => "untether-ends" },
-      "untether-ends": { slots: table("untether-ends", untether.swingsAgain.value - untether.fallsOrStandsAt.value, () => [], chasing), breakable: true, then: () => "swing" },
+      "untether-ends": { slots: table(untether.swingsAgain.value - untether.fallsOrStandsAt.value, () => [], chasing("untether-ends")), breakable: true, then: () => "swing" },
       insolence: { slots: insolenceTable(), breakable: true, then: () => "swing" },
-      destroy: { slots: [slot("destroy", "standing", [{ kind: "quadrant-falls" }])], breakable: false, then: () => "destroy" },
+      destroy: { slots: [slot({ stage: "destroy", boss: "standing" }, [{ kind: "quadrant-falls" }])], breakable: false, then: () => "destroy" },
     },
     breakpoints: QUADRANTS.map((quadrant) => ({ atOrBelow: thresholds.value[quadrant], enter: "destroy" })),
   };

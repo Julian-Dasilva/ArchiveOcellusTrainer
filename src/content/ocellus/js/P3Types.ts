@@ -11,7 +11,11 @@ export type P3Special = "spin" | "untether" | "insolence";
 export type P3Stage = "arrive" | "swing" | "panic" | "shadow-slash" | "spin" | "untether" | "untether-ends" | "insolence" | "destroy";
 /** What he does on the tick after this one: walk after the player, stand through the spin's cuts, or hover in his corner through Untether. */
 export type BossStance = "chasing" | "standing" | "levitating";
-export type P3Phase = Readonly<{ stage: P3Stage; boss: BossStance }>;
+export type P3Phase =
+  | Readonly<{ stage: "arrive" | "swing" | "panic" | "shadow-slash" | "untether-ends" | "insolence"; boss: "chasing" }>
+  | Readonly<{ stage: "spin"; boss: "standing" | "chasing" }>
+  | Readonly<{ stage: "untether"; boss: "levitating" }>
+  | Readonly<{ stage: "destroy"; boss: "standing" }>;
 
 export type P3Beat =
   | Readonly<{ kind: "swing" }>
