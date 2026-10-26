@@ -1,3 +1,4 @@
+import { Mob } from "osrs-sdk";
 import type { HitReceipt } from "../../../sim/combat";
 import type { At } from "./drill";
 import { footprintCentre } from "./p3drill";
@@ -99,6 +100,26 @@ describe("P1 drill", () => {
       meter: 14,
       bossHp: 2014,
     });
+  });
+
+  test("drawing his heal splat for 100 frames makes no array calls beyond the SDK's own hitsplats", async () => {
+    const drill = await startP1Drill({ seed: 1, bossHp: 2000 });
+    drill.tickTo(20);
+    const context = new OffscreenCanvas(64, 64).getContext("2d");
+    if (!context) throw new Error("no 2D context");
+    const arrayCalls = (draw: () => void) => {
+      const spies = (["map", "slice", "filter"] as const).map((method) => vi.spyOn(Array.prototype, method));
+      for (let frame = 0; frame < 100; frame++) draw();
+      const calls = spies.reduce((total, spy) => total + spy.mock.calls.length, 0);
+      spies.forEach((spy) => spy.mockRestore());
+      return calls;
+    };
+    const boss = drill.boss();
+    const drawn = arrayCalls(() => boss.drawHitsplats(context, 32));
+    const sdk = arrayCalls(() => Mob.prototype.drawHitsplats.call(boss, context, 32));
+    const observed = { healedAt: drill.events("boss-healed").map((event) => event.at), extraArrayCalls: drawn - sdk };
+    drill.dispose();
+    expect(observed).toEqual({ healedAt: [20], extraArrayCalls: 0 });
   });
 
   test("standing on a crack as it closes blocks it for 3 to 5 damage and no charge, and the damage comes back once the player steps off", async () => {

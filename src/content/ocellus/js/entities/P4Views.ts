@@ -369,8 +369,9 @@ export function drawOverheadIcon(context: OffscreenCanvasRenderingContext2D, sca
 const HEAL_SPLAT_SLOTS: readonly Readonly<{ x: number; y: number }>[] = [{ x: 0, y: 30 }, { x: -18, y: 20 }, { x: 18, y: 20 }];
 
 /** Drawn like the SDK's own hitsplats, in the slots its damage splats use last. */
-export function drawHealSplats(context: OffscreenCanvasRenderingContext2D, image: HTMLImageElement, amounts: readonly number[], verticalOffset: number): void {
-  amounts.slice(0, HEAL_SPLAT_SLOTS.length).forEach((amount, slot) => {
+export function drawHealSplats(context: OffscreenCanvasRenderingContext2D, image: HTMLImageElement, splats: readonly Readonly<{ amount: number }>[], verticalOffset: number): void {
+  for (let slot = 0; slot < Math.min(splats.length, HEAL_SPLAT_SLOTS.length); slot++) {
+    const { amount } = splats[slot];
     const { x, y } = HEAL_SPLAT_SLOTS[slot];
     context.drawImage(image, x - 11, verticalOffset - y - 1, 24, 23);
     context.font = "16px Stats_11";
@@ -380,7 +381,7 @@ export function drawHealSplats(context: OffscreenCanvasRenderingContext2D, image
     context.fillStyle = "#FFFFFF";
     context.fillText(String(amount), x, verticalOffset - y + 15);
     context.textAlign = "left";
-  });
+  }
 }
 
 export class PlayerLook {
