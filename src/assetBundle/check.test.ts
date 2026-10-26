@@ -79,8 +79,8 @@ describe("npm run build", () => {
       {},
       rejected(
         "missing assets.npcs.ocellus.animations.swing = 14842",
-        "missing assets.npcs.ocellus.animations.voidShot = 14851",
-        "missing assets.npcs.ocellus.animations.wave = 14846",
+        "missing assets.npcs.ocellus.animations.panic = 14851",
+        "missing assets.npcs.ocellus.animations.shadowSlash = 14846",
         "missing assets.spotAnims.explosion.id = 4339",
         "manifest.json has no spotAnims.explosion (4339)",
       ),
