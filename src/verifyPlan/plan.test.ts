@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const ROOT = resolve(__dirname, "../..");
 const BROWSER_UNITS = readdirSync(resolve(ROOT, "scripts/verify/units")).map((file) => file.replace(/\.mjs$/, "")).sort();
@@ -107,6 +108,50 @@ describe("verify plan", () => {
         { kind: "units", path: "src/content/ocellus/js/p4/orb.ts", units: ["cues", "invincible", "lifeforce_orb", "orb_late_and_entry", "orb_off_holes", "recorded_fights"], globs: ["src/content/ocellus/js/p4/orb.ts"] },
       ],
     });
+  });
+
+  test("the changelog release commit selects whats new and production", async () => {
+    const { impact, plan } = await shipped();
+    const sha = execFileSync("git", ["rev-parse", "23af5717cb"], { cwd: ROOT, encoding: "utf8" }).trim();
+    const paths = execFileSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", sha], { cwd: ROOT, encoding: "utf8" }).split("\n").filter((line) => line !== "");
+    const selected = plan(impact, paths);
+    expect(selected.tier).toBe("t1");
+    expect(selected.units).toEqual(["whats_new", "production"]);
+  });
+
+  test("the explosion behaviour commit selects every unit, and the explosion file still names its three units", async () => {
+    const { impact, plan, select } = await shipped();
+    const sha = execFileSync("git", ["rev-parse", "9a50b3a"], { cwd: ROOT, encoding: "utf8" }).trim();
+    const paths = execFileSync("git", ["diff-tree", "--no-commit-id", "--name-only", "-r", sha], { cwd: ROOT, encoding: "utf8" }).split("\n").filter((line) => line !== "");
+    const selected = plan(impact, paths);
+    expect(selected.tier).toBe("t2");
+    expect(selected.units).toEqual(impact.units);
+    expect(select(impact, "src/content/ocellus/js/p4/explosions.ts")).toEqual({
+      kind: "units",
+      path: "src/content/ocellus/js/p4/explosions.ts",
+      units: ["dodge_speedup", "explosion_run_end", "explosions"],
+      globs: ["src/content/ocellus/js/p4/explosions.ts"],
+    });
+    for (const unit of ["dodge_speedup", "explosion_run_end", "explosions"]) expect(selected.units).toContain(unit);
+  });
+
+  test("a handoff stays local, drives the selected stages, or defers every unit", async () => {
+    const { impact, plan, handoff } = await shipped();
+    expect(handoff(impact, plan(impact, ["README.md"]))).toEqual({ kind: "local", tier: "t0" });
+    expect(handoff(impact, plan(impact, ["src/content/ocellus/changelog.ts"]))).toEqual({ kind: "drive", tier: "t1", browser: ["whats_new"], stages: ["production"] });
+    expect(handoff(impact, plan(impact, ["src/perf/gate.ts"]))).toEqual({ kind: "drive", tier: "t1", browser: [], stages: ["perf"] });
+    expect(handoff(impact, plan(impact, ["src/sim/tiles.ts"])).kind).toBe("defer");
+  });
+
+  test("the planner writes the handoff file t1 reads", () => {
+    const dir = mkdtempSync(join(tmpdir(), "verify-plan-"));
+    const file = join(dir, "handoff.json");
+    const output = execFileSync("node", ["node_modules/.bin/tsx", "src/verifyPlan/main.ts", MAP, "scripts/verify/units", "--handoff", file, "--", "src/content/ocellus/changelog.ts"], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+    expect(output).toContain("plan: handoff drive");
+    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({ kind: "drive", tier: "t1", browser: ["whats_new"], stages: ["production"] });
   });
 
   test("every path in the shipped map matches a tracked file", async () => {

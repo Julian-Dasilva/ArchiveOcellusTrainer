@@ -56,6 +56,10 @@
     "src/verifyPlan/**",
     "scripts/verify-parity-expected.json",
     "scripts/verify/parity.mjs",
+    "scripts/verify/affected-tests.mjs",
+    "scripts/verify/pr-evidence.mjs",
+    "scripts/verify/ci-verdict.mjs",
+    "scripts/verify/job-times.mjs",
     "scripts/check-types.mjs",
     "scripts/perf-report.mjs"
   ],
