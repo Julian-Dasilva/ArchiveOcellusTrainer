@@ -82,6 +82,25 @@ describe("P1 behind the ARCHIVE_P1 build flag", () => {
     });
   });
 
+  test("with the P1 and P2 flags on, phase 1's end also offers Start P2, which opens phase 2 with the same setup", async () => {
+    vi.stubEnv("ARCHIVE_P1", "on");
+    vi.stubEnv("ARCHIVE_P2", "on");
+    const navigation = captureNavigation();
+    const fight = await openP1Fight("/?phase=p1&seed=100&bosshp=1");
+    fight.tickTo(8);
+    await fight.clickBoss();
+    fight.tickTo(22);
+    const shown = await fight.result();
+    clickIfShown("result_start_p2");
+    fight.page.close();
+    navigation.restore();
+
+    expect({ buttons: shown?.buttons, navigation: navigation.assigned }).toEqual({
+      buttons: ["Repeat P1", "Retry seed", "Start P2"],
+      navigation: ["http://localhost/?phase=p2&setup=ranged"],
+    });
+  });
+
   test("with only the P1 flag on, the Phase box lists Phase 4 and Phase 1 and reloads Phase 1 with its defaults", () => {
     vi.stubEnv("ARCHIVE_P1", "on");
     const navigation = captureNavigation();
