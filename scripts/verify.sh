@@ -161,7 +161,7 @@ ORB_CLICK_UP_PX=78
 ORB_BOX='{"minX":-60,"maxX":50,"minY":-75,"maxY":5}'
 ORB_SKIP_LAST_TICK=63
 ORB_INNER_CLEAR_TICK=30
-ORB_INNER_EXPIRY_TICK=35
+ORB_INNER_EXPIRY_TICK=36
 ORB_LATE_SHOT_TICK=31
 ORB_LATE_LAST_TICK=36
 ORB_ENTRY_CLICK_TICK=34
@@ -203,7 +203,7 @@ EXPLOSION_RUN_END_FRAMES=2
 SOUND_SETTINGS_KEY="osrs-sdk:settings"
 SOUND_SAMPLES='{"12638":14332,"12537":8820}'
 EXPLOSION_SOUNDS='[[14,12638],[17,12537],[19,12537],[21,12537],[23,12537],[25,12537],[27,12537],[45,12638],[48,12537],[50,12537],[52,12537],[54,12537],[56,12537],[58,12537]]'
-EXPLOSION_EXPECTED='{"lateHit":{"requested":16,"applied":16,"beforeHp":99,"afterHp":83,"prayer":null},"under":[[18,{"x":5,"y":6},true,"hit",83],[20,{"x":5,"y":6},true,"hit",67],[22,{"x":5,"y":6},true,"hit",51],[24,{"x":5,"y":6},true,"hit",35],[26,{"x":5,"y":6},true,"hit",19],[28,{"x":5,"y":6},true,"hit",3]]}'
+EXPLOSION_EXPECTED='{"lateHit":{"requested":14,"applied":14,"beforeHp":99,"afterHp":85,"prayer":null},"under":[[18,{"x":5,"y":6},true,"hit",83],[20,{"x":5,"y":6},true,"hit",67],[22,{"x":5,"y":6},true,"hit",53],[24,{"x":5,"y":6},true,"hit",38],[26,{"x":5,"y":6},true,"hit",24],[28,{"x":5,"y":6},true,"hit",10]]}'
 SPECIAL_DRILL="transition-attacks"
 SPECIAL_QUERY="?seed=1&focus=${SPECIAL_DRILL}&specialSelection=replay-v2"
 PROTECT_MAGIC_RIGHT_PX=514
@@ -226,25 +226,25 @@ LANDING_WINDOWS='[[29,32],[89,92]]'
 STYLE_SOUNDS='[[34.2,12554],[64.4,12555],[65.1,12556],[92.1,12572],[97.1,12567]]'
 STYLE_WINDOWS='[[32,37.5],[60,65.5],[92,97.5]]'
 SOUND_TOLERANCE_TICKS=0.2
-SPECIAL_EXPECTED='{"protected":[37,"magic",{"requested":8,"applied":8,"beforeHp":99,"afterHp":91,"prayer":"magic"}],"late":[37,"magic",{"requested":49,"applied":49,"beforeHp":99,"afterHp":50,"prayer":null}],"told":[[32,"vortex","magic"],[60,"spike-disk","ranged"],[92,"black-disk","melee"]]}'
-ORB_EXPECTED='{"told":[[11,"inner-void"]],"drained":[[12,49,50]],"spawned":[[12,{"x":9,"y":4},49]],"matured":[[24,{"x":9,"y":4}]],"returned":{"requested":49,"applied":49,"beforeHp":50,"afterHp":99},"skipExpired":[[35,"inner-void"],[61,"outer-void"]],"skipHeal":[[62,{"kind":"unclaimed-orb"},{"requested":25,"applied":25,"beforeHp":1312,"afterHp":1337}]]}'
+SPECIAL_EXPECTED='{"protected":[37,"magic",{"requested":9,"applied":9,"beforeHp":99,"afterHp":90,"prayer":"magic"}],"late":[37,"magic",{"requested":49,"applied":49,"beforeHp":99,"afterHp":50,"prayer":null}],"told":[[32,"vortex","magic"],[60,"spike-disk","ranged"],[92,"black-disk","melee"]]}'
+ORB_EXPECTED='{"told":[[11,"inner-void"]],"drained":[[12,49,50]],"spawned":[[12,{"x":9,"y":4},49]],"matured":[[24,{"x":9,"y":4}]],"returned":{"requested":49,"applied":49,"beforeHp":50,"afterHp":99},"skipExpired":[[36,"inner-void"],[61,"outer-void"]],"skipHeal":[[62,{"kind":"unclaimed-orb"},{"requested":25,"applied":25,"beforeHp":1312,"afterHp":1337}]]}'
 RIFT_QUERY="?seed=1&focus=rifts&drillStart=cycle-start"
 OVERHEAD_SHOT_TICKS="5 31 35 45"
 OVERHEAD_GAP_DRAWS='{"37":["440-11"],"38":[],"39":["440-16"],"66":["440-11"],"67":[],"68":["440-15"]}'
 ICON_BOX='{"minX":-40,"maxX":40,"minY":-290,"maxY":-190}'
 RIFT_CLICK_TICK=68
-NORTH_EAST_RIFT_CLICK_LEFT_PX=270
-NORTH_EAST_RIFT_CLICK_UP_PX=52
+RIFT_SHOT="rift-67-1"
+RIFT_TIMED="rift-67-0"
 RIFT_BURST_TICK=97
 RIFT_CHARGED_SHOT_TICK=96
-RIFT_TIMER_BOX='{"minX":156,"maxX":185,"minY":-85,"maxY":-81}'
+RIFT_TIMER_BOX='{"minX":-9,"maxX":20,"minY":-72,"maxY":-68}'
 RIFT_TIMER_MAX_EARLY_SHARE=10
 RIFT_TIMER_MIN_FULL_SHARE=85
 RIFT_ONE_HIT='[[72,"rift-67-1","ranged",44]]'
 RIFT_RALOS_HITS='[[72,"rift-67-1","ranged",18],[72,"rift-67-1","ranged",18]]'
 RIFT_RALOS_LAST_TICK=74
-RIFT_MELEE_HITS='[[71,"rift-67-1","melee",35],[76,"rift-67-1","melee",9]]'
-RIFT_MELEE_SPLAT_TICK=71
+RIFT_MELEE_HITS='[[70,"rift-67-1","melee",35],[75,"rift-67-1","melee",9]]'
+RIFT_MELEE_SPLAT_TICK=70
 RIFT_MELEE_LAST_TICK=77
 CHAT_POLL_WAIT_MS=600
 MENU_CONTROLS='["setup","focus","seed","keybinds","sound","area_sound","invincible","perf_data","whats_new"]'
@@ -301,7 +301,7 @@ REFLECT_SPLAT_BOX='{"minX":-14,"maxX":14,"minY":-52,"maxY":-24}'
 REFLECT_MIN_SPLAT_SHARE=5
 REFLECT_MAX_CLEAR_SHARE=1
 SOUL_SPLIT_HEAL_TICK=39
-RIFT_EXPECTED='{"spawned":[[67,"rift-67-0",{"x":2,"y":2}],[67,"rift-67-1",{"x":10,"y":2}]],"destroyed":"rift-67-1","attackDelay":{"before":2,"after":0},"bursts":[[97,["rift-67-0"],{"requested":36,"applied":36,"beforeHp":99,"afterHp":63,"prayer":null}]]}'
+RIFT_EXPECTED='{"spawned":[[67,"rift-67-0",{"x":4,"y":2}],[67,"rift-67-1",{"x":2,"y":1}]],"destroyed":"rift-67-1","attackDelay":{"before":2,"after":0},"bursts":[[97,["rift-67-0"],{"requested":36,"applied":36,"beforeHp":99,"afterHp":63,"prayer":null}]]}'
 SOUL_SPLIT_EXPECTED='[[39,{"kind":"soul-split","ordinal":0},{"requested":49,"applied":49,"beforeHp":1312,"afterHp":1361}],[67,{"kind":"soul-split","ordinal":1},{"requested":47,"applied":47,"beforeHp":1361,"afterHp":1408}]]'
 KILL_CHAT="Destroying the void rift empowers you!"
 RIFT_SOUND_SAMPLES='{"12640":11025,"12641":14332,"12642":26460,"12643":7717}'
@@ -375,12 +375,12 @@ RECORDED_ORB_CLICK_TICK=12
 RECORDED_ORB_LAST_TICK=25
 RECORDED_ORB_EXPECTED='{"matured":[[24,{"x":9,"y":4}]],"returned":[[24,{"requested":49,"applied":49,"beforeHp":50,"afterHp":99}]]}'
 RECORDED_RIFT_QUERY="?seed=1&focus=rifts&drillStart=cycle-start"
-RECORDED_NORTH_EAST_RIFT='{"x":10,"y":2}'
-RECORDED_NORTH_WEST_RIFT='{"x":2,"y":2}'
+RECORDED_FIRST_RIFT="rift-67-1"
+RECORDED_SECOND_RIFT="rift-67-0"
 RECORDED_RIFT_FIRST_TICK=68
 RECORDED_RIFT_SECOND_TICK=72
 RECORDED_RIFT_LAST_TICK=79
-RECORDED_RIFT_EXPECTED='{"hits":[[72,"rift-67-1","ranged",44],[76,"rift-67-0","ranged",44]],"destroyed":[[73,"rift-67-1",{"before":2,"after":0}],[77,"rift-67-0",{"before":2,"after":0}]]}'
+RECORDED_RIFT_EXPECTED='{"hits":[[72,"rift-67-1","ranged",44],[75,"rift-67-0","ranged",44]],"destroyed":[[73,"rift-67-1",{"before":2,"after":0}],[76,"rift-67-0",{"before":3,"after":0}]]}'
 CREDIT_LINE="Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex."
 
 set +a
@@ -1482,9 +1482,11 @@ drive_overheads_rifts() {
   for shot in $OVERHEAD_SHOT_TICKS; do
     shot_after_tick "$shot" 0 "overhead-${shot}.png" || { log "overhead screenshot at P4 tick ${shot} failed"; return 1; }
   done
+  tile_pixel rifts "$(rift_tile "$RIFT_SHOT")" $((RIFT_CLICK_TICK - 1)) || return 1
   shot_after_tick "$RIFT_CLICK_TICK" 0 rift-spawned.png || { log "rift spawn screenshot failed"; return 1; }
-  click_after_tick "$RIFT_CLICK_TICK" "-$NORTH_EAST_RIFT_CLICK_LEFT_PX" "-$NORTH_EAST_RIFT_CLICK_UP_PX" || { log "the north-east rift was not clicked"; return 1; }
+  click_after_tick "$RIFT_CLICK_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the rift was not clicked after the spawn screenshot"; return 1; }
   ab wait --fn "window.__archiveOcellusProbe.log().rows.some((row) => row.events.some((e) => e.kind === 'rift-destroyed'))" --timeout 30000 >/dev/null || { log "no rift was destroyed after the click"; return 1; }
+  tile_pixel rifts "$(rift_tile "$RIFT_TIMED")" now && printf '{"x":%d,"y":%d}\n' "$CLICK_X" "$CLICK_Y" >"$VERIFY_DIR/rift-timed-tile.json" || { log "the timed rift's tile was not read"; return 1; }
   ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
   ab screenshot "$VERIFY_DIR/rift-destroyed.png" >/dev/null || { log "rift kill screenshot failed"; return 1; }
   ab --json get text "#game_chat" >"$VERIFY_DIR/rift-chat.json" || { log "chat text capture failed"; return 1; }
@@ -1504,7 +1506,7 @@ drive_overheads_rifts() {
   ab wait 600 >/dev/null
   click_inventory_slot "$LOADOUT_SPECIAL_SLOT" || { log "Ralos was not wielded"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
-  click_after_tick "$RIFT_CLICK_TICK" "-$NORTH_EAST_RIFT_CLICK_LEFT_PX" "-$NORTH_EAST_RIFT_CLICK_UP_PX" || { log "the north-east rift was not clicked with Ralos"; return 1; }
+  click_tile_after_tick rift-ralos "$(rift_tile "$RIFT_SHOT")" "$RIFT_CLICK_TICK" || return 1
   fight_tick_at_least "$RIFT_RALOS_LAST_TICK" 30000 || { log "the Ralos rifts drill never stepped to P4 tick ${RIFT_RALOS_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/rift-ralos.json"
   ab console >"$VERIFY_DIR/rift-ralos-console.log" 2>&1 || { log "console capture failed"; return 1; }
@@ -1513,7 +1515,7 @@ drive_overheads_rifts() {
   ab open "${URL}${RIFT_QUERY}&setup=melee" >/dev/null || return 1
   fight_tick_at_least 0 120000 || { log "the melee rifts drill never loaded"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
-  click_after_tick "$RIFT_CLICK_TICK" "-$NORTH_EAST_RIFT_CLICK_LEFT_PX" "-$NORTH_EAST_RIFT_CLICK_UP_PX" || { log "the north-east rift was not clicked with the scythe"; return 1; }
+  click_tile_after_tick rift-melee "$(rift_tile "$RIFT_SHOT")" "$RIFT_CLICK_TICK" || return 1
   shot_after_tick "$RIFT_MELEE_SPLAT_TICK" 0 rift-melee-hit.png || { log "melee rift hit screenshot failed"; return 1; }
   fight_tick_at_least "$RIFT_MELEE_LAST_TICK" 30000 || { log "the melee rifts drill never stepped to P4 tick ${RIFT_MELEE_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/rift-melee.json"
@@ -2289,6 +2291,10 @@ drive_layered_present() {
   ab close >/dev/null 2>&1
 }
 
+rift_tile() {
+  printf 'window.__archiveOcellusProbe.log().rows.flatMap((row) => row.events).find((e) => e.kind === "rift-spawned" && e.rift === "%s")?.tile' "$1"
+}
+
 click_tile_after_tick() {
   tile_pixel "$1" "$2" "$3" || return 1
   canvas_centre || { log "$1: canvas box unreadable"; return 1; }
@@ -2314,8 +2320,8 @@ drive_recorded_fights() {
 
   ab open "${URL}${RECORDED_RIFT_QUERY}" >/dev/null || return 1
   fight_tick_at_least 0 120000 || { log "the rift reset page never started"; return 1; }
-  click_tile_after_tick recorded-rift "$RECORDED_NORTH_EAST_RIFT" "$RECORDED_RIFT_FIRST_TICK" || return 1
-  click_tile_after_tick recorded-rift "$RECORDED_NORTH_WEST_RIFT" "$RECORDED_RIFT_SECOND_TICK" || return 1
+  click_tile_after_tick recorded-rift "$(rift_tile "$RECORDED_FIRST_RIFT")" "$RECORDED_RIFT_FIRST_TICK" || return 1
+  click_tile_after_tick recorded-rift "$(rift_tile "$RECORDED_SECOND_RIFT")" "$RECORDED_RIFT_SECOND_TICK" || return 1
   fight_tick_at_least "$RECORDED_RIFT_LAST_TICK" 30000 || { log "the rift reset page never reached P4 tick ${RECORDED_RIFT_LAST_TICK}"; return 1; }
   p3_page_done recorded-rift || return 1
 }

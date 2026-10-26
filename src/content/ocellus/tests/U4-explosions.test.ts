@@ -6,7 +6,7 @@ const BESIDE_SPAWN: At = { x: 6, y: 1 };
 const BOW_ROLLS_24_9_13_53 = 38;
 
 describe("U4 personal explosions", () => {
-  test("the series starts at hit + 2, then a mark every 2 ticks from hit + 5 captures the player's tile, and 16 lands on that tile a tick later", () => {
+  test("the series starts at hit + 2, then a mark every 2 ticks from hit + 5 captures the player's tile, and 14 to 16 lands on that tile a tick later", () => {
     const drill = startDrill({ selection: EXPLOSIONS });
     drill.tickTo(46);
     expect(drill.events("explosion-series-started")).toEqual([
@@ -23,7 +23,7 @@ describe("U4 personal explosions", () => {
       outcome: { kind: "hit", receipt: { requested: 16, applied: 16, beforeHp: 99, afterHp: 83, prayer: null } },
     });
     expect(resolved.map((e) => [e.at, e.pulse, e.outcome.kind === "hit" ? e.outcome.receipt.afterHp : null])).toEqual([
-      [18, 0, 83], [20, 1, 67], [22, 2, 51], [24, 3, 35], [26, 4, 19], [28, 5, 3],
+      [18, 0, 83], [20, 1, 67], [22, 2, 53], [24, 3, 38], [26, 4, 24], [28, 5, 10],
     ]);
     drill.dispose();
   });

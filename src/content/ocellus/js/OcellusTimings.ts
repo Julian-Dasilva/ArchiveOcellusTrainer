@@ -45,7 +45,8 @@ export type Source =
   | Readonly<{ kind: "news"; url: string }>
   | Readonly<{ kind: "cache"; build: 2746; record: string }>
   | Readonly<{ kind: "owner"; date: OwnerDate; topic: string }>
-  | Readonly<{ kind: "guide"; url: string; at: string }>;
+  | Readonly<{ kind: "guide"; url: string; at: string }>
+  | Readonly<{ kind: "ocellus-sim"; commit: "75bd193"; at: string }>;
 
 export type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
 
@@ -67,6 +68,8 @@ const news = (url: string): Source => ({ kind: "news", url });
 export const cache = (record: string): Source => ({ kind: "cache", build: 2746, record });
 const owner = (topic: string, date: OwnerDate = "2026-10-21"): Source => ({ kind: "owner", date, topic });
 export const guide = (url: string, at: string): Source => ({ kind: "guide", url, at });
+/** Alessandro Rodi's ocellus-sim, github.com/alessandrorodi/ocellus-sim; its ids are read, never its code copied. */
+const ocellusSim = (at: string): Source => ({ kind: "ocellus-sim", commit: "75bd193", at });
 const STRATEGIES_P4 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381030);
 const BOSS_INFOBOX = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15380968);
 const VOID_RIFT_PAGE = wiki("https://oldschool.runescape.wiki/w/Void_Rift", 15380527);
@@ -165,7 +168,6 @@ type SpecialRecipe = Readonly<{
 }>;
 export type SpecialStyle<V extends Special> = SpecialRecipe["styles"][V]["value"];
 type BossHealRecipe = Readonly<{ soulSplitAfterHit: Selected<TickSpan> }>;
-type RiftOffset = Readonly<{ dx: number; dy: number }>;
 type RiftPose = "idle" | "spawn" | "despawn" | "detonate";
 type RiftRecipe = Readonly<{
   firstCycle: Selected<Cycle>;
@@ -178,7 +180,8 @@ type RiftRecipe = Readonly<{
   size: Selected<number>;
   stats: Selected<Readonly<{ attack: number; strength: number; defence: number; range: number; magic: number; hitpoint: number }>>;
   defenceBonuses: Selected<Readonly<{ stab: number; slash: number; crush: number; magic: number; range: number }>>;
-  offsetsFromBoss: Selected<readonly [RiftOffset, ...RiftOffset[]]>;
+  countFromFirstCycle: Selected<readonly [number, ...number[]]>;
+  distanceFromBoss: Selected<Readonly<{ min: number; max: number }>>;
   burstDamage: Selected<DamageRange>;
   standardRangedAndMeleeRoll: Selected<Readonly<{ guaranteedHit: boolean; maxDamage: boolean }>>;
   killChat: Selected<string>;
@@ -217,17 +220,24 @@ type BossPose =
   | "meleePrayer"
   | "unleashIn"
   | "unleashLoop"
-  | "unleashOut";
+  | "unleashOut"
+  | "death";
 
 export type TransitionSound = "meleeTell" | "meleeHit" | "rangedBeforeHit" | "rangedHit" | "magicWindUp";
 export type TransitionCue = Readonly<{ sound: TransitionSound; afterTell: TickSpan; delayMs: number }>;
-type CueSound = "endShout" | "flood" | "explosionSeriesStart" | "explosionMark" | TransitionSound;
+type CueSound = "endShout" | "flood" | "explosionSeriesStart" | "explosionMark" | "orbReturn" | TransitionSound;
 type SoundPlayback = Readonly<{ volume: number; range: number; retain: number }>;
 
 export type SpriteFrame = Readonly<{ archive: number; frame: number }>;
 
+type DeathEffect = "burst" | "skirt" | "crack";
+
 type PresentationRecipe = Readonly<{
   bossPoses: Readonly<Record<BossPose, Selected<number>>>;
+  deathEffects: Readonly<Record<DeathEffect, Selected<number>>>;
+  deathLasts: Selected<TickSpan>;
+  levitation: Selected<Readonly<{ spotAnim: number; during: VoidKind }>>;
+  deflectWind: Selected<number>;
   sounds: Readonly<Record<CueSound, Selected<SoundId>>>;
   soundPlayback: Selected<SoundPlayback>;
   landingBeforeInnerClears: Selected<TickSpan>;
@@ -343,11 +353,12 @@ const INNER_VOID: VoidRecipe<"inner-void"> = {
     fightLog("L6", "4310 sent on the orb from S+16 to S+27, 4312 at S+28, cycles 1 to 3"),
   ),
   orbLingersAfterClear: selected(
-    span(5),
-    "owner-estimated",
+    span(6),
+    "log-repeated",
     "unscaled",
-    "community feedback: an orb stays pickable a few seconds into the transition attack after its void; 5 ticks, 3.0 s, keeps it through S+26, past the tell at S+24 and before the hit at S+29; a pickup at S+21 returned at S+22 (V1 G175); a 1 fps guide shows the orb on clear floor about 1 s after the clear and gone 1 s later, a weak bound because the camera moved",
-    NO_WIKI_TICKS, owner("healing orbs despawn almost instantly after a phase ends when usually you can grab it for a few seconds during the attack you need to pray against", "2026-10-23"),
+    "the game sends the glowing inner orb, spotanim 4310, through S+27 and its despawn, 4312, at S+28 in all three cycles one fight log recorded, so it stays pickable through S+27, past the tell at S+24 and before the hit at S+29; this replaces an estimate of 5 ticks from community feedback that an orb stays a few seconds into the attack you pray against",
+    NO_WIKI_TICKS, fightLog("L6", "4310 sent on the inner orb from S+16 to S+27 and 4312 at S+28, cycles 1 to 3"),
+    owner("healing orbs despawn almost instantly after a phase ends when usually you can grab it for a few seconds during the attack you need to pray against", "2026-10-23"),
     vod("V1", "G175"),
   ),
 };
@@ -373,10 +384,11 @@ const OUTER_VOID: VoidRecipe<"outer-void"> = {
   ),
   orbLingersAfterClear: selected(
     span(2),
-    "inferred",
-    "team-4-and-5",
-    "the flood clears at S+51 and an unclaimed outer orb heals the boss at hit + 19, S+54 (C17), so the last pickup is S+53, a tick into the tell; the community's few seconds would move that heal later than the footage shows",
-    NO_WIKI_TICKS, vod("V1", "G147"),
+    "log-repeated",
+    "unscaled",
+    "the flood clears at S+51 and the game sends the glowing outer orb, spotanim 4310, through S+52 and its despawn, 4312, at S+53 in both cycles one fight log recorded, so the last pickup is S+52, a tick into the tell; an unclaimed outer orb heals the boss at hit + 19, S+54 (C17)",
+    NO_WIKI_TICKS, fightLog("L6", "4310 sent on the outer orb from S+41 to S+52 and 4312 at S+53, cycles 1 and 2"),
+    vod("V1", "G147"),
     vod("V2", "k102, k222"),
     owner("healing orbs despawn almost instantly after a phase ends when usually you can grab it for a few seconds during the attack you need to pray against", "2026-10-23"),
   ),
@@ -422,7 +434,14 @@ const SPECIAL: SpecialRecipe = {
     "spike-disk": selected("ranged", "footage-repeated", "team-4-and-5", "players on Protect from Missiles take 7, 5 and 9", STRATEGIES_P4, vod("V1", "G122"), vod("V2", "k105, k197")),
     vortex: selected("magic", "footage-repeated", "team-5", "players on Protect from Magic take 7 twice", STRATEGIES_P4, vod("V2", "k77, k165")),
   },
-  protectedDamage: selected({ min: 5, max: 9 }, "footage-repeated", "team-4-and-5", "7, 6, 7, 6, 9 on Kirby and 7, 5, 7, 9 on the streamer under the matching prayer; the solo carry-over is inferred", STRATEGIES_P4, vod("V1", "G62, G90, G122, G150, G182"), vod("V2", "k77, k105, k165, k197")),
+  protectedDamage: selected(
+    { min: 5, max: 10 },
+    "log-repeated",
+    "team-4-and-5",
+    "7, 6, 7, 6, 9 on Kirby and 7, 5, 7, 9 on the streamer under the matching prayer, and a 10 in a fight log, on a player whose hitsplat shows Protect from Magic at S+57 of cycle 4; that log's own line for the hit says no prayer, but 10 is far below the 43 to 50 an unprotected player takes, so the hitsplat's prayer is taken (inferred); the solo carry-over is inferred",
+    STRATEGIES_P4, vod("V1", "G62, G90, G122, G150, G182"), vod("V2", "k77, k105, k165, k197"),
+    fightLog("L6", "Player 12 takes 10 (overhead MAGIC) at P4 +241, S+57 of cycle 4"),
+  ),
   unprotectedDamage: selected({ min: 43, max: 50 }, "footage-repeated", "team-4-and-5", "50 on a teammate whose prayer is not seen, 43 on the streamer under the wrong prayer; the solo carry-over is inferred", STRATEGIES_P4, vod("V1", "G62"), vod("V2", "k137")),
   cues: {
     melee: [
@@ -476,13 +495,23 @@ const RIFTS: RiftRecipe = {
   size: selected(1, "spec-confirmed", "unscaled", "one-tile shard", noWiki("the Void Rift infobox leaves size empty (rev 15380527)"), cache("npc 16678 size")),
   stats: selected({ attack: 1, strength: 1, defence: 175, range: 1, magic: 300, hitpoint: 44 }, "spec-confirmed", "unscaled", "the rift never attacks", VOID_RIFT_PAGE, cache("npc 16678 stats [1, 175, 1, 44, 1, 300]")),
   defenceBonuses: selected({ stab: 0, slash: 0, crush: 0, magic: 0, range: 0 }, "spec-confirmed", "unscaled", "params 5 to 8 are 0; the decode has no ranged defence param, taken as 0 (inferred)", VOID_RIFT_PAGE, cache("npc 16678 params 5, 6, 7, 8")),
-  offsetsFromBoss: selected(
-    [{ dx: -2, dy: -4 }, { dx: 6, dy: -4 }],
-    "footage-once",
-    "team-4-and-5",
-    "(2, 2) and (10, 2), north of the 5x5: V1's two rifts, placed from their HP bars and carried onto the V2 platform by the east-west mirror; (2, 2) is the same tile under the 270-degree turn; the second carries to (11, 2), also a V2 second-spawn rift, and sits 1 tile west on (10, 2) so it stays off the middle of the 3 holes players stack against the east wall on x 11 (inferred, 2026-10-23); every observed rift is north of the 5x5, and V2's other rift tiles lie on the undrawn strip north of this grid",
-    NO_WIKI_ARENA, vod("V1", "G152-G164"),
-    vod("V2", "k167-k173"),
+  countFromFirstCycle: selected<readonly [number, ...number[]]>(
+    [2, 3, 4, 5],
+    "log-repeated",
+    "team-7",
+    "the rifts for each cycle from the first rift cycle on, one tick before its inner void: one fight log has 2, 3, 4 and 5 for cycles 2 to 5, and the other that reached a rift cycle has 2 for cycle 2; the last count repeats, so a cycle after the fifth also gets 5 (inferred, no log reached a sixth cycle)",
+    noWiki("the wiki says rifts spawn but gives no count (Strategies rev 15381030)"),
+    fightLog("L6", "Void Rift appears 2, 3, 4 and 5 times at P4 +63, +123, +183 and +243, S-1 of cycles 2 to 5"),
+    fightLog("L2", "2 at P4 +63, S-1 of cycle 2"),
+  ),
+  distanceFromBoss: selected(
+    { min: 2, max: 5 },
+    "log-repeated",
+    "team-7",
+    "each rift on its own floor tile 2 to 5 tiles from the boss's 3x3, new tiles each cycle: the 16 rifts two fight logs record on this platform all stand on its floor, 2 to 5 from him; which tiles is taken as a seeded random pick, and that rifts avoid floor holes, as healing orbs do, is inferred",
+    NO_WIKI_ARENA,
+    fightLog("L6", "14 rifts in cycles 2 to 5, at 5 and 4; 4, 4 and 4; 4, 5, 2 and 3; 4, 4, 4, 2 and 3 tiles from his 3x3"),
+    fightLog("L2", "2 rifts in cycle 2, at 5 and 3 tiles from his 3x3"),
   ),
   burstDamage: selected(
     { min: 28, max: 41 },
@@ -717,12 +746,30 @@ const LIFEFORCE_ORB: LifeforceOrbRecipe = {
 
 type ExplosionSeriesRecipe = Readonly<{
   seriesStartsAfterHit: Selected<TickSpan>;
+  telegraph: Selected<number>;
   spotAnim: Selected<number>;
   dodge: Selected<Readonly<{ radius: number; attackDelayCut: TickSpan }>>;
 }>;
 
 const EXPLOSION: ExplosionSeriesRecipe = {
-  seriesStartsAfterHit: selected(span(2), "footage-repeated", "team-4-and-5", "sound 12638 two ticks after the lifeforce hit, before the first mark of every option; what the server marks with it is inferred", NO_WIKI_TICKS, vod("V1", "3:54:04.77, t14"), vod("V2", "5:20:27.89, t14")),
+  seriesStartsAfterHit: selected(
+    span(2),
+    "log-repeated",
+    "team-4-and-5",
+    "sound 12638 two ticks after the lifeforce hit, before the first mark of every option, in both clips; the fight logs put the warning spotanim on every player on that tick, S+6 and S+37, in every cycle they record",
+    NO_WIKI_TICKS, vod("V1", "3:54:04.77, t14"), vod("V2", "5:20:27.89, t14"),
+    fightLog("L2", "spotanim 4340 on every player at S+6 and S+37, cycles 1 and 2"),
+    fightLog("L6", "spotanim 4340 on every player at S+6 and S+37, cycles 1 to 4, and S+6 of cycle 5"),
+  ),
+  telegraph: selected(
+    4340,
+    "log-repeated",
+    "unscaled",
+    "vfx_void_chain_player_telegraph, a ring of dark purple ovals around the player's legs, played on the player as the series starts, with sound 12638, and gone by the first mark 3 ticks later; the game's warning to get ready to step",
+    NO_WIKI_PRESENTATION, cache("spotanim 4340 vfx_void_chain_player_telegraph: model 62704, seq 14934 vfx_void_chain_player, 90 client cycles"),
+    fightLog("L6", "on all six players at P4 +10, S+6 of cycle 1"),
+    vod("V1", "3:54:04.77 to 3:54:05.6, the ring around the legs from the series start to the first mark"),
+  ),
   spotAnim: selected(
     4339,
     "inferred",
@@ -745,6 +792,9 @@ const EXPLOSION: ExplosionSeriesRecipe = {
     owner("Scythe and Twisted bow on 2-tick gaps during the explosion series in the VOD", "2026-10-22"),
   ),
 };
+
+const deathEffect = (id: number, name: string): Selected<number> =>
+  selected(id, "log-repeated", "unscaled", "on the boss on the kill tick, with his death sequence", NO_WIKI_PRESENTATION, cache(`spotanim ${id} ${name}`), fightLog("L2", `spotanim ${id} on the boss at P4 +105, the kill`));
 
 const sound = (id: number, note: string, first: Source, ...rest: Source[]): Selected<SoundId> =>
   selected(soundId(id), "footage-repeated", "team-4-and-5", note, NO_WIKI_PRESENTATION, first, ...rest, cache(`synth ${id}`));
@@ -769,7 +819,46 @@ const PRESENTATION: PresentationRecipe = {
     unleashIn: pose(14857, "phase3_unleash_in", "inferred", "transition attack candidate, 2 ticks"),
     unleashLoop: pose(14858, "phase3_unleash_loop", "inferred", "transition attack candidate, 2-tick loop"),
     unleashOut: pose(14861, "phase3_unleash_out", "inferred", "transition attack candidate, 4 ticks"),
+    death: selected(
+      14872,
+      "log-repeated",
+      "unscaled",
+      "the boss's death, played on the tick his HP reaches 0 in both logged kills",
+      NO_WIKI_PRESENTATION, cache("seq 14872 npc_ocellus_phase3_death, keyframes 0 to 440"),
+      fightLog("L1", "anim 14872 at P4 +121, the kill"),
+      fightLog("L2", "anim 14872 at P4 +105, the kill"),
+    ),
   },
+  deathEffects: {
+    burst: deathEffect(4274, "vfx_ocellus_death"),
+    skirt: deathEffect(4275, "vfx_ocellus_death_skirt_spotanim01"),
+    crack: deathEffect(4276, "vfx_ocellus_death_crack_spotanim01"),
+  },
+  deathLasts: selected(
+    span(15),
+    "inferred",
+    "unscaled",
+    "his body stays on the platform until the death sequence ends: its 440 client cycles are 14.7 ticks, and in one logged kill the next NPC appears on his tile 14 ticks after it",
+    NO_WIKI_PRESENTATION, cache("seq 14872 keyframes 0 to 440"),
+    fightLog("L2", "anim 14872 at P4 +105, npc 16683 on his tile at P4 +119"),
+  ),
+  levitation: selected(
+    { spotAnim: 4316, during: "inner-void" },
+    "log-repeated",
+    "unscaled",
+    "vfx_ocellus_soul_fragment_ocellus_levitating_idle, 2 ticks, on the boss on the tick of the inner void's lifeforce hit, S+4, in every cycle two fight logs record, and never at the outer void's",
+    NO_WIKI_PRESENTATION, cache("spotanim 4316 vfx_ocellus_soul_fragment_ocellus_levitating_idle: seq 14920, 60 client cycles"),
+    fightLog("L6", "spotanim 4316 on the boss at S+4 of cycles 1 to 5"),
+    fightLog("L2", "spotanim 4316 on the boss at S+4 of cycles 1 and 2"),
+  ),
+  deflectWind: selected(
+    4322,
+    "inferred",
+    "unscaled",
+    "vfx_ocellus_deflect_wind_spotanim_01, 2 ticks, played on the player when Deflect turns away their hit; L1 to L8 never show it, though three log every spotanim on the players, so the id comes from ocellus-sim; it plays it at each lifeforce hit, which those logs rule out, so the deflected hit is inferred from the name",
+    NO_WIKI_PRESENTATION, cache("spotanim 4322 vfx_ocellus_deflect_wind_spotanim_01: model 62676, 65 client cycles"),
+    ocellusSim("fight/data.ts:152 SPOT.deflectWind; fight/phase4.ts:216 plays it on the player at each lifeforce hit"),
+  ),
   sounds: {
     endShout: sound(12490, "the \"End...\" shout at t5, three ticks before the first inner void, in both clips; no sequence references it, so the server sends it", vod("V1", "3:53:59.39, t5.0"), vod("V2", "5:20:22.50, t5.0")),
     flood: sound(12497, "the outer flood at S + 31, five ticks before the floor hurts; heard in 1 V1 and 2 V2 floods, and 4 of 7 floods beat the null; the server sends it", vod("V1", "3:54:55.81, t99.0"), vod("V2", "5:20:42.89, t39.0")),
@@ -779,6 +868,14 @@ const PRESENTATION: PresentationRecipe = {
     meleeHit: sound(12567, "the melee transition hit, in all 5 melee attacks and none of the other 7; the server sends it", vod("V1", "3:54:18.66, t37.1")),
     rangedBeforeHit: sound(12555, "before the ranged transition hit, in all 4 ranged attacks, scoring at most 0.21 in the other styles; the server sends it", vod("V1", "3:54:54.23, t96.4"), vod("V2", "5:20:58.27, t64.6")),
     rangedHit: sound(12556, "the ranged transition hit, in 3 of 4 ranged attacks; the server sends it", vod("V1", "t97.1, t157.1"), vod("V2", "t65.3")),
+    orbReturn: selected(
+      soundId(5281),
+      "inferred",
+      "unscaled",
+      "a heal sound played as the orb returns the player's HP; L1 to L8 record no sounds and the cache names none for it, so the id comes from ocellus-sim, which plays it when the boss absorbs an unclaimed orb; the pickup cue is inferred",
+      NO_WIKI_PRESENTATION, cache("synth 5281"),
+      ocellusSim("fight/data.ts:183 SOUND.heal; fight/phase4.ts:279 plays it at the boss as an unclaimed orb heals him"),
+    ),
     magicWindUp: sound(12554, "the magic transition wind-up, in 3 of 3 magic attacks, scoring at most 0.09 in the other styles; the server sends it", vod("V2", "5:20:39.13, t32.7")),
   },
   soundPlayback: selected({ volume: 0.1, range: 31, retain: 31 }, "inferred", "unscaled", "played as area sounds on the player's tile, so they share the area-sound toggle with the boss; range and retain copy the boss's own frame sounds and volume the SDK's level for them, because the clips cannot show the server's values", NO_WIKI_PRESENTATION, cache("seq 14863 frame sound 12613 location 31, retain 31")),
@@ -872,6 +969,14 @@ const GEAR: GearRecipe = {
   specialWeapon: selected("tonalzticsOfRalos", "assumption", "unscaled", "owner: players tend to use Ralos to spec the boss", NO_WIKI_PRACTICE, owner("special attack weapon")),
 };
 
+const EXPLOSION_DAMAGE: DamageRange = { min: 14, max: 16 };
+const EXPLOSION_DAMAGE_NOTE = "an explosion hits 14 to 16, the amounts three fight logs record on the impact ticks apart from the floor and other attacks landing with them; this replaces 16 from one teammate splat";
+const EXPLOSION_HITS = [
+  fightLog("L1", "players take 14, 15 and 16 on the impact ticks S+10 to S+20 and S+41 to S+51, 2, 10 and 8 times"),
+  fightLog("L2", "14, 15 and 16 on the same ticks, 5, 8 and 8 times"),
+  fightLog("L6", "14, 15 and 16 on the same ticks, 16, 12 and 16 times"),
+] as const;
+
 const PRACTICE = owner("practice one mechanic at a time; a drill option, not game data");
 const drill = (first: Mechanic, ...rest: Mechanic[]): Selected<Focus<Mechanic>> =>
   selected<Focus<Mechanic>>({ kind: "drill", mechanics: [first, ...rest] }, "assumption", "unscaled", "the cycle runs from the drill's start; only these mechanics act", NO_WIKI_PRACTICE, PRACTICE);
@@ -918,8 +1023,8 @@ export const OCELLUS_P4 = {
       "v2-observed": selected(0.259, "footage-once", "team-5", "V2 entry bar", NO_WIKI_P4, vod("V2", "5:20:18")),
     }),
     explosions: choice("v2-tell-then-six", {
-      "wiki-six": selected<ExplosionRecipe>({ firstMarkAfterHit: span(3), count: 6, period: span(2), impactAfterMark: span(1), damage: { min: 16, max: 16 } }, "spec-single", "unscaled", "six marks every 2 ticks, damage a tick later; first mark from k55; 16 from one teammate splat (inferred)", STRATEGIES, vod("V2", "k55-k65, k62")),
-      "v2-tell-then-six": selected<ExplosionRecipe>({ firstMarkAfterHit: span(5), count: 6, period: span(2), impactAfterMark: span(1), damage: { min: 16, max: 16 } }, "inferred", "team-4-and-5", "k55 read as a tell, marks k57 to k67 (C4); the default because sound 12537 plays at hit + 5 to hit + 15 in every void of both clips and the marks are taken to sit on it", STRATEGIES_P4, vod("V2", "k55-k67"), vod("V1", "3:54:06.58, t17"), vod("V2", "5:20:29.70, t17")),
+      "wiki-six": selected<ExplosionRecipe>({ firstMarkAfterHit: span(3), count: 6, period: span(2), impactAfterMark: span(1), damage: EXPLOSION_DAMAGE }, "spec-single", "unscaled", `six marks every 2 ticks, damage a tick later; first mark from k55; ${EXPLOSION_DAMAGE_NOTE}`, STRATEGIES, vod("V2", "k55-k65, k62"), ...EXPLOSION_HITS),
+      "v2-tell-then-six": selected<ExplosionRecipe>({ firstMarkAfterHit: span(5), count: 6, period: span(2), impactAfterMark: span(1), damage: EXPLOSION_DAMAGE }, "inferred", "team-4-and-5", `k55 read as a tell, marks k57 to k67 (C4); the default because sound 12537 plays at hit + 5 to hit + 15 in every void of both clips and the marks are taken to sit on it; ${EXPLOSION_DAMAGE_NOTE}`, STRATEGIES_P4, vod("V2", "k55-k67"), vod("V1", "3:54:06.58, t17"), vod("V2", "5:20:29.70, t17"), ...EXPLOSION_HITS),
     }),
     explosionDamageReduction: choice("wiki-60", {
       "wiki-60": selected(
