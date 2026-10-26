@@ -20,9 +20,13 @@ const p2Key = (name: string) => `p2${name.charAt(0).toUpperCase()}${name.slice(1
  */
 const { p2, full } = readBuildFlags();
 
-/** The full fight's phase 3 body is our NPC 16677, so its poses join ours under their own keys; its rift NPCs, effects and void models come only when ARCHIVE_FULL is on. */
-const fightPoses = Object.fromEntries(Object.entries(FIGHT_ASSETS.npcs.fightOcellusP3.animations).map(([name, id]) => [`fight_${name}`, id]));
-const { fightHealingRift, fightVoidAugmenter, fightVoidVine } = FIGHT_ASSETS.npcs;
+/**
+ * The full fight's bodies are our NPCs 16674, 16675 and 16677, so its poses join ours under their own keys when ARCHIVE_FULL is on;
+ * its rift NPCs, effects and void models come only then too.
+ */
+const fightPoses = (form: Readonly<{ animations: Readonly<Record<string, number>> }>) =>
+  full ? Object.fromEntries(Object.entries(form.animations).map(([name, id]) => [`fight_${name}`, id])) : {};
+const { fightOcellusP1, fightOcellusP2, fightOcellusP3, fightHealingRift, fightVoidAugmenter, fightVoidVine } = FIGHT_ASSETS.npcs;
 
 const P1_LOOK = OCELLUS_P1.presentation;
 const p1CrackPieces = [...Object.values(P1_LOOK.crackPieces.straight), ...Object.values(P1_LOOK.crackPieces.diagonal)].flatMap(({ value }) => [value.start, value.piece, value.end]);
@@ -33,10 +37,10 @@ const p1SpotAnims = [
 
 export const ARCHIVE_OCELLUS_ASSETS = {
   npcs: {
-    ocellus: { ...P4_ASSETS.npcs.ocellus, animations: { ...P4_ASSETS.npcs.ocellus.animations, ...sequences(OCELLUS_P3.bossPoses), ...(full ? fightPoses : {}) } },
+    ocellus: { ...P4_ASSETS.npcs.ocellus, animations: { ...P4_ASSETS.npcs.ocellus.animations, ...sequences(OCELLUS_P3.bossPoses), ...fightPoses(fightOcellusP3) } },
     voidRift: P4_ASSETS.npcs.voidRift,
-    ocellusP1: { id: OCELLUS_P1.boss.npcId.value, animations: sequences(P1_LOOK.bossPoses) },
-    ...(p2 ? { ocellusP2: { id: OCELLUS_P2.ocellusNpcId.value, animations: sequences(OCELLUS_P2.bossPoses) } } : {}),
+    ocellusP1: { id: OCELLUS_P1.boss.npcId.value, animations: { ...sequences(P1_LOOK.bossPoses), ...fightPoses(fightOcellusP1) } },
+    ...(p2 || full ? { ocellusP2: { id: OCELLUS_P2.ocellusNpcId.value, animations: { ...(p2 ? sequences(OCELLUS_P2.bossPoses) : {}), ...fightPoses(fightOcellusP2) } } } : {}),
     ...(full ? { fightHealingRift, fightVoidAugmenter, fightVoidVine } : {}),
   },
   models: {
