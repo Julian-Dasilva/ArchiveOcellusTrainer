@@ -10,7 +10,7 @@ import { reach } from "../../../../sim/tiles";
 import { FOOTPRINT, NEAR_SQUARE, PLATFORM, VOID_MASKS } from "./floor";
 import { roll } from "../roll";
 
-const { orbDistance, drainDivisor, returnAfterStep } = OCELLUS_P4.lifeforceOrb;
+const { orbDistance, drainDivisor, returnAfterStep, returnAfterMaturing } = OCELLUS_P4.lifeforceOrb;
 const RIM = NEAR_SQUARE.minus(FOOTPRINT);
 
 type Orb =
@@ -109,10 +109,12 @@ export function formOrb(orbs: Orbs, drained: Extract<PlayerHit, { kind: "lifefor
   };
 }
 
-export function matureOrb(orbs: Orbs, kind: VoidKind, at: Tick): OrbStep<FightEvent> {
+/** `standingOn` is the player's tile as the tick opens: a player already there takes the orb as it matures. */
+export function matureOrb(orbs: Orbs, kind: VoidKind, at: Tick, standingOn: Tile, radius: number): OrbStep<FightEvent> {
   const orb = orbs.formed[kind];
   if (orb?.kind !== "dormant") return { orbs, outputs: [] };
-  return { orbs: withOrb(orbs, kind, { ...orb, kind: "available" }), outputs: [{ kind: "orb-matured", at, void: kind, tile: orb.tile }] };
+  const matured: Orb = reach(orb.tile, standingOn) <= radius ? { ...orb, kind: "claimed", returnsAt: after(at, returnAfterMaturing.value) } : { ...orb, kind: "available" };
+  return { orbs: withOrb(orbs, kind, matured), outputs: [{ kind: "orb-matured", at, void: kind, tile: orb.tile }] };
 }
 
 export function expireOrb(orbs: Orbs, kind: VoidKind, at: Tick): OrbStep<FightEvent> {

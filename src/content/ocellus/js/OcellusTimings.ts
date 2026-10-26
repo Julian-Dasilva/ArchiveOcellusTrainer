@@ -108,6 +108,7 @@ type BossRecipe = Readonly<{
 type LeadInRecipe = Readonly<{
   hiddenFor: Selected<TickSpan>;
   presentFor: Selected<TickSpan>;
+  presentBoss: Selected<"present-damageable">;
   shout: Selected<Readonly<{ text: string; at: TickSpan; lasts: TickSpan }>>;
 }>;
 
@@ -182,6 +183,7 @@ type RiftRecipe = Readonly<{
   burstDamage: Selected<DamageRange>;
   standardRangedAndMeleeRoll: Selected<Readonly<{ guaranteedHit: boolean; maxDamage: boolean }>>;
   killChat: Selected<string>;
+  killEmpowers: Selected<"resets-attack-delay">;
   poses: Readonly<Record<RiftPose, Selected<number>>>;
   burstFlare: Selected<number>;
 }>;
@@ -302,14 +304,38 @@ const BOSS: BossRecipe = {
 
 const LEAD_IN: LeadInRecipe = {
   hiddenFor: selected(span(4), "footage-repeated", "team-4-and-5", "boss model gone from t = 0, back on the main platform at t = 4", NO_WIKI_TICKS, vod("V1", "G25 to G29"), vod("V2", "k40 to k44")),
-  presentFor: selected(span(4), "footage-repeated", "team-4-and-5", "present from t = 4 but no splats until the first inner void at t = 8", NO_WIKI_TICKS, vod("V1", "G29 to G33, first hit G35"), vod("V2", "k44 to k48, first splats k48")),
-  shout: selected({ text: "End...", at: span(5), lasts: span(3) }, "footage-repeated", "team-4-and-5", "overhead text from t = 5 for 3 ticks", STRATEGIES_P4, vod("V1", "G30 to G32"), vod("V2", "k45 to k47")),
+  presentFor: selected(span(4), "footage-repeated", "team-4-and-5", "present from t = 4, the first inner void at t = 8", NO_WIKI_TICKS, vod("V1", "G29 to G33, first hit G35"), vod("V2", "k44 to k48, first splats k48")),
+  presentBoss: selected(
+    "present-damageable",
+    "log-repeated",
+    "unscaled",
+    "players' hits land on him once he is back, before his first Deflect: at S-1 (t = 7) in one kill and at S-3 and S-1 (t = 5 and 7) in the other; both clips show no splat before t = 8, but a logged hitsplat is direct evidence where a clip only shows that nobody hit him, so he takes damage from t = 4",
+    NO_WIKI_TICKS, fightLog("L1", "4 hits on him at S-1"),
+    fightLog("L2", "a hit on him at S-3 and 3 at S-1"),
+    vod("V1", "G29 to G33, first hit G35"),
+    vod("V2", "k44 to k48, first splats k48"),
+  ),
+  shout: selected(
+    { text: "End...", at: span(5), lasts: span(3) },
+    "footage-repeated",
+    "team-4-and-5",
+    "overhead text from t = 5 for 3 ticks; the fight logs have it 3 ticks before his first Deflect in all four logged fights that reached phase 4, as here",
+    STRATEGIES_P4, vod("V1", "G30 to G32"), vod("V2", "k45 to k47"),
+    fightLog("L1", "S-3"), fightLog("L2", "S-3"), fightLog("L5", "S-3"), fightLog("L6", "S-3"),
+  ),
 };
 
 const INNER_VOID: VoidRecipe<"inner-void"> = {
   kind: "inner-void",
   duration: selected(span(22), "footage-repeated", "team-4-and-5", "inner void visible 22 ticks", NO_WIKI_TICKS, vod("V1", "G33-G54, G93-G114, G153-G174"), vod("V2", "k48-k69, k108-k129, k168-k189, k228-k249")),
-  orbMaturesAfterHit: selected(span(12), "footage-repeated", "team-4-and-5", "orb glows teal 12 ticks after the hit", NO_WIKI_TICKS, vod("V1", "G49"), vod("V2", "k64"), cache("spotanim 4311 soul_fragment_spawn_12_ticks")),
+  orbMaturesAfterHit: selected(
+    span(12),
+    "footage-repeated",
+    "team-4-and-5",
+    "orb glows teal 12 ticks after the hit; the fight log has the game send the glowing orb, spotanim 4310, from S+16 in all three cycles it recorded",
+    NO_WIKI_TICKS, vod("V1", "G49"), vod("V2", "k64"), cache("spotanim 4311 soul_fragment_spawn_12_ticks"),
+    fightLog("L6", "4310 sent on the orb from S+16 to S+27, 4312 at S+28, cycles 1 to 3"),
+  ),
   orbLingersAfterClear: selected(
     span(5),
     "owner-estimated",
@@ -331,7 +357,14 @@ const AFTER_INNER: TransitionRecipe<"after-inner"> = {
 const OUTER_VOID: VoidRecipe<"outer-void"> = {
   kind: "outer-void",
   duration: selected(span(20), "footage-repeated", "team-4-and-5", "outer void visible 20 ticks", NO_WIKI_TICKS, vod("V1", "G64-G83, G124-G143"), vod("V2", "k79-k98, k139-k158, k199-k218")),
-  orbMaturesAfterHit: selected(span(6), "footage-repeated", "team-4-and-5", "outer orb first glows 5 to 6 ticks after the hit", NO_WIKI_TICKS, vod("V1", "G74"), vod("V2", "k88, k149"), cache("spotanim 4309 soul_fragment_spawn_6_ticks")),
+  orbMaturesAfterHit: selected(
+    span(6),
+    "footage-repeated",
+    "team-4-and-5",
+    "outer orb first glows 5 to 6 ticks after the hit; the fight log has the game send the glowing orb, spotanim 4310, from S+41, 6 ticks after the hit, in both cycles it recorded",
+    NO_WIKI_TICKS, vod("V1", "G74"), vod("V2", "k88, k149"), cache("spotanim 4309 soul_fragment_spawn_6_ticks"),
+    fightLog("L6", "4310 sent on the orb from S+41 to S+52, 4312 at S+53, cycles 1 and 2"),
+  ),
   orbLingersAfterClear: selected(
     span(2),
     "inferred",
@@ -406,13 +439,21 @@ const BOSS_HEALS: BossHealRecipe = {
 
 const RIFTS: RiftRecipe = {
   firstCycle: selected(cycle(2), "footage-repeated", "team-5", "rifts before every inner void after the first (C5)", STRATEGIES, vod("V2", "k107, k167, k227")),
-  spawnBeforeOnset: selected(span(1), "footage-repeated", "team-4-and-5", "rifts one tick before the next inner void", NO_WIKI_TICKS, vod("V1", "G152"), vod("V2", "k107, k167, k227")),
+  spawnBeforeOnset: selected(
+    span(1),
+    "footage-repeated",
+    "team-4-and-5",
+    "rifts one tick before the next inner void, as in every cycle of the fight logs",
+    NO_WIKI_TICKS, vod("V1", "G152"), vod("V2", "k107, k167, k227"),
+    fightLog("L2", "S-1 of cycle 2"), fightLog("L5", "S-1 of cycles 2 and 3"), fightLog("L6", "S-1 of cycles 2 to 5"),
+  ),
   chargeAfterSpawn: selected(
-    span(23),
-    "owner-estimated",
+    span(30),
+    "log-repeated",
     "unscaled",
-    "the owner reports that rifts last much longer than 6.6 s (11 ticks), that none of the footage they found shows one bursting, and that they watched two killed within about 10 s with about 4 s still on the timer: about 14 s, 23 ticks of 0.6 s (inferred); both clips show a rift standing after spawn + 11, V1 at G164 and V2 from k177 to k196",
-    NO_WIKI_TICKS, owner("rift charge timer", "2026-10-22"),
+    "every rift left alive in the fight logs burst 30 ticks after it appeared, at S+29: it played its detonate sequence, the void flare (spotanim 4306) showed on every player and each took the hit on that tick, and the rift was gone 2 ticks later; one rift in one raid and three over two cycles of the other. This replaces the owner's estimate of about 14 s, 23 ticks, from a timer watched in game; both clips show a rift standing after spawn + 11, V1 at G164 and V2 from k177 to k196, as 30 allows",
+    NO_WIKI_TICKS, fightLog("L5", "a rift from S-1 of cycle 3 bursts at S+29"),
+    fightLog("L6", "a rift from S-1 of cycle 2 and two from S-1 of cycle 3 burst at S+29"),
     vod("V1", "G152 to G168"),
     vod("V2", "k167 to k196"),
   ),
@@ -437,7 +478,16 @@ const RIFTS: RiftRecipe = {
     NO_WIKI_ARENA, vod("V1", "G152-G164"),
     vod("V2", "k167-k173"),
   ),
-  burstDamage: selected({ min: 14, max: 14 }, "inferred", "team-5", "the streamer took 14 from an unseen source 11 ticks after the rifts appeared, with a rift still standing; taken as the burst's damage, though the burst now lands 23 ticks after spawn (inferred)", noWiki("the wiki says an unkilled rift damages all players but gives no amount (Strategies rev 15381030)"), vod("V2", "k118, k178")),
+  burstDamage: selected(
+    { min: 28, max: 41 },
+    "log-repeated",
+    "team-7",
+    "one typeless hit on each player per burst, however many rifts burst: 41 and 40 on the two players left when one rift burst, both under Protect from Magic, and 30 and 28 when two burst together, one under Protect from Missiles, in the same raid; the other raid's one burst hit its last player for 3 on the tick the transition attack also hit him for 3, and he died, so both hits were cut to his last HP and give no amount (inferred). The 14 the streamer took 11 ticks after the rifts appeared is the next cycle's first explosion, at S+10, which hit 14 to 16 in the logs",
+    noWiki("the wiki says an unkilled rift damages all players but gives no amount (Strategies rev 15381030)"),
+    fightLog("L6", "41 and 40 at S+29 of cycle 2, one rift; 30 and 28 at S+29 of cycle 3, two rifts"),
+    fightLog("L5", "3 and 3 at S+29 of cycle 3 on a player who then died"),
+    vod("V2", "k118, k178"),
+  ),
   standardRangedAndMeleeRoll: selected(
     { guaranteedHit: true, maxDamage: true },
     "community-tested",
@@ -447,14 +497,29 @@ const RIFTS: RiftRecipe = {
     owner("rifts almost always one-shot", "2026-10-22"),
     owner("Gnomonkey, playing the trainer on stream: melee attacks also always max-hit void rifts", "2026-10-24"),
   ),
-  killChat: selected("Destroying the void rift empowers you!", "footage-repeated", "team-4-and-5", "game chat line when a rift dies; what the empower does is not shown", NO_WIKI_P4, vod("V1", "3:55:21.98"), vod("V2", "k116")),
+  killChat: selected("Destroying the void rift empowers you!", "footage-repeated", "team-4-and-5", "game chat line when a rift dies; the wiki says what the empower does (killEmpowers)", NO_WIKI_P4, vod("V1", "3:55:21.98"), vod("V2", "k116")),
+  killEmpowers: selected(
+    "resets-attack-delay",
+    "spec-single",
+    "unscaled",
+    "the wiki: \"It empowers you, resetting your tick cool down.\"; read as the player's attack delay set to 0, so the next attack can go at once; it applies on the tick the rift is destroyed, the tick the chat line shows, because the wiki gives no tick (inferred)",
+    VOID_RIFT_PAGE,
+  ),
   poses: {
     idle: pose(14895, "vfx_ocellus_voidflare_default_idle", "spec-confirmed", "rift stand and walk animation"),
     spawn: pose(14896, "vfx_ocellus_voidflare_default_spawn", "inferred", "rift appearing, 1 tick, frame sound 12643"),
     despawn: pose(14897, "vfx_ocellus_voidflare_default_despawn", "inferred", "rift dying, 1 tick, frame sound 12640"),
     detonate: pose(14898, "vfx_ocellus_voidflare_default_detonate", "inferred", "rift releasing its charge, 2 ticks, frame sounds 12641 and 12642"),
   },
-  burstFlare: selected(4306, "inferred", "unscaled", "vfx_human_ocellus_voidflare_default shares the rift's model 62369; played on the player as the charge lands", NO_WIKI_PRESENTATION, cache("spotanim 4306 vfx_human_ocellus_voidflare_default")),
+  burstFlare: selected(
+    4306,
+    "log-repeated",
+    "unscaled",
+    "vfx_human_ocellus_voidflare_default shares the rift's model 62369; played on each player on the burst tick, with the hit, in every burst of the fight logs",
+    NO_WIKI_PRESENTATION, cache("spotanim 4306 vfx_human_ocellus_voidflare_default"),
+    fightLog("L5", "S+29 of cycle 3"),
+    fightLog("L6", "S+29 of cycles 2 and 3"),
+  ),
 };
 
 const FLOOD_FRAMES = vod("V2", "k86, k95, k142, k156, k205, k212, k262, k269");
@@ -598,6 +663,7 @@ type LifeforceOrbRecipe = Readonly<{
   drainDivisor: Selected<number>;
   orbDistance: Selected<Readonly<{ min: number; max: number }>>;
   returnAfterStep: Selected<TickSpan>;
+  returnAfterMaturing: Selected<TickSpan>;
   look: Readonly<Record<OrbVisual, Selected<number>>>;
 }>;
 
@@ -608,6 +674,14 @@ const LIFEFORCE_ORB: LifeforceOrbRecipe = {
   drainDivisor: selected(2, "footage-repeated", "team-4-and-5", "every player loses floor(current HP / 2); no overhead prayer reduces it", STRATEGIES, vod("V1", "G37 through Protect from Magic, G68 through Melee"), vod("V2", "k52 through Magic, k112 through Missiles")),
   orbDistance: selected({ min: 2, max: 5 }, "footage-repeated", "team-4-and-5", "a dark orb 2 to 5 tiles from its player, never under the boss or on a floor hole; with no allowed floor that close, the nearest allowed tiles, because the wiki puts the orb on a safe tile and no capture shows a player that far from one (inferred)", STRATEGIES, vod("V1", "G39"), vod("V2", "k53"), ORB_OFF_HOLES),
   returnAfterStep: selected(span(1), "footage-repeated", "team-4-and-5", "returns exactly the HP that hit took, the tick after the player steps on the orb, and can pass max HP (58 to 114)", NO_WIKI_TICKS, vod("V2", "k67 then k68, k95 then k96"), vod("V1", "G51, G79")),
+  returnAfterMaturing: selected(
+    span(0),
+    "log-repeated",
+    "unscaled",
+    "a player already standing on the orb gets the HP back on the tick it matures, not a tick later: 7 returns (spotanim 4314 on the player, with the heal) came at S+16, the tick the game first sends the glowing inner orb, over 4 cycles of two fights; one of those players had stood on the tile since S+14. No outer orb return came on its first ready tick, S+41: the two earliest were at S+42, which fits players who stepped on as it glowed (inferred)",
+    NO_WIKI_TICKS, fightLog("L2", "inner returns at S+16 on 3 players in cycle 1 and 2 in cycle 2; outer returns at S+42 on 2 players in cycle 1"),
+    fightLog("L6", "inner returns at S+16 in cycles 1 and 3; the glowing orb sent from S+16"),
+  ),
   look: {
     innerSpawn: selected(
       4311,
