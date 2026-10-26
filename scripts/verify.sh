@@ -1444,8 +1444,9 @@ drive_overheads_rifts() {
   for shot in $OVERHEAD_SHOT_TICKS; do
     shot_after_tick "$shot" 0 "overhead-${shot}.png" || { log "overhead screenshot at P4 tick ${shot} failed"; return 1; }
   done
+  tile_pixel rifts "$(rift_tile "$RIFT_SHOT")" $((RIFT_CLICK_TICK - 1)) || return 1
   shot_after_tick "$RIFT_CLICK_TICK" 0 rift-spawned.png || { log "rift spawn screenshot failed"; return 1; }
-  click_tile_after_tick rifts "$(rift_tile "$RIFT_SHOT")" "$RIFT_CLICK_TICK" || return 1
+  click_after_tick "$RIFT_CLICK_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the rift was not clicked after the spawn screenshot"; return 1; }
   ab wait --fn "window.__archiveOcellusProbe.log().rows.some((row) => row.events.some((e) => e.kind === 'rift-destroyed'))" --timeout 30000 >/dev/null || { log "no rift was destroyed after the click"; return 1; }
   tile_pixel rifts "$(rift_tile "$RIFT_TIMED")" now && printf '{"x":%d,"y":%d}\n' "$CLICK_X" "$CLICK_Y" >"$VERIFY_DIR/rift-timed-tile.json" || { log "the timed rift's tile was not read"; return 1; }
   ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
