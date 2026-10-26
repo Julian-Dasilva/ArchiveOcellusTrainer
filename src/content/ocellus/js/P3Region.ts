@@ -10,6 +10,7 @@ import type { FlickMiss, P3Event, P3Hit, P3HitSource, P3Log, P3Snapshot, P3Stage
 import { OcellusP3 } from "./mobs/OcellusP3";
 import { ARENA_SIZE, FLOOR, QUADRANT_1_FLOOR, RIM } from "./p3/arena";
 import { RubbleView, SmiteBlades } from "./entities/P3Views";
+import { PlayerLook } from "./entities/P4Views";
 
 const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   swing: "a swing",
@@ -17,6 +18,7 @@ const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   "smite-blow": "the smite's opening blow",
   spin: "a smite spin",
   rubble: "the rubble",
+  "rift-burst": "a void rift burst",
 };
 
 type FlickReference = Readonly<{ happened: string; happens: string }>;
@@ -42,7 +44,7 @@ type Mounted =
   | Readonly<{ kind: "mounted"; boss: OcellusP3; player: OcellusPlayer; chat: string[]; blades: SmiteBlades; rubble: Set<RubbleView> }>;
 type Shown = Extract<Mounted, { kind: "mounted" }>;
 
-function presentHit(hit: P3Hit, receipt: HitReceipt, { boss, blades, chat }: Shown): void {
+function presentHit(hit: P3Hit, receipt: HitReceipt, { boss, player, blades, chat }: Shown): void {
   switch (hit.kind) {
     case "swing":
       boss.playAnimation(bossPoses.swing.value);
@@ -58,6 +60,9 @@ function presentHit(hit: P3Hit, receipt: HitReceipt, { boss, blades, chat }: Sho
       if (hit.verdict.kind === "struck") chat.push(`Spin ${hit.spin.nth} of ${hit.spin.of} hit you for ${receipt.applied}. ${MISSED_FLICK[hit.verdict.why](FLICK_REFERENCE[hit.spin.nth])}`);
       return;
     case "rubble":
+      return;
+    case "rift-burst":
+      new PlayerLook(player).riftBurst();
       return;
     default: {
       const unhandled: never = hit;
@@ -171,7 +176,11 @@ export class P3Region extends Region {
       case "death-prevented":
         shown.chat.push(`Invincible: ${LETHAL_HIT[event.source]} would have killed you on tick ${event.at}.`);
         return;
+      case "rift-destroyed":
+        shown.chat.push(OCELLUS_P4.rifts.killChat.value);
+        return;
       case "hazard-avoided":
+      case "rift-spawned":
       case "run-ended":
         return;
       default: {

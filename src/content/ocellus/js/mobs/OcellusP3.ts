@@ -4,29 +4,35 @@ import type { P3Config } from "../OcellusTimings";
 import { OCELLUS_P3, OCELLUS_P4 } from "../OcellusTimings";
 import type { OcellusPlayer } from "../OcellusPlayer";
 import { bossBonuses, withDefenceFloor } from "../bossStats";
-import type { Tick } from "../../../../sim/brands";
-import { tick } from "../../../../sim/brands";
+import type { Tick, Tile } from "../../../../sim/brands";
+import { span, tick, tile } from "../../../../sim/brands";
 import type { FrameOf, Heal, Hooks, Landed, Logged } from "../../../../sim/sdk/EncounterBinding";
 import { EncounterBinding } from "../../../../sim/sdk/EncounterBinding";
 import type { P3End, P3Event, P3Hit, P3Row, P3RunState } from "../P3Types";
-import type { InputObservation, PlayerObservation } from "../P4Types";
+import type { InputObservation, PlayerObservation, RiftId } from "../P4Types";
 import type { P3Fight, P3Rules, Reach, TurnStep } from "../p3/fight";
 import { startFight, turn } from "../p3/fight";
+import type { ShellEffect } from "../p3/spawns";
+import type { RiftRules } from "./VoidRift";
+import { VoidRift } from "./VoidRift";
 
 type BossStep = Readonly<{ player: PlayerObservation; bossHp: number }>;
 type P3Run = Readonly<{ input: InputObservation; event: P3Event; cause: P3Hit; snapshot: BossStep; row: P3Row; end: P3End }>;
+type HeldRift = Readonly<{ id: RiftId; tile: Tile; spawnedAt: Tick; mob: VoidRift }>;
 
 const { boss, presentation } = OCELLUS_P4;
+const RIFT_RULES: RiftRules = { chargeAfterSpawn: OCELLUS_P3.rifts.chargeAfterSpawn.value, standardRangedAndMeleeRoll: OCELLUS_P3.rifts.standardRangedAndMeleeRoll.value };
 
 export class OcellusP3 extends Mob {
   readonly binding: EncounterBinding<P3Run>;
   private readonly rules: P3Rules;
   private fight: P3Fight;
+  private rifts: readonly HeldRift[] = [];
 
   private readonly hooks: Hooks<P3Run> = {
     "tick-opened": () => undefined,
     "before-npc-hits": () => ({ snapshot: { player: this.target.observe(), bossHp: this.currentStats.hitpoint }, outputs: [] }),
-    "npc-turn": ({ time }) => this.turn(time.encounter),
+    "npc-turn": ({ time, player }) => this.turn(time.encounter, player.attackDelay),
     "hit-applied": ({ hit: { cause, receipt } }) => [{ kind: "player-hit", at: cause.at, hit: cause, receipt }],
     "player-hits-settled": ({ time, landed, player }) => this.settlePlayerHits(time.encounter, landed, player.maxHp),
     "player-moved": () => undefined,
@@ -141,14 +147,39 @@ export class OcellusP3 extends Mob {
     }
   }
 
-  private turn(at: Tick): Pick<TurnStep, "outputs" | "ending"> {
+  private turn(at: Tick, attackDelay: number): Pick<TurnStep, "outputs" | "ending"> {
     const step = turn(this.rules, this.fight, {
       at,
-      player: this.target.observe(),
-      boss: { hp: this.currentStats.hitpoint, maxHp: this.stats.hitpoint, reach: this.reach() },
+      player: { ...this.target.observe(), attackDelay },
+      boss: { hp: this.currentStats.hitpoint, maxHp: this.stats.hitpoint, reach: this.reach(), at: tile(this.location.x, this.location.y) },
+      rifts: this.rifts.map(({ id, tile: place, spawnedAt, mob }) => ({ id, tile: place, spawnedAt, hp: mob.currentStats.hitpoint })),
     });
     this.fight = step.fight;
+    this.rifts.forEach(({ mob, spawnedAt }) => mob.charge(span(at - spawnedAt)));
+    step.shell.forEach((effect) => this.apply(effect, at));
     return { outputs: step.outputs, ending: step.ending };
+  }
+
+  private apply(effect: ShellEffect, at: Tick): void {
+    switch (effect.kind) {
+      case "spawn-rift": {
+        const mob = new VoidRift(this.region, effect.tile, RIFT_RULES);
+        this.region.addMob(mob);
+        this.rifts = [...this.rifts, { id: effect.rift, tile: effect.tile, spawnedAt: at, mob }];
+        return;
+      }
+      case "detonate-rift":
+        this.rifts.filter(({ id }) => id === effect.rift).forEach(({ mob }) => mob.detonate());
+        this.rifts = this.rifts.filter(({ id }) => id !== effect.rift);
+        return;
+      case "forget-rift":
+        this.rifts = this.rifts.filter(({ id }) => id !== effect.rift);
+        return;
+      default: {
+        const unhandled: never = effect;
+        return unhandled;
+      }
+    }
   }
 
   private settlePlayerHits(at: Tick, landed: readonly Landed<P3Hit>[], maxHp: number): readonly (Logged<P3Event> | Heal)[] {

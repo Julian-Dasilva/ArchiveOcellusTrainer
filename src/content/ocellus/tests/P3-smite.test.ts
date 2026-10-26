@@ -6,6 +6,7 @@ import { startP3Drill } from "./p3drill";
 const S = 27;
 const LANDINGS = { 1: [31], 2: [31, 34], 3: [31, 34, 37] } as const;
 const MISSED_SPIN: Readonly<Record<number, number>> = { 31: 43, 34: 43, 37: 45 };
+const HP_LEFT_AT: Readonly<Record<number, number>> = { 31: 87, 34: 48, 37: 42 };
 const SPAWN: At = { x: 19, y: 9 };
 const RULES = ["on-off-on", "off-then-on", "held-blocks"] as const;
 
@@ -94,7 +95,7 @@ const expectedSpins = ({ quadrant, prayerAtLandings, verdicts }: FlickCase, rule
   LANDINGS[quadrant].map((at, k) => {
     const verdict = verdicts[rule][k];
     const requested = verdict === "blocked" ? 0 : MISSED_SPIN[at];
-    return [at, k + 1, quadrant, verdict, requested, requested, prayerAtLandings[k]];
+    return [at, k + 1, quadrant, verdict, requested, Math.min(requested, HP_LEFT_AT[at]), prayerAtLandings[k]];
   });
 
 describe("P3 smite flick", () => {
@@ -124,15 +125,19 @@ describe("P3 smite flick", () => {
       toggles: [S - 1, S + 1],
       chat: [
         "Spin 1 of 2 hit you for 43. Protect from Melee was already off when the smite started.",
-        "Spin 2 of 2 hit you for 37. Protect from Melee stayed on. Turn it off after spin 1 lands, then back on for the spin.",
-        "Invincible: a smite spin would have killed you on tick 34.",
+        "Invincible: a void rift burst would have killed you on tick 33.",
+        "Spin 2 of 2 hit you for 43. Protect from Melee stayed on. Turn it off after spin 1 lands, then back on for the spin.",
       ],
     },
     {
       quadrant: 2,
       name: "spin 1 late leaves the prayer off when it lands, so spin 2 is early: off after S, on after S+4",
       toggles: [S, S + 4],
-      chat: ["Spin 1 of 2 hit you for 43. Protect from Melee was not back on in time for the spin.", "Spin 2 of 2 hit you for 43. Protect from Melee was already off when spin 1 landed."],
+      chat: [
+        "Spin 1 of 2 hit you for 43. Protect from Melee was not back on in time for the spin.",
+        "Spin 2 of 2 hit you for 5. Protect from Melee was already off when spin 1 landed.",
+        "Invincible: a smite spin would have killed you on tick 34.",
+      ],
     },
     {
       quadrant: 3,
@@ -140,8 +145,8 @@ describe("P3 smite flick", () => {
       toggles: [S, S + 3, S + 4, S + 7],
       chat: [
         "Spin 2 of 3 hit you for 43. Protect from Melee was not back on in time for the spin.",
-        "Spin 3 of 3 hit you for 38. Protect from Melee was already off when spin 2 landed.",
-        "Invincible: a smite spin would have killed you on tick 37.",
+        "Invincible: the rubble would have killed you on tick 36.",
+        "Spin 3 of 3 hit you for 45. Protect from Melee was already off when spin 2 landed.",
       ],
     },
   ] as const)("a missed spin's chat names the moment that spin was judged from, quadrant $quadrant: $name", async ({ quadrant, toggles, chat }) => {

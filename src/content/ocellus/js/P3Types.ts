@@ -1,7 +1,7 @@
 import type { Seed, Tick, Tile, WorldTick } from "../../../sim/brands";
 import type { HitReceipt } from "../../../sim/combat";
 import type { P3Choices } from "./OcellusTimings";
-import type { InputObservation, LoadoutSnapshot, PlayerObservation } from "./P4Types";
+import type { InputObservation, LoadoutSnapshot, PlayerObservation, RiftId } from "./P4Types";
 
 export type Quadrant = 1 | 2 | 3;
 export type AutoAttack = "melee" | "wave";
@@ -28,7 +28,8 @@ export type P3Hit =
   | Readonly<{ kind: "void-shot"; at: Tick }>
   | Readonly<{ kind: "smite-blow"; at: Tick }>
   | Readonly<{ kind: "spin"; at: Tick; spin: Spin; verdict: SpinVerdict }>
-  | Readonly<{ kind: "rubble"; at: Tick; tile: Tile }>;
+  | Readonly<{ kind: "rubble"; at: Tick; tile: Tile }>
+  | Readonly<{ kind: "rift-burst"; at: Tick; rift: RiftId; tile: Tile }>;
 export type P3HitSource = P3Hit["kind"];
 
 export type P3End = Readonly<{ kind: "quadrant-cleared"; quadrant: Quadrant }> | Readonly<{ kind: "death" }>;
@@ -38,6 +39,8 @@ export type P3Event =
   | Readonly<{ kind: "wave-cast"; at: Tick; toward: Tile }>
   | Readonly<{ kind: "rubble-aimed"; at: Tick; tile: Tile; landsAt: Tick; until: Tick }>
   | Readonly<{ kind: "hazard-avoided"; at: Tick; hazard: "rubble"; tile: Tile }>
+  | Readonly<{ kind: "rift-spawned"; at: Tick; rift: RiftId; tile: Tile }>
+  | Readonly<{ kind: "rift-destroyed"; at: Tick; rift: RiftId; tile: Tile }>
   | Readonly<{ kind: "player-hit"; at: Tick; hit: P3Hit; receipt: HitReceipt }>
   | Readonly<{ kind: "death-prevented"; at: Tick; source: P3HitSource }>
   | Readonly<{ kind: "run-ended"; at: Tick; reason: P3End }>;

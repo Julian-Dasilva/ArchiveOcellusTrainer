@@ -360,7 +360,7 @@ export class Ocellus extends Mob {
     const anchor = OCELLUS_P4.geometry.bossAnchor.value;
     return OCELLUS_P4.rifts.offsetsFromBoss.value.map(({ dx, dy }, slot): FightEvent => {
       const place = tile(anchor.x + dx, anchor.y + dy);
-      const mob = new VoidRift(this.region, place);
+      const mob = new VoidRift(this.region, place, { chargeAfterSpawn: OCELLUS_P4.rifts.chargeAfterSpawn.value, standardRangedAndMeleeRoll: OCELLUS_P4.rifts.standardRangedAndMeleeRoll.value });
       this.region.addMob(mob);
       const id = riftId(at, slot);
       this.rifts = [...this.rifts, { id, tile: place, forCycle, mob, hpAtPostTick: mob.currentStats.hitpoint, spawnedAt: at }];

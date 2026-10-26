@@ -46,7 +46,8 @@ type Source =
   | Readonly<{ kind: "cache"; build: 2746; record: string }>
   | Readonly<{ kind: "owner"; date: OwnerDate; topic: string }>
   | Readonly<{ kind: "guide"; url: string; at: string }>
-  | Readonly<{ kind: "capture"; url: string; at: string }>;
+  | Readonly<{ kind: "capture"; url: string; at: string }>
+  | Readonly<{ kind: "external-sim"; url: string; at: string }>;
 
 type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
 
@@ -69,6 +70,7 @@ const cache = (record: string): Source => ({ kind: "cache", build: 2746, record 
 const owner = (topic: string, date: OwnerDate = "2026-10-21"): Source => ({ kind: "owner", date, topic });
 const guide = (url: string, at: string): Source => ({ kind: "guide", url, at });
 const capture = (url: string, at: string): Source => ({ kind: "capture", url, at });
+const externalSim = (url: string, at: string): Source => ({ kind: "external-sim", url, at });
 const STRATEGIES_P4 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381030);
 const BOSS_INFOBOX = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15380968);
 const VOID_RIFT_PAGE = wiki("https://oldschool.runescape.wiki/w/Void_Rift", 15380527);
@@ -168,6 +170,8 @@ export type SpecialStyle<V extends Special> = SpecialRecipe["styles"][V]["value"
 type BossHealRecipe = Readonly<{ soulSplitAfterHit: Selected<TickSpan> }>;
 type RiftOffset = Readonly<{ dx: number; dy: number }>;
 type RiftPose = "idle" | "spawn" | "despawn" | "detonate";
+type RiftRoll = Readonly<{ guaranteedHit: boolean; maxDamage: boolean }>;
+export type StandardRiftRoll = RiftRoll | "as-any-target";
 type RiftRecipe = Readonly<{
   firstCycle: Selected<Cycle>;
   spawnBeforeOnset: Selected<TickSpan>;
@@ -181,7 +185,7 @@ type RiftRecipe = Readonly<{
   defenceBonuses: Selected<Readonly<{ stab: number; slash: number; crush: number; magic: number; range: number }>>;
   offsetsFromBoss: Selected<readonly [RiftOffset, ...RiftOffset[]]>;
   burstDamage: Selected<DamageRange>;
-  standardRangedAndMeleeRoll: Selected<Readonly<{ guaranteedHit: boolean; maxDamage: boolean }>>;
+  standardRangedAndMeleeRoll: Selected<RiftRoll>;
   killChat: Selected<string>;
   poses: Readonly<Record<RiftPose, Selected<number>>>;
   burstFlare: Selected<number>;
@@ -927,6 +931,7 @@ const NOAHSCAPE_GUIDE = "https://www.youtube.com/watch?v=-bXHKfzS1V4";
 const FLICK_CLIP = "https://oldschool.runescape.wiki/w/File:Ocellus_flicking.mp4";
 const FLICK_CLIP_PAGE = wiki(FLICK_CLIP, 15379157);
 const RSPROX_P3 = "https://github.com/MRobertEvers/oldschool-clientc/blob/2b3352e2fb64f2288cd42a9522b21d7fcc42f4d4/docs/rsprox-analysis/guthixian_archive/ocellus_plan.md";
+const OCELLUS_SIM = "https://github.com/alessandrorodi/ocellus-sim/blob/3efd5bf1cc9ecd394c6fe04964f3d17be439fc38/src/content/ocellus/fight/";
 const SMITE_COUNTS = guide(DEFBIGBEAST_GUIDE, "12:53 to 13:00 and 13:29 to 13:37 (quadrant 1), 17:43 to 17:51 (quadrant 2), 21:28 to 21:34 (quadrant 3): hitsplat on count 4, back on for count 4, then counts 2 and 1, then 4, 3 and 2");
 
 type AutoStep = Readonly<{ attack: AutoAttack; next: TickSpan }>;
@@ -945,6 +950,17 @@ type SmiteRecipe = Readonly<{
   rubbleLook: Readonly<Record<RubbleCue, Selected<number>>>;
 }>;
 
+type P3RiftRecipe = Readonly<{
+  chargeAfterSpawn: Selected<TickSpan>;
+  burstDamage: Selected<DamageRange>;
+  firstInQuadrant1: Selected<Readonly<{ special: number; after: TickSpan }>>;
+  firstInLaterQuadrants: Selected<TickSpan>;
+  every: Selected<TickSpan>;
+  count: Selected<number>;
+  clearOfBoss: Selected<number>;
+  standardRangedAndMeleeRoll: Selected<StandardRiftRoll>;
+}>;
+
 type P3Recipe = Readonly<{
   arena: Readonly<{ grid: Selected<readonly string[]>; playerSpawn: Selected<Tile>; bossAnchor: Selected<Tile> }>;
   thresholds: Selected<Readonly<Record<Quadrant, HpFraction>>>;
@@ -953,6 +969,7 @@ type P3Recipe = Readonly<{
   swing: Readonly<{ protectedDamage: Selected<DamageRange>; unprotectedDamage: Selected<DamageRange> }>;
   voidShot: Selected<DamageRange>;
   smite: SmiteRecipe;
+  rifts: P3RiftRecipe;
   bossPoses: Readonly<Record<P3BossPose, Selected<number>>>;
 }>;
 
@@ -1061,6 +1078,46 @@ const P3: P3Recipe = {
       idle: spotAnim(4347, "vfx_ocellus_debris_idle", "inferred", "the landed rubble, looped while it hits"),
       despawn: spotAnim(4348, "vfx_ocellus_debris_despawn", "inferred", "the rubble clearing, 1 tick"),
     },
+  },
+  rifts: {
+    chargeAfterSpawn: selected(
+      span(30),
+      "log-repeated",
+      "unscaled",
+      "an unkilled rift detonates 30 ticks after it appears: the one phase 3 rift left standing in L3, and 4 of 4 unkilled phase 4 rifts of the same NPC 16678 in L5 and L6, none at 23; the 4- and 7-player logs agree, so it is taken not to scale with the team",
+      NO_WIKI_P3_TICKS, fightLog("L3", "16472 +1083 to +1113"), fightLog("L5", "cycle 3, S-1 to S+29"), fightLog("L6", "cycles 2 and 3, S-1 to S+29"), externalSim(OCELLUS_SIM, "data.ts:394-398"),
+    ),
+    burstDamage: selected<DamageRange>(
+      { min: 39, max: 41 },
+      "footage-once",
+      "unscaled",
+      "the detonation hits the player for 39 to 41, typeless, wherever they stand; ocellus-sim reads 39 from a Void Rift and 40, 40 and 41 from Void Augmenters, and L3's burst tick shows 39 on a player under Protect from Melee beside the flare",
+      noWiki("the wiki says an unkilled rift damages all players but gives no amount (Strategies rev 15381030)"), externalSim(OCELLUS_SIM, "data.ts:394-399"), fightLog("L3", "16472 +1113"), guide(ROBINHOOD_GUIDE, "0:04:01 'explode, dealing around 40 damage to everyone'"),
+    ),
+    firstInQuadrant1: selected(
+      { special: 2, after: span(32) },
+      "log-repeated",
+      "unscaled",
+      "in quadrant 1 the first void appears 32 ticks after the quadrant's second special starts, which is Untether in every recorded quadrant 1: \"Untether...\" and then the first void at 16472 +1051 and +1083 in L3, P3 +59 and +91 in L7, and P3 +65 and +97 in L8; ocellus-sim spawns none in quadrant 1, which these logs contradict",
+      NO_WIKI_P3_TICKS, fightLog("L3", "16472 +1051 and +1083"), fightLog("L7", "P3 +59 and +91"), fightLog("L8", "P3 +65 and +97"), externalSim(OCELLUS_SIM, "data.ts:319-326"),
+    ),
+    firstInLaterQuadrants: selected(span(3), "footage-once", "unscaled", "in a later quadrant the first void appears 3 ticks after the quadrant starts, as in ocellus-sim and in L7's second quadrant, which starts at P3 +201 with a void at +204", NO_WIKI_P3_TICKS, externalSim(OCELLUS_SIM, "data.ts:327"), fightLog("L7", "P3 +201 and +204")),
+    every: selected(
+      span(48),
+      "log-repeated",
+      "unscaled",
+      "each later void follows the last by 48 ticks: P3 +91 and +139 in L7, +97 and +145 in L8, and +204 and +252 in L7's second quadrant; ocellus-sim stops after 3, 51 and 111, but L7 keeps spawning after 111 with gaps of 48 to 65, the longer gaps not modelled",
+      NO_WIKI_P3_TICKS, fightLog("L7", "P3 +91, +139, +204, +252, +309, +361, +409"), fightLog("L8", "P3 +97, +145, +200, +252"), externalSim(OCELLUS_SIM, "data.ts:327"),
+    ),
+    count: selected(1, "inferred", "unscaled", "one void at a time solo, as ocellus-sim spawns; [R] has one with three raiders and two with four and no solo fight, and L7's seven raiders saw two at a time", NO_WIKI_P3_TICKS, externalSim(OCELLUS_SIM, "phase3.ts:535-543"), capture(RSPROX_P3, "L317"), fightLog("L7", "P3 +91 and +139")),
+    clearOfBoss: selected(2, "assumption", "unscaled", "a void appears on a random floor tile of the boss's wedge at least 2 tiles from his 3x3", NO_WIKI_P3_ARENA, externalSim(OCELLUS_SIM, "phase3.ts:537-539")),
+    standardRangedAndMeleeRoll: selected<StandardRiftRoll>(
+      "as-any-target",
+      "inferred",
+      "unscaled",
+      "standard ranged and melee attacks roll on a phase 3 rift as on any target: ocellus-sim counts 34 of 89 phase 3 hits at the full 44 against 4 of 4 in phase 4, and [R] has 68 of 90 ranged hits at 44",
+      noWiki("not on the wiki for phase 3; P4's always-max rule cites the Ocellus page"), externalSim(OCELLUS_SIM, "units.ts:369-376"), capture(RSPROX_P3, "L937"),
+    ),
   },
 };
 

@@ -3,7 +3,7 @@ import { OCELLUS_P3 } from "../OcellusTimings";
 import type { Seed, Tick, TickSpan, Tile } from "../../../../sim/brands";
 import { after, tick } from "../../../../sim/brands";
 import type { BossHp } from "../../../../sim/schedule";
-import type { HitRequest, Logged } from "../../../../sim/sdk/EncounterBinding";
+import type { AttackDelayCut, HitRequest, Logged } from "../../../../sim/sdk/EncounterBinding";
 import type { FlickRule, P3Beat, P3End, P3Event, P3Hit, Quadrant, Spin } from "../P3Types";
 import type { PlayerObservation } from "../P4Types";
 import { rollInt } from "../roll";
@@ -11,23 +11,30 @@ import type { Flick } from "./flick";
 import { armFlick, judgeSpin, stepFlick } from "./flick";
 import type { P3Schedule } from "./schedule";
 import { compileP3Schedule } from "./schedule";
+import type { RiftClock, RiftTurn, ShellEffect, StandingRift } from "./spawns";
+import { isSpecial, startRiftClock, turnRifts } from "./spawns";
 
 export type P3Rules = Readonly<{ seed: Seed; start: Quadrant; flick: FlickRule; missedFlickDamage: DamageRange; firstSpin: TickSpan }>;
 export type Hazard = Readonly<{ kind: "rubble"; tile: Tile; landsAt: Tick; until: Tick }>;
-export type P3Fight = Readonly<{ schedule: P3Schedule; flick: Flick; hazards: readonly Hazard[] }>;
+export type P3Fight = Readonly<{ schedule: P3Schedule; flick: Flick; hazards: readonly Hazard[]; riftClock: RiftClock }>;
 export type Reach = "in-reach" | "out-of-reach";
 
-export type TurnFacts = Readonly<{ at: Tick; player: PlayerObservation; boss: BossHp & Readonly<{ reach: Reach }> }>;
+export type TurnFacts = Readonly<{
+  at: Tick;
+  player: PlayerObservation & Readonly<{ attackDelay: number }>;
+  boss: BossHp & Readonly<{ reach: Reach; at: Tile }>;
+  rifts: readonly StandingRift[];
+}>;
 
-export type TurnOutput = Logged<P3Event> | HitRequest<P3Hit>;
-export type TurnStep = Readonly<{ fight: P3Fight; outputs: readonly TurnOutput[]; ending: P3End | null }>;
+export type TurnOutput = Logged<P3Event> | HitRequest<P3Hit> | AttackDelayCut;
+export type TurnStep = Readonly<{ fight: P3Fight; outputs: readonly TurnOutput[]; shell: readonly ShellEffect[]; ending: P3End | null }>;
 type Reaction = Readonly<{ outputs: readonly TurnOutput[]; ending: P3End | null; flick: Flick; hazards: readonly Hazard[] }>;
 
 const logged = (event: P3Event): Logged<P3Event> => ({ kind: "event", event });
 const sameTile = (a: Tile, b: Tile) => a.x === b.x && a.y === b.y;
 
 export function startFight(rules: P3Rules): P3Fight {
-  return { schedule: compileP3Schedule(rules.start, rules.firstSpin), flick: "unarmed", hazards: [] };
+  return { schedule: compileP3Schedule(rules.start, rules.firstSpin), flick: "unarmed", hazards: [], riftClock: startRiftClock(rules.start) };
 }
 
 function meleeHit(seed: Seed, at: Tick, { protectedDamage, unprotectedDamage }: Readonly<{ protectedDamage: DamageRange; unprotectedDamage: DamageRange }>, cause: P3Hit): HitRequest<P3Hit> {
@@ -114,9 +121,14 @@ export function turn(rules: P3Rules, fight: P3Fight, facts: TurnFacts): TurnStep
     const next = react(rules, beat, so.flick, facts);
     return { outputs: [...so.outputs, ...next.outputs], ending: so.ending ?? next.ending, flick: next.flick, hazards: [...so.hazards, ...next.hazards] };
   }, stepped);
+  const rifts: RiftTurn =
+    reacted.ending === null
+      ? turnRifts(rules.seed, fight.riftClock, { at: facts.at, rifts: facts.rifts, bossAt: facts.boss.at, attackDelay: facts.player.attackDelay, enteredSpecial: entered.length > 0 && isSpecial(visit.stage) })
+      : { clock: fight.riftClock, outputs: [], shell: [] };
   return {
-    fight: { schedule, flick: reacted.flick, hazards: [...fight.hazards.filter((hazard) => hazard.until > facts.at), ...reacted.hazards] },
-    outputs: [...entered, ...reacted.outputs, ...fromHazards],
+    fight: { schedule, flick: reacted.flick, hazards: [...fight.hazards.filter((hazard) => hazard.until > facts.at), ...reacted.hazards], riftClock: rifts.clock },
+    outputs: [...entered, ...reacted.outputs, ...fromHazards, ...rifts.outputs],
+    shell: rifts.shell,
     ending: reacted.ending,
   };
 }
