@@ -5,7 +5,7 @@ OUT="$1"; RUNS="${2:-1}"; HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$REPO"
 export VERIFY_PORT="${VERIFY_PORT:-8083}" VERIFY_DIR="$OUT/serve"
 source <(sed -e '/^case "\${1:-}" in/,$d' -e 's#^cd "\$(dirname "\$0")/.."#cd '"$REPO"'#' scripts/verify.sh)
-mkdir -p "$VERIFY_DIR"
+mkdir -p "$VERIFY_DIR" "$ROOT/.verify"
 BROWSER_SESSION="proto-exp-$$"
 UNIT_LOG="$OUT/proto.log"
 trap 'ab close >/dev/null 2>&1; stop' EXIT
