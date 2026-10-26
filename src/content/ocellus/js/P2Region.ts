@@ -18,7 +18,7 @@ const LETHAL_HIT: Readonly<Record<P2HitSource, string>> = {
   "pool-burst": "a pool",
 };
 
-const { bossPoses, spotAnims, shouts, floorMarks2d, skipTiles, volley } = OCELLUS_P2;
+const { bossPoses, spotAnims, shouts, skipTiles, volley } = OCELLUS_P2;
 const OPEN_FLOOR = ["#4a4339", "#3f392f"] as const;
 const CLOSED_FLOOR = ["#2c2822", "#25221d"] as const;
 
@@ -175,10 +175,9 @@ export class P2Region extends Region {
   private present(row: P2Row): void {
     if (this.mounted.kind === "unmounted") return;
     const { boss, views } = this.mounted;
-    if (row.beats.some((beat) => beat.kind === "pools-burst")) views.pools.forEach((pool) => pool.unmark());
     const portal = views.safePortal;
     if (portal.kind === "spawning" && row.beats.some((beat) => beat.kind === "safe-portal-takes")) {
-      portal.effect.play(spotAnims.safePortalIdle.value, true, floorMarks2d.value.safePortal);
+      portal.effect.play(spotAnims.safePortalIdle.value, true);
       views.safePortal = { kind: "idle", effect: portal.effect };
     }
     row.events.forEach((event) => this.presentEvent(event, boss, views));
@@ -223,14 +222,14 @@ export class P2Region extends Region {
         this.clearPools(views);
         views.pools = event.tiles.map((at) => new FloorEffect(this, at));
         views.pools.forEach((pool) => {
-          pool.play(spotAnims.pool.value, false, floorMarks2d.value.pool);
+          pool.play(spotAnims.pool.value, false);
           this.addEntity(pool);
         });
         return;
       case "safe-portal-opened": {
         if (views.safePortal.kind !== "none") this.removeEntity(views.safePortal.effect);
         const effect = new FloorEffect(this, event.tile);
-        effect.play(spotAnims.safePortalSpawn.value, false, floorMarks2d.value.safePortal);
+        effect.play(spotAnims.safePortalSpawn.value, false);
         this.addEntity(effect);
         views.safePortal = { kind: "spawning", effect };
         return;
@@ -238,7 +237,7 @@ export class P2Region extends Region {
       case "round-ended":
         this.clearPools(views);
         if (views.safePortal.kind !== "none") {
-          views.safePortal.effect.play(spotAnims.safePortalDespawn.value, false, null);
+          views.safePortal.effect.play(spotAnims.safePortalDespawn.value, false);
           views.safePortal = { kind: "closing", effect: views.safePortal.effect };
         }
         return;
@@ -246,7 +245,7 @@ export class P2Region extends Region {
         boss.addSpotAnim({ id: spotAnims.discharge.value, channel: "discharge" });
         return;
       case "sword-repaired":
-        views.repair.play(spotAnims.swordRepair.value, false, null);
+        views.repair.play(spotAnims.swordRepair.value, false);
         return;
       case "enough":
         boss.setOverheadText(shouts.enough.value.text);
@@ -255,10 +254,10 @@ export class P2Region extends Region {
         boss.addSpotAnim({ id: spotAnims.swordRootFire.value, channel: "sword-root" });
         boss.addSpotAnim({ id: spotAnims.armDrop.value, channel: "arm" });
         boss.addSpotAnim({ id: spotAnims.armGlow.value, channel: "arm-glow" });
-        views.drop.play(spotAnims.swordDrop.value, false, null);
+        views.drop.play(spotAnims.swordDrop.value, false);
         return;
       case "sword-fell":
-        views.burst.play(spotAnims.swordDropBurst.value, false, null);
+        views.burst.play(spotAnims.swordDropBurst.value, false);
         return;
       case "death-prevented":
         views.chat.push(`Invincible: ${LETHAL_HIT[event.source]} would have killed you on tick ${event.at}.`);

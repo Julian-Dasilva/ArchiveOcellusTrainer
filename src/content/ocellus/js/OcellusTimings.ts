@@ -1053,7 +1053,7 @@ type P2SpotAnim =
   | "armDrop"
   | "armGlow"
   | "swordDropBurst";
-type PortalLook = Readonly<{ model: number; idle: number; colour2d: string }>;
+type PortalLook = Readonly<{ model: number; idle: number }>;
 type P2Shout = Readonly<{ text: string; lasts: TickSpan }>;
 
 type P2Recipe = Readonly<{
@@ -1099,7 +1099,6 @@ type P2Recipe = Readonly<{
   swordRepair: Selected<Readonly<{ first: TickSpan; every: TickSpan }>>;
   bossPoses: Readonly<Record<P2BossPose, Selected<number>>>;
   spotAnims: Readonly<Record<P2SpotAnim, Selected<number>>>;
-  floorMarks2d: Selected<Readonly<{ pool: string; safePortal: string }>>;
   skipTiles: Selected<Readonly<{ wait: number; run: number; colour: string }>>;
 }>;
 
@@ -1160,10 +1159,10 @@ const P2: P2Recipe = {
     gapIndexSum: selected(7, "inferred", "unscaled", "the two gaps' rows cross on the safe 2x2, whose inner tile is (2h + 1, 2g + 1) from the middle; the octagon's cut corners keep it in the room only while g + h <= 7", NO_WIKI_P2_ARENA, cache("map square 16472 plane 1: floor overlay 657")),
     rotation: selected({ north: 3, east: 0, south: 1, west: 2 }, "community-tested", "unscaled", "each arm's portal loc rotation in quarter turns", NO_WIKI_PRESENTATION, analysis(RSPROX_PLAN, "phase 2: portal locs")),
     looks: selected(
-      { inactive: { model: 62758, idle: 14830, colour2d: "#ff9a2e" }, lit: { model: 62757, idle: 14830, colour2d: "#b455ff" } },
+      { inactive: { model: 62758, idle: 14830 }, lit: { model: 62757, idle: 14830 } },
       "spec-confirmed",
       "unscaled",
-      "orange while idle or a gap, purple while lit to fire: locs 62684 and 62685, one model each, both looping 14830 vfx_ocellus_p2_portal_idle; the 2D squares take the two colours",
+      "orange while idle or a gap, purple while lit to fire: locs 62684 and 62685, one model each, both looping 14830 vfx_ocellus_p2_portal_idle",
       STRATEGIES_P2, cache("loc 62684 Portal: model 62758, animation 14830"), cache("loc 62685 Portal: model 62757, animation 14830"),
     ),
   },
@@ -1201,7 +1200,7 @@ const P2: P2Recipe = {
   spotAnims: {
     transform: p2SpotAnim(4268, "vfx_ocellus_p1_to_p2_transformation", "on the boss at P2 +0", ...P2_LOGS),
     portalBolt: p2SpotAnim(4269, "vfx_ocellus_portal_projectile", "each lit portal's bolt across its rows", ...P2_LOGS),
-    pool: p2SpotAnim(4270, "vfx_ocellus_p2_aoe_dodge", "the purple pools, sent once: seq 14887 plays 180 client cycles, 6 ticks, through the burst 4 ticks in; the 2D view marks the tile until the burst", ...P2_LOGS),
+    pool: p2SpotAnim(4270, "vfx_ocellus_p2_aoe_dodge", "the purple pools, sent once: seq 14887 plays 180 client cycles, 6 ticks, through the burst 4 ticks in", ...P2_LOGS),
     safePortalSpawn: p2SpotAnim(4271, "vfx_ocellus_p2_safe_portal_spawn", "the floor portal forming", ...P2_LOGS),
     safePortalIdle: p2SpotAnim(4272, "vfx_ocellus_p2_safe_portal_idle", "the floor portal, sent each tick it stays", ...P2_LOGS),
     safePortalDespawn: p2SpotAnim(4273, "vfx_ocellus_p2_safe_portal_despawn", "the floor portal closing", ...P2_LOGS),
@@ -1213,7 +1212,6 @@ const P2: P2Recipe = {
     armGlow: p2SpotAnim(4283, "vfx_ocellus_p2_to_p3_arm_glow01", "on the boss at \"This... is enough...\"", ...P2_LOGS),
     swordDropBurst: p2SpotAnim(4388, "tfa_arena_sword_drop_explosion", "on the middle as the sword falls", ...P2_LOGS),
   },
-  floorMarks2d: selected({ pool: "#7a2bbf", safePortal: "#ff9a2e" }, "assumption", "unscaled", "the 2D view's squares for the pools and the floor portal, chosen by eye after the wiki's purple pools and orange portal; the floor portal takes the idle portals' orange", STRATEGIES_P2),
   skipTiles: selected(
     { wait: 6, run: 4, colour: "#ff3de0" },
     "community-tested",

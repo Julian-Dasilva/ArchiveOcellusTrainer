@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { CacheRenderInstancedModel, CacheRenderReferences, CollisionType, Entity, LineOfSightMask, Settings } from "osrs-sdk";
+import { CacheRenderInstancedModel, CacheRenderReferences, CollisionType, Entity, LineOfSightMask } from "osrs-sdk";
 import type { Location3, Model, Region } from "osrs-sdk";
 import { OCELLUS_P2 } from "../OcellusTimings";
 import type { Tile } from "../../../../sim/brands";
@@ -86,34 +86,21 @@ export class PortalCross extends Entity {
     return false;
   }
 
-  override draw(tickPercent: number, context: OffscreenCanvasRenderingContext2D): void {
-    const scale = Settings.tileSize;
-    for (const { tiles, look } of this.portals()) {
-      context.fillStyle = LOOKS[look].colour2d;
-      for (const { x, y } of tiles) context.fillRect((x + 0.2) * scale, (y + 0.2) * scale, 0.6 * scale, 0.6 * scale);
-    }
-  }
-
   protected override create3dModel(): Model {
     return new PortalModel(this);
   }
 }
 
-/** A cache spotanim on one floor tile, with a square in the 2D view while it marks something the player must step on or off. */
+/** A cache spotanim on one floor tile. */
 export class FloorEffect extends Entity {
-  private shown: Readonly<{ cue: Cue; mark: string | null }> | null = null;
+  private cue: Cue | null = null;
 
   constructor(region: Region, at: Tile) {
     super(region, { x: at.x, y: at.y });
   }
 
-  play(spotAnim: number, loops: boolean, mark: string | null): void {
-    this.shown = { cue: { spotAnim, loops }, mark };
-  }
-
-  /** The effect plays on, but the tile no longer marks a danger. */
-  unmark(): void {
-    if (this.shown !== null) this.shown = { ...this.shown, mark: null };
+  play(spotAnim: number, loops: boolean): void {
+    this.cue = { spotAnim, loops };
   }
 
   override get collisionType(): CollisionType {
@@ -128,15 +115,7 @@ export class FloorEffect extends Entity {
     return false;
   }
 
-  override draw(tickPercent: number, context: OffscreenCanvasRenderingContext2D): void {
-    const mark = this.shown?.mark ?? null;
-    if (mark === null) return;
-    const scale = Settings.tileSize;
-    context.fillStyle = mark;
-    context.fillRect((this.location.x + 0.15) * scale, (this.location.y + 0.15) * scale, 0.7 * scale, 0.7 * scale);
-  }
-
   protected override create3dModel(): Model {
-    return new SpotAnimModel(this, () => this.shown?.cue ?? null);
+    return new SpotAnimModel(this, () => this.cue);
   }
 }

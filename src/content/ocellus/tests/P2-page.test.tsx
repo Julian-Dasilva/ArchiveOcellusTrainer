@@ -41,7 +41,7 @@ async function loadP2Page(url: string) {
 const clickIfShown = (id: string) => act(() => document.getElementById(id)?.click());
 
 describe("P2 behind the ARCHIVE_P2 build flag", () => {
-  beforeEach(() => localStorage.setItem("osrs-sdk:settings", JSON.stringify({ version: 1, values: { use3dView: false } })));
+  beforeEach(() => localStorage.removeItem("osrs-sdk:settings"));
   afterEach(() => vi.unstubAllEnvs());
 
   test("guard: with the flag off, ?phase=p2 opens P4 at its entry HP, lists phase=p2 as rejected and draws no Phase box", () => {

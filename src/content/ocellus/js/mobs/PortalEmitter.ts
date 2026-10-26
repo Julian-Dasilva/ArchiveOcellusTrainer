@@ -16,7 +16,7 @@ export class PortalEmitter extends Mob {
 
   /** The bolt is over the tile d out `cyclesPerTile × (d - 1)` client cycles after the volley, and gone past the last tile. */
   fire(to: Tile, tiles: number, cyclesPerTile: number, ticks: number): void {
-    const visuals = { spotAnim: { id: OCELLUS_P2.spotAnims.portalBolt.value }, color: OCELLUS_P2.portals.looks.value.lit.colour2d, startCycleOffset: 0, endCycleOffset: cyclesPerTile * tiles, verticalOffset: BOLT_HEIGHT };
+    const visuals = { spotAnim: { id: OCELLUS_P2.spotAnims.portalBolt.value }, startCycleOffset: 0, endCycleOffset: cyclesPerTile * tiles, verticalOffset: BOLT_HEIGHT };
     this.region.addProjectile(new Projectile(null, 0, this, { x: to.x + 0.5, y: to.y - 0.5, z: BOLT_HEIGHT }, "magic", { setDelay: ticks, visuals }));
   }
 

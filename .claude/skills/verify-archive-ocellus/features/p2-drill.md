@@ -6,7 +6,7 @@ A third drill, phase 2, sits behind the build flag `ARCHIVE_P2`. Production buil
 
 - `p2-flag` opens P4 for `?phase=p2` when the build leaves `ARCHIVE_P2` off.
 - `p2-open` opens P2 with NPC 16675 on the middle 3x3 at 5250 HP when the flag is on.
-- `p2-portals` raises the 24 portals at 2, lights ten of the round's twelve purple and leaves the two gaps orange, in 2D and 3D.
+- `p2-portals` raises the 24 portals at 2, lights ten of the round's twelve purple and leaves the two gaps orange.
 - `p2-volley` fires each lighting 4 ticks later and hits by tile: 1 to 5 out on the volley tick, 6 to 10 the next, 11 and 12 the tick after.
 - `p2-skip` dodges every volley of a round for a player who waits 6 out on the diagonal and clicks 4 out a tick before each volley.
 - `p2-pools` bursts the pools 4 ticks after they form on a player standing on one.
@@ -28,7 +28,6 @@ A third drill, phase 2, sits behind the build flag `ARCHIVE_P2`. Production buil
 Preconditions:
 
 - The baseline preconditions in the index hold, with the dev server started by `scripts/verify.sh serve` so the flag is on, and `public/osrs-assets/manifest.json` holds `npc-16675` and models 62757 and 62758.
-- The view setting is saved before the page that needs it opens: `use3dView` true for 3D and false for 2D.
 
 - **Portals.** Open `?phase=p2&seed=1&markers=skip-tiles` and take a screenshot after P2 tick 3 and after tick 14. At 3 all 24 portals are orange; at 14 the north and east arms are purple but for one orange portal each, the log's first `portals-lit` has gaps `[5, 2]`, and the eight pink skip tiles show.
 - **Skip.** On the same page click `tileCentre({ x: 21, y: 7 })` after tick 3, then for each volley at 15, 20, 25, 30, 35 and 40 click `tileCentre({ x: 19, y: 9 })` after the tick before it and `tileCentre({ x: 21, y: 7 })` after the volley tick. By tick 44 the log has no `player-hit`, and each volley's row has `playerAtBossStep` on (21, 7) and `playerAtPostTick` on (19, 9).
@@ -40,7 +39,7 @@ Preconditions:
 
 ## Gotchas
 
-- The 2D and 3D views both face south by default, so the north-east wedge shows at the bottom left.
+- The trainer opens in 3D facing north, so the north-east wedge shows at the top right.
 - The Blade cannot be attacked before P2 tick 7: a click on the boss before then walks the player instead.
 - A click that should land "a tick before the volley" must come after the row for that tick closes and before the next world tick.
 - Cache 2746 has no synth for frame sounds 12814, 12825 and 12832 on the phase 2 animations. The asset tool skips them and the SDK logs "Cache animation sound preload failed" in the console; the trainer stops the SDK's unhandled rejection for them from becoming a page error.
