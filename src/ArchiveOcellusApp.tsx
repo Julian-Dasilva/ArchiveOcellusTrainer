@@ -4,9 +4,9 @@ import { CacheRender, ControlPanelController, SETTINGS_STORAGE_KEY, Settings, So
 import type { Item, SettingsState } from "osrs-sdk";
 import { GameOverlay, TrainerApp, TrainerLoadingSplash, useSettingsSnapshot } from "osrs-sdk-react";
 import { OcellusRegion } from "./content/ocellus/js/OcellusRegion";
-import { P3Region } from "./content/ocellus/js/P3Region";
-import { P2Region } from "./content/ocellus/js/P2Region";
-import type { DrillConfig, DrillRequest, Loadout, P2Config, P3Config } from "./content/ocellus/js/OcellusTimings";
+import type { P3Region } from "./content/ocellus/js/P3Region";
+import type { P2Region } from "./content/ocellus/js/P2Region";
+import type { DrillConfig, P2Config, P3Config } from "./content/ocellus/js/OcellusTimings";
 import { OCELLUS_P4, defaultLoadout, parseRequest } from "./content/ocellus/js/OcellusTimings";
 import type { P3End, P3Log, P3Snapshot } from "./content/ocellus/js/P3Types";
 import type { P2End, P2Log, P2Snapshot } from "./content/ocellus/js/P2Types";
@@ -80,20 +80,6 @@ type Drill =
   | Readonly<{ phase: "p3"; region: P3Region; config: P3Config }>
   | Readonly<{ phase: "p2"; region: P2Region; config: P2Config }>;
 
-function mount(request: DrillRequest, loadout: Loadout): Drill {
-  switch (request.phase) {
-    case "p4":
-      return { phase: "p4", region: new OcellusRegion(request.config, loadout), config: request.config };
-    case "p3":
-      return { phase: "p3", region: new P3Region(request.config, loadout), config: request.config };
-    case "p2":
-      return { phase: "p2", region: new P2Region(request.config, loadout), config: request.config };
-    default: {
-      const unhandled: never = request;
-      return unhandled;
-    }
-  }
-}
 
 function exposeVerificationProbe(trainer: TrainerInstance, clock: RunClock, region: OcellusRegion | P3Region | P2Region, rejected: readonly string[]) {
   window.__archiveOcellusProbe = Object.freeze({
@@ -147,7 +133,11 @@ function readSettings() {
   Settings.set({ ...THREE_D_VIEW, playsAudio: saved.playsAudio ?? SOUNDS_START_ON, playsAreaAudio: saved.playsAreaAudio ?? SOUNDS_START_ON });
 }
 
-function createTrainer() {
+type Opened = Readonly<{ trainer: TrainerInstance; clock: RunClock; drill: Drill; flags: BuildFlags; unreadableLoadout: boolean }>;
+type Opening = Readonly<{ kind: "open"; opened: Opened }> | Readonly<{ kind: "loading"; opened: Promise<Opened> }>;
+
+/** P2 and P3 load behind a test of the raw build variable, which webpack folds, so a build with a phase off contains none of its modules. */
+function openTrainer(): Opening {
   keepStorageUsable();
   CacheRender.configure(new URL("osrs-assets/manifest.json", window.location.href).href);
   readSettings();
@@ -155,14 +145,40 @@ function createTrainer() {
   const request = parseRequest(new URL(window.location.href), () => crypto.getRandomValues(new Uint32Array(1))[0], flags);
   const { setup } = request.config.choices;
   const saved = readSavedLoadout(setup.key);
-  const drill = mount(request, saved.kind === "saved" ? saved.loadout : defaultLoadout(setup.option.value));
-  drill.region.invincible = request.invincible;
-  const trainer = new TrainerInstance(drill.region);
-  const clock = new RunClock(trainer);
-  if (process.env.NODE_ENV !== "production") exposeVerificationProbe(trainer, clock, drill.region, request.rejected);
-  loadWebAnalytics();
-  if (drill.phase === "p4") void startPerfTelemetry(drill.region, clock);
-  return { trainer, clock, drill, flags, unreadableLoadout: saved.kind === "unreadable" };
+  const loadout = saved.kind === "saved" ? saved.loadout : defaultLoadout(setup.option.value);
+  const start = (drill: Drill): Opened => {
+    drill.region.invincible = request.invincible;
+    const trainer = new TrainerInstance(drill.region);
+    const clock = new RunClock(trainer);
+    if (process.env.NODE_ENV !== "production") exposeVerificationProbe(trainer, clock, drill.region, request.rejected);
+    loadWebAnalytics();
+    if (drill.phase === "p4") void startPerfTelemetry(drill.region, clock);
+    return { trainer, clock, drill, flags, unreadableLoadout: saved.kind === "unreadable" };
+  };
+  switch (request.phase) {
+    case "p4":
+      return { kind: "open", opened: start({ phase: "p4", region: new OcellusRegion(request.config, loadout), config: request.config }) };
+    case "p3":
+      return {
+        kind: "loading",
+        opened:
+          process.env.ARCHIVE_P3 === "on"
+            ? import("./content/ocellus/js/P3Region").then(({ P3Region }) => start({ phase: "p3", region: new P3Region(request.config, loadout), config: request.config }))
+            : Promise.reject(new Error("this build has ARCHIVE_P3 off")),
+      };
+    case "p2":
+      return {
+        kind: "loading",
+        opened:
+          process.env.ARCHIVE_P2 === "on"
+            ? import("./content/ocellus/js/P2Region").then(({ P2Region }) => start({ phase: "p2", region: new P2Region(request.config, loadout), config: request.config }))
+            : Promise.reject(new Error("this build has ARCHIVE_P2 off")),
+      };
+    default: {
+      const unhandled: never = request;
+      return unhandled;
+    }
+  }
 }
 
 const SETUP_KEYS = Object.keys(OCELLUS_P4.choices.setup.options);
@@ -605,7 +621,14 @@ function GameChat({ region }: Readonly<{ region: Readonly<{ chat(): readonly str
 }
 
 export function ArchiveOcellusApp() {
-  const [{ trainer, clock, drill, flags, unreadableLoadout }] = useState(createTrainer);
+  const [opening, setOpening] = useState(openTrainer);
+  useEffect(() => {
+    if (opening.kind === "loading") void opening.opened.then((opened) => setOpening({ kind: "open", opened }));
+  }, [opening]);
+  return opening.kind === "open" ? <TrainerPage {...opening.opened} /> : null;
+}
+
+function TrainerPage({ trainer, clock, drill, flags, unreadableLoadout }: Opened) {
   const [loading, setLoading] = useState<TrainerLoadingState>();
 
   return (

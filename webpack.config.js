@@ -15,6 +15,7 @@ module.exports = {
     assetModuleFilename: "assets/[contenthash][ext]",
     path: path.resolve(__dirname, "dist"),
     publicPath: "",
+    clean: true,
   },
   devtool: "source-map",
   performance: { hints: false },

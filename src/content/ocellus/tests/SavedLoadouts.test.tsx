@@ -39,8 +39,9 @@ describe("Saved loadouts", () => {
 
   async function startingLoadout(url: string, stored: string | null) {
     if (stored !== null) localStorage.setItem(SAVED_LOADOUTS, stored);
+    delete window.__archiveOcellusProbe;
     const page = loadPage(url);
-    await act(() => Promise.resolve());
+    await act(() => vi.waitFor(probe));
     const player = probe().snapshot().fight?.player;
     const { header } = probe().log();
     const result = { phase: "phase" in header ? header.phase : "p4", weapon: player?.equipped.weapon, helmet: player?.equipped.helmet, inventory: player?.inventory, note: shown("loadout_note"), start: shown("start") };
