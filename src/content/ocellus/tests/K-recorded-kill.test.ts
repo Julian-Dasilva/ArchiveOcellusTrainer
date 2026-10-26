@@ -354,7 +354,7 @@ describe("phase 3 follows the recorded kill [K]", () => {
     expect(detonations.map((t) => t - S2)).toEqual([3 + P3.riftDetonatesAfter]);
   });
 
-  test("the third quadrant's fall hands the player and the boss over in place of his phase 4", () => {
+  test("the third quadrant's fall hands the player, with each potion's doses, and the boss over in place of his phase 4", () => {
     const f = recorded(3, {}, "ranged");
     for (const floor of [75, 50, 25]) {
       const fallen = f.fight.destroyed.size;
@@ -372,6 +372,7 @@ describe("phase 3 follows the recorded kill [K]", () => {
     if (!standing) throw new Error(`no floor left in ${left[0]}`);
     f.fight.player.hop(standing);
     f.fight.player.prayerController.findPrayerByName("Protect from Range").toggle(f.fight.player);
+    f.fight.player.inventory[12].inventoryLeftClick(f.fight.player);
     f.tickTo(f.fight.tick + P3.untether.nextSegment - P3.untether.gone);
 
     expect(f.handOvers).toHaveLength(1);
@@ -384,7 +385,11 @@ describe("phase 3 follows the recorded kill [K]", () => {
       weapon: "Twisted Bow", offhand: null, helmet: "Masori mask (f)", necklace: "Necklace of rupture", chest: "Masori body (f)", legs: "Masori chaps (f)",
       feet: "Avernic treads (max)", gloves: "Zaryte Vambraces", ring: "Venator ring", cape: "Dizana's Quiver", ammo: "Dragon arrow",
     });
-    expect(player.inventory.slice(0, 2)).toEqual(["Tonalztics of Ralos", "Scythe of Vitur"]);
+    expect(player.inventory.slice(0, 2)).toEqual([{ name: "Tonalztics of Ralos", doses: null }, { name: "Scythe of Vitur", doses: null }]);
+    expect(player.inventory.slice(9, 14)).toEqual([
+      { name: "Super combat potion", doses: 4 }, { name: "Bastion Potion", doses: 4 }, { name: "Saradomin Brew", doses: 4 },
+      { name: "Super Restore", doses: 3 }, { name: "Super combat potion", doses: 4 },
+    ]);
     expect([player.hp, player.specialEnergy, player.runEnergy, player.levels]).toEqual([99, 100, 10000, { attack: 99, strength: 99, defence: 99, range: 99, magic: 99 }]);
     f.tickTo(f.fight.tick + 10);
     expect([f.fight.label(), f.handOvers.length]).toEqual(["Phase 3", 1]);
