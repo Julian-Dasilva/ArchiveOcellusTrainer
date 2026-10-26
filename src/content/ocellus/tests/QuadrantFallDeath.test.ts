@@ -96,7 +96,17 @@ describe("a falling quadrant", () => {
       handedOver: 0,
     });
     tickTo(DEATH_SCREEN_TICK);
-    expect({ tick: fight.tick, state: playerState(fight), outcome: fight.outcome, chat: consumed(fight), handedOver: handOvers.length }).toEqual({
+    expect({
+      tick: fight.tick,
+      state: playerState(fight),
+      outcome: fight.outcome,
+      chat: consumed(fight),
+      handedOver: handOvers.length,
+      crumbling: [...fight.floorState().crumbling],
+      fell: [...fight.destroyed],
+      hidden: fight.boss?.hidden === true,
+      collapses: fight.chat.filter((line) => line.text === "The quadrant begins to collapse! Jump across the stones!").length,
+    }).toEqual({
       tick: DEATH_SCREEN_TICK,
       state: [0, 0, "lost"],
       outcome: { kind: "lost", ticks: DEATH_SCREEN_TICK, cause: "death" },
@@ -105,6 +115,10 @@ describe("a falling quadrant", () => {
         [DEATH_SCREEN_TICK, "Oh dear, you are dead!"],
       ],
       handedOver: 0,
+      crumbling: [],
+      fell: [home],
+      hidden: true,
+      collapses: 1,
     });
   }
 
@@ -112,7 +126,7 @@ describe("a falling quadrant", () => {
     killed(true);
   });
 
-  test("guard: standing on the quadrant at the fall tick kills the player with practice off", () => {
+  test("standing on the quadrant at the fall tick kills the player with practice off", () => {
     killed(false);
   });
 
@@ -208,6 +222,20 @@ describe("a falling quadrant", () => {
       handedOver: 0,
     });
     tickTo(fallTick + 4);
-    expect(fight.outcome).toEqual({ kind: "lost", ticks: fallTick + 4, cause: "death" });
+    expect({
+      outcome: fight.outcome,
+      handedOver: handOvers.length,
+      crumbling: [...fight.floorState().crumbling],
+      fell: fight.destroyed.size,
+      hidden: fight.boss?.hidden === true,
+      collapses: fight.chat.filter((line) => line.text === "The quadrant begins to collapse! Jump across the stones!").length,
+    }).toEqual({
+      outcome: { kind: "lost", ticks: fallTick + 4, cause: "death" },
+      handedOver: 0,
+      crumbling: [],
+      fell: 3,
+      hidden: true,
+      collapses: 3,
+    });
   });
 });
