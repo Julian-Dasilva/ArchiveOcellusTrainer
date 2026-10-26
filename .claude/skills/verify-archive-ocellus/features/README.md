@@ -58,3 +58,4 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 - [P3 drill (hidden)](./p3-drill.md) covers the `ARCHIVE_P3` build flag, the P3 arena, the boss's swings and panic shot, the 76% interim end, Start P4 and the Phase box.
 - [P3 recorded kills](./p3-recorded-kills.md) covers quadrant 1 as the fight logs show it: the chain of swings and shadow slashes, the special order, the spin and its severed prayer, Untether, Insolence, and the quadrant's fall.
 - [P2 drill (hidden)](./p2-drill.md) covers the `ARCHIVE_P2` build flag, the portals and their volleys judged by tile, the portal skip and its marked tiles, the pools, the floor portal, The Blade's stored damage, the interim end at P2 tick 131 and Start P3.
+- [P1 drill (hidden)](./p1-drill.md) covers the `ARCHIVE_P1` build flag, the boss's walk and volleys, the corner cracks, blocking and the blast, the middle's beats and strike, the end at his transformation and the Phase box.
