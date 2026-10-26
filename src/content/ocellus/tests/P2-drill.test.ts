@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { CacheRenderInstancedModel, TileMarker } from "osrs-sdk";
-import { PortalCross } from "../js/entities/P2Views";
+import type { Location3 } from "osrs-sdk";
 import { fromMiddle, startP2Drill } from "./p2drill";
 
 const loadTimings = () => vi.importActual<typeof import("../js/OcellusTimings")>("../js/OcellusTimings");
@@ -148,18 +148,18 @@ describe("P2 drill", () => {
     expect(release === undefined ? null : release.stored).toBe(92);
   });
 
-  test("drawing 120 unchanged frames hands each of the 24 portal models the same empty offsets", async () => {
+  test("drawing 120 unchanged frames of the risen portals hands the SDK one empty offsets list of the region's own, not one per portal per frame", async () => {
     const drill = await startP2Drill({ seed: 1, invincible: true });
     drill.tickTo(14);
-    const model = drill.region.entities.find((entity) => entity instanceof PortalCross)?.get3dModel();
-    if (!model) throw new Error("the portals have not risen");
     const draws = vi.spyOn(CacheRenderInstancedModel.prototype, "draw");
     const scene = new THREE.Scene();
-    for (let frame = 0; frame < 120; frame++) model.draw(scene, 1 / 60, 0.5, { x: 0, y: 0, z: 0 }, 0, 0, true, []);
+    const none: Location3[] = [];
+    for (let frame = 0; frame < 120; frame++) drill.region.entities.forEach((entity) => entity.get3dModel()?.draw(scene, 1 / 60, 0.5, entity.getPerceivedLocation(0.5), 0, 0, true, none));
     const offsets = draws.mock.calls.map((args) => args[7]);
     draws.mockRestore();
     drill.dispose();
-    expect({ draws: offsets.length, distinct: new Set(offsets).size, empty: offsets.every((offset) => offset.length === 0) }).toEqual({ draws: 2880, distinct: 1, empty: true });
+    const observed = { draws: offsets.length, listsOfItsOwn: new Set(offsets.filter((offset) => offset !== none)).size, empty: offsets.every((offset) => offset.length === 0) };
+    expect(observed).toEqual({ draws: 3000, listsOfItsOwn: 1, empty: true });
   });
 
   test("markers=skip-tiles marks the wait and run tiles, 6 and 4 out on each wedge's diagonal, until Settings switches them off", async () => {
