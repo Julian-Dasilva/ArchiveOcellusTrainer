@@ -119,7 +119,7 @@ function savedSoundChoice(): SoundChoice {
   };
 }
 
-function readSettings() {
+export function readSettings() {
   // The SDK saves its own off defaults on a first load and turns sound off on every mobile load, so the player's choice is read before it loads.
   const saved = savedSoundChoice();
   Settings.readFromStorage();
