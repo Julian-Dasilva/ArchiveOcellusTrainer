@@ -3,6 +3,7 @@ import { CacheRender, ControlPanelController, Settings, SoundCache, Trainer, Tra
 import type { Player, Region, SettingsSnapshot, TrainerLoadingState } from "osrs-sdk";
 import { DefaultSidebar, GameOverlay, RuneScapeButton, TrainerApp, useSettingsSnapshot } from "osrs-sdk-react";
 import { CREDIT_LINE, readSettings } from "../../../ArchiveOcellusApp";
+import { handOverToP4 } from "../js/carry";
 import { dress } from "../js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
 import { installBossBar } from "../fight/bossBar";
@@ -87,7 +88,13 @@ function createTrainer() {
   readSettings();
   const params = readParams();
   const worn = OCELLUS_P4.choices.setup.options[params.setup].value;
-  const options: FightOptions = { ...params, onHandOver: (state) => console.info("full-fight: hand over", JSON.stringify(state)) };
+  const options: FightOptions = {
+    ...params,
+    onHandOver: (state) => {
+      const practice = region.fight?.practice ?? params.invincible;
+      handOverToP4(state, practice);
+    },
+  };
   const region = fullFightStaged(options, (player: Player) => dress(player, defaultLoadout(worn)));
   installBossBar((r: Region) => (r instanceof FightRegion ? r.fight : null));
   const trainer = new TrainerInstance(region, { readyTimer: 5 });
