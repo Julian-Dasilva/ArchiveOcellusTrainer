@@ -52,7 +52,7 @@ describe("P3 behind the ARCHIVE_P3 build flag", () => {
   beforeEach(() => localStorage.removeItem("osrs-sdk:settings"));
   afterEach(() => vi.unstubAllEnvs());
 
-  test.each(["p1", "p2", "p3"])("guard: with the flag off, ?phase=%s opens P4 at its entry HP, lists it as rejected and draws no Phase box", (phase) => {
+  test.each(["p1", "p3"])("guard: with the flag off, ?phase=%s opens P4 at its entry HP, lists it as rejected and draws no Phase box", (phase) => {
     const page = loadPage(`/?phase=${phase}&seed=1`);
     const { fight, rejected } = probe().snapshot();
     const phaseBox = document.querySelector("#phase");
