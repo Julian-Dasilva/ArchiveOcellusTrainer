@@ -309,35 +309,40 @@ PRODUCTION_WATCH_SECONDS=20
 PRODUCTION_ORBS='["99","99","100","100"]'
 PRODUCTION_ORBS_JS='(() => { const orbs = { framesSinceFirst: 0, blankSinceFirst: 0, first: null, last: null }; window.__orbs = orbs; let frame = []; const fillText = CanvasRenderingContext2D.prototype.fillText; CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) { if (this.textAlign === "center" && this.font.endsWith("px Stats_11") && this.fillStyle !== "#000000" && /^\d+$/.test(String(text))) frame.push(String(text)); return fillText.call(this, text, ...rest); }; const close = () => { if (frame.length > 0) { orbs.first ??= frame; orbs.last = frame; } if (orbs.first) { orbs.framesSinceFirst++; if (frame.length === 0) orbs.blankSinceFirst++; } frame = []; requestAnimationFrame(close); }; requestAnimationFrame(close); })();'
 P3_QUERY="?phase=p3&seed=1"
-P3_CLEAR_QUERY="?phase=p3&seed=100&bosshp=3991"
+P3_CLEAR_QUERY="?phase=p3&seed=100&bosshp=4044"
 P3_ARENA_SHOT_TICK=3
 P3_ARENA_TILES='{"open":[{"x":25,"y":11},{"x":26,"y":11}],"closed":[{"x":16,"y":13},{"x":17,"y":13}],"rim":[{"x":28,"y":10}]}'
 P3_PRAY_TICK=1
 P3_SWINGS_LAST_TICK=21
-P3_SWINGS='[[7,"swing",5,5,"melee"],[10,"swing",2,2,"melee"],[17,"swing",1,1,"melee"],[20,"swing",2,2,"melee"]]'
+P3_SWINGS='[[7,"swing",6,6,"melee"],[10,"swing",2,2,"melee"],[17,"swing",2,2,"melee"],[20,"swing",2,2,"melee"]]'
 P3_FAR_EAST_TILE='{"x":27,"y":9}'
 P3_ESCAPE_TICK=6
-P3_VOID_SHOT_LAST_TICK=11
-P3_VOID_SHOT='[[7,"swing",5,5,"melee"],[10,"void-shot",20,20,"melee"]]'
+P3_VOID_SHOT_LAST_TICK=13
+P3_VOID_SHOT='[[7,"swing",6,6,"melee"],[12,"void-shot",24,24,"melee"]]'
 P3_BOSS_TILE='{"x":20,"y":7}'
 P3_BOSS_CLICK_TICK=2
-P3_CLEAR='{"panel":{"lines":["Quadrant 1 cleared (interim end)","P3 time: 5 ticks (0:03.0)"],"buttons":["Repeat P3","Retry seed","Start P4"]},"tick":5,"bossHp":3937}'
+P3_CLEAR='{"panel":{"lines":["Quadrant 1 cleared (interim end)","P3 time: 5 ticks (0:03.0)"],"buttons":["Repeat P3","Retry seed","Start P4"]},"tick":5,"bossHp":3990}'
 P3_START_P4='{"search":"?phase=p4&setup=ranged","bossHp":1312}'
 P3_SMITE_QUERY="?phase=p3&seed=1&invincible=on"
 P3_SMITE_PAGES=(
-  "flick 1 32 20 27 30"
-  "held 1 32 20"
-  "late 1 32 20 27 31"
-  "two-spins 2 35 20 27 30 31 33"
-  "three-spins 3 38 20 27 30 31 33 34 36"
+  "flick 1 33 20 27 31"
+  "held 1 33 20"
+  "late 1 33 20 27 32"
+  "two-spins 2 36 20 27 31 32 34"
+  "three-spins 3 39 20 27 31 32 34 35 37"
 )
-P3_SMITE_SPINS='{"flick":[[31,1,1,"blocked",0,0,"melee"]],"held":[[31,1,1,"struck held",43,43,"melee"]],"late":[[31,1,1,"struck late",43,43,null]],"two-spins":[[31,1,2,"blocked",0,0,"melee"],[34,2,2,"blocked",0,0,"melee"]],"three-spins":[[31,1,3,"blocked",0,0,"melee"],[34,2,3,"blocked",0,0,"melee"],[37,3,3,"blocked",0,0,"melee"]]}'
-P3_SMITE_CHAT='{"held":"Spin 1 of 1 hit you for 43. Protect from Melee stayed on. Turn it off after the blades start, then back on for the spin.","late":"Spin 1 of 1 hit you for 43. Protect from Melee was not back on in time for the spin."}'
+P3_SMITE_SPINS='{"flick":[[32,1,1,"blocked",0,0,"melee"]],"held":[[32,1,1,"struck knocked",18,18,null]],"late":[[32,1,1,"struck late",18,18,null]],"two-spins":[[32,1,2,"blocked",0,0,"melee"],[35,2,2,"blocked",0,0,"melee"]],"three-spins":[[32,1,3,"blocked",0,0,"melee"],[35,2,3,"blocked",0,0,"melee"],[38,3,3,"blocked",0,0,"melee"]]}'
+P3_SMITE_CHAT='{"knock":"You'"'"'ve been injured and can'"'"'t use protection prayers!","held":"Spin 1 of 1 hit you for 18. Your protection prayer was still up the tick before the spin, so the blades knocked it off. Turn it off after the blades start, then back on for the spin.","late":"Spin 1 of 1 hit you for 18. Protect from Melee was not back on in time for the spin."}'
 P3_BLADES_CONTROL_TICK=25
-P3_BLADES_TICK=30
+P3_BLADES_TICK=31
 P3_BLADES_BOX='{"left":260,"right":120,"up":20,"down":280}'
 P3_BLADES_MIN_SHARE=0.5
 P3_BLADES_MAX_CONTROL_SHARE=0.3
+P3_PRAYER_PAGES=(
+  "off-then-on 1 33 31"
+  "knocked 1 34 20 31 32 33"
+)
+P3_PRAYER_RULES='{"offThenOn":[[32,1,1,"blocked",0,0,"melee"]],"knocked":{"spins":[[32,1,1,"struck knocked",18,18,null]],"knocks":[[31,1,33]],"prayers":[[31,"melee",null],[32,null,null],[33,null,null],[34,"melee","melee"]]},"magic":{"casts":[[10,12]],"hits":[[7,"swing",19,19,"magic"],[12,"void-shot",0,0,"magic"]]}}'
 CREDIT_LINE="Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex."
 
 log() { echo "verify: $*"; }
@@ -2059,7 +2064,7 @@ drive_p3_drill() {
   tile_pixel p3-clear "$P3_BOSS_TILE" "$P3_BOSS_CLICK_TICK" || return 1
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick "$P3_BOSS_CLICK_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the P3 boss was not clicked"; return 1; }
-  ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 30000 >/dev/null || log "the P3 run never reached the 75% break"
+  ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 30000 >/dev/null || log "the P3 run never reached the 76% break"
   ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
   result_panel >"$VERIFY_DIR/p3-clear-panel.json" || { log "P3 result panel capture failed"; return 1; }
   ab screenshot "$VERIFY_DIR/p3-clear.png" >/dev/null || { log "P3 result screenshot failed"; return 1; }
@@ -2104,7 +2109,7 @@ drive_p3_drill() {
       bossBar: [...new Set(Object.values(bar).flat())],
       swings: hits(swingLog).filter(([at]) => at <= 20),
       prayerOrders: swingLog.rows.flatMap((row) => row.inputs.filter((input) => input.kind === "prayer-published").map((input) => [row.tick, input.prayer])),
-      voidShot: hits(voidLog).filter(([at]) => at <= 10),
+      voidShot: hits(voidLog).filter(([at]) => at <= 12),
       escape: voidLog.rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered").map((input) => [row.tick, input.destination])),
       clear: { panel: { lines: panel.lines, buttons: panel.buttons }, run: panel.run, row: clearedAt && { tick: clearedAt.tick, bossHp: clearedAt.bossHp, events: clearedAt.events.map((event) => event.kind) } },
       startP4: p4,
@@ -2187,7 +2192,7 @@ drive_p3_smite() {
     const spun = (page) => same(observed[page].spins, expectedSpins[page]);
     const checks = {
       p3SmiteFlickedOnPrayerTab: spun("flick") && observed.flick.prayerOrders.length === 3,
-      p3HeldPrayerTakesSpin: spun("held") && observed.held.chat.includes(expectedChat.held),
+      p3HeldPrayerTakesSpin: spun("held") && observed.held.chat.includes(expectedChat.knock) && observed.held.chat.includes(expectedChat.held),
       p3LateFlickTakesSpin: spun("late") && observed.late.chat.includes(expectedChat.late),
       p3TwoSpinFlick: spun("two-spins"),
       p3ThreeSpinFlick: spun("three-spins"),
@@ -2200,6 +2205,69 @@ drive_p3_smite() {
   local verdict=$?
   cat "$VERIFY_DIR/p3-smite-checks.json"
   [[ $verdict -eq 0 ]] || log "a P3 smite check failed"
+  return $verdict
+}
+
+drive_p3_prayer_rules() {
+  local page args
+  for page in "${P3_PRAYER_PAGES[@]}"; do
+    read -ra args <<<"$page"
+    p3_smite_page "${args[@]}" || return 1
+  done
+
+  ab open "${URL}${P3_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the P3 magic void shot page never started"; return 1; }
+  canvas_centre || { log "canvas box unreadable"; return 1; }
+  click_after_tick "$P3_PRAY_TICK" "$PROTECT_MAGIC_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Magic was not clicked on the magic void shot page"; return 1; }
+  if tile_pixel p3-void-shot-magic "$P3_FAR_EAST_TILE" "$P3_ESCAPE_TICK"; then
+    click_after_tick "$P3_ESCAPE_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the run to the far east was not clicked"; return 1; }
+  fi
+  fight_tick_at_least "$P3_VOID_SHOT_LAST_TICK" 30000 || { log "the magic void shot page never reached P3 tick ${P3_VOID_SHOT_LAST_TICK}"; return 1; }
+  p3_page_done p3-void-shot-magic || return 1
+
+  local capture
+  for capture in p3-smite-{off-then-on,knocked}{.json,-chat.json,-page-errors.json} p3-void-shot-magic{.json,-page-errors.json}; do
+    [[ -s "$VERIFY_DIR/$capture" ]] || { log "required capture ${capture} is missing or empty"; return 1; }
+  done
+
+  node -e '
+    const fs = require("fs"), [dir, expectedJson, chatJson] = process.argv.slice(1);
+    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
+    const [expected, chat] = [expectedJson, chatJson].map((text) => JSON.parse(text));
+    const said = (verdict) => (verdict.kind === "blocked" ? "blocked" : `struck ${verdict.why}`);
+    const events = (log, kind) => log.rows.flatMap((row) => row.events).filter((event) => event.kind === kind);
+    const spins = (log) => events(log, "player-hit").filter(({ hit }) => hit.kind === "spin").map(({ at, hit, receipt }) => [at, hit.spin.nth, hit.spin.of, said(hit.verdict), receipt.requested, receipt.applied, receipt.prayer]);
+    const prayerOrders = (log) => log.rows.flatMap((row) => row.inputs.filter((input) => input.kind === "prayer-published").map((input) => [row.tick, input.prayer]));
+    const [offThenOn, knocked, magic] = ["p3-smite-off-then-on.json", "p3-smite-knocked.json", "p3-void-shot-magic.json"].map(read);
+    const observed = {
+      offThenOn: { spins: spins(offThenOn), prayerOrders: prayerOrders(offThenOn) },
+      knocked: {
+        spins: spins(knocked),
+        knocks: events(knocked, "prayer-knocked-off").map((event) => [event.at, event.spin.nth, event.until]),
+        prayers: knocked.rows.filter((row) => row.tick >= 31 && row.tick <= 34).map((row) => [row.tick, row.playerAtBossStep.prayer, row.playerAtPostTick.prayer]),
+        prayerOrders: prayerOrders(knocked),
+        chat: read("p3-smite-knocked-chat.json"),
+      },
+      magic: {
+        casts: events(magic, "void-shot-cast").map((event) => [event.at, event.landsAt]),
+        hits: events(magic, "player-hit").map(({ at, hit, receipt }) => [at, hit.kind, receipt.requested, receipt.applied, receipt.prayer]).filter(([at]) => at <= 12),
+        escape: magic.rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered").map((input) => [row.tick, input.destination])),
+      },
+    };
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const checks = {
+      p3OffThenOnBlocks: same(observed.offThenOn.spins, expected.offThenOn) && same(observed.offThenOn.prayerOrders, [[32, "melee"]]),
+      p3KnockedPrayerLocked: same(observed.knocked.spins, expected.knocked.spins) && same(observed.knocked.knocks, expected.knocked.knocks) &&
+        same(observed.knocked.prayers, expected.knocked.prayers) && observed.knocked.chat.includes(chat.knock) && observed.knocked.chat.includes(chat.held),
+      p3VoidShotBlockedByMagic: same(observed.magic.casts, expected.magic.casts) && same(observed.magic.hits, expected.magic.hits) && observed.magic.escape.length === 1,
+      noP3PrayerRulePageErrors: ["p3-smite-off-then-on-page-errors.json", "p3-smite-knocked-page-errors.json", "p3-void-shot-magic-page-errors.json"].map(read).every((list) => list.length === 0),
+    };
+    console.log(JSON.stringify({ observed, checks }, null, 2));
+    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
+  ' "$VERIFY_DIR" "$P3_PRAYER_RULES" "$P3_SMITE_CHAT" >"$VERIFY_DIR/p3-prayer-checks.json"
+  local verdict=$?
+  cat "$VERIFY_DIR/p3-prayer-checks.json"
+  [[ $verdict -eq 0 ]] || log "a P3 prayer rule check failed"
   return $verdict
 }
 
@@ -2879,6 +2947,7 @@ drive() {
   cat "$VERIFY_DIR/observed.json"
   drive_p3_drill || verdict=1
   drive_p3_smite || verdict=1
+  drive_p3_prayer_rules || verdict=1
   return $verdict
 }
 
