@@ -2171,7 +2171,7 @@ pause_by_tab_switch() {
 }
 
 click_resume() {
-  ab find role button click --name Resume >/dev/null && ab wait --fn "window.__archiveOcellusProbe.snapshot().ticking === true" --timeout 5000 >/dev/null || log "Resume did not restart the trainer"
+  ab find role button click --name Resume --exact >/dev/null && ab wait --fn "window.__archiveOcellusProbe.snapshot().ticking === true" --timeout 5000 >/dev/null || log "Resume did not restart the trainer"
 }
 
 # The WebGL layer reads back blank outside a frame that drew it, so the expected screen waits for a frame callback after a 3D render.
