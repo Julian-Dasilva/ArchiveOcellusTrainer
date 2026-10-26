@@ -192,10 +192,10 @@ EXPLOSION_GLOW_MIN_SHARE=1.5
 EXPLOSION_GLOW_MAX_SHARE=0.1
 EXPLOSION_OVERHEAD_BOX='{"minX":-100,"maxX":99,"minY":-150,"maxY":-41}'
 EXPLOSION_OVERHEAD_MIN_SHARE=0.2
-EXPLOSION_OVERHEAD_SHOT_FRACTION=0.05
+EXPLOSION_OVERHEAD_SHOT_FRACTION=0.25
 EXPLOSION_OUTSIDE_TICKS="15 29"
-EXPLOSION_GLOW_SHOT_FRACTION=0.6
-EXPLOSION_MARKED_SHOT_FRACTIONS="0.6 0.8"
+EXPLOSION_GLOW_SHOT_FRACTION=0.85
+EXPLOSION_MARKED_SHOT_FRACTIONS="0.75 0.85"
 EXPLOSION_RUN_END_QUERY="?seed=38&bosshp=1&focus=explosions"
 EXPLOSION_KILL_CLICK_TICK=14
 EXPLOSION_RUN_END_EXPECTED='{"marked":[[17,{"x":5,"y":1}]],"ended":[[18,"kill"]],"resolved":[]}'
@@ -486,7 +486,7 @@ serve() {
   fi
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
 
-  ARCHIVE_P2=on ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --host 127.0.0.1 --port "$VERIFY_PORT" \
+  ARCHIVE_P2=on ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --no-color --host 127.0.0.1 --port "$VERIFY_PORT" \
     >"$VERIFY_DIR/server.log" 2>&1 &
   local pid=$!
   LAUNCHED_PID=$pid
@@ -612,27 +612,20 @@ shot_after_tick() {
     "$1" "$2" "$VERIFY_DIR/$3" | ab batch --bail >/dev/null
 }
 
-shot_in_fight_tick() {
-  printf '[["wait","--fn","((t) => t > %d || (t === %d && (performance.now() - (window.__tickStarts[%d] ?? Infinity)) / 600 >= %s))(((run) => (run?.kind === \\"ended\\" ? run.at : run?.tick) ?? -1)(window.__archiveOcellusProbe?.snapshot().fight?.run))","--timeout","30000"],["screenshot","%s"]]' \
-    "$1" "$1" "$1" "$2" "$VERIFY_DIR/$3" | ab batch --bail >/dev/null
+start_frame_clock() {
+  ab eval "$(<scripts/verify/frame-clock.js)" >/dev/null
 }
 
-shot_in_world_tick() {
-  printf '[["wait","--fn","((t) => t > %d || (t === %d && (performance.now() - (window.__worldTickStarts[%d] ?? Infinity)) / 600 >= %s))(window.__archiveOcellusProbe.snapshot().tick)","--timeout","30000"],["screenshot","%s"]]' \
-    "$1" "$1" "$1" "$2" "$VERIFY_DIR/$3" | ab batch --bail >/dev/null
+arm_shot() {
+  ab eval "window.__frameClock.at({ kind: '$1', tick: $2, fraction: $3 }, { kind: 'shot', name: '$4' })" >/dev/null
 }
 
-record_tick_starts() {
-  ab eval '(() => {
-    const starts = window.__tickStarts = {}, worldStarts = window.__worldTickStarts = {};
-    const watch = () => {
-      const snapshot = window.__archiveOcellusProbe?.snapshot(), run = snapshot?.fight?.run;
-      if (run?.kind === "running" && starts[run.tick] === undefined) starts[run.tick] = performance.now();
-      if (snapshot && worldStarts[snapshot.tick] === undefined) worldStarts[snapshot.tick] = performance.now();
-      requestAnimationFrame(watch);
-    };
-    watch();
-  })()' >/dev/null
+take_shot() {
+  local name=$1 tick=$2 taken
+  ab wait --fn "typeof window.__frameClock.done['${name}']?.png === 'string'" --timeout 30000 >/dev/null || return 1
+  taken="$(ab --json eval "window.__frameClock.done['${name}']" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const { png, ...at } = JSON.parse(s).data.result;require("fs").writeFileSync(process.argv[1],Buffer.from(png.replace(/^data:image\/png;base64,/,""),"base64"));process.stdout.write(JSON.stringify(at))})' "$VERIFY_DIR/$name")" || return 1
+  log "${name} copied at ${taken}"
+  [[ "$(json tick <<<"$taken")" == "$tick" ]] || { log "${name} missed tick ${tick}"; return 1; }
 }
 
 save_settings() {
@@ -644,23 +637,7 @@ save_sound_settings() {
 }
 
 record_audio_starts() {
-  ab eval '(() => {
-    const starts = [], seen = {}, start = AudioBufferSourceNode.prototype.start;
-    const tick = () => {
-      const run = window.__archiveOcellusProbe?.snapshot().fight?.run;
-      const t = run?.kind === "running" ? run.tick : run?.kind === "ended" ? run.at : null;
-      if (t !== null && seen[t] === undefined) seen[t] = Math.min(performance.now(), (seen[t - 1] ?? Infinity) + 600);
-      return t;
-    };
-    const watch = () => { tick(); requestAnimationFrame(watch); };
-    watch();
-    window.__cueAudio = starts;
-    AudioBufferSourceNode.prototype.start = function (...args) {
-      const t = tick();
-      starts.push({ tick: t, phase: t === null ? null : Math.round((performance.now() - seen[t]) / 6) / 100, samples: this.buffer?.length ?? null, rate: this.buffer?.sampleRate ?? null, state: this.context.state });
-      return start.apply(this, args);
-    };
-  })()' >/dev/null
+  start_frame_clock && ab eval "window.__frameClock.recordAudio()" >/dev/null
 }
 
 record_overhead_draws() {
@@ -838,7 +815,7 @@ drive_focus() {
   start_run || return 1
   fight_tick_at_least "$FOCUS_LAST_TICK" 120000 || { log "the reloaded boss never stepped to P4 tick ${FOCUS_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/focus.json"
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/focus-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/focus-audio.json" || { log "audio capture failed"; return 1; }
   ab screenshot "$VERIFY_DIR/focus.png" >/dev/null || { log "focus screenshot failed"; return 1; }
   ab console >"$VERIFY_DIR/focus-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/focus-page-errors.json" || { log "page error capture failed"; return 1; }
@@ -1167,17 +1144,19 @@ drive_control_walk() {
 }
 
 click_twice_in_one_tick() {
-  local from
-  from="$(probe "snapshot().tick")" || return 1
-  printf '[["wait","--fn","((t, s) => t > %d && s !== undefined && performance.now() - s >= %d)(window.__archiveOcellusProbe.snapshot().tick, window.__worldTickStarts[window.__archiveOcellusProbe.snapshot().tick])","--timeout","10000"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["wait","--fn","((d) => window.__archiveOcellusProbe.snapshot().tick > d.tick || performance.now() - window.__worldTickStarts[d.tick] >= %d)(window.__correctionDowns[0])","--timeout","10000"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"]]' \
-    "$from" "$CORRECTION_FIRST_MS" $1 "$CORRECTION_LATE_MS" $2 | ab batch --bail >/dev/null
+  local first=($1) last=($2)
+  ab eval "(() => {
+    const clock = window.__frameClock, tick = window.__archiveOcellusProbe.snapshot().tick + 1;
+    clock.at({ kind: 'world', tick, fraction: ${CORRECTION_FIRST_MS} / clock.tickMs }, { kind: 'click', name: 'correction-first', x: ${first[0]}, y: ${first[1]} });
+    clock.at({ kind: 'world', tick, fraction: ${CORRECTION_LATE_MS} / clock.tickMs }, { kind: 'click', name: 'correction-last', x: ${last[0]}, y: ${last[1]} });
+  })()" >/dev/null && ab wait --fn "window.__frameClock.done['correction-last'] !== undefined" --timeout 10000 >/dev/null
 }
 
 drive_click_correction() {
   local first last attempt downs
   for attempt in $(seq 1 "$CORRECTION_ATTEMPTS"); do
     ab open "${URL}${WALKWAY_QUERY}" >/dev/null && wait_until_ticking || return 1
-    record_tick_starts
+    start_frame_clock || { log "the frame clock was not installed"; return 1; }
     tile_pixel correction "$CORRECTION_FIRST_TILE" now || return 1
     first="$CLICK_X $CLICK_Y"
     tile_pixel correction "$CORRECTION_LAST_TILE" now || return 1
@@ -1186,7 +1165,7 @@ drive_click_correction() {
       const downs = window.__correctionDowns = [];
       document.querySelector("#world").addEventListener("mousedown", () => {
         const tick = window.__archiveOcellusProbe.snapshot().tick;
-        downs.push({ tick, intoTickMs: Math.round(performance.now() - window.__worldTickStarts[tick]) });
+        downs.push({ tick, intoTickMs: Math.round(performance.now() - window.__frameClock.starts.world[tick]) });
       }, true);
     })()' >/dev/null || return 1
     click_twice_in_one_tick "$first" "$last" || { log "the two correction clicks were not sent"; return 1; }
@@ -1384,19 +1363,21 @@ drive_explosions() {
   choose_focus "$EXPLOSION_DRILL" || return 1
   fight_tick_at_least 0 120000 || { log "the explosions drill never started"; return 1; }
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
-  record_tick_starts || { log "the tick watch was not installed"; return 1; }
+  start_frame_clock || { log "the frame clock was not installed"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
-  shot_in_fight_tick "${outside[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-before.png || { log "pre-series screenshot failed"; return 1; }
+  arm_shot fight "${outside[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-before.png && arm_shot fight "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-left.png &&
+    arm_shot fight "${outside[1]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-after.png && arm_shot fight "${outer[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-standing.png ||
+    { log "the explosion shots were not armed"; return 1; }
+  take_shot explosion-before.png "${outside[0]}" || { log "pre-series shot failed"; return 1; }
   click_after_tick $((inner[0] - 1)) "$DODGE_CLICK_SIDE_PX" "$STEP_CLICK_DOWN_PX" || { log "the first dodge was not clicked"; return 1; }
-  shot_in_fight_tick "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-left.png || { log "left marker screenshot failed"; return 1; }
+  take_shot explosion-left.png "${inner[0]}" || { log "left marker shot failed"; return 1; }
   step_on_marks "-$DODGE_CLICK_SIDE_PX" "${inner[@]:1}" || { log "the other dodges were not clicked"; return 1; }
-  shot_in_fight_tick "${outside[1]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-after.png || { log "post-series screenshot failed"; return 1; }
-  printf '[["wait","--fn","(window.__archiveOcellusProbe?.snapshot().fight?.run.tick ?? -1) >= %d","--timeout","60000"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["wait","--fn","window.__archiveOcellusProbe?.snapshot().fight?.run.tick === %d && (performance.now() - (window.__tickStarts[%d] ?? Infinity)) / 600 >= %s","--timeout","5000"],["screenshot","%s"]]' \
-    "${outer[0]}" $((CX + DODGE_CLICK_SIDE_PX)) $((CY + STEP_CLICK_DOWN_PX)) "${outer[0]}" "${outer[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" "$VERIFY_DIR/explosion-standing.png" | ab batch --bail >/dev/null ||
-    { log "the late step was not clicked or its mark tick passed before the shot"; return 1; }
+  take_shot explosion-after.png "${outside[1]}" || { log "post-series shot failed"; return 1; }
+  click_after_tick "${outer[0]}" "$DODGE_CLICK_SIDE_PX" "$STEP_CLICK_DOWN_PX" || { log "the late step was not clicked"; return 1; }
+  take_shot explosion-standing.png "${outer[0]}" || { log "the late step shot failed"; return 1; }
   fight_tick_at_least "$EXPLOSION_LAST_TICK" 30000 || { log "the explosions drill never stepped to P4 tick ${EXPLOSION_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/explosions.json"
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/explosion-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/explosion-audio.json" || { log "audio capture failed"; return 1; }
   ab console >"$VERIFY_DIR/explosion-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/explosion-page-errors.json" || { log "page error capture failed"; return 1; }
   save_sound_settings false || { log "the sound settings were not restored"; return 1; }
@@ -1404,8 +1385,8 @@ drive_explosions() {
   ab open "${URL}?seed=1&focus=${EXPLOSION_DRILL}&drillStart=cycle-start" >/dev/null || return 1
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick 0 0 "-$UNDER_BOSS_CLICK_UP_PX" || { log "the walk under the hidden boss was not clicked"; return 1; }
-  record_tick_starts || { log "the tick watch was not installed"; return 1; }
-  shot_in_fight_tick "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-under.png || { log "under-boss screenshot failed"; return 1; }
+  start_frame_clock || { log "the frame clock was not installed"; return 1; }
+  arm_shot fight "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-under.png && take_shot explosion-under.png "${inner[0]}" || { log "under-boss shot failed"; return 1; }
   fight_tick_at_least "$EXPLOSION_UNDER_LAST_TICK" 30000 || { log "the camping drill never stepped to P4 tick ${EXPLOSION_UNDER_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/explosions-under.json"
   ab console >"$VERIFY_DIR/explosion-under-console.log" 2>&1 || { log "console capture failed"; return 1; }
@@ -1434,19 +1415,25 @@ drive_explosion_run_end() {
   local inner=($EXPLOSION_INNER_MARKS) frame fraction ended
   ab open "${URL}${EXPLOSION_RUN_END_QUERY}" >/dev/null || return 1
   fight_tick_at_least 0 120000 || { log "the run-end drill never started"; return 1; }
-  record_tick_starts || { log "the tick watch was not installed"; return 1; }
+  start_frame_clock || { log "the frame clock was not installed"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick "$EXPLOSION_KILL_CLICK_TICK" 0 "-$HOVER_BOSS_BODY_UP_PX" || { log "the hovering boss was not clicked"; return 1; }
   click_after_tick $((inner[0] - 1)) "$DODGE_CLICK_SIDE_PX" "$STEP_CLICK_DOWN_PX" || { log "the step off the mark was not clicked"; return 1; }
   frame=0
   for fraction in $EXPLOSION_MARKED_SHOT_FRACTIONS; do
     frame=$((frame + 1))
-    shot_in_fight_tick "${inner[0]}" "$fraction" "explosion-run-end-marked-${frame}.png" || { log "marked screenshot failed"; return 1; }
+    arm_shot fight "${inner[0]}" "$fraction" "explosion-run-end-marked-${frame}.png" || { log "marked shot was not armed"; return 1; }
+  done
+  for frame in $(seq 1 "$frame"); do
+    take_shot "explosion-run-end-marked-${frame}.png" "${inner[0]}" || { log "marked shot failed"; return 1; }
   done
   ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 30000 >/dev/null || { log "the run-end drill never ended"; return 1; }
   ended="$(probe "snapshot().tick")" || return 1
   for frame in $(seq 1 "$EXPLOSION_RUN_END_FRAMES"); do
-    shot_in_world_tick $((ended + frame)) "$EXPLOSION_GLOW_SHOT_FRACTION" "explosion-run-end-${frame}.png" || { log "run-end screenshot failed"; return 1; }
+    arm_shot world $((ended + frame)) "$EXPLOSION_GLOW_SHOT_FRACTION" "explosion-run-end-${frame}.png" || { log "run-end shot was not armed"; return 1; }
+  done
+  for frame in $(seq 1 "$EXPLOSION_RUN_END_FRAMES"); do
+    take_shot "explosion-run-end-${frame}.png" $((ended + frame)) || { log "run-end shot failed"; return 1; }
   done
   probe "log()" >"$VERIFY_DIR/explosion-run-end.json"
   ab console >"$VERIFY_DIR/explosion-run-end-console.log" 2>&1 || { log "console capture failed"; return 1; }
@@ -1476,7 +1463,7 @@ drive_transition_attack() {
   ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 60000 >/dev/null || { log "the player who prayed late never died"; return 1; }
   ab wait 1000 >/dev/null
   probe "log()" >"$VERIFY_DIR/special-late.json"
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/special-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/special-audio.json" || { log "audio capture failed"; return 1; }
   ab console >"$VERIFY_DIR/special-late-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/special-late-page-errors.json" || { log "page error capture failed"; return 1; }
   save_sound_settings false || { log "the sound settings were not restored"; return 1; }
@@ -1505,7 +1492,7 @@ drive_overheads_rifts() {
   shot_after_tick "$RIFT_BURST_TICK" 0 rift-burst.png || { log "rift burst screenshot failed"; return 1; }
   fight_tick_at_least $((RIFT_BURST_TICK + 1)) 30000 || { log "the rifts drill never stepped past the burst at P4 tick ${RIFT_BURST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/rifts.json"
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/rift-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/rift-audio.json" || { log "audio capture failed"; return 1; }
   ab --json eval "window.__overheadDraws" | json data.result >"$VERIFY_DIR/overhead-draws.json" || { log "overhead draw capture failed"; return 1; }
   ab console >"$VERIFY_DIR/rift-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/rift-page-errors.json" || { log "page error capture failed"; return 1; }
@@ -1626,7 +1613,7 @@ drive_cues() {
   audio_resumed || log "the audio context did not resume after the canvas click"
   audio_contexts >"$VERIFY_DIR/cue-contexts-fresh-clicked.json" || { log "audio context capture failed"; return 1; }
   fight_tick_at_least "$CUE_TOGGLE_TICK" 30000 || { log "the fresh cue drill never stepped to P4 tick ${CUE_TOGGLE_TICK}"; return 1; }
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/cue-fresh-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/cue-fresh-audio.json" || { log "audio capture failed"; return 1; }
   open_settings && ab click "#area_sound" >/dev/null && ab click "#sound" >/dev/null || { log "the sound toggles were not unticked"; return 1; }
   ab --json eval "localStorage.getItem('${SOUND_SETTINGS_KEY}')" | json data.result >"$VERIFY_DIR/cue-sound-off-saved.json" || { log "saved settings capture failed"; return 1; }
   ab console >"$VERIFY_DIR/cue-fresh-console.log" 2>&1 || { log "console capture failed"; return 1; }
@@ -1646,7 +1633,7 @@ drive_cues() {
   sound_toggles >"$VERIFY_DIR/cue-toggles-on.json" || { log "sound toggle capture failed"; return 1; }
   ab --json eval "localStorage.getItem('${SOUND_SETTINGS_KEY}')" | json data.result >"$VERIFY_DIR/cue-sound-saved.json" || { log "saved settings capture failed"; return 1; }
   fight_tick_at_least "$CUE_LAST_TICK" 60000 || { log "the cue drill never stepped to P4 tick ${CUE_LAST_TICK}"; return 1; }
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/cue-toggle-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/cue-toggle-audio.json" || { log "audio capture failed"; return 1; }
   ab console >"$VERIFY_DIR/cue-toggle-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/cue-toggle-page-errors.json" || { log "page error capture failed"; return 1; }
 
@@ -1666,7 +1653,7 @@ drive_cues() {
   ab --json get text "#game_chat" >"$VERIFY_DIR/cue-chat.json" || { log "chat text capture failed"; return 1; }
   fight_tick_at_least "$CUE_LAST_TICK" 60000 || { log "the reloaded cue drill never stepped to P4 tick ${CUE_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/cues.json"
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/cue-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/cue-audio.json" || { log "audio capture failed"; return 1; }
   ab console >"$VERIFY_DIR/cue-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/cue-page-errors.json" || { log "page error capture failed"; return 1; }
   ab close >/dev/null 2>&1
@@ -2409,11 +2396,16 @@ perf_gate() {
   json "$1" <"$PERF_GATE"
 }
 
-build_perf_base() {
-  local base src="$VERIFY_DIR/perf/base-src"
+perf_base_revision() {
+  local base
   base="$(git rev-parse --verify "${VERIFY_PERF_BASE:-$(git merge-base origin/main HEAD)}^{commit}")" || { log "perf: no base revision; set VERIFY_PERF_BASE"; return 1; }
   log "perf: comparing against base ${base}"
   echo "$base" >"$VERIFY_DIR/perf/base-revision"
+}
+
+build_perf_base() {
+  local base src="$VERIFY_DIR/perf/base-src"
+  base="$(cat "$VERIFY_DIR/perf/base-revision")"
   mkdir -p "$src/public" && git archive "$base" | tar -x -C "$src" || { log "perf: the base tree could not be exported"; return 1; }
   ln -s "$ROOT/public/osrs-assets" "$src/public/osrs-assets"
   if git diff --quiet "$base" -- package.json package-lock.json scripts/install-beta-sdk.sh; then
@@ -2471,32 +2463,44 @@ perf_capture() {
 }
 
 drive_perf() {
-  local pair side order
+  local mode=$1 pair side order
   ab --init-script "$ROOT/src/perf/observer.js" set viewport 1280 800 >/dev/null || { log "the perf session did not start"; return 1; }
-  throttle_perf || return 1
-  for pair in $(seq 1 "$(perf_gate timing.pairs)"); do
-    order=(base head)
-    ((pair % 2 == 0)) && order=(head base)
-    for side in "${order[@]}"; do
-      perf_capture "${side}-${pair}" "$side" "$(perf_gate workload.window.to)" || return 1
+  if [[ $mode == pairs ]]; then
+    throttle_perf || return 1
+    for pair in $(seq 1 "$(perf_gate timing.pairs)"); do
+      order=(base head)
+      ((pair % 2 == 0)) && order=(head base)
+      for side in "${order[@]}"; do
+        perf_capture "${side}-${pair}" "$side" "$(perf_gate workload.window.to)" || return 1
+      done
     done
-  done
-  release_throttle
+    release_throttle
+  fi
   perf_capture long head "$(perf_gate workload.resources.to)" "$(perf_gate workload.resources.from)" || return 1
-  VERIFY_PERF_BASE="$(cat "$VERIFY_DIR/perf/base-revision")" node node_modules/.bin/tsx src/perf/check.ts "$PERF_GATE" "$VERIFY_DIR/perf/captures" >"$VERIFY_DIR/perf-checks.json"
+  VERIFY_PERF_BASE="$(cat "$VERIFY_DIR/perf/base-revision")" node node_modules/.bin/tsx src/perf/check.ts "$PERF_GATE" "$VERIFY_DIR/perf/captures" "$VERIFY_DIR/perf/www/head" "$mode" >"$VERIFY_DIR/perf-checks.json"
 }
 
 stage_perf() {
+  perf_stage pairs
+}
+
+stage_perfbudgets() {
+  perf_stage no-pairs
+}
+
+perf_stage() {
+  local mode=$1
   production_port_free || return 1
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
   mkdir -p "$VERIFY_DIR/perf/captures"
   node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/perf/www/head" >"$VERIFY_DIR/perf/head-build.log" 2>&1 || { log "perf: the head build failed"; return 1; }
-  build_perf_base || return 1
+  perf_base_revision || return 1
+  [[ $mode == no-pairs ]] || build_perf_base || return 1
 
   local BROWSER_SESSION="archive-ocellus-verify-$(basename "$VERIFY_DIR")-perf" PRODUCTION_PID= THROTTLE_PID= START_ON_LOAD=0 result=1
   trap 'release_throttle; release_production; exit 130' INT TERM
   if serve_static "$VERIFY_DIR/perf/www" "$VERIFY_DIR/perf/server.log"; then
-    drive_perf
+    drive_perf "$mode"
     result=$?
   fi
   release_throttle
@@ -2508,6 +2512,14 @@ stage_perf() {
 all_units() {
   local module
   for module in scripts/verify/units/*.mjs; do basename "$module" .mjs; done
+}
+
+plan() {
+  local base changed
+  base="$(git rev-parse --verify "${VERIFY_PLAN_BASE:-$(git merge-base origin/main HEAD)}^{commit}")" || { log "plan: no base revision; set VERIFY_PLAN_BASE"; return 1; }
+  mapfile -t changed < <(git diff --name-only --no-renames "$base" && git ls-files --others --exclude-standard)
+  log "plan: ${#changed[@]} paths changed since ${base}"
+  node node_modules/.bin/tsx src/verifyPlan/main.ts scripts/verify-impact.json scripts/verify/units "$@" -- "${changed[@]}"
 }
 
 judge_evidence() {
@@ -2524,28 +2536,33 @@ case "${1:-}" in
   doctor) doctor; exit $? ;;
   stop) stop; exit $? ;;
   units) all_units; exit 0 ;;
+  plan) plan "${@:2}"; exit $? ;;
   judge) [[ -d "${2:-}/units" ]] || { log "usage: scripts/verify.sh judge <evidence dir> [unit...]"; exit 2; }; judge_evidence "${@:2}"; exit $? ;;
+  report) [[ -d "${2:-}/units" ]] || { log "usage: scripts/verify.sh report <evidence dir>"; exit 2; }; node scripts/verify/report.mjs "$2" $(all_units); exit $? ;;
 esac
 
-stages=() BROWSER_UNITS=()
+stages=() BROWSER_UNITS=() BROWSER_SHARD=
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --unit) [[ -n "${2:-}" ]] || { log "--unit needs a unit name"; exit 2; }; BROWSER_UNITS+=("$2"); shift 2 ;;
+    --shard) [[ "${2:-}" =~ ^[1-9][0-9]*/[1-9][0-9]*$ ]] || { log "--shard needs INDEX/COUNT, such as 3/8"; exit 2; }; BROWSER_SHARD=$2; shift 2 ;;
     t0) stages+=(bundle build types test parity); shift ;;
     *) stages+=("$1"); shift ;;
   esac
 done
 [[ ${#stages[@]} -gt 0 ]] || stages=(build types test assets browser production)
 for stage in "${stages[@]}"; do
-  case "$stage" in bundle | build | types | test | parity | assets | browser | production | perf) ;; *) log "unknown stage: ${stage}"; exit 2 ;; esac
+  case "$stage" in bundle | build | types | test | parity | assets | browser | production | perf | perfbudgets) ;; *) log "unknown stage: ${stage}"; exit 2 ;; esac
 done
 if [[ " ${stages[*]} " == *" browser "* ]]; then
   [[ ${#BROWSER_UNITS[@]} -gt 0 ]] || mapfile -t BROWSER_UNITS < <(all_units)
+  [[ -z "$BROWSER_SHARD" ]] || mapfile -t BROWSER_UNITS < <(node scripts/verify/shard.mjs scripts/verify/unit-seconds.json "${BROWSER_SHARD%/*}" "${BROWSER_SHARD#*/}" "${BROWSER_UNITS[@]}")
+  [[ ${#BROWSER_UNITS[@]} -gt 0 ]] || { log "browser shard ${BROWSER_SHARD} has no units"; exit 2; }
   for unit in "${BROWSER_UNITS[@]}"; do
     [[ -f "scripts/verify/units/${unit}.mjs" ]] && declare -F "drive_${unit}" >/dev/null || { log "unknown browser unit ${unit}; scripts/verify.sh units lists them"; exit 2; }
   done
-elif [[ ${#BROWSER_UNITS[@]} -gt 0 ]]; then
-  log "--unit selects browser units; add the browser stage"
+elif [[ ${#BROWSER_UNITS[@]} -gt 0 || -n "$BROWSER_SHARD" ]]; then
+  log "--unit and --shard select browser units; add the browser stage"
   exit 2
 fi
 

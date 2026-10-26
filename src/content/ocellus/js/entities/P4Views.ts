@@ -264,7 +264,7 @@ class Playing {
 export class SpotAnimModel implements Model {
   private playing: Playing | null = null;
 
-  constructor(private readonly renderable: Renderable, private readonly cue: () => Cue | null) {}
+  constructor(private readonly renderable: Renderable, private readonly cue: () => Cue | null, private readonly looks: readonly number[] = []) {}
 
   draw(scene: THREE.Scene, clockDelta: number, tickPercent: number, location: Location3, angleRadians: number, pitchRadians: number, visible: boolean, modelOffsets: Location3[]): void {
     const cue = this.cue();
@@ -284,7 +284,25 @@ export class SpotAnimModel implements Model {
     return this.playing?.model.getWorldPosition() ?? new THREE.Vector3();
   }
 
-  async preload(): Promise<void> {}
+  /** The SDK builds a spotanim's meshes on its first draw and starts its animation and frame sounds only after them. */
+  async preload(): Promise<void> {
+    await Promise.all(this.looks.map((spotAnim) => buildLook(this.renderable, spotAnim)));
+  }
+}
+
+// The SDK keeps one instance pool per look and draws every slot it ever handed out, so two views building a look at once would leave a hidden instance drawn.
+const builtLooks = new Map<number, Promise<void>>();
+
+function buildLook(renderable: Renderable, spotAnim: number): Promise<void> {
+  const built =
+    builtLooks.get(spotAnim) ??
+    (async () => {
+      const model = CacheRenderInstancedModel.forRenderable(renderable, CacheRenderReferences.spotAnim([{ id: spotAnim }]));
+      await model.preload();
+      model.destroy(new THREE.Scene());
+    })();
+  builtLooks.set(spotAnim, built);
+  return built;
 }
 
 export class OrbView extends Entity {
@@ -316,7 +334,7 @@ export class OrbView extends Entity {
   }
 
   protected override create3dModel(): Model {
-    return new SpotAnimModel(this, () => this.cue);
+    return new SpotAnimModel(this, () => this.cue, [...Object.values(SPAWN_LOOK), ORB_LOOK.idle.value, ORB_LOOK.despawn.value]);
   }
 }
 
