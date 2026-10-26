@@ -41,6 +41,8 @@ type Crossing = { arm: Arm; from: Quadrant; to: Quadrant; bank: ATile; hops: ATi
 const RIFT_ORDER: readonly AddKind[] = ["rift-buff", "rift-basic", "rift-heal"];
 /** The shadow slash's telegraph colour, drawn red. */
 const SLASH_MARK = 0x2a0a3a;
+/** The bomb models sit at floor level; this lifts them over the head. */
+const BOMB_HEIGHT = 2;
 const GOD_NAME = { bandos: "Bandosian", saradomin: "Saradomin", armadyl: "Armadylean", zaros: "Zarosian" } as const;
 const GOD_GLOW = { bandos: SPOT.glowBandos, saradomin: SPOT.glowSaradomin, armadyl: SPOT.glowArmadyl, zaros: SPOT.glowZaros } as const;
 
@@ -410,8 +412,8 @@ export class Phase3 implements PhaseScript {
    */
   private bombOverhead(): void {
     const { player } = this.fight;
-    player.addSpotAnim({ id: SPOT.bombSpawn, channel: "bomb" });
-    this.fight.after(1, () => player.addSpotAnim({ id: SPOT.bombIdle, channel: "bomb" }));
+    player.addSpotAnim({ id: SPOT.bombSpawn, channel: "bomb", height: BOMB_HEIGHT });
+    this.fight.after(1, () => player.addSpotAnim({ id: SPOT.bombIdle, channel: "bomb", height: BOMB_HEIGHT }));
   }
 
   private bombs(): void {
@@ -422,7 +424,7 @@ export class Phase3 implements PhaseScript {
       if (fight.destroyed.has(q)) continue;
       const tile = turnInto(here, from, q);
       if (!fight.isWalkable(tile) || covers(this.body(), tile)) continue;
-      fight.spot(tile, SPOT.bombIdle, { height: 2, loopTicks: 1, maxTicks: P3.bombDropAfter });
+      fight.spot(tile, SPOT.bombIdle, { height: BOMB_HEIGHT, loopTicks: 1, maxTicks: P3.bombDropAfter });
       this.telegraphs.push({ tiles: [tile], landsAt: fight.tick + P3.bombDropAfter, colour: 0x8a2be2 });
       fight.after(P3.bombDropAfter, () => {
         fight.spot(tile, SPOT.bombDrop, { maxTicks: 3 });
