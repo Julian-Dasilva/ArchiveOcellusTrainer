@@ -4,25 +4,11 @@ export const CHANGELOG: Changelog = [
   {
     version: "2026.10.26",
     notes: [
+      "The 2D view is gone, and the 3D view draws each frame in about 14 draw calls instead of about 550. Gear switches after your first hitch far less. A typical switch's slowest frame drops from about 50 ms to one frame at 60 Hz.",
+      "The void shards of each explosion now come in high over your head, from the game's own effect, so you can see the cue to step while you move.",
+      "Change your mind before the tick, like in game. Whatever you click last before the tick is what you do, even a click made right before it.",
       "Ocellus takes damage as soon as he is back on the platform, and standing on your lifeforce orb as it glows gives your HP back that tick.",
       "A void rift left alive bursts 30 ticks after it appears and hits you once for 28 to 41, and destroying a rift resets your attack timer.",
-    ],
-  },
-  {
-    version: "2026.10.25.3",
-    notes: [
-      "The void shards of each explosion now come in high over your head, from the game's own effect, so you can see the cue to step while you move.",
-      "In 2D the shards draw on top of your square instead of under it.",
-    ],
-  },
-  {
-    version: "2026.10.25.2",
-    notes: [
-      "Change your mind before the tick, like in game. Whatever you click last before the tick is what you do.",
-      "A click made right before the tick registers on that tick, instead of a tick late.",
-      "To help find the cause of lag, a random sample of runs now sends an anonymous performance summary when it ends: frame and tick timings, 2D or 3D, screen scale, game size, CPU cores, graphics card maker, browser, run length and how it ended.",
-      "The summary has no ID, no cookies and nothing that names you. Page views are counted with Cloudflare Web Analytics, which also uses no cookies. Web Analytics loads on every page view unless you opt out. Only the performance summary is sampled.",
-      "To turn both off, open Settings and untick Send anonymous performance data. Page view counting stops from the next page load.",
     ],
   },
   {
