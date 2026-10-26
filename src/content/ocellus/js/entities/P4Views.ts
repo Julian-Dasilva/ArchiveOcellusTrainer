@@ -264,7 +264,7 @@ class Playing {
 export class SpotAnimModel implements Model {
   private playing: Playing | null = null;
 
-  constructor(private readonly renderable: Renderable, private readonly cue: () => Cue | null) {}
+  constructor(private readonly renderable: Renderable, private readonly cue: () => Cue | null, private readonly looks: readonly number[] = []) {}
 
   draw(scene: THREE.Scene, clockDelta: number, tickPercent: number, location: Location3, angleRadians: number, pitchRadians: number, visible: boolean, modelOffsets: Location3[]): void {
     const cue = this.cue();
@@ -284,7 +284,16 @@ export class SpotAnimModel implements Model {
     return this.playing?.model.getWorldPosition() ?? new THREE.Vector3();
   }
 
-  async preload(): Promise<void> {}
+  /** The SDK builds a spotanim's meshes on its first draw and starts its animation and frame sounds only after them, so the looks are built here, before the fight. */
+  async preload(): Promise<void> {
+    await Promise.all(
+      this.looks.map(async (spotAnim) => {
+        const model = CacheRenderInstancedModel.forRenderable(this.renderable, CacheRenderReferences.spotAnim([{ id: spotAnim }]));
+        await model.preload();
+        model.destroy(new THREE.Scene());
+      }),
+    );
+  }
 }
 
 export class OrbView extends Entity {
@@ -316,7 +325,7 @@ export class OrbView extends Entity {
   }
 
   protected override create3dModel(): Model {
-    return new SpotAnimModel(this, () => this.cue);
+    return new SpotAnimModel(this, () => this.cue, [...Object.values(SPAWN_LOOK), ORB_LOOK.idle.value, ORB_LOOK.despawn.value]);
   }
 }
 
