@@ -319,7 +319,7 @@ P3_ARENA_SHOT_TICK=3
 P3_ARENA_TILES='{"open":[{"x":25,"y":11},{"x":26,"y":11}],"closed":[{"x":16,"y":13},{"x":17,"y":13}],"rim":[{"x":28,"y":10}]}'
 P3_PRAY_TICK=1
 P3_SWINGS_LAST_TICK=21
-P3_SWINGS='[[7,"swing",5,5,"melee"],[10,"swing",2,2,"melee"],[17,"swing",1,1,"melee"],[20,"swing",2,2,"melee"]]'
+P3_SWINGS='[[7,"swing",5,5,"melee"],[10,"swing",2,2,"melee"],[14,"wave",32,32,"melee"],[17,"swing",1,1,"melee"],[20,"swing",2,2,"melee"]]'
 P3_FAR_EAST_TILE='{"x":27,"y":9}'
 P3_ESCAPE_TICK=6
 P3_VOID_SHOT_LAST_TICK=11
@@ -343,6 +343,13 @@ P3_BLADES_TICK=30
 P3_BLADES_BOX='{"left":260,"right":120,"up":20,"down":280}'
 P3_BLADES_MIN_SHARE='{"3d":0.5,"2d":0.4}'
 P3_BLADES_MAX_CONTROL_SHARE='{"3d":0.3,"2d":0}'
+P3_WAVE_QUERY="?phase=p3&seed=1&invincible=on"
+P3_WAVE_STAND_TILE='{"x":20,"y":9}'
+P3_WAVE_STEP_TILE='{"x":18,"y":9}'
+P3_WAVE_SAMPLE_TILES='{"band":[{"x":19,"y":9},{"x":19,"y":10},{"x":19,"y":11}],"beside":[{"x":18,"y":9},{"x":18,"y":10},{"x":18,"y":11}]}'
+P3_WAVE_SHOT_TICKS=(11 12 14 18)
+P3_WAVE_EXPECTED='{"stand":{"aimed":[[12,[[20,9],[19,9],[21,9],[20,10],[19,10],[21,10],[20,11],[19,11],[21,11]],14]],"slashes":[13],"hits":[[14,[20,9],32]],"avoided":[]},"side-step":{"hits":[],"avoided":[[14,[18,9]]]},"early-step":{"hits":[[14,[18,9],32]],"avoided":[]}}'
+P3_WAVE_SHARES='{"markedMin":40,"smokeMin":8,"besideMax":2,"clearMax":1}'
 CREDIT_LINE="Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex."
 
 log() { echo "verify: $*"; }
@@ -2223,6 +2230,88 @@ drive_p3_smite() {
   return $verdict
 }
 
+p3_wave_page() {
+  local name=$1 step_after=$2
+  ab open "${URL}${P3_WAVE_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the P3 wave ${name} page never started"; return 1; }
+  canvas_centre || { log "canvas box unreadable"; return 1; }
+  tile_pixel "p3-wave-${name}" "$P3_WAVE_STAND_TILE" now || return 1
+  click_after_tick 0 $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the ${name} page's stand tile was not clicked"; return 1; }
+  if [[ "$step_after" != none ]]; then
+    tile_pixel "p3-wave-${name}" "$P3_WAVE_STEP_TILE" 3 || return 1
+    click_after_tick "$step_after" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the ${name} page's side step was not clicked after P3 tick ${step_after}"; return 1; }
+  fi
+  fight_tick_at_least 15 30000 || { log "the P3 wave ${name} page never reached P3 tick 15"; return 1; }
+  p3_page_done "p3-wave-${name}"
+}
+
+drive_p3_wave() {
+  local t
+  ab open "${URL}${P3_WAVE_QUERY}" >/dev/null || return 1
+  save_settings "{ use3dView: true }" || { log "the 3D view setting was not saved"; return 1; }
+  ab open "${URL}${P3_WAVE_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the P3 wave stand page never started"; return 1; }
+  canvas_centre || { log "canvas box unreadable"; return 1; }
+  tile_pixel p3-wave-stand "$P3_WAVE_STAND_TILE" now || return 1
+  click_after_tick 0 $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the stand tile was not clicked"; return 1; }
+  fight_tick_at_least "${P3_WAVE_SHOT_TICKS[0]}" 30000 || { log "the P3 wave stand page never reached P3 tick ${P3_WAVE_SHOT_TICKS[0]}"; return 1; }
+  ab --json eval "(() => {
+    const probe = window.__archiveOcellusProbe, box = document.querySelector('#world').getBoundingClientRect();
+    const at = (tile) => { const p = probe.tileCentre(tile); return p && { x: Math.round(box.x + p.x), y: Math.round(box.y + p.y) }; };
+    return Object.fromEntries(Object.entries(${P3_WAVE_SAMPLE_TILES}).map(([kind, tiles]) => [kind, tiles.map(at)]));
+  })()" | json data.result >"$VERIFY_DIR/p3-wave-tiles.json" || { log "the wave's sample tiles were not read"; return 1; }
+  for t in "${P3_WAVE_SHOT_TICKS[@]}"; do
+    fight_tick_at_least "$t" 30000 || { log "the P3 wave stand page never reached P3 tick ${t}"; return 1; }
+    ab screenshot "$VERIFY_DIR/p3-wave-3d-${t}.png" >/dev/null || return 1
+  done
+  p3_page_done p3-wave-stand || return 1
+  p3_wave_page side-step 12 || return 1
+  p3_wave_page early-step 10 || return 1
+
+  local capture
+  for capture in p3-wave-tiles.json p3-wave-{stand,side-step,early-step}{.json,-page-errors.json}; do
+    [[ -s "$VERIFY_DIR/$capture" ]] || { log "required capture ${capture} is missing or empty"; return 1; }
+  done
+  for t in "${P3_WAVE_SHOT_TICKS[@]}"; do
+    [[ -s "$VERIFY_DIR/p3-wave-3d-${t}.png" ]] || { log "required capture p3-wave-3d-${t}.png is missing or empty"; return 1; }
+  done
+
+  node -e '
+    const fs = require("fs"), { pixelShare } = require("./scripts/png-pixels.cjs"), [dir, expectedJson, sharesJson, ...ticks] = process.argv.slice(1);
+    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
+    const [expected, limits, tiles] = [JSON.parse(expectedJson), JSON.parse(sharesJson), read("p3-wave-tiles.json")];
+    const events = (log) => log.rows.flatMap((row) => row.events);
+    const wave = (log) => ({
+      aimed: events(log).filter((e) => e.kind === "wave-aimed").map((e) => [e.at, e.line.map(({ x, y }) => [x, y]), e.landsAt]),
+      slashes: events(log).filter((e) => e.kind === "wave-cast").map((e) => e.at),
+      hits: events(log).filter((e) => e.kind === "player-hit" && e.hit.kind === "wave").map(({ at, hit, receipt }) => [at, [hit.tile.x, hit.tile.y], receipt.requested]),
+      avoided: events(log).filter((e) => e.kind === "hazard-avoided" && e.hazard === "wave").map(({ at, tile }) => [at, [tile.x, tile.y]]),
+    });
+    const box = (points) => ({ minX: Math.min(...points.map((p) => p.x)) - 18, maxX: Math.max(...points.map((p) => p.x)) + 18, minY: Math.min(...points.map((p) => p.y)) - 14, maxY: Math.max(...points.map((p) => p.y)) + 14 });
+    const looks = { marked: (r, g) => r - g >= 30, smoke: (r, g, b) => b - r >= 6 };
+    const shares = Object.fromEntries(ticks.map((t) => [t, Object.fromEntries(["band", "beside"].map((kind) => [kind, Object.fromEntries(Object.entries(looks).map(([look, test]) => [look, pixelShare(`${dir}/p3-wave-3d-${t}.png`, test, box(tiles[kind]))]))]))]));
+    const [before, aimed, landed, after] = ticks;
+    const observed = { stand: wave(read("p3-wave-stand.json")), "side-step": wave(read("p3-wave-side-step.json")), "early-step": wave(read("p3-wave-early-step.json")), shares, tiles };
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const landing = (page) => same({ hits: observed[page].hits, avoided: observed[page].avoided }, expected[page]);
+    const checks = {
+      waveAimedAtStandingPlayer: same(observed.stand, expected.stand),
+      waveLineDrawn: shares[aimed].band.marked >= limits.markedMin && shares[aimed].beside.marked <= limits.besideMax && shares[before].band.marked <= limits.clearMax,
+      waveBandPlaysOnLanding: shares[landed].band.smoke >= limits.smokeMin && shares[landed].beside.smoke <= limits.besideMax && shares[landed].band.marked <= limits.clearMax,
+      waveMarksCleared: shares[after].band.smoke <= limits.clearMax && shares[after].band.marked <= limits.clearMax,
+      waveSideStepAvoids: landing("side-step"),
+      waveEarlyStepHit: landing("early-step"),
+      noP3WavePageErrors: ["p3-wave-stand-page-errors.json", "p3-wave-side-step-page-errors.json", "p3-wave-early-step-page-errors.json"].map(read).every((list) => list.length === 0),
+    };
+    console.log(JSON.stringify({ observed, checks }, null, 2));
+    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
+  ' "$VERIFY_DIR" "$P3_WAVE_EXPECTED" "$P3_WAVE_SHARES" "${P3_WAVE_SHOT_TICKS[@]}" >"$VERIFY_DIR/p3-wave-checks.json"
+  local verdict=$?
+  cat "$VERIFY_DIR/p3-wave-checks.json"
+  [[ $verdict -eq 0 ]] || log "a P3 wave check failed"
+  return $verdict
+}
+
 drive() {
   ab set viewport 1280 800 >/dev/null || return 1
   # A new browser's first screenshot takes about 10 s, longer than the hidden lead-in, so it goes to a blank page.
@@ -2920,6 +3009,7 @@ drive() {
   cat "$VERIFY_DIR/observed.json"
   drive_p3_drill || verdict=1
   drive_p3_smite || verdict=1
+  drive_p3_wave || verdict=1
   return $verdict
 }
 
