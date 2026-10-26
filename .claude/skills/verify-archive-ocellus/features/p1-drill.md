@@ -25,12 +25,11 @@ A third drill, phase 1, sits behind the build flag `ARCHIVE_P1`. Production buil
 Preconditions:
 
 - The baseline preconditions in the index hold, with the dev server started with `ARCHIVE_P1=on` on its own port. `scripts/verify.sh serve` does not set it yet.
-- The view setting is saved before the page that needs it opens: `use3dView` true for 3D and false for 2D.
 
 - **Open.** Open `?phase=p1&seed=1&invincible=on` and wait for P1 tick 4. `snapshot().fight.boss` reads NPC 16674 at 2500 of 2500, and Settings shows `#phase` on `p1`.
 - **Walk and volleys.** On the same page by P1 tick 55, the log's `stage-entered` events read arrive 0, walk-from-start 4, corner 15, walk-from-corner 36 and corner 52; the `volley-cast` events are water at 4, 9, 36, 41 and 46, landing at 8, 13, 40, 45 and 50; `bossAt` walks (14, 16), (14, 15), (14, 14), then diagonally to (20, 8) by tick 12.
-- **Corner.** At P1 tick 18 and 24 in 3D, a crack's pieces stand on the tiles south and west of him at the north-east corner; in 2D the same tiles are tinted dark red. At 34 the floor explosions stand on the 37 tiles around him.
-- **Block.** On a 2D page with seed 1, click `tileCentre({ x: 21, y: 16 })` after P1 tick 15 and `tileCentre({ x: 17, y: 22 })` after tick 20. The log has `crack-closed` blocked at 20, a `crack-blocked` hit of 4 at 20, `block-refunded` 4 at 22, and `meter` 0 on the row for 20.
+- **Corner.** At P1 tick 18 and 24 in 3D, a crack's pieces stand on the tiles south and west of him at the north-east corner. At 34 the floor explosions stand on the 37 tiles around him.
+- **Block.** On a page with seed 1, click `tileCentre({ x: 21, y: 16 })` after P1 tick 15 and `tileCentre({ x: 17, y: 22 })` after tick 20. The log has `crack-closed` blocked at 20, a `crack-blocked` hit of 4 at 20, `block-refunded` 4 at 22, and `meter` 0 on the row for 20.
 - **Middle.** Open `?phase=p1&seed=1&bosshp=1650&invincible=on`. He teleports out at 4 and in at 8 on (14, 14), charges at 12, 20, 28 and 36, blasts at 19, 27, 35 and 43, tells "Death... awaits..." at 44, casts at 46 and walks on at 53.
 - **End.** Open `?phase=p1&seed=100&bosshp=1&invincible=on` in 3D and click `tileCentre` of his middle tile, one tile east and north of `bossAt`, after P1 tick 8. He says "You... will disappear..." at 12, transforms at 15, and the panel reads "Phase 1 cleared (interim end)", "P1 time: 22 ticks (0:13.2)", "Invincible was on." with Repeat P1 and Retry seed.
 - **Phase box.** With the flag on, open `?seed=1`, open Settings and choose Phase 1. The new page's `location.search` is `?phase=p1&setup=ranged`, its log header reads `p1`, and the boss is NPC 16674.
@@ -42,4 +41,4 @@ Preconditions:
 - The boss is unattackable on P1 tick 0, so a click on him then walks the player instead of attacking.
 - He reads his HP only on volley ticks, so a hit that takes him under 66% sends him to the middle on the next volley tick, never on a blast.
 - His transformation pose, seq 14814, is not played: one of its frame sounds, 12819, is missing from cache 2746, and the SDK throws an uncaught error when the pose reaches it. The drill plays the transformation spotanim alone.
-- In 3D a crack's pieces show about 2 ticks after it opens, as in game; the 2D tint shows from the tick it opens.
+- A crack's pieces show about 2 ticks after it opens, as in game.

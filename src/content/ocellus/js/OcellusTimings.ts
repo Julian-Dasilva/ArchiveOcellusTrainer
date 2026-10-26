@@ -1293,7 +1293,6 @@ type P1Recipe = Readonly<{
     crackPieces: Readonly<{ straight: Readonly<Record<Side, Selected<CrackPieces>>>; diagonal: Readonly<Record<Diagonal, Selected<CrackPieces>>> }>;
     crackTiming: Selected<Readonly<{ openDelay: number; perTile: number }>>;
     floorExplosions: Selected<Readonly<{ pieces: readonly [number, ...number[]]; ringDelays: readonly number[] }>>;
-    marks: Selected<Readonly<{ open: string; closing: string; blast: string }>>;
     overheadIcon: Selected<SpriteFrame>;
     chargeBar: Selected<Readonly<{ fill: string; background: string; height: number }>>;
   }>;
@@ -1564,7 +1563,6 @@ const P1: P1Recipe = {
       cache("spotanims 4262 to 4265 vfx_ocellus_p1_explode_floor"),
       ...p1Logs(["L6", "L7", "L8"], "fights 6 to 8: floor spotanims 4262 to 4265 with delays 0 and 2"),
     ),
-    marks: selected({ open: "#6a0d0d", closing: "#b01818", blast: "#ff7a1a" }, "assumption", "unscaled", "2D tile tints for an open crack, a crack that closes next tick and the blast's tiles, because the 2D view draws no spotanims", NO_WIKI_PRACTICE),
     overheadIcon: selected({ archive: 440, frame: 0 }, "spec-single", "unscaled", "his Protect from Melee, drawn under his HP bar as phase 4's curse icons are", STRATEGIES_P1, cache("sprite 440 headicons_prayer frame 0")),
     chargeBar: selected({ fill: "#e8d020", background: "#3a3410", height: 4 }, "assumption", "unscaled", "his yellow bar, drawn under his HP bar and filled to his charge over 96; its look in game is not recorded", BOSS_PAGE_P1),
   },

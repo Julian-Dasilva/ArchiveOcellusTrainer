@@ -50,7 +50,7 @@ async function openP1Fight(url: string) {
 }
 
 describe("P1 behind the ARCHIVE_P1 build flag", () => {
-  beforeEach(() => localStorage.setItem("osrs-sdk:settings", JSON.stringify({ version: 1, values: { use3dView: false } })));
+  beforeEach(() => localStorage.removeItem("osrs-sdk:settings"));
   afterEach(() => vi.unstubAllEnvs());
 
   test("guard: with the flag off, ?phase=p1 opens P4 at its entry HP, lists phase=p1 as rejected and draws no Phase box", () => {

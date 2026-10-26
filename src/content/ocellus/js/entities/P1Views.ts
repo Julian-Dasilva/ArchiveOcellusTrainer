@@ -1,13 +1,12 @@
 import * as THREE from "three";
-import { CacheRenderInstancedModel, CacheRenderReferences, CollisionType, Entity, LineOfSightMask, Settings } from "osrs-sdk";
+import { CacheRenderInstancedModel, CacheRenderReferences, CollisionType, Entity, LineOfSightMask } from "osrs-sdk";
 import type { Location3, Model, Region, Renderable } from "osrs-sdk";
 import { OCELLUS_P1 } from "../OcellusTimings";
 import type { Tick, Tile } from "../../../../sim/brands";
 import { after, span } from "../../../../sim/brands";
 import type { Crack, CrackId, Direction } from "../P1Types";
 
-const { crackPieces, crackTiming, floorExplosions, marks } = OCELLUS_P1.presentation;
-const MARK_OPACITY = 0.45;
+const { crackPieces, crackTiming, floorExplosions } = OCELLUS_P1.presentation;
 /** How long an end piece or a floor explosion is kept after it starts; both play once and are shorter. */
 const ONE_SHOT_TICKS = span(4);
 
@@ -54,18 +53,14 @@ class FloorSpotModel implements Model {
   async preload(): Promise<void> {}
 }
 
-/** One floor tile of a crack or a blast: its cache spotanim in 3D and a tint in 2D, which draws no spotanims. */
+/** One floor tile of a crack or a blast: its cache spotanim. */
 export class FloorSpot extends Entity {
-  constructor(region: Region, at: Tile, private cue: Cue, private tint: string | null) {
+  constructor(region: Region, at: Tile, private cue: Cue) {
     super(region, { x: at.x, y: at.y });
   }
 
   play(cue: Cue): void {
     this.cue = cue;
-  }
-
-  colour(tint: string | null): void {
-    this.tint = tint;
   }
 
   override get collisionType(): CollisionType {
@@ -78,15 +73,6 @@ export class FloorSpot extends Entity {
 
   override get drawOutline(): boolean {
     return false;
-  }
-
-  override draw(tickPercent: number, context: OffscreenCanvasRenderingContext2D): void {
-    if (this.tint === null) return;
-    const scale = Settings.tileSize;
-    context.globalAlpha = MARK_OPACITY;
-    context.fillStyle = this.tint;
-    context.fillRect(this.location.x * scale, this.location.y * scale, scale, scale);
-    context.globalAlpha = 1;
   }
 
   protected override create3dModel(): Model {
@@ -102,7 +88,7 @@ function piecesFor({ dx, dy }: Direction): Readonly<{ start: number; piece: numb
 }
 
 type OpenCrack = Readonly<{ crack: Crack; spots: readonly FloorSpot[] }>;
-type Fading = Readonly<{ spot: FloorSpot; untintAt: Tick; removeAt: Tick }>;
+type Fading = Readonly<{ spot: FloorSpot; removeAt: Tick }>;
 
 /** Open cracks drawn piece by piece from the far end back toward him, their end pieces, and the blast's floor explosions. */
 export class FloorViews {
@@ -115,7 +101,7 @@ export class FloorViews {
     const { openDelay, perTile } = crackTiming.value;
     const pieces = piecesFor(crack.growth);
     const last = crack.tiles.length - 1;
-    const spots = crack.tiles.map((at, i) => new FloorSpot(this.region, at, { spotAnim: i === last ? pieces.start : pieces.piece, delay: openDelay + perTile * (last - i), loops: true }, marks.value.open));
+    const spots = crack.tiles.map((at, i) => new FloorSpot(this.region, at, { spotAnim: i === last ? pieces.start : pieces.piece, delay: openDelay + perTile * (last - i), loops: true }));
     spots.forEach((spot) => this.region.addEntity(spot));
     this.open.set(crack.id, { crack, spots });
   }
@@ -128,9 +114,8 @@ export class FloorViews {
     const last = spots.length - 1;
     spots.forEach((spot, i) => {
       spot.play({ spotAnim: end, delay: perTile * (last - i), loops: false });
-      spot.colour(null);
     });
-    this.fading = [...this.fading, ...spots.map((spot) => ({ spot, untintAt: at, removeAt: after(at, ONE_SHOT_TICKS) }))];
+    this.fading = [...this.fading, ...spots.map((spot) => ({ spot, removeAt: after(at, ONE_SHOT_TICKS) }))];
   }
 
   fadeCrack(crack: Crack): void {
@@ -140,15 +125,13 @@ export class FloorViews {
 
   blast(tiles: readonly Tile[], ring: (at: Tile) => number, at: Tick): void {
     const { pieces, ringDelays } = floorExplosions.value;
-    const spots = tiles.map((place) => new FloorSpot(this.region, place, { spotAnim: pieces[(place.x * 7 + place.y * 3) % pieces.length], delay: ringDelays[ring(place) - 1] ?? 0, loops: false }, marks.value.blast));
+    const spots = tiles.map((place) => new FloorSpot(this.region, place, { spotAnim: pieces[(place.x * 7 + place.y * 3) % pieces.length], delay: ringDelays[ring(place) - 1] ?? 0, loops: false }));
     spots.forEach((spot) => this.region.addEntity(spot));
-    this.fading = [...this.fading, ...spots.map((spot) => ({ spot, untintAt: after(at, span(1)), removeAt: after(at, ONE_SHOT_TICKS) }))];
+    this.fading = [...this.fading, ...spots.map((spot) => ({ spot, removeAt: after(at, ONE_SHOT_TICKS) }))];
   }
 
-  /** At the end of a tick: cracks closing next tick turn brighter, finished tints and spotanims go. */
+  /** At the end of a tick: finished end pieces and floor explosions go. */
   settle(at: Tick): void {
-    for (const { crack, spots } of this.open.values()) if (crack.closesAt === at + 1) spots.forEach((spot) => spot.colour(marks.value.closing));
-    this.fading.filter((fading) => fading.untintAt <= at).forEach(({ spot }) => spot.colour(null));
     this.fading.filter((fading) => fading.removeAt <= at).forEach(({ spot }) => this.region.removeEntity(spot));
     this.fading = this.fading.filter((fading) => fading.removeAt > at);
   }
