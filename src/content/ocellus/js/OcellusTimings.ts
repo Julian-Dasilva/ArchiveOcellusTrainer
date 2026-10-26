@@ -45,7 +45,8 @@ export type Source =
   | Readonly<{ kind: "news"; url: string }>
   | Readonly<{ kind: "cache"; build: 2746; record: string }>
   | Readonly<{ kind: "owner"; date: OwnerDate; topic: string }>
-  | Readonly<{ kind: "guide"; url: string; at: string }>;
+  | Readonly<{ kind: "guide"; url: string; at: string }>
+  | Readonly<{ kind: "ocellus-sim"; commit: "75bd193"; at: string }>;
 
 export type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
 
@@ -67,6 +68,8 @@ const news = (url: string): Source => ({ kind: "news", url });
 export const cache = (record: string): Source => ({ kind: "cache", build: 2746, record });
 const owner = (topic: string, date: OwnerDate = "2026-10-21"): Source => ({ kind: "owner", date, topic });
 export const guide = (url: string, at: string): Source => ({ kind: "guide", url, at });
+/** Alessandro Rodi's ocellus-sim, github.com/alessandrorodi/ocellus-sim; its ids are read, never its code copied. */
+const ocellusSim = (at: string): Source => ({ kind: "ocellus-sim", commit: "75bd193", at });
 const STRATEGIES_P4 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381030);
 const BOSS_INFOBOX = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15380968);
 const VOID_RIFT_PAGE = wiki("https://oldschool.runescape.wiki/w/Void_Rift", 15380527);
@@ -843,10 +846,11 @@ const PRESENTATION: PresentationRecipe = {
   ),
   deflectWind: selected(
     4322,
-    "assumption",
+    "inferred",
     "unscaled",
-    "vfx_ocellus_deflect_wind_spotanim_01, 2 ticks, played on the player when Deflect turns away their hit; no fight log shows it, though three log every spotanim on the players, so where and when the game plays it is assumed from its name",
+    "vfx_ocellus_deflect_wind_spotanim_01, 2 ticks, played on the player when Deflect turns away their hit; L1 to L8 never show it, though three log every spotanim on the players, so the id comes from ocellus-sim; it plays it at each lifeforce hit, which those logs rule out, so the deflected hit is inferred from the name",
     NO_WIKI_PRESENTATION, cache("spotanim 4322 vfx_ocellus_deflect_wind_spotanim_01: model 62676, 65 client cycles"),
+    ocellusSim("fight/data.ts:152 SPOT.deflectWind; fight/phase4.ts:216 plays it on the player at each lifeforce hit"),
   ),
   sounds: {
     endShout: sound(12490, "the \"End...\" shout at t5, three ticks before the first inner void, in both clips; no sequence references it, so the server sends it", vod("V1", "3:53:59.39, t5.0"), vod("V2", "5:20:22.50, t5.0")),
@@ -859,10 +863,11 @@ const PRESENTATION: PresentationRecipe = {
     rangedHit: sound(12556, "the ranged transition hit, in 3 of 4 ranged attacks; the server sends it", vod("V1", "t97.1, t157.1"), vod("V2", "t65.3")),
     orbReturn: selected(
       soundId(5281),
-      "assumption",
+      "inferred",
       "unscaled",
-      "a heal sound played as the orb returns the player's HP; the fight logs record no sounds and the cache names none for it, so the cue is assumed",
+      "a heal sound played as the orb returns the player's HP; L1 to L8 record no sounds and the cache names none for it, so the id comes from ocellus-sim, which plays it when the boss absorbs an unclaimed orb; the pickup cue is inferred",
       NO_WIKI_PRESENTATION, cache("synth 5281"),
+      ocellusSim("fight/data.ts:183 SOUND.heal; fight/phase4.ts:279 plays it at the boss as an unclaimed orb heals him"),
     ),
     magicWindUp: sound(12554, "the magic transition wind-up, in 3 of 3 magic attacks, scoring at most 0.09 in the other styles; the server sends it", vod("V2", "5:20:39.13, t32.7")),
   },
