@@ -15,7 +15,7 @@ Every page opens in a set-up state. The arena, the player, the side panel and th
 - `pause-not-timed` leaves the pause out of the telemetry summary's frame and tick gaps.
 - `restart-waits` makes the page that Restart loads while paused wait at Start, with no walk, prayer or inventory click from the run it replaced. The result panel's Restart and Retry seed do the same ([settings-and-results.md](settings-and-results.md)).
 - `saved-loadout` wears and carries a loadout saved under `archive-ocellus:loadouts` for the setup, slot for slot, in P4 and P3.
-- `loadout-fallback` uses the wiki loadout when nothing is saved for the setup or storage is blocked, and shows `#loadout_note` when the saved entry cannot be read. When the browser refuses storage outright, the page keeps its storage in memory until it reloads.
+- `loadout-fallback` uses the wiki loadout when nothing is saved for the setup or storage is blocked, and shows `#loadout_note` when the saved entry cannot be read. When the browser refuses storage outright, the page keeps its storage in memory until it reloads. When storage is too full for a write, the page keeps that write in memory until it reloads and still reads every save it has.
 
 ## How to get to it (user POV)
 

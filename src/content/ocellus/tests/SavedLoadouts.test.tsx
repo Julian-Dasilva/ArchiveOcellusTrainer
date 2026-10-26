@@ -4,6 +4,7 @@ import type { TrainerLoadingState } from "osrs-sdk";
 import { loadPage } from "./page";
 
 const SAVED_LOADOUTS = "archive-ocellus:loadouts";
+const SAVED_SETTINGS = "osrs-sdk:settings";
 const FILLER = "test:filler";
 const JSDOM_STORAGE_QUOTA = 5_000_000;
 const jsdomLocalStorage = Object.getOwnPropertyDescriptor(window, "localStorage");
@@ -134,5 +135,24 @@ describe("Saved loadouts", () => {
     refuse();
 
     expect(await startingLoadout("/?seed=1", null)).toEqual({ phase: "p4", weapon: 20997, helmet: 27235, inventory: RANGED_DEFAULT_INVENTORY, note: null, start: "Start" });
+  });
+
+  test.each([64, 128, 256, 1024])("a page whose browser has %i storage units left opens Start with the saved loadout and keeps the settings it could not save", async (free) => {
+    const stored = store({ ranged: { worn: MELEE_WORN, inventory: BREW_FIRST } });
+    localStorage.setItem(SAVED_LOADOUTS, stored);
+    localStorage.setItem(FILLER, "x".repeat(JSDOM_STORAGE_QUOTA - SAVED_LOADOUTS.length - stored.length - FILLER.length - free));
+
+    const loadout = await startingLoadout("/?seed=1", null);
+    const { values } = JSON.parse(localStorage.getItem(SAVED_SETTINGS) ?? "{}");
+
+    expect({ ...loadout, view: values?.use3dView }).toEqual({
+      phase: "p4",
+      weapon: 22325,
+      helmet: 24419,
+      inventory: [6685, 20997, 3024, ...Array<null>(25).fill(null)],
+      note: null,
+      start: "Start",
+      view: true,
+    });
   });
 });
