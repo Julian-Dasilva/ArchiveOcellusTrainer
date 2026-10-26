@@ -5,6 +5,7 @@ export const captures = ({ OVERHEAD_SHOT_TICKS }) => [
   "rifts.json", "rift-audio.json", "rift-console.log", "rift-page-errors.json", "rift-ralos.json", "rift-ralos-console.log", "rift-ralos-page-errors.json", "rift-melee-hit.png",
   "rift-melee.json", "rift-melee-console.log", "rift-melee-page-errors.json", "hover-out-of-reach.png", "deflect-blocked.png", "deflect.json", "deflect-console.log",
   "deflect-page-errors.json", "rift-charged.png", "reflect-none.png", "reflect-hit.png", "reflect.json", "reflect-console.log", "reflect-page-errors.json", "canvas-centre.json",
+  "rift-timed-tile.json",
 ];
 
 export function judge({ read, bytes, env }) {
@@ -17,6 +18,7 @@ export function judge({ read, bytes, env }) {
   const { x: centreX, y: centreY } = read("canvas-centre.json");
   const { pixelShare } = pixels(bytes);
   const fromCentre = fromCentreOf(centreX, centreY);
+  const timedRift = read("rift-timed-tile.json");
   const onSchedule = onScheduleWithin(soundTolerance);
   const [riftLog, riftChat, riftAudio, deflectLog, overheadDraws] = ["rifts.json", "rift-chat.json", "rift-audio.json", "deflect.json", "overhead-draws.json"].map(read);
   const reflectLog = read("reflect.json");
@@ -51,7 +53,7 @@ export function judge({ read, bytes, env }) {
     kill: destroyedAt === null ? [] : riftTimed([[destroyedAt + killOffset, killId]]),
     burst: riftTimed(JSON.parse(riftBurstSounds)),
   };
-  const timerShare = (file) => pixelShare(file, (r, g, b) => r >= 180 && g >= 140 && b <= 90 && r - b >= 120, fromCentre(riftTimerBox));
+  const timerShare = (file) => pixelShare(file, (r, g, b) => r >= 180 && g >= 140 && b <= 90 && r - b >= 120, fromCentreOf(timedRift.x, timedRift.y)(riftTimerBox));
   const splatShare = (file) => pixelShare(file, (r, g, b) => r >= 120 && g <= 40 && b <= 40, fromCentre(reflectSplatBox));
   const observed = {
     overheads: {

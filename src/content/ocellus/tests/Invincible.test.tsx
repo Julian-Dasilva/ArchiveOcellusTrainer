@@ -118,8 +118,8 @@ describe("Invincible", () => {
   const LETHAL_SCYTHE = [
     {
       lethal: "two reflections land on one tick and the second is lethal",
-      focus: "explosions", seed: 167, at: 30,
-      blocked: [["melee", "blocked", 20], ["melee", "blocked", 16], ["melee", "blocked", 0]],
+      focus: "explosions", seed: 915, at: 30,
+      blocked: [["melee", "blocked", 27], ["melee", "blocked", 14], ["melee", "blocked", 0]],
       hits: [["deflect-reflected", 2, 2, 3, 1], ["deflect-reflected", 1, 1, 1, 0]],
       source: "deflect-reflected",
       chat: "Invincible: a deflected hit's reflection would have killed you on tick 30.",
@@ -136,9 +136,9 @@ describe("Invincible", () => {
   const REFLECTION_ORDER = [
     {
       lethal: "a lethal reflection lands before a second one",
-      focus: "explosions", seed: 3, at: 30,
-      blocked: [["melee", "blocked", 31], ["melee", "blocked", 16], ["melee", "blocked", 0]],
-      hits: [["deflect-reflected", 3, 1, 1, 0], ["deflect-reflected", 1, 0, 0, 0]],
+      focus: "explosions", seed: 128, at: 30,
+      blocked: [["melee", "blocked", 33], ["melee", "blocked", 10], ["melee", "blocked", 0]],
+      hits: [["deflect-reflected", 3, 2, 2, 0], ["deflect-reflected", 1, 0, 0, 0]],
       source: "deflect-reflected",
       chat: "Invincible: a deflected hit's reflection would have killed you on tick 30.",
     },

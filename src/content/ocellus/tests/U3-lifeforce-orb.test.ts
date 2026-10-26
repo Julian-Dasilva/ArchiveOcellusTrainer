@@ -84,10 +84,10 @@ describe("U3 lifeforce hit and orb", () => {
     });
   });
 
-  test("guard: the inner orb stays 5 ticks after the inner void clears at 30: its last pickup returns at 35, and arriving at the end of 35 is too late", async () => {
-    expect([await returnsAfterClickingAt(32), await returnsAfterClickingAt(33)]).toEqual([
-      [[35], []],
-      [[], [35]],
+  test("guard: the inner orb stays 6 ticks after the inner void clears at 30: its last pickup returns at 36, and arriving at the end of 36 is too late", async () => {
+    expect([await returnsAfterClickingAt(33), await returnsAfterClickingAt(34)]).toEqual([
+      [[36], []],
+      [[], [36]],
     ]);
   });
 
@@ -103,7 +103,7 @@ describe("U3 lifeforce hit and orb", () => {
     };
     expect([await standBeside({ orbPickupRadius: "adjacent" }), await standBeside({})]).toEqual([
       [[[24, 99]], []],
-      [[], [35]],
+      [[], [36]],
     ]);
   });
 
@@ -163,7 +163,7 @@ describe("U3 lifeforce hit and orb", () => {
       drill.dispose();
       return observed;
     };
-    const expired = [[35, "inner-void", { x: 1, y: 5 }, 49], [61, "outer-void", { x: 4, y: 3 }, 25]];
+    const expired = [[36, "inner-void", { x: 1, y: 5 }, 49], [61, "outer-void", { x: 4, y: 3 }, 25]];
     expect([await run({}), await run({ unclaimedOuterOrb: "off" }), await run({}, true)]).toEqual([
       [expired, [[62, { kind: "unclaimed-orb" }, { requested: 25, applied: 25, beforeHp: 1312, afterHp: 1337 }]], { atBossStep: 1312, atPostTick: 1337 }],
       [expired, [], { atBossStep: 1312, atPostTick: 1312 }],
@@ -194,16 +194,16 @@ describe("U3 lifeforce hit and orb", () => {
       return observed;
     };
     expect(await retrieve(false)).toEqual({
-      explosionHits: [[18, 34], [20, 18], [22, 2], [24, 0]],
+      explosionHits: [[18, 35], [20, 21], [22, 6], [24, 0]],
       returned: [],
       ended: [[24, "death"]],
       hpAt24: 0,
     });
     expect(await retrieve(true)).toEqual({
-      explosionHits: [[20, 34], [22, 18], [24, 2]],
-      returned: [[24, 2, 51]],
+      explosionHits: [[20, 36], [22, 21], [24, 7]],
+      returned: [[24, 7, 56]],
       ended: [],
-      hpAt24: 51,
+      hpAt24: 56,
     });
   });
 
@@ -215,7 +215,7 @@ describe("U3 lifeforce hit and orb", () => {
       return [];
     });
     drill.dispose();
-    expect(settled).toEqual([["explosion-resolved", 18, 2], ["orb-returned", 2, 51]]);
+    expect(settled).toEqual([["explosion-resolved", 21, 7], ["orb-returned", 7, 56]]);
   });
 
   test("guard: an orb never forms on a floor hole: seed 10's inner orb from the spawn", async () => {
