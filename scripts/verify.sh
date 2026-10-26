@@ -311,7 +311,10 @@ PRODUCTION_ORBS_JS='(() => { const orbs = { framesSinceFirst: 0, blankSinceFirst
 P3_QUERY="?phase=p3&seed=1"
 P3_CLEAR_QUERY="?phase=p3&seed=100&bosshp=3991"
 P3_ARENA_SHOT_TICK=3
-P3_ARENA_TILES='{"open":[{"x":25,"y":11},{"x":26,"y":11}],"closed":[{"x":16,"y":13},{"x":17,"y":13}],"rim":[{"x":28,"y":10}]}'
+P3_ARENA_TILES='{"wedge":[{"x":25,"y":11},{"x":26,"y":11},{"x":10,"y":9}],"chasm":[{"x":16,"y":11},{"x":14,"y":8}],"rim":[{"x":28,"y":10}]}'
+P3_STONE_TILE='{"x":15,"y":9}'
+P3_STONES_PATH='[[15,9],[15,6],[15,3],[13,3]]'
+P3_CRUMBLE_SHOT_TICK=14
 P3_PRAY_TICK=1
 P3_SWINGS_LAST_TICK=18
 P3_SWINGS='[[4,"swing",2,2,"melee"],[7,"swing",5,5,"melee"],[14,"swing",4,4,"melee"],[17,"swing",1,1,"melee"]]'
@@ -2052,7 +2055,11 @@ drive_p3_drill() {
   tile_pixel p3-clear "$P3_BOSS_TILE" "$P3_BOSS_CLICK_TICK" || return 1
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick "$P3_BOSS_CLICK_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the P3 boss was not clicked"; return 1; }
-  ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 30000 >/dev/null || log "the P3 run never reached the 76% break"
+  ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.phase?.stage === 'destroy'" --timeout 30000 >/dev/null || { log "the P3 quadrant never started to fall"; return 1; }
+  tile_pixel p3-clear "$P3_STONE_TILE" now || return 1
+  click_after_tick 0 $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the north arm's stone was not clicked"; return 1; }
+  shot_after_tick "$P3_CRUMBLE_SHOT_TICK" 0 p3-crumble.png || { log "the crumbling quadrant screenshot failed"; return 1; }
+  ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 30000 >/dev/null || log "the P3 run never reached the quadrant's drop"
   ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
   result_panel >"$VERIFY_DIR/p3-clear-panel.json" || { log "P3 result panel capture failed"; return 1; }
   ab screenshot "$VERIFY_DIR/p3-clear.png" >/dev/null || { log "P3 result screenshot failed"; return 1; }
@@ -2065,12 +2072,12 @@ drive_p3_drill() {
   local capture
   for capture in p3-arena.png p3-arena-tiles.json p3-snapshot.json p3-boss-bar.json \
     p3-swings.json p3-swings-console.log p3-swings-page-errors.json p3-panic.json p3-panic-console.log p3-panic-page-errors.json p3-chain.json p3-chain-page-errors.json \
-    p3-clear-panel.json p3-clear.png p3-clear.json p3-clear-console.log p3-clear-page-errors.json p3-start-p4.json p3-start-p4-page-errors.json; do
+    p3-clear-panel.json p3-crumble.png p3-clear.png p3-clear.json p3-clear-console.log p3-clear-page-errors.json p3-start-p4.json p3-start-p4-page-errors.json; do
     [[ -s "$VERIFY_DIR/$capture" ]] || { log "required capture ${capture} is missing or empty"; return 1; }
   done
 
   node -e '
-    const fs = require("fs"), zlib = require("zlib"), [dir, bossNpc, swings, panic, clear, startP4, chain, adds] = process.argv.slice(1);
+    const fs = require("fs"), zlib = require("zlib"), [dir, bossNpc, swings, panic, clear, startP4, chain, adds, stonesPath] = process.argv.slice(1);
     const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
     function decode(file) {
       const buf = fs.readFileSync(`${dir}/${file}`);
@@ -2105,12 +2112,15 @@ drive_p3_drill() {
     const lum = (rgb) => (rgb[0] + rgb[1] + rgb[2]) / 3;
     const grey = (rgb) => rgb !== null && Math.abs(rgb[1] - rgb[2]) < 20;
     const arena = tileColours();
-    const arenaDrawn = ({ open, closed, rim }) => [...open, ...closed].every(grey) && rim.every((rgb) => rgb !== null && rgb[1] - rgb[2] >= 20) &&
-      Math.min(...open.map(lum)) >= Math.max(...closed.map(lum)) + 12;
+    const arenaDrawn = ({ wedge, chasm, rim }) => [...wedge, ...chasm, ...rim].every((rgb) => rgb !== null) && wedge.every(grey) &&
+      Math.min(...wedge.map(lum)) >= Math.max(...chasm.map(lum)) + 60 && Math.min(...rim.map(lum)) >= Math.max(...chasm.map(lum)) + 30;
     const hits = (log) => log.rows.flatMap((row) => row.events).filter((event) => event.kind === "player-hit").map(({ at, hit, receipt }) => [at, hit.kind, receipt.requested, receipt.applied, receipt.prayer]);
     const [snapshot, bar, swingLog, panicLog, clearLog, panel, p4, chainLog] = ["p3-snapshot.json", "p3-boss-bar.json", "p3-swings.json", "p3-panic.json", "p3-clear.json", "p3-clear-panel.json", "p3-start-p4.json", "p3-chain.json"].map(read);
     const expectedClear = JSON.parse(clear), expectedStart = JSON.parse(startP4);
     const clearedAt = clearLog.rows.find((row) => row.events.some((event) => event.kind === "run-ended"));
+    const fellAt = clearLog.rows.find((row) => row.events.some((event) => event.kind === "quadrant-collapsing"))?.tick;
+    const crossing = clearLog.rows.filter((row) => fellAt !== undefined && row.tick > fellAt).map((row) => [row.playerAtPostTick.tile.x, row.playerAtPostTick.tile.y]);
+    const visited = crossing.filter(([x, y], i) => i === 0 || x !== crossing[i - 1][0] || y !== crossing[i - 1][1]);
     const observed = {
       arena,
       bossBar: [...new Set(Object.values(bar).flat())],
@@ -2121,6 +2131,7 @@ drive_p3_drill() {
       adds: chainLog.rows.flatMap((row) => row.events).filter((event) => ["hazard-shown", "void-formed", "vine-rooted", "vine-cut", "rift-spawned", "rift-detonated"].includes(event.kind) && event.at <= 133).map(({ at, kind }) => [at, kind]),
       escape: panicLog.rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered").map((input) => [row.tick, input.destination])),
       clear: { panel: { lines: panel.lines, buttons: panel.buttons }, run: panel.run, row: clearedAt && { tick: clearedAt.tick, bossHp: clearedAt.bossHp, events: clearedAt.events.map((event) => event.kind) } },
+      fall: { fellAt, endedAt: clearedAt?.tick, gone: clearLog.rows.flatMap((row) => row.events).filter((event) => event.kind === "quadrant-gone").map(({ at, player }) => [at, player]), visited },
       startP4: p4,
     };
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -2133,12 +2144,13 @@ drive_p3_drill() {
       p3AddsAsRecorded: same(observed.adds, JSON.parse(adds)),
       p3InterimClear: same(observed.clear.panel, expectedClear.panel) && observed.clear.run?.kind === "ended" && observed.clear.run.reason.kind === "quadrant-cleared" &&
         observed.clear.row?.tick === expectedClear.tick && observed.clear.run.at === expectedClear.tick && observed.clear.row.bossHp.atPostTick === expectedClear.bossHp && observed.clear.row.events.includes("run-ended"),
+      p3CrossesStonesBeforeTheDrop: fellAt !== undefined && observed.fall.endedAt === fellAt + 13 && same(observed.fall.gone, [[fellAt + 13, "escaped"]]) && same(visited.slice(-4), JSON.parse(stonesPath)),
       p3StartP4OpensP4: p4.search === expectedStart.search && p4.bossHp === expectedStart.bossHp && same(p4.rejected, []) && p4.logPhase === null && p4.phaseBox === "p4",
       noP3PageErrors: ["p3-swings-page-errors.json", "p3-panic-page-errors.json", "p3-chain-page-errors.json", "p3-clear-page-errors.json", "p3-start-p4-page-errors.json"].map(read).every((list) => list.length === 0),
     };
     console.log(JSON.stringify({ observed, checks }, null, 2));
     process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" "$BOSS_NPC" "$P3_SWINGS" "$P3_PANIC" "$P3_CLEAR" "$P3_START_P4" "$P3_CHAIN" "$P3_ADDS" >"$VERIFY_DIR/p3-checks.json"
+  ' "$VERIFY_DIR" "$BOSS_NPC" "$P3_SWINGS" "$P3_PANIC" "$P3_CLEAR" "$P3_START_P4" "$P3_CHAIN" "$P3_ADDS" "$P3_STONES_PATH" >"$VERIFY_DIR/p3-checks.json"
   local verdict=$?
   cat "$VERIFY_DIR/p3-checks.json"
   [[ $verdict -eq 0 ]] || log "a P3 drill check failed"
