@@ -33,7 +33,7 @@ module.exports = {
   },
   plugins: [
     new DefinePlugin({ "process.env.CF_WEB_ANALYTICS_TOKEN": JSON.stringify(WEB_ANALYTICS_TOKEN) }),
-    new EnvironmentPlugin({ ARCHIVE_P3: "off", ARCHIVE_P2: "off" }),
+    new EnvironmentPlugin({ ARCHIVE_P3: "off", ARCHIVE_P2: "off", ARCHIVE_P1: "off" }),
     new HtmlWebpackPlugin({ template: "src/index.html", inject: "body", scriptLoading: "blocking" }),
     new CopyPlugin({
       patterns: [
