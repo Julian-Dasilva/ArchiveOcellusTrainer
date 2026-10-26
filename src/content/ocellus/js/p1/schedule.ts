@@ -3,7 +3,7 @@ import type { Seed, Tick } from "../../../../sim/brands";
 import { tick } from "../../../../sim/brands";
 import type { BeatAt, Script, Slot } from "../../../../sim/schedule";
 import { Schedule, slotTable } from "../../../../sim/schedule";
-import type { Corner, P1Beat, P1Phase, P1Stage } from "../P1Types";
+import type { Corner, P1Beat, P1Phase, P1Stage, P1WalkStage } from "../P1Types";
 import { roll } from "../roll";
 import { CLOCKWISE, CORNERS, cornerAfter, stepsBetween } from "./arena";
 
@@ -28,7 +28,7 @@ export function cornerOfLeg(seed: Seed, leg: number, from: Corner | null): Corne
 }
 
 /** He takes his first step on the walk's first tick, so a walk of n steps arrives on its tick n - 1. */
-function walkSlots(stage: P1Stage, steps: number): readonly P1Slot[] {
+function walkSlots(stage: P1WalkStage, steps: number): readonly P1Slot[] {
   const every = walk.volleyEvery.value;
   const { lastVolley, endPose } = walk.chargeAfter.value;
   const arrival = steps - 1;

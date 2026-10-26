@@ -15,9 +15,13 @@ export type Direction = Readonly<{ dx: Step; dy: Step }>;
 export type P1BossState = "present-invulnerable" | "hidden" | "present-damageable";
 export type P1Overhead = "protect-melee";
 
-export type P1Stage = "arrive" | "walk-from-start" | "walk-from-corner" | "walk-from-middle" | "corner" | "middle";
+export type P1WalkStage = "walk-from-start" | "walk-from-corner" | "walk-from-middle";
+export type P1Stage = "arrive" | P1WalkStage | "corner" | "middle";
 export type P1Phase =
-  | Readonly<{ stage: P1Stage; boss: P1BossState; overhead: P1Overhead | null }>
+  | Readonly<{ stage: "arrive"; boss: Exclude<P1BossState, "hidden">; overhead: null }>
+  | Readonly<{ stage: P1WalkStage; boss: "present-damageable"; overhead: P1Overhead | null }>
+  | Readonly<{ stage: "corner"; boss: "present-damageable"; overhead: null }>
+  | Readonly<{ stage: "middle"; boss: P1BossState; overhead: null }>
   | Readonly<{ stage: "transform"; boss: Exclude<P1BossState, "present-damageable">; overhead: null }>;
 
 export type P1Beat =
