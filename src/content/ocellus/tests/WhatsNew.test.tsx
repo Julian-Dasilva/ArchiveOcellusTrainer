@@ -13,13 +13,16 @@ const FIRST_RELEASE = {
   ],
 };
 
-const INPUT_CORRECTION_RELEASE = {
-  version: "2026.10.25.2",
-  date: "2026-10-25",
-  notes: expect.arrayContaining([
+const NEXT_RELEASE = {
+  version: "2026.10.26",
+  date: "2026-10-26",
+  notes: [
+    "The 3D view draws each frame in about 14 draw calls instead of about 550, which should cut lag on weaker graphics cards.",
+    "The trainer always opens in 3D. The 2D view is gone.",
+    "The void shards of each explosion now come in high over your head, from the game's own effect, so you can see the cue to step while you move.",
     "Change your mind before the tick, like in game. Whatever you click last before the tick is what you do.",
     "A click made right before the tick registers on that tick, instead of a tick late.",
-  ]),
+  ],
 };
 
 function whatsNew(page: ReturnType<typeof loadPage>) {
@@ -74,7 +77,7 @@ describe("What's new", () => {
     expect(opened.releases.at(-1)).toEqual(FIRST_RELEASE);
   });
 
-  test("a player who saw the last shipped release sees the dot again, and What's new lists the input correction release", () => {
+  test("a player who saw the last shipped release sees the dot again, and What's new opens on the next release", () => {
     localStorage.setItem(SEEN_RELEASE_KEY, "2026.10.25.1");
     const page = loadPage("/?seed=1");
     const { settingsDot, menuDot } = whatsNew(page);
@@ -82,7 +85,7 @@ describe("What's new", () => {
     page.click("whats_new");
     const { releases } = whatsNew(page);
     page.close();
-    expect({ settingsDot, menuDot, releases }).toEqual({ settingsDot: true, menuDot: true, releases: expect.arrayContaining([INPUT_CORRECTION_RELEASE]) });
+    expect({ settingsDot, menuDot, newest: releases[0] }).toEqual({ settingsDot: true, menuDot: true, newest: NEXT_RELEASE });
   });
 
   test("opening What's new from the keyboard moves focus to the panel's title", () => {
