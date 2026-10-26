@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { CollisionType, Entity, GROUND_OVERLAY_Y, LineOfSightMask, Settings } from "osrs-sdk";
+import { CollisionType, Entity, GROUND_OVERLAY_Y, LineOfSightMask } from "osrs-sdk";
 import type { Location3, Model, Region } from "osrs-sdk";
 import type { Tick, Tile } from "../../../../sim/brands";
 import type { BandAttack } from "../P3Types";
@@ -106,17 +106,6 @@ export class P3Marks extends Entity {
 
   override get drawOutline(): boolean {
     return false;
-  }
-
-  override draw(tickPercent: number, context: OffscreenCanvasRenderingContext2D): void {
-    const scale = Settings.tileSize;
-    context.save();
-    for (const { tiles, colour, opacity } of this.marks) {
-      context.globalAlpha = opacity;
-      context.fillStyle = colour;
-      for (const { x, y } of tiles) context.fillRect((x + INSET) * scale, (y + INSET) * scale, (1 - 2 * INSET) * scale, (1 - 2 * INSET) * scale);
-    }
-    context.restore();
   }
 
   protected override create3dModel(): Model {
