@@ -2041,20 +2041,21 @@ p3_tile_samples() {
   })()" | json data.result
 }
 
-p3_arena_page() {
+p3_arena_shot() {
   local samples
-  ab open "${URL}${P3_QUERY}" >/dev/null || return 1
-  fight_tick_at_least "$P3_ARENA_SHOT_TICK" 120000 || { log "the P3 drill never reached P3 tick ${P3_ARENA_SHOT_TICK}"; return 1; }
+  fight_tick_at_least "$P3_ARENA_SHOT_TICK" 30000 || { log "the P3 drill never reached P3 tick ${P3_ARENA_SHOT_TICK}"; return 1; }
   samples="$(p3_tile_samples)" || { log "the P3 tile pixels were not read"; return 1; }
   ab screenshot "$VERIFY_DIR/p3-arena.png" >/dev/null || { log "the P3 arena screenshot failed"; return 1; }
   echo "$samples" >"$VERIFY_DIR/p3-arena-tiles.json"
 }
 
 drive_p3_drill() {
-  p3_arena_page || return 1
-  record_boss_bar || { log "the boss bar probe was not installed"; return 1; }
+  ab open "${URL}${P3_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the P3 drill never started"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick "$P3_PRAY_TICK" "$PROTECT_MELEE_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Melee was not clicked in P3"; return 1; }
+  p3_arena_shot || return 1
+  record_boss_bar || { log "the boss bar probe was not installed"; return 1; }
   fight_tick_at_least "$P3_SWINGS_LAST_TICK" 60000 || { log "the P3 drill never reached P3 tick ${P3_SWINGS_LAST_TICK}"; return 1; }
   probe "snapshot()" >"$VERIFY_DIR/p3-snapshot.json"
   ab --json eval "window.__bossBar" | json data.result >"$VERIFY_DIR/p3-boss-bar.json" || { log "P3 boss bar capture failed"; return 1; }
@@ -2153,7 +2154,7 @@ drive_p3_drill() {
     const checks = {
       p3BossIsNpc16677: swingLog.header.phase === "p3" && snapshot.fight?.boss.npcId === Number(bossNpc) && snapshot.fight.boss.visible && observed.bossBar.includes("5250 / 5250 (100.0%)"),
       p3ArenaDrawn: arenaDrawn(arena),
-      p3SwingsChipUnderMeleePrayer: observed.prayerOrders.length > 0 && observed.prayerOrders[0][0] < 4 && observed.prayerOrders[0][1] === "melee" && same(observed.swings, JSON.parse(swings)),
+      p3SwingsChipUnderMeleePrayer: observed.prayerOrders.length > 0 && observed.prayerOrders[0][0] <= JSON.parse(swings)[0][0] && observed.prayerOrders[0][1] === "melee" && same(observed.swings, JSON.parse(swings)),
       p3PanicOutOfReach: same(observed.panic, JSON.parse(panic)) && observed.escape.length === 1,
       p3ChainAsRecorded: same(observed.chain, JSON.parse(chain)),
       p3InterimClear: same(observed.clear.panel, expectedClear.panel) && observed.clear.run?.kind === "ended" && observed.clear.run.reason.kind === "quadrant-cleared" &&

@@ -25,8 +25,8 @@ Preconditions:
 
 - The baseline preconditions in the index hold, with the dev server started by `scripts/verify.sh serve` so the flag is on.
 
-- **Arena.** Open `?phase=p3&seed=1` and wait for P3 tick 3. Read `window.__archiveOcellusProbe.tileCentre(tile)` for the open tiles (25, 11) and (26, 11), the closed tiles (16, 13) and (17, 13), and the rim tile (28, 10), then take a screenshot. The mean colour around each open tile is lighter than each closed tile by at least 12, and the rim's green exceeds its blue by at least 20.
-- **Swings.** On the same page, click Protect from Melee after P3 tick 1, at the canvas centre plus (`PROTECT_MELEE_RIGHT_PX`, `PROTECT_DOWN_PX`). By tick 18 the log's `player-hit` events for swings are at 4, 7, 14 and 17 requesting 2, 5, 4 and 1 with prayer `melee`, and the boss bar drew `5250 / 5250 (100.0%)`.
+- **Arena.** Open `?phase=p3&seed=1`, send the Swings prayer click, and wait for P3 tick 3. Read `window.__archiveOcellusProbe.tileCentre(tile)` for the open tiles (25, 11) and (26, 11), the closed tiles (16, 13) and (17, 13), and the rim tile (28, 10), then take a screenshot. The mean colour around each open tile is lighter than each closed tile by at least 12, and the rim's green exceeds its blue by at least 20.
+- **Swings.** On the same page, click Protect from Melee after P3 tick 1, at the canvas centre plus (`PROTECT_MELEE_RIGHT_PX`, `PROTECT_DOWN_PX`), before the arena wait. The prayer is published no later than the first swing on 4. By tick 18 the log's `player-hit` events for swings are at 4, 7, 14 and 17 requesting 2, 5, 4 and 1 with prayer `melee`, and the boss bar drew `5250 / 5250 (100.0%)`.
 - **Panic.** Reopen `?phase=p3&seed=1`, click Protect from Melee after tick 1, then click the pixel `tileCentre({ x: 27, y: 9 })` returns after tick 3. The log has a swing of 2 at 4, a `boss-moved` panic at 7 and a `panic` hit of 25 at 9 with prayer `melee`, which does not block it.
 - **Interim clear.** Open `?phase=p3&seed=100&bosshp=3991` and click `tileCentre({ x: 20, y: 7 })` after tick 2, which attacks the boss. The bow's first shot of 54 lands on tick 5 and the quadrant falls on 6. The row for tick 6 has `bossHp.atPostTick` 3937 and a `run-ended` event, and the panel reads "Quadrant 1 cleared (interim end)", "P3 time: 6 ticks (0:03.6)" with Repeat P3, Retry seed and Start P4.
 - **Start P4.** Click `#result_start_p4`. The new page's `location.search` is `?phase=p4&setup=ranged`, the boss has 1312 HP, the log header has no `phase`, and `#phase` shows `p4`.
@@ -35,6 +35,7 @@ Preconditions:
 
 ## Gotchas
 
+- On a fresh page, P3 ticks 0 to 2 can take about a second each, and ticks 3 to 8 then arrive within 100 ms. A click sent after tick 1 can first publish on 4, and the swing on 4 still lands under the prayer. A click sent after the tick-3 arena shot published as late as tick 10.
 - The boss is not drawn during GET READY, so a click on him before P3 tick 0 walks the player instead of attacking.
 - The boss steps before he decides each attack. A player running 2 tiles a tick gains only 1 tile a tick on him, so a run along his side stays in reach.
 - In 3D the boss's model and both HP bars cover the tiles just south of the two units, so the arena samples use tiles away from both.
