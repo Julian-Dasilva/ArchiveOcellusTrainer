@@ -52,7 +52,7 @@
       if (this.domElement.width * this.domElement.height > 1) {
         renderer = this;
         scene = args[0];
-        draws.push([performance.now(), this.info.render.calls]);
+        draws.push([performance.now(), this.info.render.calls, this.info.render.triangles]);
       }
       return out;
     };

@@ -2163,11 +2163,16 @@ perf_gate() {
   json "$1" <"$PERF_GATE"
 }
 
-build_perf_base() {
-  local base src="$VERIFY_DIR/perf/base-src"
+perf_base_revision() {
+  local base
   base="$(git rev-parse --verify "${VERIFY_PERF_BASE:-$(git merge-base origin/main HEAD)}^{commit}")" || { log "perf: no base revision; set VERIFY_PERF_BASE"; return 1; }
   log "perf: comparing against base ${base}"
   echo "$base" >"$VERIFY_DIR/perf/base-revision"
+}
+
+build_perf_base() {
+  local base src="$VERIFY_DIR/perf/base-src"
+  base="$(cat "$VERIFY_DIR/perf/base-revision")"
   mkdir -p "$src/public" && git archive "$base" | tar -x -C "$src" || { log "perf: the base tree could not be exported"; return 1; }
   ln -s "$ROOT/public/osrs-assets" "$src/public/osrs-assets"
   if git diff --quiet "$base" -- package.json package-lock.json scripts/install-beta-sdk.sh; then
@@ -2219,32 +2224,44 @@ perf_capture() {
 }
 
 drive_perf() {
-  local pair side order
+  local mode=$1 pair side order
   ab --init-script "$ROOT/src/perf/observer.js" set viewport 1280 800 >/dev/null || { log "the perf session did not start"; return 1; }
-  throttle_perf || return 1
-  for pair in $(seq 1 "$(perf_gate timing.pairs)"); do
-    order=(base head)
-    ((pair % 2 == 0)) && order=(head base)
-    for side in "${order[@]}"; do
-      perf_capture "${side}-${pair}" "$side" "$(perf_gate workload.window.to)" || return 1
+  if [[ $mode == pairs ]]; then
+    throttle_perf || return 1
+    for pair in $(seq 1 "$(perf_gate timing.pairs)"); do
+      order=(base head)
+      ((pair % 2 == 0)) && order=(head base)
+      for side in "${order[@]}"; do
+        perf_capture "${side}-${pair}" "$side" "$(perf_gate workload.window.to)" || return 1
+      done
     done
-  done
-  release_throttle
+    release_throttle
+  fi
   perf_capture long head "$(perf_gate workload.resources.to)" "$(perf_gate workload.resources.from)" || return 1
-  VERIFY_PERF_BASE="$(cat "$VERIFY_DIR/perf/base-revision")" node node_modules/.bin/tsx src/perf/check.ts "$PERF_GATE" "$VERIFY_DIR/perf/captures" >"$VERIFY_DIR/perf-checks.json"
+  VERIFY_PERF_BASE="$(cat "$VERIFY_DIR/perf/base-revision")" node node_modules/.bin/tsx src/perf/check.ts "$PERF_GATE" "$VERIFY_DIR/perf/captures" "$VERIFY_DIR/perf/www/head" "$mode" >"$VERIFY_DIR/perf-checks.json"
 }
 
 stage_perf() {
+  perf_stage pairs
+}
+
+stage_perfbudgets() {
+  perf_stage no-pairs
+}
+
+perf_stage() {
+  local mode=$1
   production_port_free || return 1
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
   mkdir -p "$VERIFY_DIR/perf/captures"
   node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/perf/www/head" >"$VERIFY_DIR/perf/head-build.log" 2>&1 || { log "perf: the head build failed"; return 1; }
-  build_perf_base || return 1
+  perf_base_revision || return 1
+  [[ $mode == no-pairs ]] || build_perf_base || return 1
 
   local BROWSER_SESSION="archive-ocellus-verify-$(basename "$VERIFY_DIR")-perf" PRODUCTION_PID= THROTTLE_PID= result=1
   trap 'release_throttle; release_production; exit 130' INT TERM
   if serve_static "$VERIFY_DIR/perf/www" "$VERIFY_DIR/perf/server.log"; then
-    drive_perf
+    drive_perf "$mode"
     result=$?
   fi
   release_throttle
@@ -2296,7 +2313,7 @@ while [[ $# -gt 0 ]]; do
 done
 [[ ${#stages[@]} -gt 0 ]] || stages=(build types test assets browser production)
 for stage in "${stages[@]}"; do
-  case "$stage" in bundle | build | types | test | parity | assets | browser | production | perf) ;; *) log "unknown stage: ${stage}"; exit 2 ;; esac
+  case "$stage" in bundle | build | types | test | parity | assets | browser | production | perf | perfbudgets) ;; *) log "unknown stage: ${stage}"; exit 2 ;; esac
 done
 if [[ " ${stages[*]} " == *" browser "* ]]; then
   [[ ${#BROWSER_UNITS[@]} -gt 0 ]] || mapfile -t BROWSER_UNITS < <(all_units)

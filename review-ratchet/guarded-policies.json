@@ -243,6 +243,10 @@
           "mutation": [{ "find": "verdict.production === \"PASS\" && verdict.perf === \"PASS\"", "replace": "verdict.production === \"PASS\"" }]
         },
         {
+          "policy": "timing pairs the plan selected must pass",
+          "mutation": [{ "find": "(verdict.perfTiming === \"PASS\" || !timingSelected)", "replace": "true" }]
+        },
+        {
           "policy": "every asset the head deletes is listed",
           "mutation": [{ "find": "verdict.assets.deleted.map((key) => `  - deleted ${key}`)", "replace": "[]" }]
         }

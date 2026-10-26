@@ -7,7 +7,9 @@ const usage = `usage: t2-summary.mjs T2_DIR
 Reads the browser report in T2_DIR/browser/browser-checks.json and the
 artifacts the T2 jobs uploaded to T2_DIR/artifacts, writes the one T2
 verdict to T2_DIR/verdict.json, and prints it as Markdown. Exits 0 when every
-browser unit and check, the production stage and the perf stage passed.
+browser unit and check, the production stage and the perf budgets passed,
+and the throttled timing pairs passed too when the plan selected them (or
+when no plan was uploaded).
 `;
 
 const [dir] = process.argv.slice(2);
@@ -25,6 +27,8 @@ const units = Object.entries(report.units);
 const failedUnits = units.filter(([, { outcome }]) => outcome !== "passed");
 const failedChecks = Object.keys(report.checks).filter((name) => !report.checks[name]);
 const assets = read(artifact("t2-assets", "assets-diff.txt"));
+const plan = read(artifact("t2-plan", "plan.json"));
+const timingSelected = plan === null || JSON.parse(plan).units.includes("perf_timing");
 const verdict = {
   head: process.env.GITHUB_SHA ?? null,
   base: process.env.BASE ?? null,
@@ -32,9 +36,10 @@ const verdict = {
   browser: { passed: units.length > 0 && failedUnits.length === 0 && failedChecks.length === 0, ...report },
   production: stage("t2-production", "summary.txt"),
   perf: stage("perf-evidence", "summary.txt"),
+  perfTiming: timingSelected ? stage("perf-timing-evidence", "summary.txt") : "not selected by the plan",
   assets: assets === null ? "missing" : JSON.parse(assets.trimEnd().split("\n").at(-1)),
 };
-const passed = verdict.browser.passed && verdict.production === "PASS" && verdict.perf === "PASS";
+const passed = verdict.browser.passed && verdict.production === "PASS" && verdict.perf === "PASS" && (verdict.perfTiming === "PASS" || !timingSelected);
 fs.writeFileSync(path.join(dir, "verdict.json"), `${JSON.stringify({ passed, ...verdict }, null, 2)}\n`);
 
 const lines = [
@@ -45,7 +50,8 @@ const lines = [
   ...failedChecks.filter((name) => !units.some(([, { failed }]) => failed?.includes(name))).map((name) => `  - check ${name} failed`),
   ...Object.entries(report.notJudged).map(([name, missing]) => `  - check ${name} not judged: ${missing.join(", ")} did not complete`),
   `- production: ${verdict.production}`,
-  `- perf: ${verdict.perf}`,
+  `- perf budgets: ${verdict.perf}`,
+  `- perf timing pairs: ${verdict.perfTiming}`,
   `- assets: ${verdict.assets === "missing" ? "missing" : `${verdict.assets.deleted.length} deleted, ${verdict.assets.added.length} added, ${verdict.assets.changed.length} changed against the base`}`,
   ...(verdict.assets === "missing" ? [] : verdict.assets.deleted.map((key) => `  - deleted ${key}`)),
   `- SDK: ${verdict.sdk}`,

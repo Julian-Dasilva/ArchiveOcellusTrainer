@@ -5,12 +5,14 @@ export const SIDES = ["base", "head"] as const;
 export type Side = (typeof SIDES)[number];
 const GROWTH_BUDGETS = ["geometriesPerRetiredRift3d", "texturesPerRetiredRift3d", "heapGrowthMiB3d", "mobGrowth3d", "entityGrowth3d", "projectileGrowth3d", "sceneObjectGrowth3d"] as const;
 type GrowthBudget = (typeof GROWTH_BUDGETS)[number];
-const BUDGETS = ["drawCallsMedian3d", "drawCallsMax3d", "tickGapExcess3d", ...GROWTH_BUDGETS] as const;
+const PAIR_BUDGETS = ["tickGapExcess3d"] as const;
+const BUDGETS = ["drawCallsMedian3d", "drawCallsMax3d", "trianglesMax3d", ...PAIR_BUDGETS, ...GROWTH_BUDGETS, "bundleKiB"] as const;
 export type BudgetName = (typeof BUDGETS)[number];
 const LIMITS = [...BUDGETS, "medianRatioLimit"] as const;
 export type Limit = (typeof LIMITS)[number];
 const TIMINGS = ["frameP95", "tickGapP95"] as const;
 export type TimingMeasure = (typeof TIMINGS)[number];
+export const PAIRS_ONLY: readonly (BudgetName | TimingMeasure)[] = [...PAIR_BUDGETS, ...TIMINGS];
 const MIB = 1024 * 1024;
 
 type TickRange = Readonly<{ from: Tick; to: Tick }>;
@@ -19,6 +21,7 @@ export type Config = Readonly<{
   workload: Readonly<{ query: string; cpuThrottleRate: number; window: TickRange; resources: TickRange }>;
   budgets: Readonly<Record<BudgetName, number>>;
   timing: Readonly<{ pairs: number; medianRatioLimit: number }>;
+  headless: Readonly<{ viewAllocationsPerFrame: number }>;
   exceptions: readonly BudgetException[];
 }>;
 export type BaseLimits = Readonly<{ limits: Readonly<Partial<Record<Limit, number>>>; exceptions: readonly BudgetException[] }>;
@@ -26,7 +29,7 @@ export type BaseLimits = Readonly<{ limits: Readonly<Partial<Record<Limit, numbe
 type WorldCounts = Readonly<{ mobs: number; entities: number; projectiles: number }>;
 type RendererCounts = Readonly<{ geometries: number; textures: number; sceneObjects: number }>;
 type TickSample = Readonly<{ at: number; p4: Tick | null; stage: string | null; world: WorldCounts; renderer: RendererCounts | null }>;
-type DrawSample = Readonly<{ at: number; calls: number }>;
+type DrawSample = Readonly<{ at: number; calls: number; triangles: number }>;
 type HeapReading = Readonly<{ p4: Tick; usedBytes: number; backingBytes: number }>;
 export type Capture = Readonly<{
   viewportPixels: number;
@@ -39,7 +42,8 @@ export type Capture = Readonly<{
   errors: readonly string[];
 }>;
 export type Pair = Readonly<Record<Side, Capture>>;
-export type Runs = Readonly<{ pairs: readonly Pair[]; long: Capture }>;
+export type Timing = Readonly<{ kind: "pairs"; pairs: readonly Pair[] }> | Readonly<{ kind: "not-run" }>;
+export type Runs = Readonly<{ long: Capture; bundleBytes: number; timing: Timing }>;
 
 export type RunMetrics = Readonly<{
   frameP95: number;
@@ -47,6 +51,7 @@ export type RunMetrics = Readonly<{
   tickGapMax: number;
   drawCallsMedian: number | null;
   drawCallsMax: number | null;
+  trianglesMax: number | null;
   canvasToViewport: number;
 }>;
 
@@ -122,13 +127,16 @@ export function runMetrics(capture: Capture, window: TickRange): RunMetrics {
   const inWindow = (at: number) => at >= within.start && at <= within.end;
   const frameGaps = gaps(capture.frames.filter(inWindow));
   const tickGaps = gaps(capture.ticks.filter(({ p4 }) => p4 !== null && p4 >= window.from && p4 <= window.to).map(({ at }) => at));
-  const draws = capture.draws.filter(({ at }) => inWindow(at)).map(({ calls }) => calls);
+  const renders = capture.draws.filter(({ at }) => inWindow(at));
+  const draws = renders.map(({ calls }) => calls);
+  const triangles = renders.map(({ triangles: count }) => count);
   return {
     frameP95: percentile(frameGaps, 0.95),
     tickGapP95: percentile(tickGaps, 0.95),
     tickGapMax: Math.max(...tickGaps),
     drawCallsMedian: draws.length > 0 ? median(draws) : null,
     drawCallsMax: draws.length > 0 ? Math.max(...draws) : null,
+    trianglesMax: triangles.length > 0 ? Math.max(...triangles) : null,
     canvasToViewport: capture.largestCanvasPixels / capture.viewportPixels,
   };
 }
@@ -171,21 +179,31 @@ function longRunGrowth(capture: Capture, { from, to }: TickRange): Growth {
 
 export function judge(config: Config, runs: Runs): readonly Line[] {
   const { window, resources } = config.workload;
-  const named = runs.pairs.flatMap((pair, i) => SIDES.map((side) => [`${side}-${i + 1}`, pair[side]] as const));
-  const problems = [...named.flatMap(([name, capture]) => measurementProblems(name, capture, window)), ...measurementProblems("long", runs.long, resources)];
+  const pairs = runs.timing.kind === "pairs" ? runs.timing.pairs : [];
+  const named = pairs.flatMap((pair, i) => SIDES.map((side) => [`${side}-${i + 1}`, pair[side]] as const));
+  const problems = [
+    ...named.flatMap(([name, capture]) => measurementProblems(name, capture, window)),
+    ...measurementProblems("long", runs.long, window),
+    ...measurementProblems("long", runs.long, resources),
+  ];
   const growth = longRunGrowth(runs.long, resources);
   if ("problem" in growth) problems.push({ kind: "measurement", run: "long", problem: growth.problem });
   if (problems.length > 0 || "problem" in growth) return problems;
 
-  const metrics = (side: Side) => runs.pairs.map((pair) => runMetrics(pair[side], window));
-  const worst = (values: readonly (number | null)[]) => Math.max(...values.map((value) => value ?? Infinity));
-  const observed: Readonly<Record<BudgetName, number>> = {
-    drawCallsMedian3d: worst(metrics("head").map((run) => run.drawCallsMedian)),
-    drawCallsMax3d: worst(metrics("head").map((run) => run.drawCallsMax)),
-    tickGapExcess3d: tickGapExcess(runs.pairs, window),
+  const long = runMetrics(runs.long, window);
+  const measured = (value: number | null) => value ?? Infinity;
+  const observed: Readonly<Record<Exclude<BudgetName, "tickGapExcess3d">, number>> = {
+    drawCallsMedian3d: measured(long.drawCallsMedian),
+    drawCallsMax3d: measured(long.drawCallsMax),
+    trianglesMax3d: measured(long.trianglesMax),
     ...growth.observed,
+    bundleKiB: Math.ceil(runs.bundleBytes / 1024),
   };
-  const budgets: Line[] = BUDGETS.map((name) => ({ kind: "budget", name, observed: observed[name], budget: config.budgets[name] }));
+  const budget = (name: BudgetName, value: number): Line => ({ kind: "budget", name, observed: value, budget: config.budgets[name] });
+  const excess = runs.timing.kind === "pairs" ? [budget("tickGapExcess3d", tickGapExcess(pairs, window))] : [];
+  const budgets = BUDGETS.flatMap((name): Line[] => (name === "tickGapExcess3d" ? excess : [budget(name, observed[name])]));
+  if (runs.timing.kind === "not-run") return budgets;
+  const metrics = (side: Side) => pairs.map((pair) => runMetrics(pair[side], window));
   const timings: Line[] = TIMINGS.map((measure) => {
     const base = metrics("base").map((run) => run[measure]);
     const head = metrics("head").map((run) => run[measure]);
@@ -279,6 +297,7 @@ export function parseConfig(raw: Json): Config {
     budgets: {
       drawCallsMedian3d: num(budgets, "drawCallsMedian3d"),
       drawCallsMax3d: num(budgets, "drawCallsMax3d"),
+      trianglesMax3d: num(budgets, "trianglesMax3d"),
       tickGapExcess3d: num(budgets, "tickGapExcess3d"),
       geometriesPerRetiredRift3d: num(budgets, "geometriesPerRetiredRift3d"),
       texturesPerRetiredRift3d: num(budgets, "texturesPerRetiredRift3d"),
@@ -287,8 +306,10 @@ export function parseConfig(raw: Json): Config {
       entityGrowth3d: num(budgets, "entityGrowth3d"),
       projectileGrowth3d: num(budgets, "projectileGrowth3d"),
       sceneObjectGrowth3d: num(budgets, "sceneObjectGrowth3d"),
+      bundleKiB: num(budgets, "bundleKiB"),
     },
     timing: { pairs, medianRatioLimit: num(timing, "medianRatioLimit") },
+    headless: { viewAllocationsPerFrame: num(field(raw, "headless"), "viewAllocationsPerFrame") },
     exceptions: exceptions(raw),
   };
 }
@@ -324,8 +345,8 @@ export function parseCapture(raw: Json): Capture {
       };
     }),
     draws: list(raw, "draws").map((sample) => {
-      const [at, calls] = tuple(sample, 2);
-      return { at: finite(at), calls: finite(calls) };
+      const [at, calls, triangles] = tuple(sample, 3);
+      return { at: finite(at), calls: finite(calls), triangles: finite(triangles) };
     }),
     heap: list(raw, "heap").map((reading) => ({ p4: tick(num(reading, "p4")), usedBytes: num(reading, "usedBytes"), backingBytes: num(reading, "backingBytes") })),
     largestCanvasPixels: num(canvas, "width") * num(canvas, "height"),

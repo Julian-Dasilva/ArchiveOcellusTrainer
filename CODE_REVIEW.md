@@ -4,7 +4,7 @@ Read this before you review a change to the trainer, whether you are a person or
 
 ## Look for these performance red flags
 
-Each flag below is a pattern that costs frame time or memory on a player's machine. A flag is a finding only when it comes with an executable proof: a measured regression from `scripts/verify.sh perf`, or a test or script that shows the growth or the extra work.
+Each flag below is a pattern that costs frame time or memory on a player's machine. A flag is a finding only when it comes with an executable proof: a measured regression from `scripts/verify.sh perfbudgets` or `scripts/verify.sh perf`, or a test or script that shows the growth or the extra work.
 
 - Work per frame that could run once per tick. The world ticks every 600 ms and the browser draws up to 60 frames a second, so per-frame work runs about 36 times as often.
 - Allocation inside a frame or tick loop, including new `THREE` geometries, textures, materials and canvases. Build them once and reuse them, as `VoidFloorModel` in `src/content/ocellus/js/entities/P4Views.ts` does for each void kind.
@@ -15,21 +15,26 @@ Each flag below is a pattern that costs frame time or memory on a player's machi
 - A first-use asset fetch, image decode or shader compile in the middle of the fight. Load and warm these before P4 starts.
 - A new entry in the `exceptions` list of `src/perf/perfGate.json`. Each entry lets a pull request raise one budget. The reviewer must justify it before approval: read the entry's reason and evidence, confirm the cost is worth what players get, and confirm no cheaper change removes the cost.
 
-A change to rendering, the tick loop, entities, views or input states its performance effect in the pull request. If it touches those paths, the author runs `scripts/verify.sh perf` and reports the frame-time p95, the tick-gap p95 and the draw calls.
+A change to rendering, the tick loop, entities, views or input states its performance effect in the pull request. When `scripts/verify.sh plan` selects `perf_timing` for it, the author runs `scripts/verify.sh perf` and reports the frame-time p95, the tick-gap p95 and the draw calls.
 
 ## Run the perf stage
 
 ```sh
 source ~/osrs-sims/env.sh                     # Node 22 on this machine
-scripts/verify.sh assets perf                 # assets once, then the perf stage
+scripts/verify.sh assets perfbudgets          # assets once, then every budget that does not need timing pairs
+scripts/verify.sh perf                        # those budgets plus the throttled base and head timing pairs
 VERIFY_PERF_BASE=<rev> scripts/verify.sh perf # compare against a base other than the merge base with origin/main
 ```
 
-The stage builds production bundles for the working tree (the head) and for the base, serves both on `VERIFY_PRODUCTION_PORT` (default 8003), and drives seeded passive fights in headless Chrome. `src/perf/observer.js` records every animation frame, every world tick with the world's mob, entity and projectile counts, each 3D render's draw calls, the renderer's geometry, texture and scene object counts, and the largest canvas the page allocates. `src/perf/check.ts` turns the captures into a verdict. Evidence lands in `<evidence>/perf/captures/` and `<evidence>/perf-checks.json`.
+`perfbudgets` builds only the head and runs only the unthrottled long run, which also covers the fight window, so it needs no base build and no throttle. `perf` adds the base build and the throttled pairs. Both read the base's `src/perf/perfGate.json` for budget raises.
+
+The `perf` stage builds production bundles for the working tree (the head) and for the base, serves both on `VERIFY_PRODUCTION_PORT` (default 8003), and drives seeded passive fights in headless Chrome. `src/perf/observer.js` records every animation frame, every world tick with the world's mob, entity and projectile counts, each 3D render's draw calls, the renderer's geometry, texture and scene object counts, and the largest canvas the page allocates. `src/perf/check.ts` turns the captures into a verdict. Evidence lands in `<evidence>/perf/captures/` and `<evidence>/perf-checks.json`.
 
 Every fight-window run is CPU throttled 4 times (`workload.cpuThrottleRate`), so a player on a slower machine than the one running the stage is represented. The long run is not throttled, because it counts resources rather than time, and on a throttled GitHub Actions runner the page was still loading models at P4 tick 220. `src/perf/devtools.ts throttle` sets the DevTools protocol's `Emulation.setCPUThrottlingRate` on the session's tab. Chrome ends the throttle when that DevTools session closes, so the process holds the session for the whole stage, and the stage fails a throttled run that ends after the process exits. The throttle slows the page's main thread only. On a GitHub Actions runner the software WebGL rasteriser runs in Chrome's GPU process and stays at full speed.
 
-Each run uses `?seed=1&invincible=on`, stands still, and runs from P4 tick 8 to P4 tick 80, so the void rifts that spawn at tick 67 are on screen for the last 13 ticks. The stage runs 5 pairs of base and head runs, alternating their order, then one long head run to P4 tick 400. The whole stage takes about 14 minutes, both on an M3 Max and on a GitHub Actions runner, where the `perf` job in `.github/workflows/test.yml` runs it for every pull request.
+Each run uses `?seed=1&invincible=on`, stands still, and runs from P4 tick 8 to P4 tick 80, so the void rifts that spawn at tick 67 are on screen for the last 13 ticks. The stage runs 5 pairs of base and head runs, alternating their order, then one long head run to P4 tick 400. The whole stage takes about 14 minutes, both on an M3 Max and on a GitHub Actions runner.
+
+On CI the `perf` job runs `perfbudgets` for every pull request. The `perf-timing` job runs `perf` only when the plan selects `perf_timing`: a change to the SDK pin, the build, the shared encounter layer or `src/perf`. `.github/workflows/nightly.yml` runs it every night against `main` a day earlier.
 
 ## Read the verdict
 
@@ -39,14 +44,17 @@ The draw-call, resource and growth budgets do not depend on machine speed. The d
 
 | Budget | What the stage measures |
 | --- | --- |
-| `drawCallsMedian3d` | The median draw calls per 3D render in the fight window, worst head run |
-| `drawCallsMax3d` | The most draw calls in one 3D render in the fight window, worst head run |
+| `drawCallsMedian3d` | The median draw calls per 3D render in the fight window of the unthrottled long run |
+| `drawCallsMax3d` | The most draw calls in one 3D render in the same window |
+| `trianglesMax3d` | The most triangles in one 3D render in the same window |
 | `tickGapExcess3d` | The most that any head run's gap between two world ticks in the fight window exceeds the longest base gap ending at the same P4 tick, in milliseconds |
 | `geometriesPerRetiredRift3d` | The renderer's geometry count gained between P4 ticks 220 and 400, which sit at the same point of the 60-tick cycle, divided by the rifts retired in between |
 | `texturesPerRetiredRift3d` | The same for textures |
 | `heapGrowthMiB3d` | The JS heap plus its array buffer storage gained between P4 ticks 220 and 400 of the long run, in MiB, each read after a forced garbage collection |
 | `mobGrowth3d`, `entityGrowth3d`, `projectileGrowth3d` | The world's mobs, entities and projectiles gained between P4 ticks 220 and 400 |
 | `sceneObjectGrowth3d` | The objects in the rendered 3D scene gained between P4 ticks 220 and 400 |
+| `bundleKiB` | The production build's JavaScript, in KiB |
+| `headless.viewAllocationsPerFrame` | The geometries, materials, textures, objects and canvases one trainer view constructs in a frame after its tick's first, in `src/perf/views.test.ts` without a browser |
 
 The resource count starts at P4 tick 220 because the page loads models during its first cycles, and loads them more slowly when it draws fewer frames. At three frames a second the geometry count still grows from loading between ticks 160 and 220, and by tick 220 it has stopped.
 
@@ -63,6 +71,23 @@ An absolute limit does not work on the runners, because their speed changes from
 Frame-time p95 and tick-gap p95 depend on the machine and its load. The stage compares them against the base build on the same machine at the same seed. For each pair it divides the head's value by the base's value, and it fails when the median of those ratios exceeds `timing.medianRatioLimit`, which is 1.25.
 
 The limit rests on 7 throttled runs whose base and head ship the same game code, 3 on an M3 Max with its GPU and 4 on GitHub Actions runners with software WebGL. Every median ratio fell between 0.991 and 1.003. Every per-pair ratio fell between 0.976 and 1.031 except three on the runners, where one 3D run drew its frames one refresh slower or faster than its pair, a ratio of 1.198 or 0.858, and the median of 5 pairs absorbed each. The median is why one slow run cannot fail the stage. A limit of 1.25 sits 28 times above the medians' largest deviation, 0.009, and leaves room for a busy machine, while a 300 ms stall in every frame raises the frame-time ratio to about 20. Frame times move in whole display refreshes of 16.7 ms, so the frame-time measure moves only when a frame misses a refresh. Under the throttle the M3 Max still draws every frame in one refresh, and the runners draw 3D frames in 83 to 117 ms. The hard budgets catch slower costs, such as extra draw calls, on any machine.
+
+## Which check covers each budget
+
+| Budget | Check | Runs |
+| --- | --- | --- |
+| `drawCallsMedian3d`, `drawCallsMax3d`, `trianglesMax3d` | the long run's fight window in `perfbudgets` and `perf` | every pull request on CI |
+| `geometriesPerRetiredRift3d`, `texturesPerRetiredRift3d`, `heapGrowthMiB3d`, `sceneObjectGrowth3d` | the long run in `perfbudgets` and `perf` | every pull request on CI |
+| `mobGrowth3d`, `entityGrowth3d`, `projectileGrowth3d` | the long run, and `src/perf/views.test.ts` without a browser | every pull request on CI; the Vitest file also in every T0 |
+| `bundleKiB` | the head build in `perfbudgets` and `perf` | every pull request on CI |
+| `headless.viewAllocationsPerFrame` | `src/perf/views.test.ts` | every T0 and the CI `test` job |
+| `tickGapExcess3d`, `frameP95` and `tickGapP95` against `timing.medianRatioLimit` | the throttled pairs in `perf` | when the plan selects `perf_timing`, and nightly |
+
+The draw-call budgets used to read the throttled head runs. The long run draws the same renders unthrottled. In a laptop run on `main` at 99868bc, the five throttled head runs and the long run's window all measured a median of 14 calls and a maximum of 27. The long run sits a little closer to the median's edge: 51.6% of its renders draw 14 calls or fewer, against 52.3 to 52.7% for the head runs.
+
+The most triangles in one render of the window is 15,962, drawn in 37 renders at P4 ticks 61 and 62, and `trianglesMax3d` is that value. The triangle median is not a budget. The counts cluster at 13,102, 13,574, 13,768, 14,768, 15,064 and 15,237 by which effects are on screen, so a change in frame pacing alone moves the median from one cluster to the next.
+
+`src/perf/views.test.ts` plays the perf workload's seeded passive fight without a browser from P4 tick 8 to 400. It draws every trainer view ten times a tick, the way the SDK's viewport keeps one model per entity, and counts what each draw constructs from THREE's own id counters and from `document.createElement("canvas")`. A view may build in its tick's first frame. A geometry built in every frame of the walkway fails it, and so does an explosion view that is never retired, through the entity growth test.
 
 ## Change a budget
 

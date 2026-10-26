@@ -31,7 +31,9 @@ verdict() {
 stages() {
   mkdir -p "$WORK/t2/artifacts/t2-production" "$WORK/t2/artifacts/perf-evidence" "$WORK/t2/artifacts/t2-assets"
   echo "PASS production" >"$WORK/t2/artifacts/t2-production/summary.txt"
-  echo "PASS perf" >"$WORK/t2/artifacts/perf-evidence/summary.txt"
+  echo "PASS perfbudgets" >"$WORK/t2/artifacts/perf-evidence/summary.txt"
+  mkdir -p "$WORK/t2/artifacts/t2-plan"
+  printf '{"tier":"t1","units":["seed"],"selections":[]}' >"$WORK/t2/artifacts/t2-plan/plan.json"
   printf 'assets: deleted spotAnims.1172\n{"deleted":["spotAnims.1172"],"added":[],"changed":[]}\n' >"$WORK/t2/artifacts/t2-assets/assets-diff.txt"
   echo "install-beta-sdk: installed osrs-sdk commit abc matches the pin" >"$WORK/t2/artifacts/t2-assets/sdk-pin.txt"
 }
@@ -73,11 +75,24 @@ unit_lost_with_its_shard_fails() {
 
 failed_stage_fails() {
   stages
-  echo "FAIL perf" >"$WORK/t2/artifacts/perf-evidence/summary.txt"
+  echo "FAIL perfbudgets" >"$WORK/t2/artifacts/perf-evidence/summary.txt"
   verdict seed passed
   ready
-  if summarize seed; then cat "$WORK/out.txt"; fail "T2 passed with a failed perf stage"; fi
-  grep -qx -- "- perf: FAIL" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the failed stage is not shown"; }
+  if summarize seed; then cat "$WORK/out.txt"; fail "T2 passed with failed perf budgets"; fi
+  grep -qx -- "- perf budgets: FAIL" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the failed stage is not shown"; }
+}
+
+timing_pairs_count_only_when_planned() {
+  stages
+  verdict seed passed
+  ready
+  summarize seed || { cat "$WORK/out.txt"; fail "T2 failed on timing pairs the plan did not select"; }
+  grep -qx -- "- perf timing pairs: not selected by the plan" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the unselected pairs are not shown"; }
+  printf '{"tier":"t2","units":["seed","perf_timing"],"selections":[]}' >"$WORK/t2/artifacts/t2-plan/plan.json"
+  mkdir -p "$WORK/t2/artifacts/perf-timing-evidence"
+  echo "FAIL perf" >"$WORK/t2/artifacts/perf-timing-evidence/summary.txt"
+  if summarize seed; then cat "$WORK/out.txt"; fail "T2 passed with failed timing pairs the plan selected"; fi
+  grep -qx -- "- perf timing pairs: FAIL" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the failed pairs are not shown"; }
 }
 
 failed=0
@@ -85,7 +100,8 @@ for t in \
   every_unit_lands_in_one_shard \
   passing_units_and_stages_pass \
   unit_lost_with_its_shard_fails \
-  failed_stage_fails; do
+  failed_stage_fails \
+  timing_pairs_count_only_when_planned; do
   if ("$t") >"$WORK/$t.log" 2>&1; then
     echo "PASS $t"
   else

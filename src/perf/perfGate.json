@@ -14,6 +14,7 @@
   "budgets": {
     "drawCallsMedian3d": 14,
     "drawCallsMax3d": 27,
+    "trianglesMax3d": 15962,
     "tickGapExcess3d": 300,
     "geometriesPerRetiredRift3d": 2.67,
     "texturesPerRetiredRift3d": 1,
@@ -21,11 +22,15 @@
     "mobGrowth3d": 0,
     "entityGrowth3d": 0,
     "projectileGrowth3d": 0,
-    "sceneObjectGrowth3d": 0
+    "sceneObjectGrowth3d": 0,
+    "bundleKiB": 1750
   },
   "timing": {
     "pairs": 5,
     "medianRatioLimit": 1.25
+  },
+  "headless": {
+    "viewAllocationsPerFrame": 0
   },
   "exceptions": []
 }
