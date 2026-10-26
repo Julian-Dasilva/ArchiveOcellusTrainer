@@ -69,6 +69,7 @@
     { "paths": ["src/itemIcons/**"], "units": ["loadouts", "supplies"] },
     { "paths": ["src/cacheHeaders/**", "src/_headers", "netlify.toml", "wrangler.jsonc", "scripts/netlify-build.sh"], "units": ["production"] },
     { "paths": ["src/perf/**"], "units": ["perf_timing"] },
+    { "paths": ["scripts/verify/frame-clock.js"], "units": ["focus", "click_correction", "explosions", "explosion_run_end", "transition_attack", "overheads_rifts", "cues"] },
     { "paths": ["src/content/ocellus/js/p4/orb.ts"], "units": ["@orbs"] },
     { "paths": ["src/content/ocellus/js/p4/explosions.ts"], "units": ["@explosion_set"] },
     { "paths": ["src/content/ocellus/js/mobs/VoidRift.ts"], "units": ["overheads_rifts"] },
