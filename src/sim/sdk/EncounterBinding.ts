@@ -17,6 +17,7 @@ export type HitRequest<C> = Readonly<{ kind: "hit"; damage: Damage; cause: C }>;
 export type Judgement = Readonly<{ kind: "judge-incoming"; hit: IncomingHit; damage: number }>;
 export type Heal = Readonly<{ kind: "heal"; amount: number; limit: "max-hp" | "allow-overheal" }>;
 export type AttackDelayCut = Readonly<{ kind: "cut-attack-delay"; by: TickSpan }>;
+export type Relocation = Readonly<{ kind: "relocate"; to: Tile }>;
 
 type FrameData<T extends Encounter> = {
   "tick-opened": Readonly<Record<never, never>>;
@@ -35,7 +36,7 @@ export type Frame<T extends Encounter> = { [K in FrameKind]: FrameOf<T, K> }[Fra
 type Replies<T extends Encounter> = {
   "tick-opened": void;
   "before-npc-hits": Readonly<{ snapshot: T["snapshot"]; outputs: readonly (Logged<T["event"]> | Judgement | HitRequest<T["cause"]>)[] }>;
-  "npc-turn": Readonly<{ outputs: readonly (Logged<T["event"]> | HitRequest<T["cause"]> | AttackDelayCut)[]; ending: T["end"] | null }>;
+  "npc-turn": Readonly<{ outputs: readonly (Logged<T["event"]> | HitRequest<T["cause"]> | AttackDelayCut | Relocation)[]; ending: T["end"] | null }>;
   "hit-applied": readonly T["event"][];
   "player-hits-settled": readonly (Logged<T["event"]> | Heal)[];
   "player-moved": void;
@@ -357,7 +358,7 @@ export class EncounterBinding<T extends Encounter> {
     }
   }
 
-  private apply(actor: Unit, outputs: readonly (Logged<T["event"]> | Judgement | HitRequest<T["cause"]> | AttackDelayCut)[], incoming: ReadonlyMap<IncomingHit, Projectile>): readonly T["event"][] {
+  private apply(actor: Unit, outputs: readonly (Logged<T["event"]> | Judgement | HitRequest<T["cause"]> | AttackDelayCut | Relocation)[], incoming: ReadonlyMap<IncomingHit, Projectile>): readonly T["event"][] {
     return outputs.flatMap((output) => {
       switch (output.kind) {
         case "event":
@@ -372,6 +373,9 @@ export class EncounterBinding<T extends Encounter> {
         }
         case "cut-attack-delay":
           this.player.attackDelay = cutAttackDelay(this.player.attackDelay, output.by);
+          return [];
+        case "relocate":
+          actor.setLocation(output.to);
           return [];
         default: {
           const unhandled: never = output;

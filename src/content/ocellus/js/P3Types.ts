@@ -11,16 +11,23 @@ export type SpinCount = 1 | 2 | 3;
 export type Spin = Readonly<{ nth: 1; of: SpinCount }> | Readonly<{ nth: 2; of: 2 | 3 }> | Readonly<{ nth: 3; of: 3 }>;
 export type FlickRule = "on-off-on" | "off-then-on" | "held-blocks";
 export type FlickMiss = "held" | "late" | "early";
+export type SpecialOrder = "alternate" | "smite-only";
 export type SpinVerdict = Readonly<{ kind: "blocked" }> | Readonly<{ kind: "struck"; why: FlickMiss }>;
 
-export type P3Stage = "arrive" | "autos" | "smite-1" | "smite-2" | "smite-3" | "destroy";
-export type P3Phase = Readonly<{ stage: P3Stage }>;
+export type P3Stage = "arrive" | "autos" | "smite-1" | "smite-2" | "smite-3" | "untether" | "untether-ends" | "destroy";
+export type BossPosture = "chasing" | "floating";
+export type P3Phase = Readonly<{ stage: P3Stage; posture: BossPosture }>;
 
 export type P3Beat =
   | Readonly<{ kind: "reach-attack" }>
   | Readonly<{ kind: "wave-cast" }>
   | Readonly<{ kind: "smite-opens" }>
   | Readonly<{ kind: "spin-lands"; spin: Spin }>
+  | Readonly<{ kind: "untether-starts" }>
+  | Readonly<{ kind: "purple-tiles-show" }>
+  | Readonly<{ kind: "untether-magic" }>
+  | Readonly<{ kind: "border-shows" }>
+  | Readonly<{ kind: "void-erupts" }>
   | Readonly<{ kind: "quadrant-cleared" }>;
 
 export type P3Hit =
@@ -28,7 +35,11 @@ export type P3Hit =
   | Readonly<{ kind: "void-shot"; at: Tick }>
   | Readonly<{ kind: "smite-blow"; at: Tick }>
   | Readonly<{ kind: "spin"; at: Tick; spin: Spin; verdict: SpinVerdict }>
-  | Readonly<{ kind: "rubble"; at: Tick; tile: Tile }>;
+  | Readonly<{ kind: "rubble"; at: Tick; tile: Tile }>
+  | Readonly<{ kind: "untether-magic"; at: Tick }>
+  | Readonly<{ kind: "purple-tile"; at: Tick; tile: Tile }>
+  | Readonly<{ kind: "eruption"; at: Tick; tile: Tile }>
+  | Readonly<{ kind: "slam"; at: Tick; tile: Tile }>;
 export type P3HitSource = P3Hit["kind"];
 
 export type P3End = Readonly<{ kind: "quadrant-cleared"; quadrant: Quadrant }> | Readonly<{ kind: "death" }>;
@@ -37,7 +48,11 @@ export type P3Event =
   | Readonly<{ kind: "stage-entered"; at: Tick; stage: P3Stage }>
   | Readonly<{ kind: "wave-cast"; at: Tick; toward: Tile }>
   | Readonly<{ kind: "rubble-aimed"; at: Tick; tile: Tile; landsAt: Tick; until: Tick }>
-  | Readonly<{ kind: "hazard-avoided"; at: Tick; hazard: "rubble"; tile: Tile }>
+  | Readonly<{ kind: "untether-started"; at: Tick }>
+  | Readonly<{ kind: "purple-tiles-shown"; at: Tick; tiles: readonly Tile[]; eruptsAt: Tick }>
+  | Readonly<{ kind: "border-shown"; at: Tick }>
+  | Readonly<{ kind: "void-erupted"; at: Tick }>
+  | Readonly<{ kind: "hazard-avoided"; at: Tick; hazard: "rubble" | "purple-tile" | "eruption" | "slam"; tile: Tile }>
   | Readonly<{ kind: "player-hit"; at: Tick; hit: P3Hit; receipt: HitReceipt }>
   | Readonly<{ kind: "death-prevented"; at: Tick; source: P3HitSource }>
   | Readonly<{ kind: "run-ended"; at: Tick; reason: P3End }>;

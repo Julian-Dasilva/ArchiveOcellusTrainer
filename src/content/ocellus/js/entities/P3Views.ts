@@ -1,6 +1,7 @@
 import { CollisionType, EmptyModel, Entity, LineOfSightMask, Settings } from "osrs-sdk";
 import type { Model, Region, Unit } from "osrs-sdk";
 import { OCELLUS_P3, OCELLUS_P4 } from "../OcellusTimings";
+import type { QuarterTurn } from "../OcellusTimings";
 import type { Tick, Tile } from "../../../../sim/brands";
 import type { Spin } from "../P3Types";
 import type { Cue } from "./P4Views";
@@ -128,5 +129,35 @@ export class RubbleView extends Entity {
 
   protected override create3dModel(): Model {
     return new SpotAnimModel(this, () => RUBBLE_CUES[this.state]);
+  }
+}
+
+export class FloorGraphic extends Entity {
+  private cue: Cue | null;
+
+  constructor(region: Region, at: Tile, spotAnim: number, private readonly turned: QuarterTurn) {
+    super(region, { x: at.x, y: at.y });
+    this.cue = { spotAnim, loops: false };
+  }
+
+  clear(): void {
+    this.cue = null;
+    this.dying = 0;
+  }
+
+  override getPerceivedRotation(): number {
+    return (this.turned * Math.PI) / 180;
+  }
+
+  override get collisionType(): CollisionType {
+    return CollisionType.NONE;
+  }
+
+  override get lineOfSight(): LineOfSightMask {
+    return LineOfSightMask.NONE;
+  }
+
+  protected override create3dModel(): Model {
+    return new SpotAnimModel(this, () => this.cue);
   }
 }

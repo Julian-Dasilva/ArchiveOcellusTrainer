@@ -7,7 +7,7 @@ import type { Basis, Citations, Evidence, WikiRef } from "../../../sim/provenanc
 import { noWiki, wiki } from "../../../sim/provenance";
 import type { DrillStart, Focus } from "../../../sim/schedule";
 import type { BossOverhead, HoveringBoss, Mechanic, Special, Stage, TransitionKind, VoidKind } from "./P4Types";
-import type { AutoAttack, FlickRule, Quadrant, ReachRule, SpinCount } from "./P3Types";
+import type { AutoAttack, FlickRule, Quadrant, ReachRule, SpecialOrder, SpinCount } from "./P3Types";
 import { roll } from "./roll";
 
 type Scale = "unscaled" | "team-4" | "team-5" | "team-4-and-5" | "team-7" | "team-8" | "team-7-and-8" | "solo";
@@ -46,7 +46,8 @@ type Source =
   | Readonly<{ kind: "cache"; build: 2746; record: string }>
   | Readonly<{ kind: "owner"; date: OwnerDate; topic: string }>
   | Readonly<{ kind: "guide"; url: string; at: string }>
-  | Readonly<{ kind: "capture"; url: string; at: string }>;
+  | Readonly<{ kind: "capture"; url: string; at: string }>
+  | Readonly<{ kind: "sim"; url: string; at: string }>;
 
 type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
 
@@ -69,6 +70,12 @@ const cache = (record: string): Source => ({ kind: "cache", build: 2746, record 
 const owner = (topic: string, date: OwnerDate = "2026-10-21"): Source => ({ kind: "owner", date, topic });
 const guide = (url: string, at: string): Source => ({ kind: "guide", url, at });
 const capture = (url: string, at: string): Source => ({ kind: "capture", url, at });
+const OCELLUS_SIM = "https://github.com/alessandrorodi/ocellus-sim/blob/3efd5bf1cc9ecd394c6fe04964f3d17be439fc38/src/content/ocellus/fight";
+const sim = (file: string, line: number, last: number = line): Source => ({
+  kind: "sim",
+  url: `${OCELLUS_SIM}/${file}#L${line}${last === line ? "" : `-L${last}`}`,
+  at: `${file}:${line}${last === line ? "" : `-${last}`}`,
+});
 const STRATEGIES_P4 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381030);
 const BOSS_INFOBOX = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15380968);
 const VOID_RIFT_PAGE = wiki("https://oldschool.runescape.wiki/w/Void_Rift", 15380527);
@@ -969,10 +976,29 @@ const RSPROX_P3 = "https://github.com/MRobertEvers/oldschool-clientc/blob/2b3352
 const SMITE_COUNTS = guide(DEFBIGBEAST_GUIDE, "12:53 to 13:00 and 13:29 to 13:37 (quadrant 1), 17:43 to 17:51 (quadrant 2), 21:28 to 21:34 (quadrant 3): hitsplat on count 4, back on for count 4, then counts 2 and 1, then 4, 3 and 2");
 
 type AutoStep = Readonly<{ attack: AutoAttack; next: TickSpan }>;
-type P3BossPose = "swing" | "voidShot" | "wave" | "smite";
+type P3BossPose = "swing" | "voidShot" | "wave" | "smite" | "untetherRise" | "untetherFloat" | "untetherUnleash";
 type BladeCue = "windUp" | "spin" | "windDown";
 type RubbleCue = "falling" | "idle" | "despawn";
 type SwingDamage = Readonly<{ protectedDamage: DamageRange; unprotectedDamage: DamageRange }>;
+type TileCount = Readonly<{ min: number; max: number }>;
+export type QuarterTurn = 0 | 90 | 180 | 270;
+
+type UntetherRecipe = Readonly<{
+  anchor: Selected<Tile>;
+  shout: Selected<string>;
+  shoutLasts: Selected<TickSpan>;
+  floatsFor: Selected<TickSpan>;
+  magicLandsAfterStart: Selected<readonly [TickSpan, ...TickSpan[]]>;
+  magicDamage: Selected<SwingDamage>;
+  purpleTiles: Readonly<{ showAfterStart: Selected<readonly [TickSpan, ...TickSpan[]]>; perShowing: Selected<TileCount>; eruptAfter: Selected<TickSpan>; damage: Selected<DamageRange> }>;
+  borderAfterStart: Selected<TickSpan>;
+  eruptionAfterBorder: Selected<TickSpan>;
+  slamAfterBorder: Selected<TickSpan>;
+  eruptionDamage: Selected<DamageRange>;
+  slamDamage: Selected<Readonly<{ eruptionMissed: DamageRange; eruptionHit: DamageRange }>>;
+  autosResumeAfterStart: Selected<TickSpan>;
+  look: Readonly<{ purpleTile: Selected<number>; border: Selected<Readonly<{ spotAnim: number; turned: QuarterTurn }>> }>;
+}>;
 
 type SmiteRecipe = Readonly<{
   spinsByQuadrant: Selected<Readonly<Record<Quadrant, SpinCount>>>;
@@ -994,6 +1020,7 @@ type P3Recipe = Readonly<{
   swing: Readonly<{ protectedDamage: Selected<DamageRange>; unprotectedDamage: Selected<DamageRange> }>;
   voidShot: Selected<DamageRange>;
   smite: SmiteRecipe;
+  untether: UntetherRecipe;
   bossPoses: Readonly<Record<P3BossPose, Selected<number>>>;
 }>;
 
@@ -1069,6 +1096,9 @@ const P3: P3Recipe = {
     voidShot: pose(14851, "npc_ocellus_phase3_basic_projectile_all", "inferred", "the void shot, 3 ticks; by its name"),
     wave: pose(14846, "npc_ocellus_phase3_melee_slash", "inferred", "the wave cast, 3 ticks; by its name and its four frame sounds"),
     smite: pose(14845, "npc_ocellus_phase3_melee_prayer", "inferred", "the smite's opening blow, 3 ticks; by its name and its sounds 12593 and 12596 on frames 8 and 16"),
+    untetherRise: selected(14857, "log-repeated", "unscaled", "Untether's rise, 2 ticks, on the shout's tick in all 27 Untethers of the fight logs", NO_WIKI_PRESENTATION, cache("seq 14857 npc_ocellus_phase3_unleash_in"), fightLog("L1", "2802"), sim("data.ts", 58)),
+    untetherFloat: selected(14858, "log-repeated", "unscaled", "his idle pose while he floats, a 2-tick loop, from 2 ticks after the shout in all 27 Untethers", NO_WIKI_PRESENTATION, cache("seq 14858 npc_ocellus_phase3_unleash_loop"), fightLog("L1", "2806"), sim("data.ts", 59)),
+    untetherUnleash: selected(14861, "log-repeated", "unscaled", "the eruption and the slam, 4 ticks, from the eruption's tick in all 27 Untethers", NO_WIKI_PRESENTATION, cache("seq 14861 npc_ocellus_phase3_unleash_out"), fightLog("L1", "2983"), sim("data.ts", 62)),
   },
   smite: {
     spinsByQuadrant: selected({ 1: 1, 2: 2, 3: 3 }, "spec-single", "unscaled", "one spin more for each destroyed quadrant", BOSS_PAGE_P3, guide(BUBBA_GUIDE, "7:44 and 9:13"), guide(DEFBIGBEAST_GUIDE, "19:10"), guide(NOAHSCAPE_GUIDE, "16:42")),
@@ -1105,6 +1135,126 @@ const P3: P3Recipe = {
     },
     rubble2d: selected({ falling: "#e0b050", landed: "#8a5cc4" }, "assumption", "unscaled", "the 2D view's falling outline and landed rubble tile; the 2D view has no in-game counterpart", NO_WIKI_PRESENTATION),
   },
+  untether: {
+    anchor: selected(
+      tile(20, 8),
+      "log-repeated",
+      "unscaled",
+      "on the shout he moves to the north-east wedge's Untether tile, the south-west tile of his 3x3 at cache (36, 46), so his 3x3 covers x 20 to 22 and y 6 to 8, and stays there until his autos resume; the relative logs give that tile and the region logs his centre (37, 47), where floor 4319 shows in all 9 north-east Untethers; the eruption hits exactly the raiders outside this 3x3 in 79 of 79 positions, and the 3x3 one tile north-east fits 32",
+      NO_WIKI_P3_ARENA, fightLog("L4", "4409: anim 14857 on the boss at 16472(37, 47), his centre, on the shout"), fightLog("L6", "3527: floor 4319 at (6, 6) under boss (5, 5)"), sim("geometry.ts", 175),
+    ),
+    shout: selected("Untether...", "log-repeated", "unscaled", "his overhead text as Untether starts, in all 27 Untethers of the eight fight logs", STRATEGIES_P3, fightLog("L6", "3390: [P3 +59] says \"Untether...\""), fightLog("L1", "2800"), sim("phase3.ts", 593)),
+    shoutLasts: selected(span(3), "inferred", "unscaled", "the overhead text shows for 3 ticks, as Alessandro's simulator shows it and as P4's \"End...\" lasts; the logs do not record how long overhead text lasts", NO_WIKI_P3_TICKS, sim("phase3.ts", 593)),
+    floatsFor: selected(
+      span(31),
+      "log-repeated",
+      "unscaled",
+      "he floats from the shout to 30 ticks after it: melee cannot reach him, he does not chase, and a quadrant break waits for the 31st tick; the 3 falls that came during an Untether came on that tick and none earlier, and his slam ends on the 30th; Alessandro's simulator blocks melee while he levitates and lands him on the 31st",
+      STRATEGIES_P3, fightLog("L1", "2992: quadrant 1 falls 31 ticks after the shout at 2800"), fightLog("L2", "2724 and 4413: falls 31 ticks after the shouts at 2527 and 4214"), sim("phase3.ts", 934), sim("phase3.ts", 637, 641), sim("data.ts", 426),
+    ),
+    magicLandsAfterStart: selected(
+      [span(10), span(14), span(18), span(22)],
+      "log-repeated",
+      "unscaled",
+      "magic lands on every raider 10, 14, 18 and 22 ticks after the shout: a 0 through Protect from Magic on each of those ticks in all 27 Untethers",
+      NO_WIKI_P3_TICKS, fightLog("L6", "3453, 3484, 3508 and 3521: [P3 +69] to [P3 +81]"), fightLog("L1", "2837"), sim("data.ts", 411),
+    ),
+    magicDamage: selected<SwingDamage>(
+      { protectedDamage: { min: 0, max: 0 }, unprotectedDamage: { min: 15, max: 25 } },
+      "log-repeated",
+      "team-7-and-8",
+      "Protect from Magic takes every splat to 0; without it the 6 splats in the logs are 15 to 25; Alessandro's simulator rolls 20 to 28",
+      NO_WIKI_P3_TICKS, fightLog("L2", "4380: 19 with no overhead"), fightLog("L5", "7182: 18 under Protect from Melee"), fightLog("L8", "3448, 3870, 3888 and 5946: 25, 22, 15 and 21"), sim("data.ts", 413),
+    ),
+    purpleTiles: {
+      showAfterStart: selected(
+        [span(6), span(10), span(14), span(18)],
+        "log-repeated",
+        "unscaled",
+        "purple tiles, floor 4270, show 6, 10, 14 and 18 ticks after the shout and on no other tick before the border, in all 27 Untethers",
+        STRATEGIES_P3, fightLog("L6", "3402: the first of 17 at [P3 +65]"), fightLog("L1", "2815"), sim("data.ts", 406),
+      ),
+      perShowing: selected(
+        { min: 8, max: 11 },
+        "log-repeated",
+        "team-7",
+        "8 to 11 tiles a showing with one raider left: one under that raider and the rest anywhere on the wedge, under his 3x3 too; 319 of 346 magic splats show a raider on a tile of that tick's showing, read after that tick's movement; Alessandro's simulator picks 10 to 15 tiles off his 3x3",
+        STRATEGIES_P3, fightLog("L4", "7497 and 7853: 10, 9, 8, 9, 11, 9, 8 and 10 tiles with one raider of seven left"), fightLog("L6", "3410: a tile at (6, 5), under his 3x3"), sim("phase3.ts", 666, 667),
+      ),
+      eruptAfter: selected(
+        span(4),
+        "inferred",
+        "unscaled",
+        "a tile hits a raider standing on it 4 ticks after it shows, on the tick of the next showing: 24 on a raider a vine held on the tile and 25 on one seen on it then; no raider seen on a tile 1 to 3 ticks after it showed was hit; Alessandro's simulator lands its tiles 2 ticks on",
+        STRATEGIES_P3, fightLog("L3", "5119: 24 on the tile shown at 5100"), fightLog("L2", "2613: 25 on the tile shown at 2596"), sim("phase3.ts", 669, 670),
+      ),
+      damage: selected<DamageRange>(
+        { min: 23, max: 25 },
+        "inferred",
+        "unscaled",
+        "23 to 25, typeless, through Protect from Magic: 24 and 25 on raiders on a tile, and two 23s as a second splat on the tick a tile erupts with the raider's tile unrecorded; from raids of 4, 7 and 8; Alessandro's simulator rolls 20 to 30",
+        STRATEGIES_P3, fightLog("L3", "5119"), fightLog("L2", "2613"), fightLog("L5", "4688 and 6270"), sim("phase3.ts", 671),
+      ),
+    },
+    borderAfterStart: selected(
+      span(25),
+      "log-repeated",
+      "unscaled",
+      "the arena flares around his 3x3 25 ticks after the shout: floor 4317 to 4320, one per wedge, on his centre tile in all 27 Untethers",
+      STRATEGIES_P3, fightLog("L6", "3527: [P3 +84]"), fightLog("L4", "4542"), analysis(RSPROX_P3, "L360"), sim("data.ts", 416),
+    ),
+    eruptionAfterBorder: selected(
+      span(4),
+      "log-repeated",
+      "unscaled",
+      "the void erupts over the wedge outside his 3x3 4 ticks after the border, the tick seq 14861 starts: it hits exactly the raiders outside his 3x3 at the end of the tick before, in 79 of 79 positions the logs record; Julian: he fills the room with void",
+      STRATEGIES_P3, fightLog("L1", "2980 and 2981: positions at the end of the tick before, then 36 on the one raider outside"), fightLog("L4", "4551"), sim("data.ts", 422),
+    ),
+    slamAfterBorder: selected(
+      span(5),
+      "log-repeated",
+      "unscaled",
+      "he slams the inside of his 3x3 5 ticks after the border, the tick after the eruption: it hits exactly the raiders under him at the end of the tick before, in every position the logs record; Julian: crushes under him the next tick",
+      STRATEGIES_P3, fightLog("L1", "2984 and 2986: positions, then 41 on a raider under him"), sim("data.ts", 424),
+    ),
+    eruptionDamage: selected<DamageRange>(
+      { min: 34, max: 41 },
+      "log-repeated",
+      "team-7-and-8",
+      "typeless: 34 to 41 in 25 splats with or without Protect from Magic, and one 12; the wiki's 40+; Alessandro's simulator rolls 34 to 39",
+      STRATEGIES_P3, fightLog("L1", "2981"), fightLog("L4", "4551: 40 through Protect from Magic"), fightLog("L4", "6166: the 12"), sim("data.ts", 423),
+    ),
+    slamDamage: selected(
+      { eruptionMissed: { min: 34, max: 42 }, eruptionHit: { min: 18, max: 21 } },
+      "log-repeated",
+      "team-7-and-8",
+      "typeless: 34 to 42 on a raider the eruption missed (21 splats), 18 to 21 on one it hit the tick before (9 splats under him; 6 more of the 17 the eruption hit outside him took 18 to 21 too, which this rule leaves out); Alessandro's simulator rolls 18 to 41 for both",
+      STRATEGIES_P3, fightLog("L1", "2985 and 2986: 21 on the raider the eruption hit, 41 on one it missed"), sim("data.ts", 425),
+    ),
+    autosResumeAfterStart: selected(
+      span(37),
+      "log-repeated",
+      "unscaled",
+      "with the quadrant standing, his autos start again 37 ticks after the shout: his first swing or void shot after it comes then in 24 of 24 Untethers",
+      NO_WIKI_P3_TICKS, fightLog("L6", "3561: anim 14842 at [P3 +96]"), fightLog("L3", "5203"), sim("data.ts", 428),
+    ),
+    look: {
+      purpleTile: selected(
+        4270,
+        "log-repeated",
+        "unscaled",
+        "a purple tile, 180 cycles (6 ticks), model 62755: the floor graphic each showing puts on its tiles in the logs",
+        NO_WIKI_PRESENTATION, cache("spotanim 4270 vfx_ocellus_p2_aoe_dodge"), fightLog("L6", "3402"), analysis(RSPROX_P3, "L358"), sim("data.ts", 117),
+      ),
+      border: selected(
+        { spotAnim: 4319, turned: 180 },
+        "log-repeated",
+        "unscaled",
+        "vfx_ocellus_unleash_arena_180, model 62702 turned 180 degrees, 180 cycles (6 ticks), on his centre tile: the north-east wedge's flare in all 9 north-east Untethers; the SDK's instanced spotanims ignore a definition's turn, so the view applies it",
+        NO_WIKI_PRESENTATION, cache("spotanim 4319 vfx_ocellus_unleash_arena_180"), fightLog("L6", "3527"), analysis(RSPROX_P3, "L360"), sim("data.ts", 150),
+      ),
+    },
+  },
 };
 
 export const OCELLUS_P3 = {
@@ -1126,6 +1276,16 @@ export const OCELLUS_P3 = {
     firstSpin: choice("4", {
       "4": selected(span(4), "community-tested", "unscaled", "the first spin lands 4 ticks after the smite starts; counted on a 4-count tick counter, not frame-measured from the start", NO_WIKI_P3_TICKS, SMITE_COUNTS),
       "5": selected(span(5), "inferred", "unscaled", "the first spin lands 5 ticks after the smite starts, reading the smite's start as the capture's prayer_in tick I; no frame count from the start confirms that reading", NO_WIKI_P3_TICKS, capture(RSPROX_P3, "L328 '_prayer_out 5 + 3 x loops on'"), capture(RSPROX_P3, "L935 'blocked when it was back on the hit tick (175/175 at I+5)'")),
+    }),
+    specials: choice("alternate", {
+      alternate: selected<SpecialOrder>(
+        "alternate",
+        "inferred",
+        "unscaled",
+        "the smite, then Untether, then the smite again: every quadrant 1 in the eight fight logs opens smite, Untether, smite, Insolence; Insolence is not built yet, so Untether takes its turns too",
+        STRATEGIES_P3, fightLog("L6", "3289 and 3390: the smite, then the first Untether"), fightLog("L1", "2582 and 2800"), sim("phase3.ts", 192, 213), sim("data.ts", 326),
+      ),
+      "smite-only": selected<SpecialOrder>("smite-only", "assumption", "unscaled", "practice: every special is the smite", NO_WIKI_PRACTICE),
     }),
     start: choice("1", {
       "1": selected<Quadrant>(1, "inferred", "unscaled", "the run starts on quadrant 1, the north-east wedge, at full HP; the smite spins once", NO_WIKI_P3_ARENA, owner("the quadrants run in a fixed order", "2026-10-24")),
@@ -1262,6 +1422,7 @@ export type P3Choices = Readonly<{
   flick: ResolvedP3Choice<"flick">;
   missedFlickDamage: ResolvedP3Choice<"missedFlickDamage">;
   firstSpin: ResolvedP3Choice<"firstSpin">;
+  specials: ResolvedP3Choice<"specials">;
   start: ResolvedP3Choice<"start">;
 }>;
 export type P3Config = Readonly<{ seed: Seed; choices: P3Choices; bossEntryHp: number | null }>;
@@ -1310,6 +1471,7 @@ function parseP3Request(url: URL, freshSeed: () => number): ParsedP3 {
     flick: p3Choice("flick"),
     missedFlickDamage: p3Choice("missedFlickDamage"),
     firstSpin: p3Choice("firstSpin"),
+    specials: p3Choice("specials"),
     start: p3Choice("start"),
   };
   if (run.rejected !== null) rejected.push(run.rejected);

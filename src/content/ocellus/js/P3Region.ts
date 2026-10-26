@@ -8,8 +8,8 @@ import type { Tile } from "../../../sim/brands";
 import type { HitReceipt } from "../../../sim/combat";
 import type { FlickMiss, P3Event, P3Hit, P3HitSource, P3Log, P3Snapshot, P3Stage, Spin } from "./P3Types";
 import { OcellusP3 } from "./mobs/OcellusP3";
-import { ARENA_SIZE, FLOOR, QUADRANT_1_FLOOR, RIM } from "./p3/arena";
-import { RubbleView, SmiteBlades } from "./entities/P3Views";
+import { ARENA_SIZE, FLOOR, QUADRANT_1_FLOOR, RIM, UNTETHER_CENTRE } from "./p3/arena";
+import { FloorGraphic, RubbleView, SmiteBlades } from "./entities/P3Views";
 
 const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   swing: "a swing",
@@ -17,6 +17,10 @@ const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   "smite-blow": "the smite's opening blow",
   spin: "a smite spin",
   rubble: "the rubble",
+  "untether-magic": "Untether's magic",
+  "purple-tile": "a purple tile",
+  eruption: "the eruption",
+  slam: "the slam",
 };
 
 type FlickReference = Readonly<{ happened: string; happens: string }>;
@@ -33,13 +37,13 @@ const MISSED_FLICK: Readonly<Record<FlickMiss, (reference: FlickReference) => st
   early: ({ happened }) => `Protect from Melee was already off when ${happened}.`,
 };
 
-const { bossPoses } = OCELLUS_P3;
+const { bossPoses, untether } = OCELLUS_P3;
 const OPEN_FLOOR = ["#4a4339", "#3f392f"] as const;
 const CLOSED_FLOOR = ["#2c2822", "#25221d"] as const;
 
 type Mounted =
   | Readonly<{ kind: "unmounted" }>
-  | Readonly<{ kind: "mounted"; boss: OcellusP3; player: OcellusPlayer; chat: string[]; blades: SmiteBlades; rubble: Set<RubbleView> }>;
+  | Readonly<{ kind: "mounted"; boss: OcellusP3; player: OcellusPlayer; chat: string[]; blades: SmiteBlades; rubble: Set<RubbleView>; untether: Set<FloorGraphic> }>;
 type Shown = Extract<Mounted, { kind: "mounted" }>;
 
 function presentHit(hit: P3Hit, receipt: HitReceipt, { boss, blades, chat }: Shown): void {
@@ -59,6 +63,18 @@ function presentHit(hit: P3Hit, receipt: HitReceipt, { boss, blades, chat }: Sho
       return;
     case "rubble":
       return;
+    case "untether-magic":
+      if (receipt.applied > 0) chat.push(`Untether's magic hit you for ${receipt.applied}. Protect from Magic blocks all of it.`);
+      return;
+    case "purple-tile":
+      chat.push(`A purple tile erupted under you for ${receipt.applied}. Step off it before it erupts.`);
+      return;
+    case "eruption":
+      chat.push(`The void erupted for ${receipt.applied}. Stand under him when it erupts.`);
+      return;
+    case "slam":
+      chat.push(`His slam hit you for ${receipt.applied}. Step out from under him on the tick the void erupts.`);
+      return;
     default: {
       const unhandled: never = hit;
       return unhandled;
@@ -74,6 +90,8 @@ function opensSmite(stage: P3Stage): boolean {
       return true;
     case "arrive":
     case "autos":
+    case "untether":
+    case "untether-ends":
     case "destroy":
       return false;
     default: {
@@ -114,7 +132,7 @@ export class P3Region extends Region {
   }
 
   initialiseRegion(): { player: Player } {
-    const player: OcellusPlayer = new OcellusPlayer(this, { ...OCELLUS_P3.arena.playerSpawn.value }, () => boss.binding, () => false);
+    const player: OcellusPlayer = new OcellusPlayer(this, { ...OCELLUS_P3.arena.playerSpawn.value }, () => boss.binding, (target) => target instanceof OcellusP3 && target.outOfMeleeReach());
     const boss: OcellusP3 = new OcellusP3(this, this.config, player, () => this.invincible);
     dress(player, this.config.choices.setup.option.value);
     for (const edge of QUADRANT_1_FLOOR.surround().tiles()) this.addEntity(new InvisibleMovementBlocker(this, { ...edge }));
@@ -123,7 +141,7 @@ export class P3Region extends Region {
     this.setBoss(boss);
     const blades = new SmiteBlades(this, boss);
     this.addEntity(blades);
-    this.mounted = { kind: "mounted", boss, player, chat: [], blades, rubble: new Set() };
+    this.mounted = { kind: "mounted", boss, player, chat: [], blades, rubble: new Set(), untether: new Set() };
     return { player };
   }
 
@@ -158,6 +176,7 @@ export class P3Region extends Region {
         return;
       case "stage-entered":
         if (opensSmite(event.stage)) shown.blades.open();
+        if (event.stage === "untether-ends") this.clearUntether(shown);
         return;
       case "wave-cast":
         shown.boss.playAnimation(bossPoses.wave.value);
@@ -168,6 +187,22 @@ export class P3Region extends Region {
         shown.rubble.add(rubble);
         return;
       }
+      case "untether-started":
+        shown.boss.setOverheadText(untether.shout.value);
+        shown.boss.overheadTextTimer = untether.shoutLasts.value;
+        shown.boss.playAnimation(bossPoses.untetherRise.value);
+        return;
+      case "purple-tiles-shown":
+        event.tiles.forEach((at) => this.showUntether(shown, new FloorGraphic(this, at, untether.look.purpleTile.value, 0)));
+        return;
+      case "border-shown": {
+        const { spotAnim, turned } = untether.look.border.value;
+        this.showUntether(shown, new FloorGraphic(this, UNTETHER_CENTRE, spotAnim, turned));
+        return;
+      }
+      case "void-erupted":
+        shown.boss.playAnimation(bossPoses.untetherUnleash.value);
+        return;
       case "death-prevented":
         shown.chat.push(`Invincible: ${LETHAL_HIT[event.source]} would have killed you on tick ${event.at}.`);
         return;
@@ -179,6 +214,16 @@ export class P3Region extends Region {
         return unhandled;
       }
     }
+  }
+
+  private showUntether(shown: Shown, graphic: FloorGraphic): void {
+    this.addEntity(graphic);
+    shown.untether.add(graphic);
+  }
+
+  private clearUntether(shown: Shown): void {
+    shown.untether.forEach((graphic) => graphic.clear());
+    shown.untether.clear();
   }
 
   snapshot(): P3Snapshot | null {

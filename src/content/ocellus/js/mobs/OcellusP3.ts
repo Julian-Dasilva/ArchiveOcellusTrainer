@@ -8,7 +8,7 @@ import type { Tick } from "../../../../sim/brands";
 import { tick } from "../../../../sim/brands";
 import type { FrameOf, Heal, Hooks, Landed, Logged } from "../../../../sim/sdk/EncounterBinding";
 import { EncounterBinding } from "../../../../sim/sdk/EncounterBinding";
-import type { P3End, P3Event, P3Hit, P3Row, P3RunState } from "../P3Types";
+import type { BossPosture, P3End, P3Event, P3Hit, P3Row, P3RunState } from "../P3Types";
 import type { InputObservation, PlayerObservation } from "../P4Types";
 import type { P3Fight, P3Rules, Reach, TurnStep } from "../p3/fight";
 import { startFight, turn } from "../p3/fight";
@@ -22,6 +22,7 @@ export class OcellusP3 extends Mob {
   readonly binding: EncounterBinding<P3Run>;
   private readonly rules: P3Rules;
   private fight: P3Fight;
+  private posture: BossPosture = "chasing";
 
   private readonly hooks: Hooks<P3Run> = {
     "tick-opened": () => undefined,
@@ -37,7 +38,14 @@ export class OcellusP3 extends Mob {
     super(region, OCELLUS_P3.arena.bossAnchor.value);
     this.setAggro(target);
     const { choices } = config;
-    this.rules = { seed: config.seed, start: choices.start.option.value, flick: choices.flick.option.value, missedFlickDamage: choices.missedFlickDamage.option.value, firstSpin: choices.firstSpin.option.value };
+    this.rules = {
+      seed: config.seed,
+      start: choices.start.option.value,
+      flick: choices.flick.option.value,
+      missedFlickDamage: choices.missedFlickDamage.option.value,
+      firstSpin: choices.firstSpin.option.value,
+      specials: choices.specials.option.value,
+    };
     this.fight = startFight(this.rules);
     this.binding = new EncounterBinding(config.seed, tick(0), target, this.hooks);
   }
@@ -71,7 +79,7 @@ export class OcellusP3 extends Mob {
   }
 
   override get idlePoseId(): number {
-    return presentation.bossPoses.idle.value;
+    return this.posture === "floating" ? OCELLUS_P3.bossPoses.untetherFloat.value : presentation.bossPoses.idle.value;
   }
 
   override get walkingPoseId(): number {
@@ -93,7 +101,11 @@ export class OcellusP3 extends Mob {
 
   private stepBeforeDeciding(): void {
     super.queueStep();
-    if (this.binding.view().kind !== "ended") super.movementStep();
+    if (this.binding.view().kind !== "ended" && this.posture === "chasing") super.movementStep();
+  }
+
+  outOfMeleeReach(): boolean {
+    return this.posture === "floating";
   }
 
   override movementStep(): void {}
@@ -148,6 +160,7 @@ export class OcellusP3 extends Mob {
       boss: { hp: this.currentStats.hitpoint, maxHp: this.stats.hitpoint, reach: this.reach() },
     });
     this.fight = step.fight;
+    this.posture = step.fight.schedule.at(at).phase.posture;
     return { outputs: step.outputs, ending: step.ending };
   }
 
