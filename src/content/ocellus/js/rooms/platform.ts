@@ -2,12 +2,16 @@ import { InvisibleMovementBlocker } from "osrs-sdk";
 import type { Region } from "osrs-sdk";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import type { Tile } from "../../../../sim/brands";
+import type { Room } from "../../../../sim/encounter";
+import { identity, toRoom } from "../../../../sim/frame";
 import { Brazier, Walkway } from "../entities/Scenery";
 import { BRAZIERS, CURB, PLATFORM } from "../p4/floor";
 
-export const PLATFORM_ROOM = {
-  size: PLATFORM.extent(),
-  spawn: OCELLUS_P4.geometry.playerSpawn.value,
+const size = PLATFORM.extent();
+
+export const PLATFORM_ROOM: Room<Region> = {
+  size,
+  spawn: toRoom(identity(size), OCELLUS_P4.geometry.playerSpawn.value),
   drawFloor(context: OffscreenCanvasRenderingContext2D, scale: number): void {
     const floor = ({ x, y }: Tile) => ((x + y) % 2 === 0 ? "#4a4339" : "#3f392f");
     const { top } = OCELLUS_P4.geometry.walkway.value;
@@ -43,8 +47,9 @@ export const PLATFORM_ROOM = {
     }
   },
 
-  mount(region: Region): void {
-    [new Walkway(region), ...BRAZIERS.tiles().map((at) => new Brazier(region, at))].forEach((scenery) => region.addEntity(scenery));
-    for (const edge of PLATFORM.surround().tiles()) region.addEntity(new InvisibleMovementBlocker(region, { ...edge }));
+  mount(region) {
+    const scenery = [new Walkway(region), ...BRAZIERS.tiles().map((at) => new Brazier(region, at)), ...PLATFORM.surround().tiles().map((edge) => new InvisibleMovementBlocker(region, { ...edge }))];
+    scenery.forEach((entity) => region.addEntity(entity));
+    return { dispose: () => scenery.forEach((entity) => region.removeEntity(entity)) };
   },
 };

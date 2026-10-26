@@ -2,14 +2,15 @@ import { CacheRenderModel, CacheRenderReferences, CollisionType, InvisibleMoveme
 import type { Model, Projectile, Region, UnitBonuses } from "osrs-sdk";
 import type { DamageRange, DrillConfig } from "../OcellusTimings";
 import { OCELLUS_P4 } from "../OcellusTimings";
-import type { OcellusPlayer } from "../OcellusPlayer";
 import { bossBonuses, withDefenceFloor } from "../bossStats";
 import type { Cycle, Tick, Tile } from "../../../../sim/brands";
 import { after, span, tick, tile } from "../../../../sim/brands";
 import type { IncomingStyle, Style } from "../../../../sim/combat";
 import { cutAttackDelay } from "../../../../sim/combat";
 import type { AttackDelayCut, FrameOf, Heal, HitRequest, Hooks, InFlight, IncomingHit, Judgement, Landed, Logged } from "../../../../sim/sdk/EncounterBinding";
-import { EncounterBinding, incomingStyle } from "../../../../sim/sdk/EncounterBinding";
+import { incomingStyle } from "../../../../sim/sdk/EncounterBinding";
+import type { EncounterBinding } from "../../../../sim/sdk/EncounterBinding";
+import type { EncounterPlayer } from "../../../../sim/sdk/EncounterPlayer";
 import type {
   Beat,
   BossState,
@@ -46,6 +47,7 @@ type BossStep = Readonly<{ player: PlayerObservation; bossHp: number; rifts: rea
 type P4Run = Readonly<{ input: InputObservation; event: FightEvent; cause: PlayerHit; snapshot: BossStep; row: TickRow; end: RunEnd }>;
 
 type OcellusBinding = EncounterBinding<P4Run>;
+export type BindP4 = (start: Tick, hooks: Hooks<P4Run>) => OcellusBinding;
 
 type Output = Logged<FightEvent> | HitRequest<PlayerHit>;
 type TurnOutput = Output | AttackDelayCut;
@@ -136,11 +138,11 @@ export class Ocellus extends Mob {
     "tick-ended": (frame) => this.closeRow(frame),
   };
 
-  constructor(region: Region, private readonly config: DrillConfig, private readonly target: OcellusPlayer, private readonly invincible: () => boolean) {
+  constructor(region: Region, private readonly config: DrillConfig, private readonly target: EncounterPlayer, private readonly invincible: () => boolean, bind: BindP4) {
     super(region, OCELLUS_P4.geometry.bossAnchor.value);
     this.schedule = compileSchedule(config.seed, config.choices);
     this.holes = TileSet.at(this.schedule.acts("floor-holes") ? config.choices.floorHoleLayout.option.value.tiles : []);
-    this.binding = new EncounterBinding(config.seed, this.schedule.start, target, this.hooks);
+    this.binding = bind(this.schedule.start, this.hooks);
   }
 
   enterP4(): void {
