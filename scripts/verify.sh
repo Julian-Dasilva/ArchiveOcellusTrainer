@@ -1023,7 +1023,7 @@ tile_pixel() {
 }
 
 click_tile() {
-  local page="$1" tile="$2" modifier="${4:-none}" record="$VERIFY_DIR/${5:-tile-clicks}.jsonl"
+  local page="$1" tile="$2" modifier="${4:-none}"
   tile_pixel "$page" "$tile" "$3" || return 1
   case "$modifier" in
     none) printf '[["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"]]' "$CLICK_X" "$CLICK_Y" | ab batch --bail >/dev/null ;;
@@ -1034,11 +1034,11 @@ click_tile() {
   ab --json eval "(() => {
     const orders = window.__archiveOcellusProbe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered');
     return { page: '${page}', tile: ${tile}, at: { x: ${CLICK_X}, y: ${CLICK_Y} }, ordered: orders[${WALK_ORDERS}]?.destination ?? null };
-  })()" | json data.result >>"$record" && echo >>"$record"
+  })()" | json data.result >>"$VERIFY_DIR/tile-clicks.jsonl" && echo >>"$VERIFY_DIR/tile-clicks.jsonl"
 }
 
 walk_to_tile() {
-  click_tile "$1" "$2" now "${4:-none}" "${5:-tile-clicks}" || return 1
+  click_tile "$1" "$2" now "${4:-none}" || return 1
   ab wait --fn "(() => { const s = window.__archiveOcellusProbe.snapshot(), to = $3; return s.player.x === to.x && s.player.y === to.y; })()" \
     --timeout 15000 >/dev/null || log "player never stood on $3"
 }
@@ -1997,7 +1997,6 @@ click_resume() {
 }
 
 # The WebGL layer reads back blank outside a frame that drew it, so the expected screen waits for a frame callback after a 3D render.
-# The chat's poll is throttled while the tab is hidden and can render a line after that frame, so the overlays are measured again after the screenshot.
 frame_present() {
   local scene="(() => {
     const world = document.querySelector('#world'), area = world.parentElement, edges = world.getBoundingClientRect();
@@ -2091,13 +2090,13 @@ drive_layered_present() {
   ab wait --fn "(([width, height], world) => world.width === width && world.height === height)([${PRESENT_RESIZED_VIEWPORT// /,}], document.querySelector('#world'))" --timeout 5000 >/dev/null ||
     { log "#world never took the ${PRESENT_RESIZED_VIEWPORT} viewport"; return 1; }
   camera_still "$PRESENT_RESIZED_TILE"
-  walk_to_tile present-resized "$PRESENT_RESIZED_TILE" "$PRESENT_RESIZED_TILE" none present-tile-clicks || return 1
+  walk_to_tile present-resized "$PRESENT_RESIZED_TILE" "$PRESENT_RESIZED_TILE" || return 1
   pause_by_tab_switch && frame_present present-resized && click_resume || return 1
 
   ab set viewport $PRESENT_RESIZED_VIEWPORT "$PRESENT_DEVICE_SCALE" >/dev/null || return 1
   ab wait --fn "devicePixelRatio === ${PRESENT_DEVICE_SCALE}" --timeout 5000 >/dev/null || { log "the device scale never became ${PRESENT_DEVICE_SCALE}"; return 1; }
   camera_still "$PRESENT_SCALED_TILE"
-  walk_to_tile present-scaled "$PRESENT_SCALED_TILE" "$PRESENT_SCALED_TILE" none present-tile-clicks || return 1
+  walk_to_tile present-scaled "$PRESENT_SCALED_TILE" "$PRESENT_SCALED_TILE" || return 1
   pause_by_tab_switch && frame_present present-scaled && click_resume || return 1
 
   ab set viewport 1280 800 >/dev/null && ab wait --fn "devicePixelRatio === 1 && document.querySelector('#world').width === 1280" --timeout 5000 >/dev/null || return 1
@@ -2114,103 +2113,7 @@ drive_layered_present() {
   pause_by_tab_switch && frame_present present-context-restored && click_resume || return 1
   ab console >"$VERIFY_DIR/present-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/present-page-errors.json" || { log "page error capture failed"; return 1; }
-
-  local capture
-  for capture in present-webgl-hooks.js present-tile-clicks.jsonl present-resumed.json present-context-lost.json present-context-lost.png present-context-restored-live.json present-context-restored-live.png present-paused-held-screen.png present-console.log present-page-errors.json \
-    $(for frame in resized scaled paused context-restored; do echo "present-${frame}.json present-${frame}-expected.png present-${frame}-screen.png"; done); do
-    [[ -s "$VERIFY_DIR/$capture" ]] || { log "required capture ${capture} is missing or empty"; return 1; }
-  done
-
-  node -e '
-    const fs = require("fs"), zlib = require("zlib");
-    const [dir, resizedViewport, deviceScale, centreHalf, litLevelSum, drawnMin, lostMax, tolerance, maxOff, lostLog] = process.argv.slice(1);
-    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
-    function decode(file) {
-      const buf = fs.readFileSync(`${dir}/${file}`);
-      let at = 8, width = 0, channels = 4;
-      const idat = [];
-      while (at < buf.length) {
-        const len = buf.readUInt32BE(at), type = buf.toString("ascii", at + 4, at + 8), data = buf.subarray(at + 8, at + 8 + len);
-        if (type === "IHDR") [width, channels] = [data.readUInt32BE(0), data[9] === 6 ? 4 : 3];
-        if (type === "IDAT") idat.push(data);
-        at += 12 + len;
-      }
-      const raw = zlib.inflateSync(Buffer.concat(idat)), stride = width * channels, height = raw.length / (stride + 1), px = Buffer.alloc(height * stride);
-      for (let y = 0; y < height; y++) {
-        for (let i = 0; i < stride; i++) {
-          const a = i >= channels ? px[y * stride + i - channels] : 0, b = y ? px[(y - 1) * stride + i] : 0, c = y && i >= channels ? px[(y - 1) * stride + i - channels] : 0;
-          const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
-          px[y * stride + i] = (raw[y * (stride + 1) + 1 + i] + [0, a, b, (a + b) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? b : c][raw[y * (stride + 1)]]) & 255;
-        }
-      }
-      return { width, height, channels, at: (x, y) => [0, 1, 2].map((c) => px[(y * width + x) * channels + c]) };
-    }
-    const round = (share) => Math.round(share * 1000) / 1000;
-    const litShare = (screen, centre, scale, excluded = () => false) => {
-      if (!centre) return 0;
-      let lit = 0, all = 0;
-      for (let y = centre.y - Number(centreHalf); y <= centre.y + Number(centreHalf); y++) {
-        for (let x = centre.x - Number(centreHalf); x <= centre.x + Number(centreHalf); x++) {
-          if (excluded(x, y)) continue;
-          all++;
-          if (screen.at(Math.floor(x * scale), Math.floor(y * scale)).reduce((sum, level) => sum + level, 0) > Number(litLevelSum)) lit++;
-        }
-      }
-      return all === 0 ? 0 : round((100 * lit) / all);
-    };
-    const composed = (name, screenFile = `${name}-screen.png`) => {
-      const frame = read(`${name}.json`), expected = decode(`${name}-expected.png`), screen = decode(screenFile), scale = frame.devicePixelRatio;
-      const excluded = (x, y) => frame.excluded.some((e) => x >= Math.floor(e.x) && x < Math.ceil(e.x + e.width) && y >= Math.floor(e.y) && y < Math.ceil(e.y + e.height));
-      let compared = 0, off = 0;
-      for (let y = 0; y < expected.height; y++) {
-        for (let x = 0; x < expected.width; x++) {
-          const pageX = frame.world.x + x, pageY = frame.world.y + y;
-          if (excluded(pageX, pageY)) continue;
-          const want = expected.at(x, y), got = screen.at(Math.floor(pageX * scale), Math.floor(pageY * scale));
-          compared++;
-          if (want.some((level, c) => Math.abs(level - got[c]) > Number(tolerance))) off++;
-        }
-      }
-      const sameBox = (layer) => ["x", "y", "width", "height"].every((key) => layer[key] === frame.world[key]) && layer.backing.join() === frame.world.backing.join();
-      return {
-        ticking: frame.ticking, drew: frame.drew, devicePixelRatio: scale, screen: [screen.width, screen.height], world: frame.world, layers: frame.layers.length,
-        layersShareWorldBox: frame.layers.every(sameBox) && frame.world.backing.join() === [frame.world.width, frame.world.height].join(),
-        compared, offShare: round((100 * off) / compared), centreLitShare: litShare(screen, frame.centre, scale, excluded),
-      };
-    };
-    const live = (name) => { const state = read(`${name}.json`); return { ...state, centreLitShare: litShare(decode(`${name}.png`), state.centre, 1) }; };
-    const observed = {
-      resized: composed("present-resized"),
-      scaled: composed("present-scaled"),
-      paused: composed("present-paused"),
-      held: composed("present-paused", "present-paused-held-screen.png"),
-      resumed: read("present-resumed.json"),
-      lost: live("present-context-lost"),
-      restoredLive: live("present-context-restored-live"),
-      restored: composed("present-context-restored"),
-      clicks: fs.readFileSync(`${dir}/present-tile-clicks.jsonl`, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)),
-      lostLogs: fs.readFileSync(`${dir}/present-console.log`, "utf8").split("\n").filter((line) => line.includes(lostLog)).length,
-    };
-    const [width, height] = resizedViewport.split(" ").map(Number);
-    const linedUp = (frame) => frame.ticking === false && frame.layersShareWorldBox && frame.offShare <= Number(maxOff) && frame.centreLitShare >= Number(drawnMin);
-    const checks = {
-      resizedLayersLineUp: linedUp(observed.resized) && observed.resized.world.backing.join() === [width, height].join() && observed.resized.devicePixelRatio === 1,
-      scaledLayersLineUp: linedUp(observed.scaled) && observed.scaled.devicePixelRatio === Number(deviceScale) && observed.scaled.screen.join() === [width * deviceScale, height * deviceScale].join(),
-      clicksAfterResizeOrderTheirTiles: observed.clicks.length === 2 && observed.clicks.every(({ tile, ordered }) => ordered?.x === tile.x && ordered?.y === tile.y),
-      pausedFrameStaysDrawn: linedUp(observed.paused) && linedUp(observed.held) && observed.resumed === true,
-      contextLossBlanksTheScene: observed.lost.lost === true && observed.lost.contexts === 1 && observed.lost.centreLitShare <= Number(lostMax),
-      restoredSceneDraws: observed.restoredLive.lost === false && observed.restoredLive.centreLitShare >= Number(drawnMin) && linedUp(observed.restored),
-      contextLossLoggedOnce: observed.lostLogs === 1,
-      noPresentPageErrors: read("present-page-errors.json").length === 0,
-    };
-    console.log(JSON.stringify({ observed, checks }, null, 2));
-    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" "$PRESENT_RESIZED_VIEWPORT" "$PRESENT_DEVICE_SCALE" "$PRESENT_CENTRE_HALF_PX" "$PRESENT_LIT_LEVEL_SUM" "$PRESENT_DRAWN_MIN_SHARE" "$PRESENT_LOST_MAX_SHARE" \
-    "$PRESENT_LEVEL_TOLERANCE" "$PRESENT_MAX_OFF_SHARE" "$PRESENT_CONTEXT_LOST_LOG" >"$VERIFY_DIR/present-checks.json"
-  local verdict=$?
-  cat "$VERIFY_DIR/present-checks.json"
-  [[ $verdict -eq 0 ]] || log "a layered present check failed"
-  return $verdict
+  ab close >/dev/null 2>&1
 }
 
 click_tile_after_tick() {

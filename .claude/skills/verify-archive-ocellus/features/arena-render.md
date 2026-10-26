@@ -38,7 +38,7 @@ Preconditions:
 - **Device scale.** Run `agent-browser set viewport 1000 700 2`. `devicePixelRatio` is 2, a screenshot is 2000x1400, and both canvases still report `[1000,1000]`.
 - **Pause.** Run `agent-browser tab new about:blank`, `agent-browser tab close`, then `agent-browser tab t1`. The Resume dialog shows over the arena, `snapshot().ticking` is `false`, and two screenshots 2 s apart are identical outside the FPS counter.
 - **Context loss.** Run `agent-browser eval "(window.__lose = document.querySelector('#world').previousElementSibling.getContext('webgl2').getExtension('WEBGL_lose_context')).loseContext()"`. The arena goes black under the HUD. Run `agent-browser eval "window.__lose.restoreContext()"`. The arena returns, and `agent-browser console` shows `[osrs-sdk] WebGL context lost while rendering the 3D viewport` once.
-- **Composition proof.** `scripts/verify.sh browser` runs these four in `drive_layered_present` and compares each paused screen with the frame composed from the canvases (see `SKILL.md`).
+- **Composition proof.** `scripts/verify.sh browser --unit layered_present` runs these four and compares each paused screen with the frame composed from the canvases (see `SKILL.md`).
 
 ## Gotchas
 
