@@ -41,7 +41,10 @@ jobs:
           VERIFY_PORT: "8002"
         run: |
           mkdir -p "$RUNNER_TEMP/curves"
-          echo skipped
+          python3 .exp/mutate.py . marks-outlive-run apply
+          bash .exp/runend-curve.sh "$RUNNER_TEMP/curves" 1 || true
+          python3 .exp/mutate.py . marks-outlive-run restore
+          git status --short
           node .exp/summarize.mjs "$RUNNER_TEMP"/curves/*.json || true
       - name: The five units, twice
         env:

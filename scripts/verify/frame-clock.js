@@ -9,13 +9,19 @@
     return ticks;
   };
   const into = (kind, tick, now) => (now - clock.starts[kind][tick]) / clock.tickMs;
+  const at = (kind, tick, now) => ({ tick, into: Math.round(into(kind, tick, now) * 1000) / 1000 });
 
-  let snapshots = [];
-  const encode = ({ done, bitmap, box }) =>
-    bitmap
-      .then((frame) => {
+  // createImageBitmap copies the canvas when called, in a fraction of a millisecond; drawing and encoding a copy took about 100 ms on llvmpipe, so that waits until no other shot is due in the same tick.
+  const frame = (kind, tick, now) => {
+    const world = document.querySelector("#world");
+    return { at: at(kind, tick, now), bitmap: createImageBitmap(world), box: world.getBoundingClientRect() };
+  };
+  const release = (shot) => shot?.bitmap.then((bitmap) => bitmap.close());
+  const encode = ({ name, shot }) =>
+    shot.bitmap
+      .then((bitmap) => {
         const page = new OffscreenCanvas(window.innerWidth, window.innerHeight);
-        page.getContext("2d").drawImage(frame, box.x, box.y, box.width, box.height);
+        page.getContext("2d").drawImage(bitmap, shot.box.x, shot.box.y, shot.box.width, shot.box.height);
         return page.convertToBlob({ type: "image/png" });
       })
       .then((blob) => new Promise((resolve) => {
@@ -23,39 +29,49 @@
         reader.onload = () => resolve(reader.result);
         reader.readAsDataURL(blob);
       }))
-      .then((png) => (done.png = png));
-  // createImageBitmap copies the canvas when called and costs a fraction of a millisecond; drawing and encoding a copy took about 100 ms on llvmpipe, so they wait until no other shot is due in the same tick.
-  const perform = {
-    shot: (_action, done, when) => {
-      const world = document.querySelector("#world");
-      done.png = null;
-      snapshots.push({ when, done, bitmap: createImageBitmap(world), box: world.getBoundingClientRect() });
-    },
-    click: (action) => {
-      const world = document.querySelector("#world");
-      for (const type of ["mousedown", "mouseup"]) {
-        world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === "mousedown" ? 1 : 0, clientX: action.x, clientY: action.y }));
-      }
-    },
+      .then((png) => (clock.done[name] = { ...shot.at, png }));
+  let taken = [];
+
+  const click = ({ x, y }) => {
+    const world = document.querySelector("#world");
+    for (const type of ["mousedown", "mouseup"]) {
+      world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === "mousedown" ? 1 : 0, clientX: x, clientY: y }));
+    }
   };
 
   // The world loop starts each tick at its animation frame's timestamp, so the frames that follow it read the tick's start on the same clock.
   const watch = (now) => {
     requestAnimationFrame(watch);
     const ticks = ticksAt(now);
-    clock.due = clock.due.filter(({ when, action }) => {
-      const t = ticks[when.kind];
-      if (t === null || t < when.tick || (t === when.tick && into(when.kind, t, now) < when.fraction)) return true;
-      const done = (clock.done[action.name] = { tick: t, into: Math.round(into(when.kind, t, now) * 1000) / 1000 });
-      const began = performance.now();
-      perform[action.kind](action, done, when);
-      done.costMs = Math.round(performance.now() - began);
-      requestAnimationFrame((next) => (done.nextFrameMs = Math.round(next - now)));
+    clock.due = clock.due.filter((due) => {
+      const { when, action } = due, t = ticks[when.kind];
+      if (t === null || t < when.tick) return true;
+      if (t === when.tick && into(when.kind, t, now) < when.fraction) {
+        // A slow frame can end the tick before one reaches the fraction; the last frame drawn before it was still on screen at the fraction.
+        if (action.kind === "shot") {
+          release(due.last);
+          due.last = frame(when.kind, t, now);
+        }
+        return true;
+      }
+      switch (action.kind) {
+        case "shot":
+          if (t > when.tick && due.last) taken.push({ name: action.name, when, shot: due.last });
+          else {
+            release(due.last);
+            taken.push({ name: action.name, when, shot: frame(when.kind, t, now) });
+          }
+          break;
+        case "click":
+          click(action);
+          clock.done[action.name] = at(when.kind, t, now);
+          break;
+      }
       return false;
     });
     const waiting = ({ when }) => clock.due.some((due) => due.action.kind === "shot" && due.when.kind === when.kind && due.when.tick === when.tick);
-    snapshots.filter((snapshot) => !waiting(snapshot)).forEach(encode);
-    snapshots = snapshots.filter(waiting);
+    taken.filter((shot) => !waiting(shot)).forEach(encode);
+    taken = taken.filter(waiting);
   };
   requestAnimationFrame(watch);
 

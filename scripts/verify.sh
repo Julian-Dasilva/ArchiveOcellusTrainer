@@ -559,7 +559,7 @@ start_frame_clock() {
   ab eval "$(<scripts/verify/frame-clock.js)" >/dev/null
 }
 
-# A shot copies #world inside the first animation frame at or past the fraction of a fight or world tick, so frame rate and CDP latency cannot move it.
+# A shot copies #world inside the first animation frame at or past a fraction of a fight or world tick, or the tick's last frame when the tick ends first, so frame rate and CDP latency cannot move it.
 arm_shot() {
   ab eval "window.__frameClock.at({ kind: '$1', tick: $2, fraction: $3 }, { kind: 'shot', name: '$4' })" >/dev/null
 }
