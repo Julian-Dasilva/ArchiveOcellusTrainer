@@ -1,0 +1,15 @@
+{
+  "ignore": [],
+  "scripts": [
+    {
+      "path": "scripts/size.ts",
+      "tests": ["scripts/size.fixture.sh"],
+      "policies": [
+        {
+          "policy": "an empty file is refused",
+          "mutation": [{ "find": "statSync(file).size === 0 ?", "replace": "statSync(file).size < 0 ?" }]
+        }
+      ]
+    }
+  ]
+}

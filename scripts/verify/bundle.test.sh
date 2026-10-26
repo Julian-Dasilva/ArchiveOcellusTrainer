@@ -16,40 +16,23 @@ ready() {
 }
 
 WRITE_BUNDLE='
-  import { loadConfig } from "osrs-sdk-assets";
-  import { mkdirSync, writeFileSync } from "node:fs";
-  const { assets } = await loadConfig();
-  const dir = "public/osrs-assets";
-  mkdirSync(dir, { recursive: true });
-  const m = { cache: { source: "openrs2:2746" }, assets: {}, playerItems: {}, spotAnims: {}, soundEffects: { file: "sounds.soundpack" } };
-  const add = (key) => {
-    m.assets[key] = { file: `${key}.bin` };
-    writeFileSync(`${dir}/${key}.bin`, "x");
-    return key;
-  };
-  for (const { id } of Object.values(assets.npcs)) add(`npc-${id}`);
-  for (const { id } of Object.values(assets.models)) add(`model-${id}`);
-  for (const { id } of Object.values(assets.items)) m.playerItems[`item:${id}`] = add(`player-item-${id}`);
-  for (const { id } of Object.values(assets.spotAnims)) m.spotAnims[id] = add(`spotanim-${id}`);
-  const sounds = Object.values(assets.sounds).map(({ id }) => id);
-  const pack = Buffer.alloc(6 + 4 * sounds.length);
-  pack.writeUInt16BE(sounds.length, 4);
-  sounds.forEach((id, n) => pack.writeUInt16BE(id, 6 + 4 * n));
-  writeFileSync(`${dir}/sounds.soundpack`, pack);
-  writeFileSync(`${dir}/manifest.json`, JSON.stringify(m));
+  const { mkdirSync, readFileSync, writeFileSync } = require("node:fs");
+  const { dirname, join } = require("node:path");
+  const [recorded, dir] = process.argv.slice(1);
+  for (const [file, base64] of Object.entries(JSON.parse(readFileSync(recorded, "utf8")).complete)) {
+    mkdirSync(dirname(join(dir, file)), { recursive: true });
+    writeFileSync(join(dir, file), Buffer.from(base64, "base64"));
+  }
 '
 
 complete_bundle() {
   ROOT="$WORK/$t"
   mkdir -p "$ROOT"
   cp -R "$REPO/scripts" "$ROOT/scripts"
-  for entry in package.json osrs-assets.config.ts tsconfig.json src node_modules; do ln -s "$REPO/$entry" "$ROOT/$entry"; done
+  for entry in package.json osrs-assets.config.ts tsconfig.json src test node_modules; do ln -s "$REPO/$entry" "$ROOT/$entry"; done
   (cd "$ROOT" && scripts/install-beta-sdk.sh --check) || fail "node_modules does not hold the pinned SDK; run npm ci and scripts/install-beta-sdk.sh"
-  (cd "$ROOT" && node --input-type=module -e "$WRITE_BUNDLE") || fail "the bundle could not be written"
-  local sprite
-  for sprite in $(cd "$ROOT" && node scripts/extract-sprites.mjs --check | sed -n 's/^extract-sprites: missing //p' | tr ',' ' '); do
-    mkdir -p "$ROOT/$(dirname "$sprite")" && printf 'png' >"$ROOT/$sprite"
-  done
+  (cd "$ROOT" && node_modules/.bin/tsx test/assetBundles.mjs sounds.soundpack >"$WORK/$t-bundles.json" && node -e "$WRITE_BUNDLE" "$WORK/$t-bundles.json" public/osrs-assets) ||
+    fail "the bundle could not be written"
 }
 
 bundle() {
@@ -57,9 +40,10 @@ bundle() {
 }
 
 payload() {
-  local files=("$ROOT"/public/osrs-assets/"$1"-*.bin)
-  [[ -f "${files[0]}" ]] || fail "the bundle has no $1 payload"
-  printf '%s' "${files[0]}"
+  local file
+  file="$(node -e 'const { assets } = require(process.argv[1]); const key = Object.keys(assets).find((key) => key.startsWith(`${process.argv[2]}-`)); if (key) process.stdout.write(assets[key].file)' "$ROOT/public/osrs-assets/manifest.json" "$1")"
+  [[ -n "$file" && -f "$ROOT/public/osrs-assets/$file" ]] || fail "the bundle has no $1 payload"
+  printf '%s' "$ROOT/public/osrs-assets/$file"
 }
 
 complete_bundle_passes() {
