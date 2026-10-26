@@ -42,6 +42,8 @@ export const PHASE_ONLY_MODULES: ReadonlyMap<string, readonly [Phase, ...Phase[]
   ["src/content/ocellus/fight/warmup.ts", ["full"]],
   ["src/FullFightApp.tsx", ["full"]],
   ["src/fullFightStyles.ts", ["full"]],
+  ["src/content/ocellus/js/carry.ts", ["full"]],
+  ["src/menu/Sidebar.tsx", ["full"]],
 ]);
 
 export type StrayModule = Readonly<{ module: string; phases: readonly Phase[] }>;
