@@ -11,17 +11,21 @@
   const into = (kind, tick, now) => (now - clock.starts[kind][tick]) / clock.tickMs;
   const at = (kind, tick, now) => ({ tick, into: Math.round(into(kind, tick, now) * 1000) / 1000 });
 
+  // The 3D view draws into its own canvas under #world, so a shot copies every canvas beside #world and stacks them in page order, as the screen does.
   // createImageBitmap copies the canvas when called, before its promise resolves.
   const frame = (kind, tick, now) => {
     const world = document.querySelector("#world");
-    return { at: at(kind, tick, now), bitmap: createImageBitmap(world), box: world.getBoundingClientRect() };
+    const layers = [...world.parentElement.querySelectorAll(":scope > canvas")].filter((canvas) => !canvas.hidden);
+    return { at: at(kind, tick, now), box: world.getBoundingClientRect(), layers: layers.map((layer) => ({ bitmap: createImageBitmap(layer), box: layer.getBoundingClientRect() })) };
   };
-  const release = (shot) => shot?.bitmap.then((bitmap) => bitmap.close());
+  const release = (shot) => shot?.layers.forEach(({ bitmap }) => bitmap.then((copy) => copy.close()));
   const encode = ({ name, shot }) =>
-    shot.bitmap
-      .then((bitmap) => {
-        const page = new OffscreenCanvas(window.innerWidth, window.innerHeight);
-        page.getContext("2d").drawImage(bitmap, shot.box.x, shot.box.y, shot.box.width, shot.box.height);
+    Promise.all(shot.layers.map(({ bitmap }) => bitmap))
+      .then((bitmaps) => {
+        const page = new OffscreenCanvas(window.innerWidth, window.innerHeight), context = page.getContext("2d");
+        context.fillStyle = "black";
+        context.fillRect(shot.box.x, shot.box.y, shot.box.width, shot.box.height);
+        bitmaps.forEach((bitmap, i) => context.drawImage(bitmap, shot.layers[i].box.x, shot.layers[i].box.y, shot.layers[i].box.width, shot.layers[i].box.height));
         return page.convertToBlob({ type: "image/png" });
       })
       .then((blob) => new Promise((resolve) => {

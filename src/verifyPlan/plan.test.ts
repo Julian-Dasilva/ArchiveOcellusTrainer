@@ -19,7 +19,8 @@ describe("verify plan", () => {
     const { impact, plan } = await shipped();
     const selected = plan(impact, ["scripts/install-beta-sdk.sh"]);
     expect(selected.tier).toBe("t2");
-    expect(selected.units).toHaveLength(37);
+    expect(selected.units).toHaveLength(38);
+    expect(selected.units).toContain("layered_present");
     expect(selected.selections).toEqual([{ kind: "everything", path: "scripts/install-beta-sdk.sh", glob: "scripts/install-beta-sdk.sh" }]);
   });
 
@@ -49,6 +50,13 @@ describe("verify plan", () => {
   test("an explosion change selects the explosion units", async () => {
     const { impact, plan } = await shipped();
     expect(plan(impact, ["src/content/ocellus/js/p4/explosions.ts"]).units).toEqual(["dodge_speedup", "explosion_run_end", "explosions"]);
+  });
+
+  test("a change to the page or the app that mounts the 3D view selects the layered present unit", async () => {
+    const { impact, plan } = await shipped();
+    expect(plan(impact, ["src/index.html"]).units).toContain("layered_present");
+    expect(plan(impact, ["src/ArchiveOcellusApp.tsx"]).units).toContain("layered_present");
+    expect(plan(impact, ["src/hoverText.ts"]).units).not.toContain("layered_present");
   });
 
   test("a unit's check module selects that unit", async () => {
