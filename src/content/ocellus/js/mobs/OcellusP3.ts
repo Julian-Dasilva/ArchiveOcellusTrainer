@@ -1,7 +1,8 @@
 import { CacheRenderModel, CacheRenderReferences, Collision, Mob } from "osrs-sdk";
 import type { Model, Projectile, Region, UnitBonuses } from "osrs-sdk";
 import type { P3Config } from "../OcellusTimings";
-import { OCELLUS_P3, OCELLUS_P4 } from "../OcellusTimings";
+import { OCELLUS_P4 } from "../OcellusTimings";
+import { OCELLUS_P3 } from "../OcellusTimingsP3";
 import type { OcellusPlayer } from "../OcellusPlayer";
 import { bossBonuses, withDefenceFloor } from "../bossStats";
 import type { Tick } from "../../../../sim/brands";

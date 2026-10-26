@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { CacheRenderInstancedModel, CacheRenderReferences, CollisionType, Entity, LineOfSightMask } from "osrs-sdk";
 import type { Location3, Model, Region, Renderable } from "osrs-sdk";
-import { OCELLUS_P1 } from "../OcellusTimings";
+import { OCELLUS_P1 } from "../OcellusTimingsP1";
 import type { Tick, Tile } from "../../../../sim/brands";
 import { after, span } from "../../../../sim/brands";
 import type { Crack, CrackId, Direction } from "../P1Types";

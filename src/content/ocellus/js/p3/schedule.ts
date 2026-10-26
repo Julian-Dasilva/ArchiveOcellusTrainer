@@ -1,4 +1,4 @@
-import { OCELLUS_P3 } from "../OcellusTimings";
+import { OCELLUS_P3 } from "../OcellusTimingsP3";
 import { tick } from "../../../../sim/brands";
 import type { Script, Slot } from "../../../../sim/schedule";
 import { Schedule, slotTable } from "../../../../sim/schedule";

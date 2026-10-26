@@ -1,7 +1,10 @@
 import type { CacheRenderBundleManifest } from "osrs-sdk";
 import type { CacheAssets } from "osrs-sdk/asset-manifest";
 import type { SpriteFrame } from "./content/ocellus/js/OcellusTimings";
-import { OCELLUS_P1, OCELLUS_P2, OCELLUS_P3, OCELLUS_P4 } from "./content/ocellus/js/OcellusTimings";
+import { OCELLUS_P4 } from "./content/ocellus/js/OcellusTimings";
+import { OCELLUS_P1 } from "./content/ocellus/js/OcellusTimingsP1";
+import { OCELLUS_P2 } from "./content/ocellus/js/OcellusTimingsP2";
+import { OCELLUS_P3 } from "./content/ocellus/js/OcellusTimingsP3";
 import { readBuildFlags } from "./flags";
 
 const { boss, gear, presentation, lifeforceOrb, rifts, explosion, geometry, floorHoles } = OCELLUS_P4;

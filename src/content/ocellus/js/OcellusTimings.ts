@@ -1,16 +1,13 @@
 import type { TwistedBow } from "osrs-sdk";
 import type { BuildFlags } from "../../../flags";
-import type { Cycle, HpFraction, Seed, SoundId, TickSpan, Tile } from "../../../sim/brands";
-import { cycle, hpFraction, seed, soundId, span, tick, tile } from "../../../sim/brands";
+import type { Cycle, Seed, SoundId, TickSpan, Tile } from "../../../sim/brands";
+import { cycle, seed, soundId, span, tick, tile } from "../../../sim/brands";
 import type { Style } from "../../../sim/combat";
 import type { Basis, Citations, Evidence, WikiRef } from "../../../sim/provenance";
 import { noWiki, wiki } from "../../../sim/provenance";
 import type { DrillStart, Focus } from "../../../sim/schedule";
 import type { BossOverhead, HoveringBoss, Mechanic, Special, Stage, TransitionKind, VoidKind } from "./P4Types";
-import type { P3Special, Quadrant, ReachRule } from "./P3Types";
-import type { Corner, CornerTurn, Direction, Element, Tendril } from "./P1Types";
-import type { Side } from "../../../sim/tiles";
-import type { Arm } from "./P2Types";
+import type { ReachRule } from "./P3Types";
 import { roll } from "./roll";
 
 type Scale = "unscaled" | "team-4" | "team-5" | "team-4-and-5" | "team-7" | "team-8" | "team-7-and-8" | "solo";
@@ -26,7 +23,7 @@ type Vod = keyof typeof VODS;
  * and NPC spawns by tick, as seen by one client. A cite's `at` counts ticks from S, the tick his Deflect rise (seq 14863)
  * starts a phase 4 cycle, or names the phase and its own marks.
  */
-type FightLog = "L1" | "L2" | "L3" | "L4" | "L5" | "L6" | "L7" | "L8";
+export type FightLog = "L1" | "L2" | "L3" | "L4" | "L5" | "L6" | "L7" | "L8";
 type FightLogEntry = Readonly<{ recorded: "2026-10-23"; fight: "spectated kill" | "raid"; players: number; reached: string; records: string }>;
 const FIGHT_LOGS: Readonly<Record<FightLog, FightLogEntry>> = {
   L1: { recorded: "2026-10-23", fight: "spectated kill", players: 8, reached: "the kill", records: "every boss animation, shout and floor graphic, his projectiles, each player's hitsplats with the overhead they had up, the boss's hitsplats and HP, player positions through each Untether and each phase 2 volley" },
@@ -41,7 +38,7 @@ const FIGHT_LOGS: Readonly<Record<FightLog, FightLogEntry>> = {
 
 type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24";
 
-type Source =
+export type Source =
   | Readonly<{ kind: "fight-log"; log: FightLog; at: string }>
   | Readonly<{ kind: "analysis"; url: string; at: string }>
   | Readonly<{ kind: "vod"; vod: Vod; at: string }>
@@ -50,9 +47,9 @@ type Source =
   | Readonly<{ kind: "owner"; date: OwnerDate; topic: string }>
   | Readonly<{ kind: "guide"; url: string; at: string }>;
 
-type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
+export type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
 
-function selected<T>(value: T, basis: Basis, scale: Scale, note: string, ...sources: Citations<Source>): Selected<T> {
+export function selected<T>(value: T, basis: Basis, scale: Scale, note: string, ...sources: Citations<Source>): Selected<T> {
   return { kind: "selected", value, evidence: { status: "unverified", basis, scale, note, sources } };
 }
 
@@ -62,23 +59,23 @@ function choice<O extends Options>(defaultKey: keyof O & string, options: O): Ch
   return { default: defaultKey, options };
 }
 
-const fightLog = (log: FightLog, at: string): Source => ({ kind: "fight-log", log, at });
+export const fightLog = (log: FightLog, at: string): Source => ({ kind: "fight-log", log, at });
 /** A written analysis of packet captures, such as the RSProx notes on the raid. */
-const analysis = (url: string, at: string): Source => ({ kind: "analysis", url, at });
+export const analysis = (url: string, at: string): Source => ({ kind: "analysis", url, at });
 const vod = (which: Vod, at: string): Source => ({ kind: "vod", vod: which, at });
 const news = (url: string): Source => ({ kind: "news", url });
-const cache = (record: string): Source => ({ kind: "cache", build: 2746, record });
+export const cache = (record: string): Source => ({ kind: "cache", build: 2746, record });
 const owner = (topic: string, date: OwnerDate = "2026-10-21"): Source => ({ kind: "owner", date, topic });
-const guide = (url: string, at: string): Source => ({ kind: "guide", url, at });
+export const guide = (url: string, at: string): Source => ({ kind: "guide", url, at });
 const STRATEGIES_P4 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381030);
 const BOSS_INFOBOX = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15380968);
 const VOID_RIFT_PAGE = wiki("https://oldschool.runescape.wiki/w/Void_Rift", 15380527);
 const NO_WIKI_TICKS = noWiki("the wiki's phase 4 steps give the order of events but no tick counts (Strategies rev 15381030)");
 const NO_WIKI_P4 = noWiki("the wiki's phase 4 steps do not state it (Strategies rev 15381030)");
 const NO_WIKI_ARENA = noWiki("the wiki has no tile layout of the phase 4 platform (Strategies rev 15381030, Ocellus rev 15380968)");
-const NO_WIKI_PRESENTATION = noWiki("presentation from the cache or footage, not a game rule");
-const NO_WIKI_PRACTICE = noWiki("a trainer option, not game data");
-const pose = (id: number, name: string, basis: Basis, note: string): Selected<number> =>
+export const NO_WIKI_PRESENTATION = noWiki("presentation from the cache or footage, not a game rule");
+export const NO_WIKI_PRACTICE = noWiki("a trainer option, not game data");
+export const pose = (id: number, name: string, basis: Basis, note: string): Selected<number> =>
   selected(id, basis, "unscaled", note, NO_WIKI_PRESENTATION, cache(`seq ${id} ${name}`));
 const DEFLECT_MELEE_SEEN = [vod("V1", "G53, G55 to G57, G109, G115 to G117, G153, G154, G175 to G177"), vod("V2", "k48, k60, k70 to k72, k131, k132, k168, k170, k250 to k252")] as const;
 const DEFLECT_RANGE_SEEN = [vod("V1", "G64 to G85 but G74, G124 to G145 but G133, G184 to G186, G189 to G193"), vod("V2", "k79 to k93, k143 to k153, k199, k200, k214 to k217, k259 to k273 but k266")] as const;
@@ -89,11 +86,11 @@ const ORB_OFF_HOLES = owner("healing orbs never spawn on a floor hole; community
 const STRATEGIES_RIFTS = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15379263);
 const STRATEGIES_VOID_POOLS = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15380016);
 const DEFLECT_MELEE_PAGE = wiki("https://oldschool.runescape.wiki/w/Deflect_Melee", 15124245);
-const DEFENCE_REDUCTION_TABLE = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15379033);
-const HOTFIX_NEWS = news("https://secure.runescape.com/m=news/the-fractured-archive---out-today?oldschool=1");
+export const DEFENCE_REDUCTION_TABLE = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15379033);
+export const HOTFIX_NEWS = news("https://secure.runescape.com/m=news/the-fractured-archive---out-today?oldschool=1");
 const SOLO_SCALE = news("https://secure.runescape.com/m=news/the-fractured-archive---everything-you-need-to-know?oldschool=1");
 
-type AmmunitionClass = "light" | "standard" | "heavy";
+export type AmmunitionClass = "light" | "standard" | "heavy";
 type Footprint = "blocks-movement" | "walkable";
 
 type BossRecipe = Readonly<{
@@ -669,7 +666,7 @@ type LifeforceOrbRecipe = Readonly<{
   look: Readonly<Record<OrbVisual, Selected<number>>>;
 }>;
 
-const spotAnim = (id: number, name: string, basis: Basis, note: string): Selected<number> =>
+export const spotAnim = (id: number, name: string, basis: Basis, note: string): Selected<number> =>
   selected(id, basis, "unscaled", note, NO_WIKI_PRESENTATION, cache(`spotanim ${id} ${name}`));
 
 const LIFEFORCE_ORB: LifeforceOrbRecipe = {
@@ -987,425 +984,23 @@ export const OCELLUS_P4 = {
   },
 } as const;
 
-const STRATEGIES_P3 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381236);
-const BOSS_PAGE_P3 = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15381233);
-const NO_WIKI_P3_TICKS = noWiki("the wiki's phase 3 text gives the order and damage but no tick counts (Strategies rev 15381236)");
-const NO_WIKI_P3_ARENA = noWiki("the wiki has no tile layout of the phase 3 arena (Strategies rev 15381236, Ocellus rev 15381233)");
-const KIRBY_GUIDE = "https://www.youtube.com/watch?v=GU8_yiucWtk";
-const ROBINHOOD_GUIDE = "https://www.youtube.com/watch?v=9sji2HBjI98";
-const DEFBIGBEAST_GUIDE = "https://www.youtube.com/watch?v=lT4DVmgDJak";
-const PANFLEET_SOLO = "https://www.youtube.com/watch?v=_upW4hBgHbA";
-const P3_CYCLE_FRAMES = guide(PANFLEET_SOLO, "5:20 to 5:45 at 1x: swings f114, f168, f294, f348, slashes landing f240, f421, the spin f478 (raid timer 30:13.00 at f0)");
-const P3_CHIP_FRAMES = guide(DEFBIGBEAST_GUIDE, "20:28 to 21:12 at 1x: slashes landing f310 and f490, the tank's chips red 2 at f363 and red 1 at f417");
-const DUO_GUIDE = "https://www.youtube.com/watch?v=HAgq_qg0OIY";
-/** The fight logs a phase 3 value rests on, one `fight-log` source each; fight N in the notes is FIGHT_LOGS' LN. */
-const p3Logs = (logs: readonly [FightLog, ...FightLog[]], at: string): readonly Source[] => logs.map((log) => fightLog(log, at));
-const P3_CHAIN_LOGS = p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 7, quadrant 1 from his landing S: swings S+4 and S+7, slash S+10, swings S+14 and S+17, slash S+20, the spin S+24, its end S+29 and his next swing S+33; fight 8 the same 3 ticks late after a panic at S+4");
-const P3_PANIC_LOGS = p3Logs(["L3", "L6", "L8"], "fight 8: panic S+4, swing S+10, slash S+13; fight 3: swing S+33, panic S+36, slash S+42; fight 6: swing S+119, panic S+122, slash S+128");
-const P3_SPECIAL_LOGS = p3Logs(["L4", "L5", "L6", "L7", "L8"], "fights 4 and 8, quadrant 1: spin S+24, Untether S+53 (fight 8: S+59 after two panics), spin, Insolence, spin, Untether, spin, Insolence, spin; fights 5 to 7 the same up to the fall");
-const RSPROX_PLAN = "https://github.com/MRobertEvers/oldschool-clientc/blob/HEAD/docs/rsprox-analysis/guthixian_archive/ocellus_plan.md";
-const P3_DAMAGE_AUDIT = analysis(RSPROX_PLAN, "damage audit, p3 rows: packet captures of six recorded fights");
-const P3_UNTETHER_LOGS = p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: Untether U, the slam U+29, a fall shout U+31 in fights 1 and 2, and with the quadrant standing a swing or panic at U+37 in fights 3 to 8");
-
-type ChainStep = "afterSwing" | "afterSlash" | "afterPanic";
-type P3BossPose = "swing" | "panic" | "shadowSlash" | "spinStarts" | "spinLoops" | "spinEnds" | "untetherStarts" | "untetherLoops" | "slam" | "superiorSlash" | "quadrantFalls";
-
-type P3Recipe = Readonly<{
-  arena: Readonly<{ grid: Selected<readonly string[]>; playerSpawn: Selected<Tile>; bossAnchor: Selected<Tile> }>;
-  thresholds: Selected<Readonly<Record<Quadrant, HpFraction>>>;
-  firstAttackAfterStart: Selected<TickSpan>;
-  chain: Readonly<Record<ChainStep, Selected<TickSpan>>> & Readonly<{ setsBeforeSpecial: Selected<number> }>;
-  swing: Readonly<{ protectedDamage: Selected<DamageRange>; unprotectedDamage: Selected<DamageRange> }>;
-  panic: Readonly<{ shout: Selected<string>; landsAfter: Selected<TickSpan>; damage: Selected<DamageRange> }>;
-  shadowSlash: Readonly<{ landsAfter: Selected<TickSpan>; width: Selected<number>; damage: Selected<DamageRange> }>;
-  specials: Selected<readonly [P3Special, ...P3Special[]]>;
-  spin: Readonly<{
-    opensAfter: Selected<TickSpan>;
-    openingDamage: Selected<DamageRange>;
-    saws: Selected<number>;
-    firstCut: Selected<TickSpan>;
-    cutEvery: Selected<TickSpan>;
-    nextMoveAfterLastCut: Selected<TickSpan>;
-    damage: Selected<DamageRange>;
-    severedFor: Selected<TickSpan>;
-    severChat: Selected<readonly string[]>;
-  }>;
-  untether: Readonly<{
-    shout: Selected<string>;
-    corner: Selected<Tile>;
-    magic: Selected<readonly TickSpan[]>;
-    magicDamage: Selected<DamageRange>;
-    slam: Selected<TickSpan>;
-    slamDamage: Selected<DamageRange>;
-    aftershockDamage: Selected<DamageRange>;
-    fallsOrStandsAt: Selected<TickSpan>;
-    swingsAgain: Selected<TickSpan>;
-  }>;
-  insolence: Readonly<{
-    shout: Selected<string>;
-    slashes: Selected<readonly TickSpan[]>;
-    landsAfter: Selected<TickSpan>;
-    width: Selected<number>;
-    damage: Selected<DamageRange>;
-    swingsAgain: Selected<TickSpan>;
-  }>;
-  fallShouts: Selected<readonly string[]>;
-  shoutLasts: Selected<TickSpan>;
-  bossPoses: Readonly<Record<P3BossPose, Selected<number>>>;
-}>;
-
-const P3: P3Recipe = {
-  arena: {
-    grid: selected(
-      [
-        ".........bbbbbbbbbbbbb.........",
-        ".......bbbb222+++111bbbb.......",
-        "......bbbb2222+++1111bbbb......",
-        ".....bbbb22222+++11111bbbb.....",
-        "....bbBb222222+++111111bBbb....",
-        "...bbbb2222222+++1111111bbbb...",
-        "...bbb22222222+++11111111bbb...",
-        "..bbb222222222+++111111111bbb..",
-        "..bb2222222222+++1111111111bb..",
-        "..b22222222222+++11111111111b..",
-        "..b22222222222+++11111111111b..",
-        "..b22222222222+++11111111111b..",
-        "..b+++++++++++++++++++++++++b..",
-        "..b+++++++++++++++++++++++++b..",
-        "..b+++++++++++++++++++++++++b..",
-        "..b33333333333+++44444444444b..",
-        "..b33333333333+++44444444444b..",
-        "..b33333333333+++44444444444b..",
-        "..bb3333333333+++4444444444bb..",
-        "..bbb333333333+++444444444bbb..",
-        "...bbb33333333+++44444444bbb...",
-        "...bbbb3333333+++4444444bbbb...",
-        "....bbBb333333+++444444bBbb....",
-        ".....bbbb33333+++44444bbbb.....",
-        "......bbbb3333+++4444bbbb......",
-        ".......bbbb333+++444bbbb.......",
-        ".........bbbbb+++bbbbb.........",
-      ],
-      "spec-single",
-      "unscaled",
-      "row y = 0 first, x = 0 leftmost, at cache x = 16 + column and y = 54 - row; 1 to 4 are the north-east, north-west, south-west and south-east wedges of 85 floor tiles each, + the 3-wide cross between them, b the raised rim, B a brazier on the rim, . not floor; every floor tile of the map square is in the grid, and a quarter turn about The Blade at cache (31, 41) maps each wedge onto the next",
-      NO_WIKI_P3_ARENA, cache("map square 16472 plane 1: floor overlay 657, rim 656, brazier locs 62894"),
-    ),
-    playerSpawn: selected(tile(19, 9), "assumption", "unscaled", "a floor tile of the north-east wedge two tiles south-west of the boss; no clip pins where the phase starts", NO_WIKI_P3_ARENA),
-    bossAnchor: selected(tile(21, 7), "assumption", "unscaled", "south-west tile of the boss's 3x3, which covers x 21 to 23 and y 5 to 7, all on the north-east wedge; no clip pins where the phase starts", NO_WIKI_P3_ARENA),
-  },
-  thresholds: selected(
-    { 1: hpFraction(0.76), 2: hpFraction(0.51), 3: hpFraction(0.26) },
-    "log-repeated",
-    "unscaled",
-    "a quadrant falls on the tick after the first tick the boss is at or below the fraction of his max HP, whatever he is doing, except that during Untether it waits for its end; the logs show his HP only as a whole percentage, so the exact fraction between 75% and 76% is not on record; the guides' 75%, 50% and 25% fall later than 9 of the 12 logged falls",
-    NO_WIKI_P3_TICKS, guide(ROBINHOOD_GUIDE, "0:06:13"), guide(KIRBY_GUIDE, "5:37"),
-    ...p3Logs(["L6", "L7", "L8"], "fights 6 to 8, quadrant 1: the bar reads 76% on the tick before the fall, with no hit to 75% or below before it (L6:3819 and L6:3821, L7:3943 and L7:3945, L8:4317 and L8:4335)"),
-    ...p3Logs(["L1", "L2", "L6", "L7"], "quadrant 2: the bar reads 51% before the fall (L1:3576 and L1:3579, L2:3465 and L2:3477, L6:4707 and L6:4711, L7:5364 and L7:5366)"),
-    ...p3Logs(["L1", "L6"], "quadrant 3: the bar reads 26% before the fall (L1:4289 and L1:4291, L6:5470 and L6:5472)"),
-    ...p3Logs(["L5", "L7"], "fight 7: swings S+169 and S+172, slash S+175, the fall shout S+178, a tick before his next move; fight 5: swing S+172 and the fall shout S+173"),
-  ),
-  firstAttackAfterStart: selected(span(4), "log-repeated", "unscaled", "P3 tick 0 is the tick he lands in his first corner; his first move comes 4 ticks later, 10 after phase 3 begins", NO_WIKI_P3_TICKS, ...P3_CHAIN_LOGS),
-  chain: {
-    afterSwing: selected(span(3), "footage-repeated", "unscaled", "a set is two swings and a shadow slash, each move timed from the one before: the second swing 3 ticks after the first and the slash 3 after the second; the wiki infobox's attack speed of 6 is not this gap", STRATEGIES_P3, BOSS_PAGE_P3, ...P3_CHAIN_LOGS, P3_CYCLE_FRAMES, P3_CHIP_FRAMES),
-    afterSlash: selected(span(4), "footage-repeated", "unscaled", "his next move, a swing or a special, 4 ticks after the slash's animation; the slash lands 1 tick after its animation, so footage shows it landing 3 ticks before the next swing", NO_WIKI_P3_TICKS, ...P3_CHAIN_LOGS, P3_CYCLE_FRAMES, P3_CHIP_FRAMES),
-    afterPanic: selected(span(6), "log-repeated", "unscaled", "a panic shot takes a swing's place and his next move comes 6 ticks after it, so the rest of the chain runs 3 ticks late", NO_WIKI_P3_TICKS, ...P3_PANIC_LOGS),
-    setsBeforeSpecial: selected(2, "footage-repeated", "unscaled", "two sets, then a special, then two sets again", NO_WIKI_P3_TICKS, ...P3_CHAIN_LOGS, guide(KIRBY_GUIDE, "4:18")),
-  },
-  swing: {
-    protectedDamage: selected<DamageRange>({ min: 0, max: 6 }, "footage-repeated", "solo", "chip through Protect from Melee: red 6, blue 0, red 6, blue 0 in panfleet's solo and red 2 and red 1 on DefBigbeast's tank; 6 is the most seen", NO_WIKI_P3_TICKS, P3_CYCLE_FRAMES, P3_CHIP_FRAMES, guide(ROBINHOOD_GUIDE, "0:02:09")),
-    unprotectedDamage: selected<DamageRange>({ min: 0, max: 26 }, "inferred", "unscaled", "the monster melee max hit ⌊0.5 + (250 + 9) × (0 + 64) / 640⌋ = 26 at the cache's Strength 250 with no strength bonus (assumption); no clip shows an unprotected swing", noWiki("no wiki page gives the phase 3 swing's max hit (Ocellus rev 15381233)"), cache("npc 16677 stats [325, 250, 250, 5250, 300, 300]")),
-  },
-  panic: {
-    shout: selected("Your panic... is futile...", "log-repeated", "unscaled", "his shout with a panic shot", NO_WIKI_P3_TICKS, ...p3Logs(["L3", "L4", "L5", "L6", "L7", "L8"], "fights 3 to 8")),
-    landsAfter: selected(span(2), "log-repeated", "unscaled", "a magic shot that lands 2 ticks after his animation, when nobody is in his melee reach as a swing comes; Protect from Magic blocks it", STRATEGIES_P3, ...p3Logs(["L1", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 and 3 to 8: every panic's hits land 2 ticks after its animation, 0 on each raider under Protect from Magic")),
-    damage: selected<DamageRange>({ min: 20, max: 26 }, "spec-single", "unscaled", "without Protect from Magic, from the wiki's 20+; the logs' unprotected hits as it lands run from 10 to 33, with other hits on the same tick, so they do not pin it", STRATEGIES_P3, guide(ROBINHOOD_GUIDE, "0:02:26 to 0:02:31"), ...p3Logs(["L1", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 and 3 to 8")),
-  },
-  shadowSlash: {
-    landsAfter: selected(span(1), "log-repeated", "unscaled", "the slash's floor graphic and its hits come the tick after his animation", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: spotanim 4335 on the floor and the hits on the tick after each animation 14846")),
-    width: selected(3, "log-repeated", "unscaled", "a band 3 tiles wide toward his tank, snapped to the nearest of the 8 directions from his middle tile, from the ring touching his body to the wedge's edge; straight bands are the 3 tiles in line with his body, diagonal ones start at his corner; solo, his tank is you", NO_WIKI_P3_TICKS, ...p3Logs(["L3", "L4", "L5", "L6", "L7", "L8"], "fights 3 to 8: 111 bands of spotanim 4335, each aimed at the raider his swings hit")),
-    damage: selected<DamageRange>({ min: 25, max: 28 }, "footage-repeated", "unscaled", "typeless, so a protection prayer does not help", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: 57 of the 75 hits on raiders the tick after a slash's animation are 25 to 28")),
-  },
-  specials: selected<readonly [P3Special, ...P3Special[]]>(
-    ["spin", "untether", "spin", "insolence"],
-    "footage-repeated",
-    "unscaled",
-    "after every two sets: the spin every other special, and between them Untether and Insolence in turn, Untether first; his HP plays no part, so a quadrant that stands through Untether goes on the same way; in later quadrants Insolence comes first, and the spin keeps alternating across a quadrant's fall, so a quadrant that falls after a spin opens with the other special",
-    NO_WIKI_P3_TICKS, ...P3_SPECIAL_LOGS,
-  ),
-  spin: {
-    opensAfter: selected(span(1), "log-repeated", "unscaled", "a melee hit lands on everyone 1 tick after the spin starts, before its first saw; Protect from Melee blocks it", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: a hit on S+1 of every spin and none on S, 0 on 256 of 257 raiders under Protect from Melee, as at L6:3292")),
-    openingDamage: selected<DamageRange>({ min: 0, max: 18 }, "log-repeated", "unscaled", "without Protect from Melee; the 22 lone splats on S+1 run 0 to 18, as L6:3293's 18", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: the S+1 hits on raiders with no overhead")),
-    saws: selected(1, "log-repeated", "unscaled", "one saw in quadrant 1; one more for each quadrant destroyed", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: one cut in quadrant 1, two in quadrant 2 and three in quadrant 3")),
-    firstCut: selected(span(5), "log-repeated", "unscaled", "the first saw cuts 5 ticks after the spin starts, on the tick his loop animation, or for the last saw his end animation, plays", NO_WIKI_P3_TICKS, ...P3_CHAIN_LOGS, ...p3Logs(["L2"], "fight 2: per-tick overheads through each spin")),
-    cutEvery: selected(span(3), "log-repeated", "unscaled", "each later saw 3 ticks after the one before", NO_WIKI_P3_TICKS, ...p3Logs(["L2"], "fight 2, quadrant 3: loops at P+5 and P+8, the end at P+11")),
-    nextMoveAfterLastCut: selected(span(4), "log-repeated", "unscaled", "his next move 4 ticks after the last cut", NO_WIKI_P3_TICKS, ...P3_CHAIN_LOGS),
-    damage: selected<DamageRange>({ min: 15, max: 27 }, "spec-single", "unscaled", "melee, 0 through Protect from Melee", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: zeros through Protect from Melee on each cut, and 11 to 29 on raiders with no overhead")),
-    severedFor: selected(span(3), "footage-once", "unscaled", "an overhead up on the tick before a cut is severed and stays off for 3 ticks, so the cut lands; turn it off for that tick and back on for the cut", NO_WIKI_P3_TICKS, guide(DUO_GUIDE, "18:53 to 18:55"), ...p3Logs(["L2"], "fight 2: every raider's overhead off the tick before each cut and on for it")),
-    severChat: selected(
-      ["Ocellus disrupts your concentration, severing your prayer!", "You've been injured and can't use protection prayers!"],
-      "footage-once",
-      "unscaled",
-      "the game chat as a prayer is severed",
-      NO_WIKI_P3_TICKS, guide(DUO_GUIDE, "18:53"), ...p3Logs(["L4"], "fight 4: the second line in the chat"),
-    ),
-  },
-  untether: {
-    shout: selected("Untether...", "log-repeated", "unscaled", "his shout as Untether starts", STRATEGIES_P3, ...P3_UNTETHER_LOGS),
-    corner: selected(tile(21, 7), "log-repeated", "unscaled", "he rises from his quadrant's corner: the south-west tile of his 3x3 at cache (37, 47) in quadrant 1", NO_WIKI_P3_ARENA, ...p3Logs(["L3", "L4", "L5"], "fights 3 to 5: every Untether in quadrant 1 at cache (37, 47)")),
-    magic: selected([span(10), span(14), span(18), span(22)], "footage-repeated", "unscaled", "magic lands on everyone 10, 14, 18 and 22 ticks in, so Untether is prayed with Protect from Magic", NO_WIKI_P3_TICKS, guide(KIRBY_GUIDE, "4:37"), ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: zeros on every raider under Protect from Magic at U+10, U+14, U+18 and U+22")),
-    magicDamage: selected<DamageRange>({ min: 14, max: 29 }, "spec-single", "unscaled", "without Protect from Magic, from 12 unprayed hits; nearly every hit through Protect from Magic was 0", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT),
-    slam: selected(span(29), "footage-repeated", "unscaled", "the slam hits whoever is not under his 3x3 at the end of the tick before; the aftershock a tick later hits whoever is still under him at the end of the slam's tick; so be under him by U+28 and one tile out on U+29", NO_WIKI_P3_TICKS, guide(KIRBY_GUIDE, "5:00"), ...p3Logs(["L1"], "fight 1: 36 on the one raider outside at U+29, 21 and 41 at U+30 on the two still under")),
-    slamDamage: selected<DamageRange>({ min: 34, max: 39 }, "footage-repeated", "unscaled", "typeless; the logs' slams run 34 to 41", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: hits at U+29")),
-    aftershockDamage: selected<DamageRange>({ min: 18, max: 41 }, "footage-repeated", "unscaled", "typeless; 18 and 19 on the tick after the slam in the packet captures, 18 to 42 in the logs", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: hits at U+30")),
-    fallsOrStandsAt: selected(span(31), "log-repeated", "unscaled", "the quadrant falls 31 ticks after Untether starts if his HP is at its floor by then; otherwise it stands", NO_WIKI_P3_TICKS, ...P3_UNTETHER_LOGS),
-    swingsAgain: selected(span(37), "log-repeated", "unscaled", "with the quadrant standing, his next move 37 ticks after Untether starts", NO_WIKI_P3_TICKS, ...P3_UNTETHER_LOGS),
-  },
-  insolence: {
-    shout: selected("Insolence...", "log-repeated", "unscaled", "his shout as Insolence starts", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8")),
-    slashes: selected([span(2), span(7), span(12)], "log-repeated", "unscaled", "three superior slashes animate 2, 7 and 12 ticks after the shout; solo, all three come at you", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L5", "L6", "L7"], "fights 1 and 5 to 7: animation 14848 at I+2, I+7 and I+12; the other fights log two of the three on those ticks")),
-    landsAfter: selected(span(3), "log-repeated", "unscaled", "each lands 3 ticks after its animation", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L4", "L5", "L6", "L7", "L8"], "fights 1, 2 and 4 to 8: hits of 38 to 48 three ticks after animation 14848")),
-    width: selected(3, "footage-once", "unscaled", "a band 3 tiles wide from just outside his body to the wedge's edge, at any angle, not snapped", NO_WIKI_P3_TICKS, guide(DUO_GUIDE, "20:24")),
-    damage: selected<DamageRange>({ min: 38, max: 46 }, "footage-repeated", "unscaled", "typeless; 39 to 41 in the packet captures, 38 to 48 in the logs, 46, 43 and 38 on one band in fight 1", NO_WIKI_P3_TICKS, P3_DAMAGE_AUDIT, ...p3Logs(["L1", "L2", "L4", "L5", "L6", "L7", "L8"], "fights 1, 2 and 4 to 8")),
-    swingsAgain: selected(span(20), "log-repeated", "unscaled", "his next move 20 ticks after the shout", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L4", "L5", "L7", "L8"], "fights 1, 2, 4, 5, 7 and 8")),
-  },
-  fallShouts: selected(["Obliteration...", "Run... It matters not..."], "log-repeated", "unscaled", "one of these as the quadrant falls", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8")),
-  shoutLasts: selected(span(3), "assumption", "unscaled", "how long his overhead text shows", NO_WIKI_PRESENTATION),
-  bossPoses: {
-    swing: pose(14842, "npc_ocellus_phase3_melee_basic", "inferred", "the swing, 2 ticks; by its name"),
-    panic: pose(14851, "npc_ocellus_phase3_basic_projectile_all", "footage-repeated", "the panic shot, 3 ticks; on every panic in the logs"),
-    shadowSlash: pose(14846, "npc_ocellus_phase3_melee_slash", "footage-repeated", "the shadow slash, 3 ticks; on every slash in the logs"),
-    spinStarts: pose(14869, "npc_ocellus_phase3_prayer_in", "footage-repeated", "the spin's start; on every spin in the logs"),
-    spinLoops: pose(14870, "npc_ocellus_phase3_prayer_loop", "footage-repeated", "a saw's cut before the last; in the logs' later quadrants"),
-    spinEnds: pose(14871, "npc_ocellus_phase3_prayer_out", "footage-repeated", "the last saw's cut; on every spin in the logs"),
-    untetherStarts: pose(14857, "npc_ocellus_phase3_unleash_in", "footage-repeated", "Untether's rise, 2 ticks; on every Untether in the logs"),
-    untetherLoops: pose(14858, "npc_ocellus_phase3_unleash_loop", "footage-repeated", "hovering through Untether, a 2-tick loop"),
-    slam: pose(14861, "npc_ocellus_phase3_unleash_out", "footage-repeated", "the slam, 4 ticks; at U+29 in the logs"),
-    superiorSlash: pose(14848, "npc_ocellus_phase3_superior_slash", "footage-repeated", "a superior slash of Insolence; in the logs"),
-    quadrantFalls: pose(14859, "npc_ocellus_phase3_quadrant_destroy_in", "footage-repeated", "the fall's start, with its shout; in the logs"),
-  },
-};
-
-export const OCELLUS_P3 = {
-  ...P3,
-  choices: {
-    reach: choice("melee-range", {
-      "melee-range": selected<ReachRule>("melee-range", "community-tested", "team-4-and-5", "a swing becomes a panic shot when the player is not in the SDK's melee range of the boss's 3x3 after his step; the wiki's unable to reach read as melee range", STRATEGIES_P3, guide(ROBINHOOD_GUIDE, "0:02:26")),
-      "within-two": selected<ReachRule>("within-two", "spec-single", "unscaled", "a panic shot when the player is more than 2 tiles from the boss's 3x3", BOSS_PAGE_P3),
-    }),
-  },
+export const STRATEGIES_P3 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381236);
+export const BOSS_PAGE_P3 = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15381233);
+export const ROBINHOOD_GUIDE = "https://www.youtube.com/watch?v=9sji2HBjI98";
+export const RSPROX_PLAN = "https://github.com/MRobertEvers/oldschool-clientc/blob/HEAD/docs/rsprox-analysis/guthixian_archive/ocellus_plan.md";
+const P3_URL_CHOICES = {
+  reach: choice("melee-range", {
+    "melee-range": selected<ReachRule>("melee-range", "community-tested", "team-4-and-5", "a swing becomes a panic shot when the player is not in the SDK's melee range of the boss's 3x3 after his step; the wiki's unable to reach read as melee range", STRATEGIES_P3, guide(ROBINHOOD_GUIDE, "0:02:26")),
+    "within-two": selected<ReachRule>("within-two", "spec-single", "unscaled", "a panic shot when the player is more than 2 tiles from the boss's 3x3", BOSS_PAGE_P3),
+  }),
 } as const;
 
-const STRATEGIES_P2 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381236);
-const BOSS_PAGE_P2 = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15381233);
-const NO_WIKI_P2_TICKS = noWiki("the wiki's phase 2 text gives the order of the portals, pools and floor portal but no tick counts (Strategies rev 15381236, Ocellus rev 15381233)");
-const NO_WIKI_P2_ARENA = noWiki("the wiki has no tile layout of the phase 2 portals (Strategies rev 15381236, Ocellus rev 15381233)");
-const PORTAL_SKIP_GUIDE = "https://www.youtube.com/watch?v=c4PSUxjNUiY";
-/** The logs with phase marks, so P2 +0 is the tick each enters phase 2: the two 8-raider kills and three 7-raider raids. */
-const P2_KILLS = ["L1", "L2"] as const satisfies readonly FightLog[];
-const P2_RAIDS = ["L6", "L7", "L8"] as const satisfies readonly FightLog[];
-const P2_PHASE_2S = [...P2_KILLS, ...P2_RAIDS] as const;
-const inLogs = (logs: readonly FightLog[], at: string): readonly Source[] => logs.map((log) => fightLog(log, at));
-const P2_LOGS = inLogs(P2_PHASE_2S, "phase 2, P2 +0 to +131");
-const P2_VOLLEY_HITS = inLogs(P2_PHASE_2S, "phase 2's volley ticks: 108 volley hitsplats across four of these five; every hit on the volley tick was 1 to 5 tiles from its portal's row or column, every hit a tick later 6 to 10, and the one two ticks later 12");
-const P2_BOSS_BAR = inLogs(P2_PHASE_2S, "phase 2: Ocellus's bar holds at 100% from P2 +7 and drops only at +46, +88 and +124, by one hit each time");
-const p2Pose = (id: number, name: string, basis: Basis, note: string, ...seen: readonly Source[]): Selected<number> =>
-  selected(id, basis, "unscaled", note, NO_WIKI_PRESENTATION, cache(`seq ${id} ${name}`), ...seen);
-const p2SpotAnim = (id: number, name: string, note: string, ...seen: readonly Source[]): Selected<number> =>
-  selected(id, "log-repeated", "team-7-and-8", note, NO_WIKI_PRESENTATION, cache(`spotanim ${id} ${name}`), ...seen);
-
-type P2BossPose = "transform" | "idle" | "enough";
-type P2SpotAnim =
-  | "transform"
-  | "portalBolt"
-  | "pool"
-  | "safePortalSpawn"
-  | "safePortalIdle"
-  | "safePortalDespawn"
-  | "swordRepair"
-  | "discharge"
-  | "swordDrop"
-  | "swordRootFire"
-  | "armDrop"
-  | "armGlow"
-  | "swordDropBurst";
-type PortalLook = Readonly<{ model: number; idle: number }>;
-type P2Shout = Readonly<{ text: string; lasts: TickSpan }>;
-
-type P2Recipe = Readonly<{
-  arena: Readonly<{ middle: Selected<Tile>; playerSpawn: Selected<Tile>; bossAnchor: Selected<Tile> }>;
-  ocellusNpcId: Selected<number>;
-  blade: Readonly<{
-    name: Selected<string>;
-    combatLevel: Selected<number>;
-    stats: Selected<Readonly<{ attack: number; strength: number; defence: number; range: number; magic: number }>>;
-    defenceBonuses: Selected<Readonly<{ stab: number; slash: number; crush: number; magic: number }>>;
-    rangedDefence: Selected<Readonly<Record<AmmunitionClass, number>>>;
-    lowestDefencePercent: Selected<number>;
-    releasedPercent: Selected<number>;
-  }>;
-  timeline: Readonly<{
-    portalsRise: Selected<TickSpan>;
-    bladeWakes: Selected<TickSpan>;
-    rounds: Selected<readonly [TickSpan, TickSpan, TickSpan]>;
-    enough: Selected<TickSpan>;
-    swordFalls: Selected<TickSpan>;
-    phaseEnds: Selected<TickSpan>;
-  }>;
-  round: Readonly<{
-    lightings: Selected<Readonly<{ count: number; every: TickSpan; fireAfter: TickSpan }>>;
-    poolsForm: Selected<TickSpan>;
-    allLight: Selected<TickSpan>;
-    safePortal: Selected<Readonly<{ opens: TickSpan; takesFrom: TickSpan; takesUntil: TickSpan; closes: TickSpan }>>;
-    allFire: Selected<TickSpan>;
-    discharge: Selected<TickSpan>;
-    release: Selected<TickSpan>;
-  }>;
-  portals: Readonly<{
-    perArm: Selected<number>;
-    gapDrift: Selected<number>;
-    gapIndexSum: Selected<number>;
-    rotation: Selected<Readonly<Record<Arm, number>>>;
-    looks: Selected<Readonly<{ inactive: PortalLook; lit: PortalLook }>>;
-  }>;
-  volley: Readonly<{ cyclesPerTile: Selected<Readonly<{ lit: number; all: number }>>; damage: Selected<DamageRange> }>;
-  pools: Readonly<{ count: Selected<number>; burst: Selected<Readonly<{ afterForming: TickSpan; damage: DamageRange }>> }>;
-  escape: Selected<"turned-into-next-wedge">;
-  shouts: Readonly<{ bladeWakes: Selected<P2Shout>; enough: Selected<P2Shout> }>;
-  swordRepair: Selected<Readonly<{ first: TickSpan; every: TickSpan }>>;
-  bossPoses: Readonly<Record<P2BossPose, Selected<number>>>;
-  spotAnims: Readonly<Record<P2SpotAnim, Selected<number>>>;
-  skipTiles: Selected<Readonly<{ wait: number; run: number; colour: string }>>;
-}>;
-
-const P2: P2Recipe = {
-  arena: {
-    middle: selected(tile(15, 13), "spec-single", "unscaled", "the middle of the 3-wide cross on the phase 3 grid, cache (31, 41), where The Blade stands and the four wedges turn onto each other; the phase 2 room is that grid's floor without the strip south of the cross's 12th tile, past the last portal", NO_WIKI_P2_ARENA, cache("map square 16472 plane 1: floor overlay 657")),
-    playerSpawn: selected(tile(19, 9), "assumption", "unscaled", "4 tiles east and 4 north of the middle, inside the north-east wedge, where the first round then fires; no recording shows where a solo phase 2 starts", NO_WIKI_P2_ARENA, ...inLogs(P2_KILLS, "P2 +15: the team stands within a tile of 4 east, 4 north when the first volley fires")),
-    bossAnchor: selected(tile(14, 14), "log-repeated", "team-7-and-8", "south-west tile of The Blade's 3x3, which covers x 14 to 16 and y 12 to 14, centred on the middle", NO_WIKI_P2_ARENA, ...inLogs(["L2", ...P2_RAIDS], "P2 +7: NPC 16676 appears at 1 west, 1 south of the middle")),
-  },
-  ocellusNpcId: selected(16675, "inferred", "unscaled", "the unnamed Ocellus form with the sword, model 62670, idle 14839, not interactable; the transformation 14837 at P2 +0 and the drop 14878 at +123 play on the form in the middle while The Blade, NPC 16676, takes the hits", NO_WIKI_PRESENTATION, cache("npc 16675 tfa_ocellus_p2"), ...P2_LOGS),
-  blade: {
-    name: selected("The Blade", "spec-confirmed", "team-7-and-8", "NPC 16676, the sword's hitbox on the middle 3x3 that players attack from P2 +7 until it leaves at +123; the cache name without its cyan colour tags", BOSS_PAGE_P2, cache("npc 16676 tfa_ocellus_p2_sword_hitbox, name <col=00ffff>The Blade</col>"), ...P2_LOGS),
-    combatLevel: selected(0, "spec-confirmed", "unscaled", "the cache level; the infobox's 0 agrees", BOSS_PAGE_P2, cache("npc 16676 combat level")),
-    stats: selected({ attack: 1, strength: 1, defence: 250, range: 1, magic: 220 }, "spec-confirmed", "unscaled", "The Blade never attacks; its 1000 hitpoints never fall, because it stores the damage instead (Strategies), so the trainer draws Ocellus's health on it", BOSS_PAGE_P2, cache("npc 16676 stats [1, 250, 1, 1000, 1, 220]")),
-    defenceBonuses: selected({ stab: 150, slash: 120, crush: 10, magic: 100 }, "spec-confirmed", "unscaled", "cache params 5 to 8 match the infobox's phase 2 column; the Strategies page calls crush his weakest style", BOSS_PAGE_P2, STRATEGIES_P2, cache("npc 16676 params 5, 6, 7, 8")),
-    rangedDefence: selected({ light: 100, standard: 110, heavy: 80 }, "spec-single", "unscaled", "the infobox's phase 2 column; the cache decode has no ranged defence param; heavy is the Strategies page's second weakness", BOSS_PAGE_P2, STRATEGIES_P2),
-    lowestDefencePercent: selected(0, "inferred", "unscaled", "the 21 October hotfix stops Ocellus's Defence at 60% of his level; The Blade is a separate NPC and is drained to 0 (inferred)", DEFENCE_REDUCTION_TABLE, HOTFIX_NEWS),
-    releasedPercent: selected(
-      50,
-      "spec-single",
-      "team-7-and-8",
-      "The Blade stores all damage dealt to it and releases half of it, rounded down (inferred), onto Ocellus's health at the end of each quadrant; the logs show the release as one hit on his bar at each round's end, from 196 to 646 on teams of 7 and 8, and nothing in between",
-      STRATEGIES_P2, ...P2_BOSS_BAR,
-    ),
-  },
-  timeline: {
-    portalsRise: selected(span(2), "community-tested", "unscaled", "the 24 portals stand on the arms 2 ticks into the phase, before the first lighting at 11", NO_WIKI_P2_TICKS, analysis(RSPROX_PLAN, "phase 2: portals")),
-    bladeWakes: selected(span(7), "log-repeated", "team-7-and-8", "\"Your time... comes...\" and The Blade's arrival, from which it can be attacked", NO_WIKI_P2_TICKS, ...P2_LOGS, ...P2_BOSS_BAR),
-    rounds: selected([span(11), span(53), span(95)], "log-repeated", "team-7-and-8", "each round's first lighting; the first volleys follow at +15, +57 and +99 in all five", NO_WIKI_P2_TICKS, ...P2_LOGS),
-    enough: selected(span(123), "log-repeated", "team-7-and-8", "\"This... is enough...\": The Blade leaves, the drop animation 14878 starts and the sword falls on the middle", NO_WIKI_P2_TICKS, ...P2_LOGS),
-    swordFalls: selected(span(124), "log-repeated", "team-7-and-8", "the sword's burst 4388 on the middle and The Blade's last release, a tick after \"This... is enough...\"", NO_WIKI_P2_TICKS, ...P2_LOGS, ...P2_BOSS_BAR),
-    phaseEnds: selected(span(131), "log-repeated", "team-7-and-8", "phase 3 starts 131 ticks after phase 2 in all five, whatever The Blade took", NO_WIKI_P2_TICKS, ...P2_LOGS),
-  },
-  round: {
-    lightings: selected(
-      { count: 6, every: span(5), fireAfter: span(4) },
-      "log-repeated",
-      "team-7-and-8",
-      "ten of the twelve portals on the round's two arms light every 5 ticks from the round's start, 6 times, and fire 4 ticks after lighting; the last round's sixth lighting, at +120, still fires at +124, after \"This... is enough...\", and hit 3 raiders in two logs",
-      STRATEGIES_P2, ...P2_LOGS, ...inLogs(P2_PHASE_2S, "P2 +124 and +125: ten bolts at +124 and hits on raiders at +124 and +125, in three of these five"),
-    ),
-    poolsForm: selected(span(28), "log-repeated", "team-7-and-8", "purple pools, 4270, on the round's wedge 28 ticks into rounds 1 and 2, sent once each; none in round 3", STRATEGIES_P2, BOSS_PAGE_P2, ...P2_LOGS),
-    allLight: selected(span(31), "community-tested", "unscaled", "all twelve portals of the round's arms turn purple 3 ticks after the pools, ahead of the volley at +40", BOSS_PAGE_P2, analysis(RSPROX_PLAN, "phase 2: portal rounds")),
-    safePortal: selected(
-      { opens: span(33), takesFrom: span(34), takesUntil: span(39), closes: span(40) },
-      "log-repeated",
-      "team-7-and-8",
-      "the orange floor portal forms on one of the pools at +33 (4271), idles from +34 to +39 (4272) and closes at +40 (4273), as all twelve fire; standing on it while it idles takes the player to the next wedge (inferred from its idle window)",
-      STRATEGIES_P2, BOSS_PAGE_P2, ...P2_LOGS,
-    ),
-    allFire: selected(span(40), "log-repeated", "team-7-and-8", "all twelve portals fire across the whole wedge as the floor portal closes", BOSS_PAGE_P2, ...P2_LOGS),
-    discharge: selected(span(34), "log-repeated", "team-7-and-8", "spotanim 4305 on the boss at +34 in rounds 1 and 2", NO_WIKI_P2_TICKS, ...P2_LOGS),
-    release: selected(span(35), "log-repeated", "team-7-and-8", "The Blade's stored damage reaches Ocellus's bar a tick after the discharge, at +46 and +88; the third release comes as the sword falls at +124", STRATEGIES_P2, ...P2_BOSS_BAR),
-  },
-  portals: {
-    perArm: selected(6, "log-repeated", "team-7-and-8", "each arm's 12 tiles from the middle carry six 2-tile portals; ten bolts per lighting, from the round's two arms less one gap each", STRATEGIES_P2, cache("locs 62684 tfa_ocellus_quadrant_wall_inactive and 62685 tfa_ocellus_quadrant_wall_active, 2x1"), ...P2_LOGS),
-    gapDrift: selected(2, "inferred", "unscaled", "each lighting moves an arm's gap by up to 2 portals; the logs' gaps moved by 0 or 2 from one lighting to the next", NO_WIKI_P2_ARENA, ...inLogs(P2_KILLS, "P2 +15 to +20: in one of the two kills, the north arm's gap went from portal 1 to 3, the east arm's stayed on 1")),
-    gapIndexSum: selected(7, "inferred", "unscaled", "the two gaps' rows cross on the safe 2x2, whose inner tile is (2h + 1, 2g + 1) from the middle; the octagon's cut corners keep it in the room only while g + h <= 7", NO_WIKI_P2_ARENA, cache("map square 16472 plane 1: floor overlay 657")),
-    rotation: selected({ north: 3, east: 0, south: 1, west: 2 }, "community-tested", "unscaled", "each arm's portal loc rotation in quarter turns", NO_WIKI_PRESENTATION, analysis(RSPROX_PLAN, "phase 2: portal locs")),
-    looks: selected(
-      { inactive: { model: 62758, idle: 14830 }, lit: { model: 62757, idle: 14830 } },
-      "spec-confirmed",
-      "unscaled",
-      "orange while idle or a gap, purple while lit to fire: locs 62684 and 62685, one model each, both looping 14830 vfx_ocellus_p2_portal_idle",
-      STRATEGIES_P2, cache("loc 62684 Portal: model 62758, animation 14830"), cache("loc 62685 Portal: model 62757, animation 14830"),
-    ),
-  },
-  volley: {
-    cyclesPerTile: selected(
-      { lit: 6, all: 5 },
-      "community-tested",
-      "team-7-and-8",
-      "a volley is over the tile d out at speed × (d - 1) client cycles, 30 to a tick, and hits a player who starts that tick there; tiles 1 to 5 out take it on the firing tick, 6 to 10 a tick later and 11 and 12 the tick after, which the logs' hits match; the all-twelve volley flies at 5",
-      NO_WIKI_P2_TICKS, analysis(RSPROX_PLAN, "phase 2: volley flight"), ...P2_VOLLEY_HITS,
-    ),
-    damage: selected<DamageRange>({ min: 18, max: 27 }, "log-repeated", "team-7-and-8", "typeless: 18 to 27 on raiders with no overhead and under Protect from Magic or Missiles alike; the packet analysis gave 19 to 25", NO_WIKI_P2_TICKS, ...P2_VOLLEY_HITS, analysis(RSPROX_PLAN, "phase 2: damage")),
-  },
-  pools: {
-    count: selected(13, "log-repeated", "team-7-and-8", "13 pools on the round's wedge and its two arm strips, never on a wall or The Blade's 3x3", NO_WIKI_P2_ARENA, ...P2_LOGS),
-    burst: selected(
-      { afterForming: span(4), damage: { min: 30, max: 31 } },
-      "footage-once",
-      "team-7-and-8",
-      "a pool is an area to dodge (its gameval name): its spotanim plays once and bursts 4 ticks in; in a raid of 7, the two raiders standing on pools then took 30 and 31, and nobody took pool damage on the ticks before or after; the packet analysis's 3 to 5 a tick does not appear in any log",
-      BOSS_PAGE_P2, ...inLogs(P2_RAIDS, "P2 +81 to +85: in one of the three raids, pools at +81 and hits of 30 and 31 on the two pool tiles at +85"), analysis(RSPROX_PLAN, "phase 2: pools"),
-    ),
-  },
-  escape: selected("turned-into-next-wedge", "inferred", "team-7-and-8", "the floor portal takes the player to its own tile turned a quarter clockwise about the middle, in the next wedge, where the next round fires; the logs place no one on the tick of a portal jump; in three of eight escapes the team's next logged positions, 6 to 11 ticks later, sit within 2 tiles of that turned tile, and a random tile of the next wedge fits the other five as well", STRATEGIES_P2, BOSS_PAGE_P2, ...P2_LOGS),
-  shouts: {
-    bladeWakes: selected({ text: "Your time... comes...", lasts: span(3) }, "log-repeated", "team-7-and-8", "overhead text as The Blade appears; the logs give the tick it is said, and it stays up 3 ticks like phase 4's \"End...\" (inferred)", NO_WIKI_P2_TICKS, ...P2_LOGS),
-    enough: selected({ text: "This... is enough...", lasts: span(3) }, "log-repeated", "team-7-and-8", "overhead text as The Blade leaves; up 3 ticks like phase 4's \"End...\" (inferred)", NO_WIKI_P2_TICKS, ...P2_LOGS),
-  },
-  swordRepair: selected({ first: span(1), every: span(3) }, "log-repeated", "team-7-and-8", "spotanim 4304 on the middle every 3 ticks until \"This... is enough...\"; it runs on a clock of its own, from P2 +0, +1 or +2", NO_WIKI_PRESENTATION, ...P2_LOGS),
-  bossPoses: {
-    transform: p2Pose(14837, "npc_ocellus_phase2_transformation", "log-repeated", "the change into phase 2 at P2 +0", ...P2_LOGS),
-    idle: p2Pose(14839, "npc_ocellus_phase2_idle", "spec-confirmed", "NPC 16675's stand animation"),
-    enough: p2Pose(14878, "npc_ocellus_p2_to_p3_part1", "log-repeated", "the drop at \"This... is enough...\"", ...P2_LOGS),
-  },
-  spotAnims: {
-    transform: p2SpotAnim(4268, "vfx_ocellus_p1_to_p2_transformation", "on the boss at P2 +0", ...P2_LOGS),
-    portalBolt: p2SpotAnim(4269, "vfx_ocellus_portal_projectile", "each lit portal's bolt across its rows", ...P2_LOGS),
-    pool: p2SpotAnim(4270, "vfx_ocellus_p2_aoe_dodge", "the purple pools, sent once: seq 14887 plays 180 client cycles, 6 ticks, through the burst 4 ticks in", ...P2_LOGS),
-    safePortalSpawn: p2SpotAnim(4271, "vfx_ocellus_p2_safe_portal_spawn", "the floor portal forming", ...P2_LOGS),
-    safePortalIdle: p2SpotAnim(4272, "vfx_ocellus_p2_safe_portal_idle", "the floor portal, sent each tick it stays", ...P2_LOGS),
-    safePortalDespawn: p2SpotAnim(4273, "vfx_ocellus_p2_safe_portal_despawn", "the floor portal closing", ...P2_LOGS),
-    swordRepair: p2SpotAnim(4304, "vfx_ocellus_sword_repair_particles_01", "on the middle every 3 ticks", ...P2_LOGS),
-    discharge: p2SpotAnim(4305, "vfx_ocellus_p2_sword_discharge", "on the boss before each release", ...P2_LOGS),
-    swordDrop: p2SpotAnim(4280, "vfx_ocellus_sword_drop", "on the middle at \"This... is enough...\"", ...P2_LOGS),
-    swordRootFire: p2SpotAnim(4281, "vfx_ocellus_sword_root_fire", "on the boss at \"This... is enough...\"", ...P2_LOGS),
-    armDrop: p2SpotAnim(4282, "vfx_ocellus_p2_to_p3_arm01", "on the boss at \"This... is enough...\"", ...P2_LOGS),
-    armGlow: p2SpotAnim(4283, "vfx_ocellus_p2_to_p3_arm_glow01", "on the boss at \"This... is enough...\"", ...P2_LOGS),
-    swordDropBurst: p2SpotAnim(4388, "tfa_arena_sword_drop_explosion", "on the middle as the sword falls", ...P2_LOGS),
-  },
-  skipTiles: selected(
-    { wait: 6, run: 4, colour: "#ff3de0" },
-    "community-tested",
-    "team-7-and-8",
-    "the portal skip: wait 6 tiles out on the wedge's diagonal and click 4 out one tick before each volley; the wave is judged on the tile a tick starts on, so it is over 6 out a tick after the volley and over 4 out on the volley tick, and misses both; one raider did it 71 times in three raids and took no volley hit; the marker pink is deeper than the community markers' #F5B1F7 so it shows on the pale floor",
-    NO_WIKI_PRACTICE, guide(PORTAL_SKIP_GUIDE, "the method: wait 6 out diagonally, click 4 out one tick before each volley"),
-    ...inLogs(P2_RAIDS, "phase 2's volley ticks: one raider 6 out diagonally the tick before 71 volleys across the three raids and 4 out on each volley tick, with no volley hit"),
-  ),
-};
-
-export const OCELLUS_P2 = {
-  ...P2,
-  choices: {
-    markers: choice("none", {
-      none: selected<"none" | "skip-tiles">("none", "assumption", "unscaled", "no tile markers", NO_WIKI_PRACTICE, PRACTICE),
-      "skip-tiles": selected<"none" | "skip-tiles">("skip-tiles", "assumption", "unscaled", "the portal skip's wait and run tiles marked in all four wedges, as the community's tile markers do; Settings switches them during the run", NO_WIKI_PRACTICE, guide(PORTAL_SKIP_GUIDE, "the tile markers")),
-    }),
-  },
+export const PORTAL_SKIP_GUIDE = "https://www.youtube.com/watch?v=c4PSUxjNUiY";
+const P2_URL_CHOICES = {
+  markers: choice("none", {
+    none: selected<"none" | "skip-tiles">("none", "assumption", "unscaled", "no tile markers", NO_WIKI_PRACTICE, PRACTICE),
+    "skip-tiles": selected<"none" | "skip-tiles">("skip-tiles", "assumption", "unscaled", "the portal skip's wait and run tiles marked in all four wedges, as the community's tile markers do; Settings switches them during the run", NO_WIKI_PRACTICE, guide(PORTAL_SKIP_GUIDE, "the tile markers")),
+  }),
 } as const;
 
 type Choices = typeof OCELLUS_P4.choices;
@@ -1513,10 +1108,10 @@ export function parseDrillRequest(url: URL, freshSeed: () => number): ParsedDril
   return { config: { seed: run.seed, choices, bossEntryHp }, invincible, rejected };
 }
 
-type P3ChoiceName = keyof typeof OCELLUS_P3.choices;
-type P3OptionsOf<K extends P3ChoiceName> = (typeof OCELLUS_P3.choices)[K]["options"];
+type P3ChoiceName = keyof typeof P3_URL_CHOICES;
+type P3OptionsOf<K extends P3ChoiceName> = (typeof P3_URL_CHOICES)[K]["options"];
 type P3OptionKey<K extends P3ChoiceName> = keyof P3OptionsOf<K> & string;
-const P3_CHOICES: { readonly [K in P3ChoiceName]: Readonly<{ default: P3OptionKey<K>; options: P3OptionsOf<K> }> } = OCELLUS_P3.choices;
+const P3_CHOICES: { readonly [K in P3ChoiceName]: Readonly<{ default: P3OptionKey<K>; options: P3OptionsOf<K> }> } = P3_URL_CHOICES;
 
 class ResolvedP3Choice<K extends P3ChoiceName> {
   readonly #name: K;
@@ -1532,7 +1127,7 @@ export type P3Choices = Readonly<{ setup: ResolvedChoice<"setup">; bossMaxHp: Re
 export type P3Config = Readonly<{ seed: Seed; choices: P3Choices; bossEntryHp: number | null }>;
 type ParsedP3 = Readonly<{ config: P3Config; invincible: boolean; rejected: readonly string[] }>;
 
-const P3_KEYS: readonly string[] = ["setup", "bossMaxHp", ...Object.keys(OCELLUS_P3.choices)];
+const P3_KEYS: readonly string[] = ["setup", "bossMaxHp", ...Object.keys(P3_URL_CHOICES)];
 
 function parseP3Request(url: URL, freshSeed: () => number): ParsedP3 {
   const rejected: string[] = [];
@@ -1559,10 +1154,10 @@ function parseP3Request(url: URL, freshSeed: () => number): ParsedP3 {
   return { config: { seed: run.seed, choices, bossEntryHp }, invincible, rejected };
 }
 
-type P2ChoiceName = keyof typeof OCELLUS_P2.choices;
-type P2OptionsOf<K extends P2ChoiceName> = (typeof OCELLUS_P2.choices)[K]["options"];
+type P2ChoiceName = keyof typeof P2_URL_CHOICES;
+type P2OptionsOf<K extends P2ChoiceName> = (typeof P2_URL_CHOICES)[K]["options"];
 type P2OptionKey<K extends P2ChoiceName> = keyof P2OptionsOf<K> & string;
-const P2_CHOICES: { readonly [K in P2ChoiceName]: Readonly<{ default: P2OptionKey<K>; options: P2OptionsOf<K> }> } = OCELLUS_P2.choices;
+const P2_CHOICES: { readonly [K in P2ChoiceName]: Readonly<{ default: P2OptionKey<K>; options: P2OptionsOf<K> }> } = P2_URL_CHOICES;
 
 class ResolvedP2Choice<K extends P2ChoiceName> {
   readonly #name: K;
@@ -1578,7 +1173,7 @@ export type P2Choices = Readonly<{ setup: ResolvedChoice<"setup">; bossMaxHp: Re
 export type P2Config = Readonly<{ seed: Seed; choices: P2Choices; bossEntryHp: number | null }>;
 type ParsedP2 = Readonly<{ config: P2Config; invincible: boolean; rejected: readonly string[] }>;
 
-const P2_KEYS: readonly string[] = ["setup", "bossMaxHp", ...Object.keys(OCELLUS_P2.choices)];
+const P2_KEYS: readonly string[] = ["setup", "bossMaxHp", ...Object.keys(P2_URL_CHOICES)];
 
 function parseP2Request(url: URL, freshSeed: () => number): ParsedP2 {
   const rejected: string[] = [];
@@ -1619,391 +1214,8 @@ export function parseRequest(url: URL, freshSeed: () => number, flags: BuildFlag
   return { phase: "p4", ...p4, rejected: phase === null || phase === "p4" ? p4.rejected : [`phase=${phase}`, ...p4.rejected] };
 }
 
-const STRATEGIES_P1 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381731);
-const BOSS_PAGE_P1 = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15381739);
-const NO_WIKI_P1_TICKS = noWiki("the wiki's phase 1 text gives the order of the attacks but no tick counts (Strategies rev 15381731, Ocellus rev 15381739)");
-const NO_WIKI_P1_ROOM = noWiki("the wiki has no tile layout of the phase 1 room (Strategies rev 15381731, Ocellus rev 15381739)");
-const RSPROX_P1 = "https://github.com/MRobertEvers/oldschool-clientc/blob/HEAD/docs/rsprox-analysis/guthixian_archive/ocellus_plan.md";
-/** A tick analysis of packet captures of six recorded fights, phase 1 section; it has no licence, so it is cited, not copied. */
-const p1Captures = (at: string): Source => analysis(RSPROX_P1, at);
-/**
- * The fight logs a phase 1 value rests on, one `fight-log` source each; fight N in the notes is FIGHT_LOGS' LN, in
- * recording order. Ticks count from A, the "Now... ascension..." shout, W, a walk's first volley, C, a corner's charge,
- * M, his teleport out to the middle, B, a middle beat, and K, the tick his HP reaches 0. Tiles are region 16472's.
- */
-const p1Logs = (logs: readonly [FightLog, ...FightLog[]], at: string): readonly Source[] => logs.map((log) => fightLog(log, at));
-const DUO_KILL = "https://www.youtube.com/watch?v=HAgq_qg0OIY";
-const P1_ROOM_FRAME = "in the P3 arena grid's tiles, x = region x - 16 and y = 54 - region y; the middle 3x3 is centred on The Blade's tile, region (31, 41), grid (15, 13)";
-
-type Diagonal = "north-east" | "south-east" | "south-west" | "north-west";
-type CrackPieces = Readonly<{ start: number; piece: number; end: number }>;
-/** A crack's first tile as an offset from the boss's south-west tile, and the way it runs out from him. */
-type CrackStart = Readonly<{ dx: number; dy: number; run: Direction }>;
-type P1BossPose = "idle" | "walk" | "volley" | "lastVolley" | "charge" | "expend" | "explode" | "teleportOut" | "teleportIn";
-type P1SpotAnim = "fireOnBoss" | "fireShot" | "fireImpact" | "waterOnBoss" | "waterShot" | "waterImpact" | "strikeShot" | "glow" | "explodeOnBoss" | "teleportOut" | "teleportIn" | "transform";
-
-type TendrilRecipe = Readonly<{
-  firstFrom: Readonly<Record<Corner, Exclude<Tendril, "corner">>>;
-  straightChance: number;
-  cornerShapes: Readonly<{ diagonal: number; x: number; y: number }>;
-}>;
-type BeatRecipe = Readonly<{
-  first: TickSpan;
-  every: TickSpan;
-  count: number;
-  length: number;
-  cracks: Readonly<Record<Side, readonly [CrackStart, CrackStart]>>;
-  closesAfter: readonly [TickSpan, TickSpan];
-  glowAfter: readonly TickSpan[];
-  explodeAfter: TickSpan;
-}>;
-type StrikeRecipe = Readonly<{
-  toldAfterLastExplode: TickSpan;
-  castAfterTold: TickSpan;
-  flight: TickSpan;
-  damage: DamageRange;
-  meterPerExtraShot: number;
-  lasts: TickSpan;
-  texts: Readonly<{ one: string; several: string }>;
-}>;
-type EndRecipe = Readonly<{
-  shout: Readonly<{ text: string; lasts: TickSpan }>;
-  teleportOutAfter: TickSpan;
-  teleportInAfter: TickSpan;
-  transformAfterLanding: TickSpan;
-  transformAtMiddleAfter: TickSpan;
-  phase2AfterTransform: TickSpan;
-}>;
-type ShotLook = Readonly<{ startCycle: number; nearEndCycle: number; farEndCycle: number; height: number }>;
-
-type P1Recipe = Readonly<{
-  boss: Readonly<{
-    npcId: Selected<number>;
-    size: Selected<number>;
-    combatLevel: Selected<number>;
-    maxHp: Selected<number>;
-    stats: Selected<Readonly<{ attack: number; strength: number; defence: number; range: number; magic: number }>>;
-    defenceBonuses: Selected<Readonly<{ stab: number; slash: number; crush: number; magic: number }>>;
-    rangedDefence: Selected<Readonly<Record<AmmunitionClass, number>>>;
-    lowestDefencePercent: Selected<number>;
-  }>;
-  room: Readonly<{ start: Selected<Tile>; corners: Selected<Readonly<Record<Corner, Tile>>>; middle: Selected<Tile>; playerSpawn: Selected<Tile>; path: Selected<"straight-then-diagonal"> }>;
-  arrive: Readonly<{ shout: Selected<Readonly<{ text: string; lasts: TickSpan }>>; hoodedFor: Selected<TickSpan>; walkAfter: Selected<TickSpan> }>;
-  route: Selected<Readonly<Record<CornerTurn, number>>>;
-  walk: Readonly<{ volleyEvery: Selected<TickSpan>; overhead: Selected<"protect-melee">; chargeAfter: Selected<Readonly<{ lastVolley: TickSpan; endPose: TickSpan }>> }>;
-  volley: Readonly<{
-    styles: Selected<Readonly<Record<Element, Style>>>;
-    switchChance: Selected<number>;
-    flight: Selected<Readonly<{ nearWithin: number; near: TickSpan; far: TickSpan }>>;
-    protectedDamage: Selected<DamageRange>;
-    unprotectedDamage: Selected<DamageRange>;
-  }>;
-  corner: Readonly<{
-    cracks: Selected<Readonly<{ count: number; every: TickSpan; length: number; closesAfter: TickSpan }>>;
-    tendrils: Selected<TendrilRecipe>;
-    glow: Selected<Readonly<{ from: TickSpan; every: TickSpan }>>;
-    taunt: Selected<Readonly<{ at: TickSpan; lasts: TickSpan; texts: readonly [string, ...string[]] }>>;
-    explodeAt: Selected<TickSpan>;
-    walkAt: Selected<TickSpan>;
-  }>;
-  blast: Readonly<{ afterExplode: Selected<TickSpan>; radius: Selected<number>; damage: Selected<DamageRange> }>;
-  crackBlock: Readonly<{
-    damage: Selected<DamageRange>;
-    refund: Selected<"on-stepping-off">;
-    unblocked: Selected<Readonly<{ meter: number; bossHeal: number; meterMax: number }>>;
-  }>;
-  middle: Readonly<{
-    thresholds: Selected<readonly [HpFraction, ...HpFraction[]]>;
-    decidesOn: Selected<"volley-ticks">;
-    teleport: Selected<Readonly<{ hiddenAfter: TickSpan; inAfter: TickSpan }>>;
-    beats: Selected<BeatRecipe>;
-    strike: Selected<StrikeRecipe>;
-    walkAfterTold: Selected<TickSpan>;
-  }>;
-  end: Selected<EndRecipe>;
-  presentation: Readonly<{
-    bossPoses: Readonly<Record<P1BossPose, Selected<number>>>;
-    spotAnims: Readonly<Record<P1SpotAnim, Selected<number>>>;
-    shot: Selected<ShotLook>;
-    crackPieces: Readonly<{ straight: Readonly<Record<Side, Selected<CrackPieces>>>; diagonal: Readonly<Record<Diagonal, Selected<CrackPieces>>> }>;
-    crackTiming: Selected<Readonly<{ openDelay: number; perTile: number }>>;
-    floorExplosions: Selected<Readonly<{ pieces: readonly [number, ...number[]]; ringDelays: readonly number[] }>>;
-    overheadIcon: Selected<SpriteFrame>;
-    chargeBar: Selected<Readonly<{ fill: string; background: string; height: number }>>;
-  }>;
-}>;
-
-const crackPieces = (start: number, piece: number, end: number, toward: string): Selected<CrackPieces> =>
-  selected(
-    { start, piece, end },
-    "spec-confirmed",
-    "unscaled",
-    `a crack growing ${toward}: the start piece on its far tile, the piece on the rest, the end piece as it closes; every logged crack uses one family for its growth`,
-    NO_WIKI_PRESENTATION,
-    cache(`spotanims ${start}, ${piece} and ${end} vfx_ocellus_p1_floor_crack`),
-    ...p1Logs(["L6", "L7", "L8"], "fights 6 to 8: 133 cracks"),
-  );
-
-const P1: P1Recipe = {
-  boss: {
-    npcId: selected(16674, "spec-confirmed", "unscaled", "the phase 1 combat form; it shares models 62668 and 62669 with the Hooded Figure (16672) and the talking form (16673), which says the opening line", BOSS_PAGE_P1, cache("npc 16674 Ocellus, models 62668 and 62669"), ...p1Logs(["L3", "L4", "L5"], "fights 3 to 5: the shout from npc 16673, his attacks from npc 16674")),
-    size: selected(3, "spec-confirmed", "unscaled", "a 3x3", BOSS_PAGE_P1, cache("npc 16674 size 3")),
-    combatLevel: selected(1121, "spec-confirmed", "unscaled", "the phase 1 infobox and the cache agree", BOSS_PAGE_P1, cache("npc 16674 combat level 1121")),
-    maxHp: selected(2500, "spec-confirmed", "unscaled", "the hitpoints table lists 2,500 in phase 1 for a team of 1 or 2, the size a solo trainer plays at, and the cache's hitpoints match", BOSS_PAGE_P1, cache("npc 16674 stats [1, 215, 1, 2500, 250, 350]")),
-    stats: selected({ attack: 1, strength: 1, defence: 215, range: 250, magic: 350 }, "spec-confirmed", "unscaled", "the phase 1 infobox lists the cache's levels", BOSS_PAGE_P1, cache("npc 16674 stats [1, 215, 1, 2500, 250, 350]")),
-    defenceBonuses: selected({ stab: 150, slash: 95, crush: 60, magic: 100 }, "spec-confirmed", "unscaled", "cache params 5 to 8 match the phase 1 infobox", BOSS_PAGE_P1, cache("npc 16674 params 5, 6, 7, 8")),
-    rangedDefence: selected({ light: 50, standard: 135, heavy: 50 }, "spec-single", "unscaled", "the phase 1 infobox; the Strategies page: weakest to light and heavy ranged attacks; the cache decode has no ranged defence param", BOSS_PAGE_P1, STRATEGIES_P1),
-    lowestDefencePercent: selected(60, "spec-single", "unscaled", "the 21 October hotfix caps Defence reduction at 60% of the level: phase 1 Defence stops at 129 of 215, as the Strategies table lists; rounded up, as in phase 3 (inferred)", BOSS_PAGE_P1, STRATEGIES_P1, HOTFIX_NEWS),
-  },
-  room: {
-    start: selected(tile(14, 17), "log-repeated", "team-7-and-8", `south-west tile of his 3x3 as the phase starts, 3 tiles south of the middle 3x3, ${P1_ROOM_FRAME}`, NO_WIKI_P1_ROOM, ...p1Logs(["L3", "L4", "L5"], "fights 3 to 5: his first volley centred on (31, 38)")),
-    corners: selected(
-      { "north-east": tile(20, 8), "south-east": tile(20, 20), "south-west": tile(8, 20), "north-west": tile(8, 8) },
-      "log-repeated",
-      "team-7-and-8",
-      `south-west tiles of his 3x3 at each corner stop, centred 6 tiles out from the middle on both axes, ${P1_ROOM_FRAME}`,
-      NO_WIKI_P1_ROOM,
-      ...p1Logs(["L3", "L4", "L5"], "fights 3 to 5: every corner charge centred on (37, 47), (37, 35), (25, 35) or (25, 47)"),
-    ),
-    middle: selected(tile(14, 14), "log-repeated", "team-7-and-8", `south-west tile of his 3x3 in the middle, centred on The Blade's tile, ${P1_ROOM_FRAME}`, NO_WIKI_P1_ROOM, ...p1Logs(["L3", "L4", "L5"], "fights 3 to 5: every teleport in centred on (31, 41)")),
-    playerSpawn: selected(tile(15, 22), "assumption", "unscaled", "the south arm, 5 tiles south of his 3x3, by the room's entrance; no log pins where a player stands as the phase starts", NO_WIKI_P1_ROOM),
-    path: selected(
-      "straight-then-diagonal",
-      "log-repeated",
-      "team-7-and-8",
-      "he walks one tile a tick, straight along the longer axis until both offsets are equal, then diagonally, so a walk takes the Chebyshev distance in ticks: from the start, (31, 38), (29, 38), (28, 38), (27, 37), (26, 36), (25, 35) to the south-west corner, and (33, 43) five steps toward the north-east one",
-      NO_WIKI_P1_ROOM,
-      ...p1Logs(["L3", "L4", "L5"], "fights 3 and 5: the walk from the start to the south-west corner; fight 4: the walk to the north-east corner"),
-    ),
-  },
-  arrive: {
-    shout: selected({ text: "Now... ascension...", lasts: span(4) }, "log-repeated", "team-7-and-8", "the opening line, with the game's \"Challenge started: Ocellus.\"", NO_WIKI_P1_TICKS, ...p1Logs(["L1", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 and 3 to 8")),
-    hoodedFor: selected(span(1), "log-repeated", "team-7-and-8", "the talking form says the line at A and the combat form stands there from A + 1; the first hits on him land from A + 3", NO_WIKI_P1_TICKS, ...p1Logs(["L1", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 3 to 5: npc 16674 from A + 1; fights 1 and 3 to 8: first hit on him from A + 3 to A + 5")),
-    walkAfter: selected(span(4), "log-repeated", "team-7-and-8", "his first walk and first volley at A + 4 in all 6 fights logged from the shout", NO_WIKI_P1_TICKS, ...p1Logs(["L1", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 and 3 to 8: first volley A + 4"), p1Captures("phase 1 timeline")),
-  },
-  route: selected(
-    { anticlockwise: 10, clockwise: 3, across: 6 },
-    "log-repeated",
-    "unscaled",
-    "weights for his next corner from the one he is at: anticlockwise 10, clockwise 3, across 6 of 19 recorded; the first corner is uniform (inferred); a middle never changes the corner he is heading for",
-    NO_WIKI_P1_TICKS,
-    p1Captures("phase 1 corner order"),
-    ...p1Logs(["L3", "L4", "L5"], "fights 3 to 5: after each middle he walks on to the corner he was heading for"),
-  ),
-  walk: {
-    volleyEvery: selected(span(5), "log-repeated", "team-7-and-8", "a volley every 5 ticks from the walk's first tick; the infobox's attack speed of 5", BOSS_PAGE_P1, ...p1Logs(["L1", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 and 3 to 8: volley poses and spotanims on him 5 ticks apart"), p1Captures("phase 1 timeline")),
-    overhead: selected("protect-melee", "spec-single", "unscaled", "the wiki: while walking to a quadrant he has Protect from Melee active; it rises with a walk's first volley and drops the tick before the charge (inferred)", STRATEGIES_P1),
-    chargeAfter: selected(
-      { lastVolley: span(6), endPose: span(1) },
-      "log-repeated",
-      "team-7-and-8",
-      "on the volley tick he reaches his corner he casts with the end pose and charges 6 ticks later; on a volley tick after he reached it he plays the end pose alone and charges the next tick: 6 after 19 end poses and 1 after 13; the 3 walks from the south-west to the north-east corner cast with the end pose a volley early and still charged on time (unexplained); 2 corners came 3 ticks after the pose",
-      NO_WIKI_P1_TICKS,
-      ...p1Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: 34 corners"),
-    ),
-  },
-  volley: {
-    styles: selected({ fire: "ranged", water: "magic" }, "log-repeated", "team-7-and-8", "the wiki's orange ranged and blue magic projectiles: fire (spotanim 4231, projectile 4232) and water (4228, 4229); every player praying the matching protection took 0", STRATEGIES_P1, ...p1Logs(["L1", "L2", "L6", "L7", "L8"], "fights 1, 2 and 6 to 8: 121 fire and 125 water volleys under the matching prayer, all 0")),
-    switchChance: selected(14 / 65, "log-repeated", "unscaled", "each volley keeps the last one's element or switches: 14 switches in 65 captured volleys and 23 in 88 logged ones; the first element is even odds (inferred)", NO_WIKI_P1_TICKS, p1Captures("phase 1 volleys"), ...p1Logs(["L3", "L4", "L5", "L6", "L7", "L8"], "fights 3 to 8: 88 consecutive volleys")),
-    flight: selected(
-      { nearWithin: 4, near: span(3), far: span(4) },
-      "log-repeated",
-      "team-7-and-8",
-      "a volley lands 3 ticks after the cast on a player within 4 tiles of his 3x3 and 4 ticks after it beyond; the projectile leaves 30 client cycles after the cast and lands at 95 or 125",
-      NO_WIKI_P1_TICKS,
-      p1Captures("phase 1 volleys, 30 to 95 and 30 to 125 cycles"),
-      ...p1Logs(["L1", "L2", "L3", "L6", "L7", "L8"], "fight 3: 65- and 95-cycle projectiles from the tick after the cast; fights 1, 2 and 6 to 8: landings 3 or 4 ticks after the pose"),
-    ),
-    protectedDamage: selected<DamageRange>({ min: 0, max: 0 }, "footage-repeated", "team-7-and-8", "the matching protection prayer blocks it", STRATEGIES_P1, ...p1Logs(["L1", "L2", "L6", "L7", "L8"], "fights 1, 2 and 6 to 8: 246 of 246 volleys 0 under the matching prayer")),
-    unprotectedDamage: selected<DamageRange>(
-      { min: 0, max: 27 },
-      "footage-repeated",
-      "team-7-and-8",
-      "0, 4 to 13, 20, 22, 25 and 27 on 18 players with no protection or the other one; the captures give 1 to 25 and the infobox a max hit of 24, which the logs exceed",
-      BOSS_PAGE_P1,
-      ...p1Logs(["L1", "L2", "L6", "L7", "L8"], "fights 1, 2 and 6 to 8: 18 volleys without the matching prayer"),
-      p1Captures("phase 1 damage audit"),
-    ),
-  },
-  corner: {
-    cracks: selected(
-      { count: 7, every: span(2), length: 8, closesAfter: span(5) },
-      "log-repeated",
-      "team-7-and-8",
-      "seven tendrils one at a time: a crack on the charge tick and every 2 ticks after, 8 tiles long unless the room ends it, closing 5 ticks after it opens; the captures' 9 tiles is one longer than all 85 corner cracks logged",
-      STRATEGIES_P1,
-      ...p1Logs(["L6", "L7", "L8"], "fights 6 to 8: cracks at C to C + 12, each closing 5 ticks on, 85 of 85 8 tiles long"),
-      p1Captures("phase 1 corner script"),
-    ),
-    tendrils: selected(
-      { firstFrom: { "north-east": "y", "south-east": "x", "south-west": "y", "north-west": "x" }, straightChance: 62 / 107, cornerShapes: { diagonal: 20 / 42, x: 11 / 42, y: 11 / 42 } },
-      "log-repeated",
-      "unscaled",
-      "three tendrils take turns, the first fixed by the corner and the other two in a seeded order; an x or y tendril leaves his face toward the middle, straight along his middle row or column (62 of 107) or diagonally from his inner row or column; the corner tendril leaves his inner corner diagonally (20 of 42) or straight along x or y; neighbouring cracks lie side by side",
-      NO_WIKI_P1_TICKS,
-      p1Captures("phase 1 crack roots"),
-      ...p1Logs(["L6"], "fight 6, first corner: cracks from (-4, 5) diagonally, then from (-5, 4) and (-6, 4) south, as offsets from the middle"),
-    ),
-    glow: selected({ from: span(5), every: span(2) }, "log-repeated", "team-7-and-8", "the charge glow on him from C + 5, every 2 ticks until he explodes", NO_WIKI_PRESENTATION, ...p1Logs(["L3", "L4", "L5", "L6", "L7", "L8"], "fights 3 to 8: spotanim 4260 at C + 5"), p1Captures("phase 1 corner script")),
-    taunt: selected(
-      { at: span(15), lasts: span(3), texts: ["Pointless...", "You... fail...", "Unworthy..."] },
-      "log-repeated",
-      "team-7-and-8",
-      "one of three lines at C + 15 in 31 of 34 corners; which line is a seeded pick (inferred)",
-      NO_WIKI_P1_TICKS,
-      ...p1Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: 34 corners"),
-    ),
-    explodeAt: selected(span(18), "log-repeated", "team-7-and-8", "the explode pose and spotanim 4261 at C + 18 in 31 of 33 corners", NO_WIKI_P1_TICKS, ...p1Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8")),
-    walkAt: selected(span(21), "log-repeated", "team-7-and-8", "his next walk's first volley at C + 21 in 23 of 24 corners", NO_WIKI_P1_TICKS, ...p1Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8")),
-  },
-  blast: {
-    afterExplode: selected(span(1), "log-repeated", "team-7-and-8", "the floor explosions land a tick after the explode pose", NO_WIKI_P1_TICKS, ...p1Logs(["L6", "L7", "L8"], "fights 6 to 8: spotanims 4262 to 4265 at C + 19 and B + 7")),
-    radius: selected(2, "log-repeated", "team-7-and-8", "the wiki's two tile range: every floor tile within 2 of his 3x3, 37 at a corner and 40 in the middle", STRATEGIES_P1, ...p1Logs(["L6", "L7", "L8"], "fights 6 to 8: 37 and 40 floor explosions")),
-    damage: selected<DamageRange>({ min: 26, max: 34 }, "footage-repeated", "team-7-and-8", "26, 27, 27, 29, 29, 29, 30, 30, 33, 33, 34 and 34 on players inside it; the wiki's up to 35; the captures give 28 to 30", STRATEGIES_P1, ...p1Logs(["L1", "L6", "L7", "L8"], "fights 1 and 6 to 8: 12 blast hits"), p1Captures("phase 1 damage audit")),
-  },
-  crackBlock: {
-    damage: selected<DamageRange>(
-      { min: 3, max: 5 },
-      "footage-repeated",
-      "team-7-and-8",
-      "a player on a crack's tile as it closes blocks it and takes 3 to 5: 330 hits on players on closing tiles in fight 6, and 130 of 133 closings in fights 6 to 8 hit the logging player",
-      STRATEGIES_P1,
-      ...p1Logs(["L6", "L7", "L8"], "fights 6 to 8"),
-    ),
-    refund: selected(
-      "on-stepping-off",
-      "community-tested",
-      "unscaled",
-      "the wiki: a blocker takes some damage but is healed after stepping off; here the damage blocked comes back as one heal on the first tick the player stands on no open crack; the logs' heals roughly match the hits before them, and the duo's +16, +9 and +13 read as several blocks returned at once (inferred)",
-      STRATEGIES_P1,
-      BOSS_PAGE_P1,
-      ...p1Logs(["L6", "L7", "L8"], "fights 6 to 8: heals of 2 to 17 after blocks of 3 to 5"),
-      guide(DUO_KILL, "13:31 to 13:35"),
-    ),
-    unblocked: selected({ meter: 2, bossHeal: 2, meterMax: 96 }, "footage-repeated", "unscaled", "a crack that closes with nobody on it charges his yellow bar by 2 of 96 and heals him 2", BOSS_PAGE_P1, p1Captures("phase 1 meter")),
-  },
-  middle: {
-    thresholds: selected([hpFraction(0.66), hpFraction(0.25)], "spec-single", "unscaled", "at 66% and 25% of his shield he teleports to the middle", STRATEGIES_P1, p1Captures("phase 1 middle")),
-    decidesOn: selected(
-      "volley-ticks",
-      "log-repeated",
-      "team-7-and-8",
-      "he reads his HP when a volley is due and, at or below a threshold, teleports out on that tick instead: mid-walk on W + 5, W + 10 and W + 15, and after a corner on the next walk's first tick, C + 21, in 8 of 8 corners followed by a middle; never on the blast at C + 19",
-      NO_WIKI_P1_TICKS,
-      ...p1Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: 13 middles"),
-    ),
-    teleport: selected({ hiddenAfter: span(1), inAfter: span(4) }, "log-repeated", "team-7-and-8", "the teleport out at M and in at M + 4 in 15 of 15; hidden between (inferred)", NO_WIKI_P1_TICKS, ...p1Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: poses 14812 and 14813")),
-    beats: selected(
-      {
-        first: span(8),
-        every: span(8),
-        count: 4,
-        length: 6,
-        cracks: {
-          east: [{ dx: 3, dy: -2, run: { dx: 1, dy: -1 } }, { dx: 3, dy: 0, run: { dx: 1, dy: 1 } }],
-          south: [{ dx: 2, dy: 1, run: { dx: 1, dy: 1 } }, { dx: 0, dy: 1, run: { dx: -1, dy: 1 } }],
-          west: [{ dx: -1, dy: 0, run: { dx: -1, dy: 1 } }, { dx: -1, dy: -2, run: { dx: -1, dy: -1 } }],
-          north: [{ dx: 0, dy: -3, run: { dx: -1, dy: -1 } }, { dx: 2, dy: -3, run: { dx: 1, dy: -1 } }],
-        },
-        closesAfter: [span(4), span(6)],
-        glowAfter: [span(4), span(6)],
-        explodeAfter: span(6),
-      },
-      "log-repeated",
-      "team-7-and-8",
-      "four beats at M + 8, 16, 24 and 32 in 15 of 15 middles, each facing the next side clockwise from a seeded first; a beat opens two 6-tile diagonals from the corners of the face he looks at, the first closing 4 ticks on and the other 6, glows at +4 and +6, explodes at +6 and blasts a tick later",
-      STRATEGIES_P1,
-      ...p1Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: charge poses at M + 8, 16, 24, 32; fights 6 to 8: beat cracks 6 tiles long, closing at B + 4 and B + 6"),
-      p1Captures("phase 1 middle beats"),
-    ),
-    strike: selected(
-      { toldAfterLastExplode: span(2), castAfterTold: span(2), flight: span(1), damage: { min: 17, max: 19 }, meterPerExtraShot: 24, lasts: span(4), texts: { one: "Death... awaits...", several: "Embrace... annihilation..." } },
-      "log-repeated",
-      "team-7-and-8",
-      "the strike is told at M + 40, cast at M + 42 and lands at M + 43: one shot of 17 to 19 that Protect from Magic does not reduce (17, 17, 18, 19, 19, 19); the wiki's 17 to 18 for one shot, and numerous shots over 80 in all with a charged bar; one more shot per 24 of the bar is the captures' engine's guess, never logged",
-      STRATEGIES_P1,
-      ...p1Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: 13 strikes, all \"Death... awaits...\"; fights 6 to 8: 6 hits under Protect from Magic"),
-      p1Captures("phase 1 strike"),
-    ),
-    walkAfterTold: selected(span(9), "log-repeated", "team-7-and-8", "his next walk's first volley 9 ticks after the strike is told, M + 49, in 11 of 11", NO_WIKI_P1_TICKS, ...p1Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8")),
-  },
-  end: selected(
-    { shout: { text: "You... will disappear...", lasts: span(4) }, teleportOutAfter: span(2), teleportInAfter: span(5), transformAfterLanding: span(2), transformAtMiddleAfter: span(3), phase2AfterTransform: span(7) },
-    "log-repeated",
-    "team-7-and-8",
-    "at 0 HP he says the line at K; in the middle he transforms at K + 3 (5 kills), elsewhere he teleports out at K + 2, in at K + 5 and transforms at K + 7 (3 kills); phase 2 starts 7 ticks after the transformation in all 8",
-    STRATEGIES_P1,
-    ...p1Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8"),
-  ),
-  presentation: {
-    bossPoses: {
-      idle: pose(14804, "npc_ocellus_phase1_idle", "spec-confirmed", "npc 16674's stand animation"),
-      walk: pose(14805, "npc_ocellus_phase1_walk", "spec-confirmed", "npc 16674's walk animation"),
-      volley: pose(14806, "npc_ocellus_phase1_basic_projectile_start", "footage-repeated", "every volley but the last of a walk"),
-      lastVolley: pose(14807, "npc_ocellus_phase1_basic_projectile_end", "footage-repeated", "the last volley of a walk, or the walk's end alone"),
-      charge: pose(14809, "npc_ocellus_phase1_charge", "footage-repeated", "a corner's charge and each middle beat"),
-      expend: pose(14810, "npc_ocellus_phase1_expend", "footage-repeated", "the strike's cast"),
-      explode: pose(14811, "npc_ocellus_phase1_explode", "footage-repeated", "the explosion before each blast"),
-      teleportOut: pose(14812, "npc_ocellus_phase1_teleport_out", "footage-repeated", "leaving for the middle"),
-      teleportIn: pose(14813, "npc_ocellus_phase1_teleport_in", "footage-repeated", "arriving in the middle"),
-    },
-    spotAnims: {
-      fireOnBoss: spotAnim(4231, "vfx_ocellus_fire_attack01_spotanim", "footage-repeated", "on him as he casts a fire volley"),
-      fireShot: spotAnim(4232, "vfx_ocellus_fire_attack01_projanim", "footage-repeated", "the fire volley's projectile"),
-      fireImpact: spotAnim(4233, "vfx_ocellus_fire_attack01_impactanim", "footage-repeated", "on the player as a fire volley lands"),
-      waterOnBoss: spotAnim(4228, "vfx_ocellus_water_attack01_spotanim", "footage-repeated", "on him as he casts a water volley"),
-      waterShot: spotAnim(4229, "vfx_ocellus_water_attack01_projanim", "footage-repeated", "the water volley's projectile"),
-      waterImpact: spotAnim(4230, "vfx_ocellus_water_attack01_impactanim", "footage-repeated", "on the player as a water volley lands"),
-      strikeShot: spotAnim(4234, "vfx_ocellus_phase1_charge_expend_projectile", "inferred", "the strike's projectile, by its name; the logs record the hit but no projectile"),
-      glow: spotAnim(4260, "vfx_ocellus_p1_charge", "footage-repeated", "the charge glow on him"),
-      explodeOnBoss: spotAnim(4261, "vfx_ocellus_p1_explode_npc", "footage-repeated", "on him with the explode pose"),
-      teleportOut: spotAnim(4266, "vfx_ocellus_p1_teleport_out", "footage-repeated", "on him as he teleports out"),
-      teleportIn: spotAnim(4267, "vfx_ocellus_p1_teleport_in", "footage-repeated", "on him as he teleports in"),
-      transform: spotAnim(
-        4268,
-        "vfx_ocellus_p1_to_p2_transformation",
-        "inferred",
-        "the end of phase 1, by its name; his transformation pose, seq 14814, is not played, because one of its frame sounds, 12819, is missing from cache 2746 and the SDK throws when the pose reaches it",
-      ),
-    },
-    shot: selected({ startCycle: 30, nearEndCycle: 95, farEndCycle: 125, height: 0.6 }, "log-repeated", "unscaled", "the volley's projectile from 30 client cycles after the cast to its landing; its height in tiles is chosen by eye", NO_WIKI_PRESENTATION, p1Captures("phase 1 volleys"), ...p1Logs(["L3"], "fight 3: 65 and 95 cycles to land")),
-    crackPieces: {
-      straight: {
-        north: crackPieces(4236, 4240, 4241, "north"),
-        east: crackPieces(4237, 4242, 4243, "east"),
-        south: crackPieces(4238, 4244, 4245, "south"),
-        west: crackPieces(4239, 4246, 4247, "west"),
-      },
-      diagonal: {
-        "north-east": crackPieces(4248, 4252, 4253, "north-east"),
-        "south-east": crackPieces(4249, 4254, 4255, "south-east"),
-        "south-west": crackPieces(4250, 4256, 4257, "south-west"),
-        "north-west": crackPieces(4251, 4258, 4259, "north-west"),
-      },
-    },
-    crackTiming: selected(
-      { openDelay: 60, perTile: 1 },
-      "log-repeated",
-      "unscaled",
-      "client cycles before a crack piece shows: 60 on the far tile and one more per tile toward him, so a crack grows back to him about 2 ticks after it opens; its end pieces go from the far tile with 0 and one more per tile",
-      NO_WIKI_PRESENTATION,
-      ...p1Logs(["L6", "L7", "L8"], "fights 6 to 8: crack spotanims with delays 60 to 67 and end pieces with 0 to 7"),
-    ),
-    floorExplosions: selected(
-      { pieces: [4262, 4263, 4264, 4265], ringDelays: [0, 2] },
-      "log-repeated",
-      "unscaled",
-      "the blast on each floor tile, one of four quarter turns, the nearer ring at once and the outer one 2 client cycles later; which turn is not seeded, because it is only a look",
-      NO_WIKI_PRESENTATION,
-      cache("spotanims 4262 to 4265 vfx_ocellus_p1_explode_floor"),
-      ...p1Logs(["L6", "L7", "L8"], "fights 6 to 8: floor spotanims 4262 to 4265 with delays 0 and 2"),
-    ),
-    overheadIcon: selected({ archive: 440, frame: 0 }, "spec-single", "unscaled", "his Protect from Melee, drawn under his HP bar as phase 4's curse icons are", STRATEGIES_P1, cache("sprite 440 headicons_prayer frame 0")),
-    chargeBar: selected({ fill: "#e8d020", background: "#3a3410", height: 4 }, "assumption", "unscaled", "his yellow bar, drawn under his HP bar and filled to his charge over 96; its look in game is not recorded", BOSS_PAGE_P1),
-  },
-};
-
-export const OCELLUS_P1: P1Recipe = P1;
+export const BOSS_PAGE_P1 = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15381739);
+export const P1_MAX_HP = selected(2500, "spec-confirmed", "unscaled", "the hitpoints table lists 2,500 in phase 1 for a team of 1 or 2, the size a solo trainer plays at, and the cache's hitpoints match", BOSS_PAGE_P1, cache("npc 16674 stats [1, 215, 1, 2500, 250, 350]"));
 
 export type P1Choices = Readonly<{ setup: ResolvedChoice<"setup"> }>;
 export type P1Config = Readonly<{ seed: Seed; choices: P1Choices; bossEntryHp: number | null }>;
@@ -2020,6 +1232,6 @@ function parseP1Request(url: URL, freshSeed: () => number): ParsedP1 {
   if (raw !== null && known === null) rejected.push(`setup=${raw}`);
   const setup = new ResolvedChoice("setup", known ?? CHOICES.setup.default);
   if (run.rejected !== null) rejected.push(run.rejected);
-  const bossEntryHp = readBossHp(url, OCELLUS_P1.boss.maxHp.value, rejected);
+  const bossEntryHp = readBossHp(url, P1_MAX_HP.value, rejected);
   return { config: { seed: run.seed, choices: { setup }, bossEntryHp }, invincible, rejected };
 }
