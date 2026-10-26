@@ -2,29 +2,28 @@ import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { ARCHIVE_OCELLUS_SPRITES, spriteFile } from "../assets";
 
 const ROOT = resolve(__dirname, "../..");
 const BUILD_TIMEOUT_MS = 180_000;
-const BUILD_INFOS = `
-  import { loadConfig } from "osrs-sdk-assets";
-  const { cacheId, assets, scenes } = await loadConfig();
-  const requirements = JSON.parse(JSON.stringify({ assets, scenes }));
-  const complete = { cache: { openrs2: cacheId }, requirements };
-  const { explosion, ...olderSpotAnims } = requirements.assets.spotAnims;
-  console.log(JSON.stringify({
-    complete,
-    beforeExplosion: { ...complete, requirements: { ...requirements, assets: { ...requirements.assets, spotAnims: olderSpotAnims } } },
-    otherCache: { ...complete, cache: { openrs2: 2745 } },
-  }));
-`;
+const SOUND_PACK = "cache-sound-effects.395d4c382804699fa1063dd293af2e8d1aa17f3a40be4d5bf830d7110e3cb85f.soundpack";
 const REBUILD = "assets: rebuild it with npm run assets -- --cache-dir <openrs2 cache dir> --reader-path <osrscachereader checkout>, or scripts/verify.sh assets";
 const LACKS = "assets: public/osrs-assets lacks what osrs-assets.config.ts configures:";
 
-type Bundle = Readonly<{ buildInfo: "complete" | "beforeExplosion" | "otherCache" | null; sprites: readonly string[] }>;
+type Bundle =
+  | "complete"
+  | "beforeExplosion"
+  | "otherCache"
+  | "staleManifest"
+  | "manifestFromOtherCache"
+  | "manifestWithoutOcellus"
+  | "manifestWithoutBrazierOrAhrimsTop"
+  | "manifestWithoutPlayerAnimations"
+  | "manifestWithoutExplosionAsset"
+  | "manifestWithoutSoundPack"
+  | "soundPackWithoutEquipBackpack";
 
 let project = "";
-let buildInfos: Readonly<Record<string, unknown>> = {};
+let bundles: Readonly<Record<string, unknown>> = {};
 
 beforeAll(() => {
   project = mkdtempSync(join(tmpdir(), "archive-ocellus-assets-"));
@@ -34,77 +33,122 @@ beforeAll(() => {
     cpSync(join(ROOT, file), join(project, file));
   }
   symlinkSync(join(ROOT, "node_modules"), join(project, "node_modules"));
-  const recorded = spawnSync(process.execPath, ["--input-type=module", "-e", BUILD_INFOS], { cwd: project, encoding: "utf8" });
-  const parsed: unknown = JSON.parse(recorded.stdout);
-  if (typeof parsed !== "object" || parsed === null) throw new Error(`could not record build-info.json fixtures: ${recorded.stderr}`);
-  buildInfos = Object.fromEntries(Object.entries(parsed));
+  const recorded = spawnSync("node_modules/.bin/tsx", ["test/assetBundles.mjs", SOUND_PACK], { cwd: project, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const parsed: unknown = recorded.status === 0 ? JSON.parse(recorded.stdout) : null;
+  if (typeof parsed !== "object" || parsed === null) throw new Error(`could not record the bundle fixtures: ${recorded.stderr}`);
+  bundles = Object.fromEntries(Object.entries(parsed));
 });
 
 afterAll(() => {
   if (project !== "") rmSync(project, { recursive: true, force: true });
 });
 
-function writeBundle({ buildInfo, sprites }: Bundle): void {
+function writeBundle(bundle: Bundle, replaced: Readonly<Record<string, string | null>> = {}): void {
   const dir = join(project, "public/osrs-assets");
   for (const previous of [dir, join(project, "dist")]) rmSync(previous, { recursive: true, force: true });
-  mkdirSync(join(dir, "sprites"), { recursive: true });
-  if (buildInfo !== null) writeFileSync(join(dir, "build-info.json"), JSON.stringify(buildInfos[buildInfo]));
-  for (const file of sprites) writeFileSync(join(dir, file), "");
+  const encoded = bundles[bundle];
+  const files = new Map<string, string | Buffer | null>(
+    Object.entries(typeof encoded === "object" && encoded !== null ? encoded : {}).map(([file, base64]: [string, unknown]) => [file, Buffer.from(String(base64), "base64")]),
+  );
+  for (const [file, content] of Object.entries(replaced)) files.set(file, content);
+  for (const [file, content] of files) {
+    if (content === null) continue;
+    mkdirSync(dirname(join(dir, file)), { recursive: true });
+    writeFileSync(join(dir, file), content);
+  }
 }
 
-function run(command: string, args: readonly string[]) {
-  const { status, stdout, stderr } = spawnSync(command, args, { cwd: project, encoding: "utf8" });
+function build() {
+  const { status, stdout, stderr } = spawnSync("npm", ["run", "build"], { cwd: project, encoding: "utf8" });
   const guardLines = (text: string) => text.split("\n").filter((line) => line.startsWith("assets:"));
-  return { status, stdout: guardLines(stdout), stderr: guardLines(stderr) };
+  return { status, stdout: guardLines(stdout), stderr: guardLines(stderr), built: existsSync(join(project, "dist")) };
 }
 
-const build = () => ({ ...run("npm", ["run", "build"]), built: existsSync(join(project, "dist")) });
-
-const allSprites = () => ARCHIVE_OCELLUS_SPRITES.map(spriteFile);
+const rejected = (...gaps: readonly string[]) => ({ status: 1, stdout: [], stderr: [LACKS, ...gaps.map((gap) => `assets:   ${gap}`), REBUILD], built: false });
 
 describe("npm run build", () => {
-  test("stops before webpack on a bundle built before the explosion spotanim, naming the key and the fix", { timeout: BUILD_TIMEOUT_MS }, () => {
-    writeBundle({ buildInfo: "beforeExplosion", sprites: allSprites() });
+  test.each<readonly [string, Bundle, Readonly<Record<string, string | null>>, ReturnType<typeof rejected>]>([
+    [
+      "a bundle extracted before the explosion spotanim and the ocellus attack animations",
+      "beforeExplosion",
+      {},
+      rejected(
+        "missing assets.npcs.ocellus.animations.swing = 14842",
+        "missing assets.npcs.ocellus.animations.voidShot = 14851",
+        "missing assets.npcs.ocellus.animations.wave = 14846",
+        "missing assets.spotAnims.explosion.id = 4339",
+        "manifest.json has no spotAnims.explosion (4339)",
+      ),
+    ],
+    [
+      "a bundle from another cache with a sprite missing",
+      "otherCache",
+      { "sprites/440-15.png": null },
+      rejected("built from openrs2:2745, configured openrs2:2746", "manifest.json is from openrs2:2745, configured openrs2:2746", "missing sprites/440-15.png"),
+    ],
+    ["an asset directory with no build-info.json", "complete", { "build-info.json": null }, rejected("build-info.json is missing or unreadable")],
+    ["a valid build-info.json beside no manifest.json", "complete", { "manifest.json": null }, rejected("manifest.json is missing or unreadable")],
+    ["an empty manifest.json", "complete", { "manifest.json": "" }, rejected("manifest.json is missing or unreadable")],
+    ["a manifest.json of {}", "complete", { "manifest.json": "{}" }, rejected("manifest.json is not a cache render bundle manifest")],
+    ["a stale manifest.json without the explosion spotanim", "staleManifest", {}, rejected("manifest.json has no spotAnims.explosion (4339)")],
+    ["a manifest.json from another cache", "manifestFromOtherCache", {}, rejected("manifest.json is from openrs2:2745, configured openrs2:2746")],
+    ["a manifest.json without the ocellus npc", "manifestWithoutOcellus", {}, rejected("manifest.json has no npcs.ocellus (16677)")],
+    ["a manifest.json without the brazier model or a player item", "manifestWithoutBrazierOrAhrimsTop", {}, rejected("manifest.json has no models.brazier (62440)", "manifest.json has no items.ahrimsRobeTop (4712)")],
+    [
+      "a manifest.json without the player animations",
+      "manifestWithoutPlayerAnimations",
+      {},
+      rejected(
+        "manifest.json has no playerAnimations.idle (808)",
+        "manifest.json has no playerAnimations.walk (819)",
+        "manifest.json has no playerAnimations.run (824)",
+        "manifest.json has no playerAnimations.walkBack (820)",
+        "manifest.json has no playerAnimations.strafeLeft (822)",
+        "manifest.json has no playerAnimations.strafeRight (821)",
+        "manifest.json has no playerAnimations.fireBow (426)",
+        "manifest.json has no playerAnimations.fireBlowpipe (5061)",
+        "manifest.json has no playerAnimations.throwChinchompa (7618)",
+        "manifest.json has no playerAnimations.scytheIdle (8057)",
+        "manifest.json has no playerAnimations.scytheSwing (8056)",
+        "manifest.json has no playerAnimations.swordSlash (390)",
+        "manifest.json has no playerAnimations.eat (829)",
+        "manifest.json has no playerAnimations.dying (836)",
+        "manifest.json has no playerAnimations.castSpell (711)",
+        "manifest.json has no playerAnimations.dragonClawsAttack (7514)",
+        "manifest.json has no playerAnimations.tumekensShadowIdle (9494)",
+        "manifest.json has no playerAnimations.tumekensShadowWalk (1703)",
+        "manifest.json has no playerAnimations.tumekensShadowRun (1707)",
+        "manifest.json has no playerAnimations.tumekensShadowAttack (9493)",
+        "manifest.json has no playerAnimations.venatorBowIdle (9857)",
+        "manifest.json has no playerAnimations.venatorBowWalk (9859)",
+        "manifest.json has no playerAnimations.venatorBowRun (9860)",
+        "manifest.json has no playerAnimations.venatorBowAttack (9858)",
+        "manifest.json has no playerAnimations.zombieAxeSlash (7004)",
+        "manifest.json has no playerAnimations.zombieAxeCrush (3852)",
+      ),
+    ],
+    ["a manifest.json that maps the explosion to an asset it does not list", "manifestWithoutExplosionAsset", {}, rejected("manifest.json lists no asset spotanim-4339 for spotAnims.explosion (4339)")],
+    ["a payload file the manifest names missing", "complete", { "f7283bd7ba8dae5bc8341a85afe1d04cae1543ee6c77e4a5f061fdca37aba6f2.bin": null }, rejected("missing f7283bd7ba8dae5bc8341a85afe1d04cae1543ee6c77e4a5f061fdca37aba6f2.bin, manifest.json's npc-16677")],
+    ["a manifest.json that names no sound pack", "manifestWithoutSoundPack", {}, rejected("manifest.json names no sound pack")],
+    ["a missing sound pack", "complete", { [SOUND_PACK]: null }, rejected(`missing ${SOUND_PACK}, manifest.json's sound pack`)],
+    ["an empty sound pack", "complete", { [SOUND_PACK]: "" }, rejected(`${SOUND_PACK} is not a sound pack`)],
+    ["a sound pack without a configured sound", "soundPackWithoutEquipBackpack", {}, rejected(`${SOUND_PACK} has no sounds.equipBackpack (3284)`)],
+  ])("stops before webpack on %s, naming each gap and the fix", (_, bundle, replaced, expected) => {
+    writeBundle(bundle, replaced);
 
-    expect(build()).toEqual({
-      status: 1,
-      stdout: [],
-      stderr: [LACKS, "assets:   missing assets.spotAnims.explosion.id = 4339", REBUILD],
-      built: false,
-    });
-  });
+    expect(build()).toEqual(expected);
+  }, BUILD_TIMEOUT_MS);
 
-  test("stops on a bundle from another cache with a sprite missing, naming both", { timeout: BUILD_TIMEOUT_MS }, () => {
-    writeBundle({ buildInfo: "otherCache", sprites: allSprites().slice(1) });
+  test("builds a complete bundle, its manifest and sound pack included", () => {
+    writeBundle("complete");
 
-    expect(build()).toEqual({
-      status: 1,
-      stdout: [],
-      stderr: [LACKS, "assets:   built from openrs2:2745, configured openrs2:2746", "assets:   missing sprites/440-15.png", REBUILD],
-      built: false,
-    });
-  });
-
-  test("stops on an asset directory with no build-info.json", { timeout: BUILD_TIMEOUT_MS }, () => {
-    writeBundle({ buildInfo: null, sprites: allSprites() });
-
-    expect(build()).toEqual({
-      status: 1,
-      stdout: [],
-      stderr: [LACKS, "assets:   build-info.json is missing or unreadable", REBUILD],
-      built: false,
-    });
-  });
-});
-
-describe("the asset guard the build runs", () => {
-  test("passes a bundle whose build-info.json records every configured requirement and whose sprites exist", () => {
-    writeBundle({ buildInfo: "complete", sprites: allSprites() });
-
-    expect(run("node_modules/.bin/tsx", ["src/assetBundle/check.ts"])).toEqual({
+    expect({ ...build(), manifest: existsSync(join(project, "dist/osrs-assets/manifest.json")), soundPack: existsSync(join(project, "dist/osrs-assets", SOUND_PACK)) }).toEqual({
       status: 0,
       stdout: ["assets: public/osrs-assets has every asset osrs-assets.config.ts configures, from openrs2:2746"],
       stderr: [],
+      built: true,
+      manifest: true,
+      soundPack: true,
     });
-  });
+  }, BUILD_TIMEOUT_MS * 2);
 });

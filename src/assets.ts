@@ -26,20 +26,41 @@ export const ARCHIVE_OCELLUS_ASSETS = {
   sounds: Object.fromEntries(Object.entries(presentation.sounds).map(([cue, sound]) => [cue, { id: sound.value }])),
 } as const satisfies CacheAssets;
 
-type RenderCategory = "npcs" | "models" | "spotAnims";
+export type ConfiguredIds = Readonly<Record<string, Readonly<{ id: number }>>>;
 
-const RENDERED: Readonly<Record<RenderCategory, Readonly<Record<string, Readonly<{ id: number }>>>>> = ARCHIVE_OCELLUS_ASSETS;
+export type ManifestIndex = Pick<CacheRenderBundleManifest, "references" | "spotAnims" | "playerItems" | "sharedAssets">;
 
-const SERVED: readonly (readonly [RenderCategory, (manifest: CacheRenderBundleManifest, id: number) => boolean])[] = [
-  ["npcs", (manifest, id) => `npc:${id}` in manifest.references],
-  ["models", (manifest, id) => `model:${id}` in manifest.references],
-  ["spotAnims", (manifest, id) => manifest.spotAnims?.[id] !== undefined],
-];
+export const INDEXED_CATEGORIES = ["npcs", "models", "spotAnims", "items", "playerAnimations"] as const;
+export type IndexedCategory = (typeof INDEXED_CATEGORIES)[number];
+
+export function manifestAssetKeys(manifest: ManifestIndex, category: IndexedCategory, id: number): readonly string[] | undefined {
+  const one = (key: string | undefined) => (key === undefined ? undefined : [key]);
+  switch (category) {
+    case "npcs":
+      return manifest.references[`npc:${id}`];
+    case "models":
+      return manifest.references[`model:${id}`];
+    case "spotAnims":
+      return one(manifest.spotAnims?.[id]);
+    case "items":
+      return one(manifest.playerItems?.[`item:${id}`]);
+    case "playerAnimations":
+      return one(manifest.sharedAssets?.playerAnimations);
+    default: {
+      const unhandled: never = category;
+      return unhandled;
+    }
+  }
+}
+
+const RENDER_CATEGORIES = ["npcs", "models", "spotAnims"] as const satisfies readonly IndexedCategory[];
+
+const RENDERED: Readonly<Record<(typeof RENDER_CATEGORIES)[number], ConfiguredIds>> = ARCHIVE_OCELLUS_ASSETS;
 
 export function reportUnservedAssets(manifest: CacheRenderBundleManifest): void {
-  for (const [category, served] of SERVED) {
+  for (const category of RENDER_CATEGORIES) {
     for (const [name, { id }] of Object.entries(RENDERED[category])) {
-      if (!served(manifest, id)) console.error(`assets: osrs-assets/manifest.json has no ${category}.${name} (${id}); rebuild public/osrs-assets with npm run assets`);
+      if (manifestAssetKeys(manifest, category, id) === undefined) console.error(`assets: osrs-assets/manifest.json has no ${category}.${name} (${id}); rebuild public/osrs-assets with npm run assets`);
     }
   }
 }
