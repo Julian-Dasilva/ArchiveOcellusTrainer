@@ -11,21 +11,17 @@ const OUTER_ORB_FROM_SPAWN: At = { x: 4, y: 3 };
 const NEAR_PLAYER_OUTER_ORB = { outerOrbTile: "safe-floor" } as const;
 const V1_TURN = { floorHoleLayout: "v1-turn" } as const;
 
-async function claimSecondInnerOrbAsRiftsBurst(takeFirstExplosion: boolean) {
-  const drill = startDrill();
-  await drill.playCorrectlyTo(72);
-  const orb = drill.innerOrb();
-  const eastOfOrb: At = { x: orb.x + 1, y: orb.y };
-  const northOfEast: At = { x: orb.x + 1, y: orb.y - 1 };
-  await drill.click(eastOfOrb);
-  const dodgeFrom = takeFirstExplosion ? 77 : 76;
-  drill.tickTo(dodgeFrom);
-  for (let t = dodgeFrom; t < 88; t++) {
-    await drill.click(t % 2 === 0 ? northOfEast : eastOfOrb);
-    drill.tickTo(t + 1);
+async function waitOnFirstInnerOrbUnderExplosions(dodgeFirst: boolean) {
+  const drill = startDrill({ seed: INNER_ORB_SEED });
+  drill.tickTo(12);
+  await drill.click(INNER_ORB);
+  if (dodgeFirst) {
+    drill.tickTo(16);
+    await drill.click(BESIDE_INNER_ORB);
+    drill.tickTo(17);
+    await drill.click(INNER_ORB);
   }
-  await drill.click(orb);
-  drill.tickTo(90);
+  drill.tickTo(26);
   return drill;
 }
 
@@ -55,7 +51,7 @@ describe("U3 lifeforce hit and orb", () => {
     drill.dispose();
   });
 
-  test("guard: the inner orb forms on (9, 4) on the hit tick, 12, and returns the stolen HP once, the tick after the player stands on it ready", async () => {
+  test("guard: the inner orb forms on (9, 4) on the hit tick, 12, and returns the stolen HP once to a player waiting on it, on the tick it matures, 24", async () => {
     const drill = startDrill({ seed: INNER_ORB_SEED, selection: ORB_DRILL });
     drill.tickTo(12);
     expect(drill.events("orb-spawned").map((e) => [e.at, e.void, e.tile, e.credit])).toEqual([[12, "inner-void", { x: 9, y: 4 }, 49]]);
@@ -63,8 +59,8 @@ describe("U3 lifeforce hit and orb", () => {
     drill.tickTo(29);
     expect(drill.row(16).playerAtBossStep.tile).toEqual({ x: 9, y: 4 });
     expect(drill.events("orb-matured").map((e) => [e.at, e.tile])).toEqual([[24, { x: 9, y: 4 }]]);
-    expect(drill.events("orb-returned").map((e) => [e.at, e.tile, e.receipt])).toEqual([[25, { x: 9, y: 4 }, { requested: 49, applied: 49, beforeHp: 50, afterHp: 99 }]]);
-    expect(drill.row(25).playerAtPostTick.hp).toBe(99);
+    expect(drill.events("orb-returned").map((e) => [e.at, e.tile, e.receipt])).toEqual([[24, { x: 9, y: 4 }, { requested: 49, applied: 49, beforeHp: 50, afterHp: 99 }]]);
+    expect(drill.row(24).playerAtPostTick.hp).toBe(99);
     drill.dispose();
   });
 
@@ -106,7 +102,7 @@ describe("U3 lifeforce hit and orb", () => {
       return observed;
     };
     expect([await standBeside({ orbPickupRadius: "adjacent" }), await standBeside({})]).toEqual([
-      [[[25, 99]], []],
+      [[[24, 99]], []],
       [[], [35]],
     ]);
   });
@@ -179,49 +175,47 @@ describe("U3 lifeforce hit and orb", () => {
     const drill = startDrill({ selection: { ...ORB_DRILL, drillStart: "cycle-start" } });
     await drill.playCorrectlyTo(206);
     expect(drill.events("orb-returned").map((e) => [e.at, e.receipt.requested, e.receipt.beforeHp, e.receipt.afterHp])).toEqual([
-      [25, 49, 50, 99], [50, 49, 50, 99], [85, 49, 50, 99], [110, 49, 50, 99], [145, 49, 50, 99], [170, 49, 50, 99], [205, 49, 51, 100],
+      [24, 49, 50, 99], [49, 49, 50, 99], [84, 49, 50, 99], [109, 49, 50, 99], [144, 49, 50, 99], [169, 49, 50, 99], [204, 49, 51, 100],
     ]);
-    expect(drill.row(205).playerAtPostTick.hp).toBe(100);
+    expect(drill.row(204).playerAtPostTick.hp).toBe(100);
     drill.dispose();
   });
 
-  test("guard: an orb return due on the tick the rift bursts kill the player is skipped", async () => {
-    const retrieve = async (takeFirstExplosion: boolean) => {
-      const drill = await claimSecondInnerOrbAsRiftsBurst(takeFirstExplosion);
+  test("guard: an orb return due on the tick an explosion kills the player is skipped", async () => {
+    const retrieve = async (dodgeFirst: boolean) => {
+      const drill = await waitOnFirstInnerOrbUnderExplosions(dodgeFirst);
       const observed = {
-        innerOrb: drill.events("orb-spawned").filter((e) => e.at === 72).map((e) => [e.tile, e.credit]),
-        explosionHits: drill.events("explosion-resolved").filter((e) => e.at > 72 && e.outcome.kind === "hit").map((e) => e.at),
-        bursts: drill.events("rift-burst").map((e) => [e.at, e.receipt.applied, e.receipt.afterHp]),
-        returned: drill.events("orb-returned").filter((e) => e.at > 72).map((e) => [e.at, e.receipt.beforeHp, e.receipt.afterHp]),
+        explosionHits: drill.events("explosion-resolved").flatMap((e) => (e.at <= 24 && e.outcome.kind === "hit" ? [[e.at, e.outcome.receipt.afterHp]] : [])),
+        returned: drill.events("orb-returned").map((e) => [e.at, e.receipt.beforeHp, e.receipt.afterHp]),
         ended: drill.events("run-ended").map((e) => [e.at, e.reason]),
-        hpAt90: drill.row(90).playerAtPostTick.hp,
+        hpAt24: drill.row(24).playerAtPostTick.hp,
       };
       drill.dispose();
       return observed;
     };
-    expect(await retrieve(true)).toEqual({
-      innerOrb: [[{ x: 3, y: 2 }, 37]],
-      explosionHits: [78],
-      bursts: [[90, 14, 8], [90, 8, 0]],
-      returned: [],
-      ended: [[90, "death"]],
-      hpAt90: 0,
-    });
     expect(await retrieve(false)).toEqual({
-      innerOrb: [[{ x: 3, y: 2 }, 37]],
-      explosionHits: [],
-      bursts: [[90, 14, 24], [90, 14, 10]],
-      returned: [[90, 10, 47]],
+      explosionHits: [[18, 34], [20, 18], [22, 2], [24, 0]],
+      returned: [],
+      ended: [[24, "death"]],
+      hpAt24: 0,
+    });
+    expect(await retrieve(true)).toEqual({
+      explosionHits: [[20, 34], [22, 18], [24, 2]],
+      returned: [[24, 2, 51]],
       ended: [],
-      hpAt90: 47,
+      hpAt24: 51,
     });
   });
 
-  test("guard: on the tick an orb return falls due, the row lists the rift bursts that landed before it", async () => {
-    const drill = await claimSecondInnerOrbAsRiftsBurst(false);
-    const settled = drill.row(90).events.flatMap((e) => (e.kind === "rift-burst" || e.kind === "orb-returned" ? [[e.kind, e.receipt.beforeHp, e.receipt.afterHp]] : []));
+  test("guard: on the tick an orb return falls due, the row lists the explosion hit that landed before it", async () => {
+    const drill = await waitOnFirstInnerOrbUnderExplosions(true);
+    const settled = drill.row(24).events.flatMap((e): (string | number)[][] => {
+      if (e.kind === "orb-returned") return [[e.kind, e.receipt.beforeHp, e.receipt.afterHp]];
+      if (e.kind === "explosion-resolved" && e.outcome.kind === "hit") return [[e.kind, e.outcome.receipt.beforeHp, e.outcome.receipt.afterHp]];
+      return [];
+    });
     drill.dispose();
-    expect(settled).toEqual([["rift-burst", 38, 24], ["rift-burst", 24, 10], ["orb-returned", 10, 47]]);
+    expect(settled).toEqual([["explosion-resolved", 18, 2], ["orb-returned", 2, 51]]);
   });
 
   test("guard: an orb never forms on a floor hole: seed 10's inner orb from the spawn", async () => {
