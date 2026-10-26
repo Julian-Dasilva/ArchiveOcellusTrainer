@@ -1,3 +1,4 @@
+import * as THREE from "three";
 import type { HitReceipt } from "../../../sim/combat";
 import type { At } from "./drill";
 import { footprintCentre, startP3Drill } from "./p3drill";
@@ -225,6 +226,24 @@ describe("P3 drill", () => {
     ])("guard, already held: ending U+27, U+28 and U+29 $plan.27, $plan.28 and $plan.29, the slam on U+29 takes $typeless", async ({ plan, typeless }) => {
       const { slam, ...hits } = await untether(plan);
       expect({ slam, typeless: hits.typeless }).toEqual({ slam: [29], typeless });
+    });
+
+    test("the purple marker on his 3x3 keeps its 9 meshes from one tick to the next while he hovers in place", async () => {
+      const drill = await startP3Drill({ seed: 1, invincible: true });
+      const scene = new THREE.Scene();
+      const models = drill.region.entities.map((entity) => ({ entity, model: entity.get3dModel() }));
+      const purpleTilesAt = (t: number) => {
+        drill.tickTo(t);
+        models.forEach(({ entity, model }) => model?.draw(scene, 0, 0, entity.getPerceivedLocation(0), 0, 0, entity.visible(0), []));
+        const tiles: THREE.Object3D[] = [];
+        scene.traverse((object) => {
+          if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshBasicMaterial && object.material.color.getHexString() === "9f48bd") tiles.push(object);
+        });
+        return tiles;
+      };
+      const [first, second] = [purpleTilesAt(U + 1), purpleTilesAt(U + 2)];
+      drill.dispose();
+      expect({ first: first.length, kept: second.filter((mesh) => first.includes(mesh)).length }).toEqual({ first: 9, kept: 9 });
     });
   });
 

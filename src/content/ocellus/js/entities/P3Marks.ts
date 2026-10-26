@@ -15,6 +15,8 @@ const UNTETHER_OPACITY = 0.3;
 const INSET = 0.06;
 const LIFT = 0.01;
 
+const sameTiles = (a: readonly Tile[], b: readonly Tile[]) => a.length === b.length && a.every((at, i) => at.x === b[i].x && at.y === b[i].y);
+
 class MarksModel implements Model {
   private readonly group = new THREE.Group();
   private readonly plane = new THREE.PlaneGeometry(1 - 2 * INSET, 1 - 2 * INSET).rotateX(-Math.PI / 2);
@@ -78,7 +80,9 @@ export class P3Marks extends Entity {
 
   /** Called once a tick ends: a band that has landed goes, and the Untether zone follows his body. */
   settle(at: Tick, zone: readonly Tile[]): void {
-    this.bands = this.bands.filter((band) => band.landsAt > at);
+    const bands = this.bands.filter((band) => band.landsAt > at);
+    if (bands.length === this.bands.length && sameTiles(zone, this.zone)) return;
+    this.bands = bands;
     this.zone = zone;
     this.refresh();
   }
