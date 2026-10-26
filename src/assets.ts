@@ -1,20 +1,35 @@
 import type { CacheAssets } from "osrs-sdk/asset-manifest";
 import type { SpriteFrame } from "./content/ocellus/js/OcellusTimings";
-import { OCELLUS_P3, OCELLUS_P4 } from "./content/ocellus/js/OcellusTimings";
+import { OCELLUS_P2, OCELLUS_P3, OCELLUS_P4 } from "./content/ocellus/js/OcellusTimings";
+import { readBuildFlags } from "./flags";
 
 const { boss, gear, presentation, lifeforceOrb, rifts, explosion, geometry, floorHoles } = OCELLUS_P4;
 
 const sequences = (poses: Readonly<Record<string, Readonly<{ value: number }>>>) => Object.fromEntries(Object.entries(poses).map(([pose, sequence]) => [pose, sequence.value]));
+const { looks: portalLooks } = OCELLUS_P2.portals;
+const p2Key = (name: string) => `p2${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+/**
+ * Phase 2's models, poses and spotanims are extracted only when ARCHIVE_P2 is on, so a build with the drill hidden asks the
+ * cache for nothing it doesn't play. Cache 2746 also lacks three of its poses' frame sounds (12814, 12825, 12832).
+ */
+const { p2 } = readBuildFlags();
 
 export const ARCHIVE_OCELLUS_ASSETS = {
   npcs: {
     ocellus: { id: boss.npcId.value, animations: { ...sequences(presentation.bossPoses), ...sequences(OCELLUS_P3.bossPoses) } },
     voidRift: { id: rifts.npcId.value, animations: sequences(rifts.poses) },
     voidVine: { id: OCELLUS_P3.vine.npcId.value },
+    ...(p2 ? { ocellusP2: { id: OCELLUS_P2.ocellusNpcId.value, animations: sequences(OCELLUS_P2.bossPoses) } } : {}),
   },
   models: {
     brazier: { id: geometry.brazier.value.model, animations: { burning: geometry.brazier.value.burning } },
     voidHole: { id: floorHoles.look.model.value, animations: { idle: floorHoles.look.idle.value } },
+    ...(p2
+      ? {
+          p2PortalInactive: { id: portalLooks.value.inactive.model, animations: { idle: portalLooks.value.inactive.idle } },
+          p2PortalLit: { id: portalLooks.value.lit.model, animations: { idle: portalLooks.value.lit.idle } },
+        }
+      : {}),
   },
   items: Object.fromEntries(Object.entries(gear.items).map(([key, item]) => [key, { id: item.itemId.value }])),
   spotAnims: Object.fromEntries([
@@ -23,6 +38,7 @@ export const ARCHIVE_OCELLUS_ASSETS = {
     ["riftFlare", { id: rifts.burstFlare.value }],
     ["explosion", { id: explosion.spotAnim.value }],
     ...[...Object.values(OCELLUS_P3.collapse.bossSpotAnims).flatMap((ids) => ids.value), ...OCELLUS_P3.collapse.rubble.value.spotAnims].map((id) => [`collapse${id}`, { id }]),
+    ...(p2 ? Object.entries(OCELLUS_P2.spotAnims).map(([name, spotAnim]) => [p2Key(name), { id: spotAnim.value }]) : []),
   ]),
   sounds: Object.fromEntries(Object.entries(presentation.sounds).map(([cue, sound]) => [cue, { id: sound.value }])),
 } as const satisfies CacheAssets;
