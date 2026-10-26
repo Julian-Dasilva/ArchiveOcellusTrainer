@@ -409,7 +409,7 @@ stage_build() {
 }
 
 stage_types() {
-  npm run typecheck >"$VERIFY_DIR/types.log" 2>&1
+  npm run typecheck >"$VERIFY_DIR/types.log" 2>&1 && npm run check-types >>"$VERIFY_DIR/types.log" 2>&1
 }
 
 stage_test() {

@@ -10,6 +10,16 @@ const FIGHT = path.join(root, "src/content/ocellus/js");
 const SIM = path.join(root, "src/sim");
 const SIM_SDK = path.join(SIM, "sdk");
 const SDK_PACKAGE = /^osrs-sdk(-[a-z]+)?(\/|$)/;
+const REACT_PACKAGE = /^(react|react-dom)(\/|$)/;
+const OCELUS = path.join(root, "src/content/ocellus");
+const ENGINE_PAGE_BAN = new Set(["director.ts", "sdk/EncounterRegion.ts", "sdk/EncounterPlayer.ts"]);
+
+function engineFile(target) {
+  if (!target || !target.startsWith(SIM + path.sep)) return null;
+  const rel = path.relative(SIM, target).split(path.sep).join("/");
+  const file = rel.endsWith(".ts") || rel.endsWith(".tsx") ? rel : `${rel}.ts`;
+  return ENGINE_PAGE_BAN.has(file) ? file : null;
+}
 const PUBLIC = new Set(["OcellusRegion.ts", "OcellusLoadout.ts", "OcellusTimings.ts", "OcellusTimingsP1.ts", "OcellusTimingsP2.ts", "OcellusTimingsP3.ts", "P4Types.ts", "P3Region.ts", "P3Types.ts", "P2Region.ts", "P2Types.ts", "P1Region.ts", "P1Types.ts", "carry.ts"].map((file) => path.join(FIGHT, file)));
 const SUPPRESSION = /@ts-(ignore|expect-error|nocheck)\b/;
 const TEST_FILE = /(^|[/\\])__tests__[/\\]|\.(test|spec)(-d)?\.[cm]?[jt]sx?$/;
@@ -27,6 +37,157 @@ function resolveImport(from, specifier) {
   if (!specifier.startsWith(".") && !path.isAbsolute(specifier)) return null;
   const base = path.resolve(path.dirname(from), specifier);
   return [".ts", ".tsx", "/index.ts"].map((ext) => base + ext).find((file) => fs.existsSync(file)) ?? base;
+}
+
+const bindingCache = new Map();
+
+function hasExportModifier(node) {
+  return node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+}
+
+function bindingFile(file, name, stack) {
+  if (!file || !fs.existsSync(file)) return null;
+  const key = `${file}\0${name}`;
+  if (bindingCache.has(key)) return bindingCache.get(key);
+  if (stack.has(key)) return null;
+  stack.add(key);
+  const source = ts.createSourceFile(file, fs.readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
+  const locals = new Map();
+  const stars = [];
+  const hops = [];
+  let defined = false;
+  for (const statement of source.statements) {
+    if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier) && statement.importClause) {
+      const imported = resolveImport(file, statement.moduleSpecifier.text);
+      if (imported && statement.importClause.name) locals.set(statement.importClause.name.text, { file: imported, name: "default" });
+      const named = statement.importClause?.namedBindings;
+      if (imported && named && ts.isNamedImports(named)) {
+        for (const element of named.elements) locals.set(element.name.text, { file: imported, name: (element.propertyName ?? element.name).text });
+      }
+    }
+    if (hasExportModifier(statement)) {
+      const declared =
+        (ts.isClassDeclaration(statement) ||
+          ts.isFunctionDeclaration(statement) ||
+          ts.isInterfaceDeclaration(statement) ||
+          ts.isTypeAliasDeclaration(statement) ||
+          ts.isEnumDeclaration(statement)) &&
+        statement.name?.text === name;
+      const variables =
+        ts.isVariableStatement(statement) &&
+        statement.declarationList.declarations.some((declaration) => ts.isIdentifier(declaration.name) && declaration.name.text === name);
+      if (declared || variables) defined = true;
+    }
+    if (!ts.isExportDeclaration(statement)) continue;
+    const specifier = ts.isStringLiteral(statement.moduleSpecifier) ? statement.moduleSpecifier.text : null;
+    const target = specifier ? resolveImport(file, specifier) : null;
+    if (!statement.exportClause) {
+      if (target) stars.push(target);
+      continue;
+    }
+    if (!ts.isNamedExports(statement.exportClause)) continue;
+    for (const element of statement.exportClause.elements) {
+      if (element.name.text !== name) continue;
+      const local = (element.propertyName ?? element.name).text;
+      if (target) hops.push({ file: target, name: local });
+      else hops.push({ local });
+    }
+  }
+  let found = null;
+  if (defined) found = file;
+  else {
+    for (const hop of hops) {
+      if (hop.local) {
+        const binding = locals.get(hop.local);
+        found = binding ? bindingFile(binding.file, binding.name, stack) : file;
+      } else found = bindingFile(hop.file, hop.name, stack);
+      if (found) break;
+    }
+    if (!found) {
+      for (const star of stars) {
+        found = bindingFile(star, name, stack);
+        if (found) break;
+      }
+    }
+  }
+  stack.delete(key);
+  bindingCache.set(key, found);
+  return found;
+}
+
+function specifierNames(node) {
+  let parent = node.parent;
+  if (parent && ts.isLiteralTypeNode(parent) && ts.isImportTypeNode(parent.parent)) parent = parent.parent;
+  if (!parent) return null;
+  if (ts.isImportDeclaration(parent)) {
+    if (!parent.importClause) return [];
+    const names = [];
+    if (parent.importClause.name) names.push("default");
+    const named = parent.importClause.namedBindings;
+    if (named && ts.isNamespaceImport(named)) return ["*"];
+    if (named && ts.isNamedImports(named)) {
+      for (const element of named.elements) names.push((element.propertyName ?? element.name).text);
+    }
+    return names;
+  }
+  if (ts.isExportDeclaration(parent)) {
+    if (!parent.exportClause) return ["*"];
+    if (ts.isNamedExports(parent.exportClause)) return parent.exportClause.elements.map((element) => (element.propertyName ?? element.name).text);
+    return null;
+  }
+  if (ts.isImportTypeNode(parent)) return parent.qualifier && ts.isIdentifier(parent.qualifier) ? [parent.qualifier.text] : ["*"];
+  if (ts.isCallExpression(parent) && (parent.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(parent.expression) && parent.expression.text === "require"))) return ["*"];
+  return null;
+}
+
+function exportedEngine(file, seen) {
+  if (!file || seen.has(file) || !fs.existsSync(file)) return null;
+  seen.add(file);
+  const direct = engineFile(file);
+  if (direct) return direct;
+  const source = ts.createSourceFile(file, fs.readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
+  const names = [];
+  const stars = [];
+  for (const statement of source.statements) {
+    if (hasExportModifier(statement)) {
+      if (statement.name && ts.isIdentifier(statement.name)) names.push(statement.name.text);
+      if (ts.isVariableStatement(statement)) {
+        for (const declaration of statement.declarationList.declarations) {
+          if (ts.isIdentifier(declaration.name)) names.push(declaration.name.text);
+        }
+      }
+    }
+    if (!ts.isExportDeclaration(statement)) continue;
+    const specifier = ts.isStringLiteral(statement.moduleSpecifier) ? statement.moduleSpecifier.text : null;
+    const target = specifier ? resolveImport(file, specifier) : null;
+    if (!statement.exportClause) {
+      if (target) stars.push(target);
+      continue;
+    }
+    if (ts.isNamedExports(statement.exportClause)) {
+      for (const element of statement.exportClause.elements) names.push(element.name.text);
+    }
+  }
+  for (const name of names) {
+    const hit = engineFile(bindingFile(file, name, new Set()));
+    if (hit) return hit;
+  }
+  for (const star of stars) {
+    const hit = exportedEngine(star, seen);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function reexportedEngine(specNode, target) {
+  const names = specifierNames(specNode);
+  if (!names || !target) return null;
+  if (names.includes("*")) return exportedEngine(target, new Set());
+  for (const name of names) {
+    const hit = engineFile(bindingFile(target, name, new Set()));
+    if (hit) return hit;
+  }
+  return null;
 }
 
 const findings = [];
@@ -79,6 +240,13 @@ for (const file of [...sources(path.join(root, "src")), ...sources(path.join(roo
       }
       if (insideSimCore && target && target.startsWith(SIM_SDK + path.sep)) {
         report(node.getStart(sf), `sim core import of src/sim/sdk ${path.relative(root, target)}`);
+      }
+      if (insideSim && REACT_PACKAGE.test(node.text)) {
+        report(node.getStart(sf), `sim import of React ${node.text}`);
+      }
+      const engineEntry = engineFile(target) ?? (!insideSim && !file.startsWith(OCELUS + path.sep) ? reexportedEngine(node, target) : null);
+      if (engineEntry && !insideSim && !file.startsWith(OCELUS + path.sep)) {
+        report(node.getStart(sf), `page import of the fight engine ${engineEntry}`);
       }
     }
     ts.forEachChild(node, visit);

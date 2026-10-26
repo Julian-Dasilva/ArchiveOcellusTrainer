@@ -142,6 +142,34 @@ sim_import_of_app_fails() { expect_finding src/sim/schedule.ts 'export const app
 sim_core_import_of_the_sdk_fails() { expect_finding src/sim/schedule.ts 'import type { Player } from "osrs-sdk";' "sim core import of the SDK osrs-sdk"; }
 sim_core_import_of_an_sdk_package_fails() { expect_finding src/sim/tiles.ts 'export const react = () => import("osrs-sdk-react");' "sim core import of the SDK osrs-sdk-react"; }
 sim_core_import_of_the_sim_sdk_fails() { expect_finding src/sim/schedule.ts 'export { turn } from "./sdk/binding";' "sim core import of src/sim/sdk src/sim/sdk/binding.ts"; }
+sim_import_of_react_fails() { expect_finding src/sim/schedule.ts 'import type { FC } from "react";' "sim import of React react"; }
+page_import_of_the_director_fails() { expect_finding src/App.tsx 'export { Director } from "./sim/director";' "page import of the fight engine director.ts"; }
+page_reexport_of_the_director_fails() {
+  clean_tree
+  plant src/sim/director.ts 'export class Director {}'
+  plant src/sim/index.ts 'export { Director } from "./director";'
+  plant src/App.tsx 'import { Director as ReviewDirector } from "./sim";'
+  ready
+  if node "$CHECK" "$T" >"$T/out.txt" 2>&1; then
+    fail "check passed although a page imported Director through src/sim/index.ts"
+  fi
+  grep -q "^src/App.tsx:[0-9]*:[0-9]* page import of the fight engine director.ts" "$T/out.txt" || { cat "$T/out.txt"; fail "missing barrel finding"; }
+}
+inferred_start_rejects_a_missing_phase() {
+  expect_compile_error src/sim/director.test.ts \
+    'start: { phase: "calm", entry: { kind: "fresh" } }' 'start: { phase: "missing", entry: { kind: "fresh" } }' \
+    "not assignable"
+}
+inferred_next_rejects_a_missing_phase() {
+  expect_compile_error src/sim/director.test.ts \
+    'director.next({ phase: "rage", entry: { kind: "carried", hp: 40 } })' 'director.next({ phase: "missing", entry: { kind: "carried", hp: 40 } })' \
+    "not assignable"
+}
+inferred_next_rejects_the_wrong_entry() {
+  expect_compile_error src/sim/director.test.ts \
+    'director.next({ phase: "rage", entry: { kind: "carried", hp: 40 } })' 'director.next({ phase: "rage", entry: { kind: "fresh" } })' \
+    "not assignable"
+}
 sourced_value_without_a_wiki_answer_fails() {
   expect_compile_error src/content/ocellus/js/OcellusTimings.ts \
     '"one-tile shard", noWiki("the Void Rift infobox leaves size empty (rev 15380527)"), cache("npc 16678 size")' '"one-tile shard", cache("npc 16678 size")' \
@@ -188,6 +216,12 @@ for t in \
   sim_core_import_of_the_sdk_fails \
   sim_core_import_of_an_sdk_package_fails \
   sim_core_import_of_the_sim_sdk_fails \
+  sim_import_of_react_fails \
+  page_import_of_the_director_fails \
+  page_reexport_of_the_director_fails \
+  inferred_start_rejects_a_missing_phase \
+  inferred_next_rejects_a_missing_phase \
+  inferred_next_rejects_the_wrong_entry \
   helmet_factory_rejects_a_weapon \
   void_masks_reject_a_swapped_mask \
   sourced_value_without_a_wiki_answer_fails \

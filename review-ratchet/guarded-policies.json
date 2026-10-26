@@ -73,6 +73,14 @@
         {
           "policy": "a src/sim core file that imports src/sim/sdk is a finding",
           "mutation": [{ "find": "      if (insideSimCore && target && target.startsWith(SIM_SDK + path.sep)) {\n", "replace": "      if (false) {\n" }]
+        },
+        {
+          "policy": "a src/sim file that imports React is a finding",
+          "mutation": [{ "find": "      if (insideSim && REACT_PACKAGE.test(node.text)) {\n", "replace": "      if (false) {\n" }]
+        },
+        {
+          "policy": "a page file that imports the fight engine is a finding",
+          "mutation": [{ "find": "      if (engineEntry && !insideSim && !file.startsWith(OCELUS + path.sep)) {\n", "replace": "      if (false) {\n" }]
         }
       ]
     },

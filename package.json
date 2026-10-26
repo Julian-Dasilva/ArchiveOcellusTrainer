@@ -15,7 +15,8 @@
     "start": "tsx src/assetBundle/check.ts && webpack serve --mode development",
     "build": "tsx src/assetBundle/check.ts && webpack --mode production && tsx src/cacheHeaders/check.ts dist && tsx src/phaseCode/check.ts dist",
     "test": "vitest run",
-    "typecheck": "tsgo --noEmit --moduleResolution bundler && node scripts/check-types.mjs",
+    "typecheck": "tsgo --noEmit --moduleResolution bundler",
+    "check-types": "node scripts/check-types.mjs",
     "typecheck:tsc": "tsc --noEmit && node scripts/check-types.mjs",
     "assets": "bash scripts/assets.sh",
     "item-icons": "tsx src/itemIcons/build.ts"
