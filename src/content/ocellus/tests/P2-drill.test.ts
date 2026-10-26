@@ -1,4 +1,6 @@
-import { TileMarker } from "osrs-sdk";
+import * as THREE from "three";
+import { CacheRenderInstancedModel, TileMarker } from "osrs-sdk";
+import { PortalCross } from "../js/entities/P2Views";
 import { fromMiddle, startP2Drill } from "./p2drill";
 
 const loadTimings = () => vi.importActual<typeof import("../js/OcellusTimings")>("../js/OcellusTimings");
@@ -144,6 +146,20 @@ describe("P2 drill", () => {
     const [release] = drill.events("blade-released");
     drill.dispose();
     expect(release === undefined ? null : release.stored).toBe(92);
+  });
+
+  test("drawing 120 unchanged frames hands each of the 24 portal models the same empty offsets", async () => {
+    const drill = await startP2Drill({ seed: 1, invincible: true });
+    drill.tickTo(14);
+    const model = drill.region.entities.find((entity) => entity instanceof PortalCross)?.get3dModel();
+    if (!model) throw new Error("the portals have not risen");
+    const draws = vi.spyOn(CacheRenderInstancedModel.prototype, "draw");
+    const scene = new THREE.Scene();
+    for (let frame = 0; frame < 120; frame++) model.draw(scene, 1 / 60, 0.5, { x: 0, y: 0, z: 0 }, 0, 0, true, []);
+    const offsets = draws.mock.calls.map((args) => args[7]);
+    draws.mockRestore();
+    drill.dispose();
+    expect({ draws: offsets.length, distinct: new Set(offsets).size, empty: offsets.every((offset) => offset.length === 0) }).toEqual({ draws: 2880, distinct: 1, empty: true });
   });
 
   test("markers=skip-tiles marks the wait and run tiles, 6 and 4 out on each wedge's diagonal, until Settings switches them off", async () => {

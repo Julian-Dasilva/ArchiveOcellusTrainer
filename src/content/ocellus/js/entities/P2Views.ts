@@ -12,6 +12,7 @@ export type PortalView = Readonly<{ arm: Arm; tiles: readonly [Tile, Tile]; look
 
 const LOOKS = OCELLUS_P2.portals.looks.value;
 const ROTATION = OCELLUS_P2.portals.rotation.value;
+const NO_OFFSETS: Location3[] = [];
 
 type Shown = Readonly<{ look: PortalLookKind; model: CacheRenderInstancedModel }>;
 type Placed = Readonly<{ key: string; look: PortalLookKind; location: Location3; yaw: number }>;
@@ -28,7 +29,7 @@ class PortalModel implements Model {
     const portals = this.cross.portals();
     if (portals !== this.portals) this.place(scene, portals);
     for (const { key, location: at, yaw } of this.placed) {
-      this.shown.get(key)?.model.draw(scene, clockDelta, tickPercent, at, yaw, pitchRadians, visible, []);
+      this.shown.get(key)?.model.draw(scene, clockDelta, tickPercent, at, yaw, pitchRadians, visible, NO_OFFSETS);
     }
   }
 
