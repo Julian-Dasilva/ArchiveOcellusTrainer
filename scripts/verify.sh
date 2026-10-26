@@ -11,7 +11,7 @@ VERIFY_PORT="${VERIFY_PORT:-8002}"
 VERIFY_DIR="${VERIFY_DIR:-$ROOT/.verify/$(date -u +%Y%m%dT%H%M%SZ)}"
 STATE_FILE="$ROOT/.verify/current-server"
 MANIFEST="$ROOT/public/osrs-assets/manifest.json"
-PARITY_FIGHT_CODE="src/content/ src/sim/ package.json package-lock.json scripts/install-beta-sdk.sh"
+PARITY_EXPECTED="scripts/verify-parity-expected.json"
 URL="http://127.0.0.1:${VERIFY_PORT}/"
 DRILL_QUERY="?seed=1&specialSelection=replay-v2"
 BOSS_NPC=16677
@@ -347,14 +347,15 @@ ensure_deps() {
 manifest_ready() {
   [[ -f "$MANIFEST" ]] && node --input-type=module -e '
     import { loadConfig } from "osrs-sdk-assets";
-    import { existsSync, readFileSync } from "node:fs";
+    import { existsSync, readFileSync, statSync } from "node:fs";
     import { dirname, join } from "node:path";
     const { assets } = await loadConfig();
     const m = JSON.parse(readFileSync(process.argv[1], "utf8"));
-    const npcs = Object.values(assets.npcs).every(({ id }) => m.assets?.[`npc-${id}`]);
-    const items = Object.values(assets.items).every(({ id }) => m.playerItems?.[`item:${id}`]);
-    const spotAnims = Object.values(assets.spotAnims).every(({ id }) => m.spotAnims?.[id]);
-    const models = Object.values(assets.models).every(({ id }) => m.assets?.[`model-${id}`]);
+    const payload = (key) => typeof m.assets?.[key]?.file === "string" && (statSync(join(dirname(process.argv[1]), m.assets[key].file), { throwIfNoEntry: false })?.size ?? 0) > 0;
+    const npcs = Object.values(assets.npcs).every(({ id }) => payload(`npc-${id}`));
+    const items = Object.values(assets.items).every(({ id }) => payload(m.playerItems?.[`item:${id}`]));
+    const spotAnims = Object.values(assets.spotAnims).every(({ id }) => payload(m.spotAnims?.[id]));
+    const models = Object.values(assets.models).every(({ id }) => payload(`model-${id}`));
     const pack = m.soundEffects && join(dirname(process.argv[1]), m.soundEffects.file);
     const bytes = pack && existsSync(pack) ? readFileSync(pack) : Buffer.alloc(6);
     const packed = new Set();
@@ -399,7 +400,7 @@ parity_fights() {
 }
 
 stage_parity() {
-  local base cache head="$VERIFY_DIR/parity/head.json" src="$VERIFY_DIR/parity/base-src" changed
+  local base cache head="$VERIFY_DIR/parity/head.json" src="$VERIFY_DIR/parity/base-src"
   base="$(git rev-parse --verify "${VERIFY_PARITY_BASE:-$(git merge-base origin/main HEAD)}^{commit}")" || { log "parity: no base revision; set VERIFY_PARITY_BASE"; return 1; }
   cache="$ROOT/.verify/parity/${base}-$(cat test/parity/* | shasum -a 256 | cut -c1-12).json"
   mkdir -p "$VERIFY_DIR/parity" "$ROOT/.verify/parity"
@@ -418,8 +419,7 @@ stage_parity() {
     rm -rf "$src"
   fi
   parity_fights "$head" >"$VERIFY_DIR/parity/head.log" 2>&1 || { log "parity: the head fights did not run; see ${VERIFY_DIR}/parity/head.log"; return 1; }
-  mapfile -t changed < <(git diff --name-only "$base" && git ls-files --others --exclude-standard)
-  node scripts/verify/parity.mjs "$cache" "$head" "${changed[@]}" | tee "$VERIFY_DIR/parity/verdict.txt"
+  node scripts/verify/parity.mjs "$cache" "$head" "$PARITY_EXPECTED" 2>&1 | tee "$VERIFY_DIR/parity/verdict.txt"
   return "${PIPESTATUS[0]}"
 }
 
@@ -447,7 +447,7 @@ serve() {
   fi
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
 
-  ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --no-color --host 127.0.0.1 --port "$VERIFY_PORT" \
+  ARCHIVE_P2=on ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --no-color --host 127.0.0.1 --port "$VERIFY_PORT" \
     >"$VERIFY_DIR/server.log" 2>&1 &
   local pid=$!
   LAUNCHED_PID=$pid
@@ -2135,7 +2135,7 @@ serve_static() {
 stage_production() {
   production_port_free || return 1
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
-  ARCHIVE_P3=off node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/production" >"$VERIFY_DIR/production-build.log" 2>&1 || { log "the production build failed"; return 1; }
+  ARCHIVE_P2=off ARCHIVE_P3=off node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/production" >"$VERIFY_DIR/production-build.log" 2>&1 || { log "the production build failed"; return 1; }
 
   local BROWSER_SESSION="archive-ocellus-verify-$(basename "$VERIFY_DIR")-production" PRODUCTION_PID= result=1
   trap 'release_production; exit 130' INT TERM

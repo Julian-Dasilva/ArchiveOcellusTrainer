@@ -58,6 +58,25 @@ failing_check_is_named() {
   grep -qx "FAIL unit seed: typedSeedReplays" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the failing check is not named"; }
 }
 
+page_error_fails_the_selected_unit() {
+  seed_unit 4521
+  printf '["Uncaught Error: boom"]' >"$UNIT/seed-page-errors.json"
+  ready
+  if judge 0; then cat "$WORK/out.txt"; fail "a unit with a recorded page error exited zero"; fi
+  grep -qx "FAIL unit seed: noPageErrors" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the page error is not named"; }
+  [[ "$(field "$UNIT/verdict.json" pageErrors)" == '{"seed-page-errors.json":["Uncaught Error: boom"]}' ]] || fail "pageErrors $(field "$UNIT/verdict.json" pageErrors)"
+  if report seed; then cat "$WORK/out.txt"; fail "the stage passed a selected unit with a recorded page error"; fi
+  [[ "$(field "$WORK/$t/browser-checks.json" units.seed.failed)" == '["noPageErrors"]' ]] || fail "browser-checks.json does not record the page error"
+}
+
+page_errors_that_are_not_a_list_fail_the_unit() {
+  seed_unit 4521
+  printf '{"message":"boom"}' >"$UNIT/seed-page-errors.json"
+  ready
+  if judge 0; then cat "$WORK/out.txt"; fail "a page-errors capture that is not a list passed"; fi
+  grep -qx "FAIL unit seed: noPageErrors" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the malformed capture is not named"; }
+}
+
 missing_capture_aborts_the_unit() {
   seed_unit 4521
   rm "$UNIT/seed.json"
@@ -104,6 +123,8 @@ failed=0
 for t in \
   passing_unit_records_every_check \
   failing_check_is_named \
+  page_error_fails_the_selected_unit \
+  page_errors_that_are_not_a_list_fail_the_unit \
   missing_capture_aborts_the_unit \
   failed_drive_aborts_with_its_log \
   unit_without_a_verdict_fails_the_stage \

@@ -169,6 +169,14 @@
           "mutation": [{ "find": "return failed.length === 0 ?", "replace": "return true ?" }]
         },
         {
+          "policy": "a recorded page error fails its unit",
+          "mutation": [{ "find": "...(Object.keys(pageErrors).length > 0 ? [\"noPageErrors\"] : [])", "replace": "...[]" }]
+        },
+        {
+          "policy": "a page-errors capture that is not a list counts as a page error",
+          "mutation": [{ "find": "!Array.isArray(errors) || errors.length > 0", "replace": "errors.length > 0" }]
+        },
+        {
           "policy": "judge exits non-zero unless the unit passed",
           "mutation": [{ "find": "process.exit(verdict.outcome === \"passed\" ? 0 : 1);", "replace": "process.exit(0);" }]
         }
@@ -195,16 +203,46 @@
       ]
     },
     {
+      "path": "scripts/verify.sh",
+      "tests": ["scripts/verify/bundle.test.sh"],
+      "policies": [
+        {
+          "policy": "every configured npc needs a non-empty payload file",
+          "mutation": [{ "find": "every(({ id }) => payload(`npc-${id}`))", "replace": "every(({ id }) => m.assets?.[`npc-${id}`])" }]
+        },
+        {
+          "policy": "every configured model needs a non-empty payload file",
+          "mutation": [{ "find": "every(({ id }) => payload(`model-${id}`))", "replace": "every(({ id }) => m.assets?.[`model-${id}`])" }]
+        },
+        {
+          "policy": "every configured item needs a non-empty payload file",
+          "mutation": [{ "find": "every(({ id }) => payload(m.playerItems?.[`item:${id}`]))", "replace": "every(({ id }) => m.playerItems?.[`item:${id}`])" }]
+        },
+        {
+          "policy": "every configured spot animation needs a non-empty payload file",
+          "mutation": [{ "find": "every(({ id }) => payload(m.spotAnims?.[id]))", "replace": "every(({ id }) => m.spotAnims?.[id])" }]
+        },
+        {
+          "policy": "an empty payload file counts as missing",
+          "mutation": [{ "find": "{ throwIfNoEntry: false })?.size ?? 0) > 0;", "replace": "{ throwIfNoEntry: false })?.size ?? 0) >= 0;" }]
+        }
+      ]
+    },
+    {
       "path": "scripts/verify/parity.mjs",
       "tests": ["scripts/verify/parity.test.sh"],
       "policies": [
         {
-          "policy": "a seeded fight that differs fails unless the change touches fight code",
-          "mutation": [{ "find": "const reason = changed.find((file) => fightCode.some((prefix) => file.startsWith(prefix)));", "replace": "const reason = changed[0];" }]
+          "policy": "a seeded fight that differs fails unless the expectations name it",
+          "mutation": [{ "find": "if (expected[name]?.head === sha)", "replace": "if (true)" }]
         },
         {
-          "policy": "a change to fight code makes its differences expected",
-          "mutation": [{ "find": "if (reason !== undefined) {", "replace": "if (false) {" }]
+          "policy": "an expectation accepts only the head sha256 it names",
+          "mutation": [{ "find": "if (expected[name]?.head === sha)", "replace": "if (expected[name] !== undefined)" }]
+        },
+        {
+          "policy": "an expectation without a reason is refused",
+          "mutation": [{ "find": "if (typeof entry.why !== \"string\" || entry.why.trim() === \"\") throw", "replace": "if (false) throw" }]
         },
         {
           "policy": "a seeded fight missing at the head differs",
@@ -212,7 +250,7 @@
         },
         {
           "policy": "each differing fight is printed with its first differing value",
-          "mutation": [{ "find": "for (const name of differing) console.log(", "replace": "for (const name of []) console.log(" }]
+          "mutation": [{ "find": "firstDifference(base[name], head[name], name)}", "replace": "name}" }]
         }
       ]
     },

@@ -6,11 +6,12 @@ const ROOT = resolve(__dirname, "../..");
 const BROWSER_UNITS = readdirSync(resolve(ROOT, "scripts/verify/units")).map((file) => file.replace(/\.mjs$/, "")).sort();
 
 const PLANNER = "./plan";
+const MAP = "scripts/verify-impact.json";
 
 async function shipped() {
   const planner: typeof import("./plan") = await import(/* @vite-ignore */ PLANNER);
-  const json: unknown = JSON.parse(readFileSync(resolve(ROOT, "scripts/verify-impact.json"), "utf8"));
-  return { ...planner, impact: planner.parseImpact(json, BROWSER_UNITS) };
+  const json: Readonly<Record<string, unknown> & { groups: Readonly<Record<string, readonly string[]>> }> = JSON.parse(readFileSync(resolve(ROOT, MAP), "utf8"));
+  return { ...planner, json, impact: planner.parseImpact(json, BROWSER_UNITS, MAP) };
 }
 
 describe("verify plan", () => {
@@ -70,9 +71,34 @@ describe("verify plan", () => {
 
   test("a rule naming a unit that does not exist is refused", async () => {
     const { parseImpact } = await shipped();
-    expect(() => parseImpact({ stages: {}, groups: {}, everything: [], t0Only: [], rules: [{ paths: ["src/x.ts"], units: ["boss_dance"] }] }, BROWSER_UNITS)).toThrow(
+    expect(() => parseImpact({ stages: {}, groups: {}, everything: [], t0Only: [], rules: [{ paths: ["src/x.ts"], units: ["boss_dance"] }] }, BROWSER_UNITS, MAP)).toThrow(
       "rule 0 names boss_dance, which is no unit",
     );
+  });
+
+  test("an emptied group is refused", async () => {
+    const { parseImpact, json } = await shipped();
+    expect(() => parseImpact({ ...json, groups: { ...json.groups, orbs: [] } }, BROWSER_UNITS, MAP)).toThrow("group orbs has no units");
+  });
+
+  test("a rule that selects no unit is refused", async () => {
+    const { parseImpact } = await shipped();
+    expect(() => parseImpact({ stages: {}, groups: {}, everything: [], t0Only: [], rules: [{ paths: ["src/x.ts"], units: [] }] }, BROWSER_UNITS, MAP)).toThrow(
+      "rule 0 has no units",
+    );
+  });
+
+  test("a change to the impact map selects every unit, even where the map calls it T0 only", async () => {
+    const { parseImpact, plan, json } = await shipped();
+    const demoted = parseImpact({ ...json, t0Only: [MAP] }, BROWSER_UNITS, MAP);
+    expect(plan(demoted, [MAP, "src/content/ocellus/js/p4/orb.ts"])).toEqual({
+      tier: "t2",
+      units: demoted.units,
+      selections: [
+        { kind: "everything", path: MAP, glob: MAP },
+        { kind: "units", path: "src/content/ocellus/js/p4/orb.ts", units: ["cues", "invincible", "lifeforce_orb", "orb_late_and_entry", "orb_off_holes"], globs: ["src/content/ocellus/js/p4/orb.ts"] },
+      ],
+    });
   });
 
   test("every path in the shipped map matches a tracked file", async () => {
