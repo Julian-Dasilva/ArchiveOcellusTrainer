@@ -2209,7 +2209,7 @@ drive_recorded_fights() {
       orb: { matured: events(orbLog, "orb-matured").map((e) => [e.at, e.tile]), returned: events(orbLog, "orb-returned").map((e) => [e.at, e.receipt]) },
       rift: { hits: events(riftLog, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]), destroyed: events(riftLog, "rift-destroyed").map((e) => [e.at, e.rift, e.attackDelay]) },
     };
-    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const same = require("util").isDeepStrictEqual;
     const checks = {
       leadInShotLandsInFull: same(observed.leadIn, expected.leadIn),
       orbReturnsOnMaturityToWaitingPlayer: same(observed.orb, expected.orb),
