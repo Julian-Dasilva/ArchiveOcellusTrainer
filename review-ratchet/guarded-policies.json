@@ -419,6 +419,26 @@
           "mutation": [{ "find": "code: verdict.passed === true ? 0 : 1", "replace": "code: 0" }]
         }
       ]
+    },
+    {
+      "path": "scripts/verify/parity-harness.sh",
+      "tests": ["scripts/verify/parity-harness.test.sh"],
+      "policies": [
+        {
+          "policy": "the base tree gets the worker cap the head parity config imports",
+          "mutation": [{ "find": "  cp test/workerCap.mjs \"$src/test/workerCap.mjs\"\n", "replace": "  true\n" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify.sh",
+      "tests": ["scripts/verify/parity-harness.test.sh"],
+      "policies": [
+        {
+          "policy": "the parity base tree is built by the harness installer",
+          "mutation": [{ "find": "install_parity_harness \"$src\"", "replace": "cp -R test/parity \"$src/test/\"" }]
+        }
+      ]
     }
   ]
 }

@@ -60,6 +60,7 @@
     "scripts/verify/pr-evidence.mjs",
     "scripts/verify/ci-verdict.mjs",
     "scripts/verify/job-times.mjs",
+    "scripts/verify/parity-harness.sh",
     "scripts/check-types.mjs",
     "scripts/perf-report.mjs"
   ],

@@ -33,6 +33,7 @@ jobs:
       - run: scripts/release-notes.test.sh
       - run: scripts/verify/verdicts.test.sh
       - run: scripts/verify/parity.test.sh
+      - run: scripts/verify/parity-harness.test.sh
       - run: scripts/verify/t2.test.sh
       - run: scripts/verify/bundle.test.sh
       - run: scripts/verify/workers.test.sh

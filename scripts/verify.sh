@@ -3,6 +3,7 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
+. scripts/verify/parity-harness.sh
 
 set -a
 OSRS_CACHE_DIR="${OSRS_CACHE_DIR:-$HOME/osrs-sims/cache/openrs2}"
@@ -490,7 +491,7 @@ stage_parity() {
     log "parity: base ${base} recorded in ${cache}"
   else
     log "parity: recording the seeded fights at base ${base}"
-    mkdir -p "$src" && git archive "$base" | tar -x -C "$src" && cp -R test/parity "$src/test/" || { log "parity: the base tree could not be exported"; return 1; }
+    mkdir -p "$src" && git archive "$base" | tar -x -C "$src" && install_parity_harness "$src" || { log "parity: the base tree could not be exported"; return 1; }
     if git diff --quiet "$base" -- package.json package-lock.json scripts/install-beta-sdk.sh; then
       ln -s "$ROOT/node_modules" "$src/node_modules"
     else
