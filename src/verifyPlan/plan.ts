@@ -1,8 +1,9 @@
 declare const unitBrand: unique symbol;
 export type UnitId = string & { readonly [unitBrand]: true };
 
+type Units = readonly [UnitId, ...UnitId[]];
 type Glob = Readonly<{ text: string; pattern: RegExp }>;
-type Rule = Readonly<{ globs: readonly Glob[]; units: readonly UnitId[] }>;
+type Rule = Readonly<{ globs: readonly Glob[]; units: Units }>;
 
 export type Impact = Readonly<{
   units: readonly UnitId[];
@@ -15,13 +16,13 @@ export type Impact = Readonly<{
 
 export type Selection =
   | Readonly<{ kind: "nothing"; path: string; glob: string }>
-  | Readonly<{ kind: "units"; path: string; units: readonly UnitId[]; globs: readonly string[] }>
+  | Readonly<{ kind: "units"; path: string; units: Units; globs: readonly string[] }>
   | Readonly<{ kind: "everything"; path: string; glob: string }>
   | Readonly<{ kind: "unknown"; path: string }>;
 
 export type Plan =
   | Readonly<{ tier: "t0"; units: readonly []; selections: readonly Selection[] }>
-  | Readonly<{ tier: "t1"; units: readonly [UnitId, ...UnitId[]]; selections: readonly Selection[] }>
+  | Readonly<{ tier: "t1"; units: Units; selections: readonly Selection[] }>
   | Readonly<{ tier: "t2"; units: readonly UnitId[]; selections: readonly Selection[] }>;
 
 const UNIT_MODULE = /^scripts\/verify\/units\/([a-z0-9_]+)\.mjs$/;
@@ -59,7 +60,13 @@ const strings = (value: unknown, at: string): readonly string[] => {
   return value;
 };
 
-export function parseImpact(json: unknown, browserUnits: readonly string[]): Impact {
+function nonEmpty(units: readonly UnitId[], at: string): Units {
+  const [first, ...rest] = units;
+  if (first === undefined) throw new Error(`${at} has no units`);
+  return [first, ...rest];
+}
+
+export function parseImpact(json: unknown, browserUnits: readonly string[], mapPath: string): Impact {
   if (!isRecord(json) || !isRecord(json.groups) || !Array.isArray(json.rules)) throw new Error("the impact map needs stages, groups, everything, t0Only and rules");
   const known = new Map<string, UnitId>();
   if (!isRecord(json.stages)) throw new Error("stages is not an object of unit to verify.sh stage");
@@ -76,8 +83,8 @@ export function parseImpact(json: unknown, browserUnits: readonly string[]): Imp
     if (found === undefined) throw new Error(`${at} names ${name}, which is no unit`);
     return found;
   };
-  const groups = new Map(Object.entries(json.groups).map(([name, members]) => [name, strings(members, `group ${name}`).map((member) => unit(member, `group ${name}`))]));
-  const resolve = (name: string, at: string): readonly UnitId[] => {
+  const groups = new Map(Object.entries(json.groups).map(([name, members]) => [name, nonEmpty(strings(members, `group ${name}`).map((member) => unit(member, `group ${name}`)), `group ${name}`)]));
+  const resolve = (name: string, at: string): Units => {
     if (!name.startsWith("@")) return [unit(name, at)];
     const members = groups.get(name.slice(1));
     if (members === undefined) throw new Error(`${at} names group ${name}, which does not exist`);
@@ -85,13 +92,13 @@ export function parseImpact(json: unknown, browserUnits: readonly string[]): Imp
   };
   const rules = json.rules.map((rule: unknown, n): Rule => {
     if (!isRecord(rule)) throw new Error(`rule ${n} is not an object`);
-    return { globs: strings(rule.paths, `rule ${n} paths`).map(compileGlob), units: strings(rule.units, `rule ${n} units`).flatMap((name) => resolve(name, `rule ${n}`)) };
+    return { globs: strings(rule.paths, `rule ${n} paths`).map(compileGlob), units: nonEmpty(strings(rule.units, `rule ${n} units`).flatMap((name) => resolve(name, `rule ${n}`)), `rule ${n}`) };
   });
   const units = [...known.values()];
   return {
     units,
     stages: new Map(stageNames.map(([name, stage]) => [unit(name, "stages"), stage])),
-    everything: strings(json.everything, "everything").map(compileGlob),
+    everything: [mapPath, ...strings(json.everything, "everything")].map(compileGlob),
     t0Only: strings(json.t0Only, "t0Only").map(compileGlob),
     rules,
     unitModule: (path) => {
@@ -114,7 +121,8 @@ export function select(impact: Impact, path: string): Selection {
   if (own !== null) matched.push({ glob: "scripts/verify/units/<unit>.mjs", units: [own] });
   if (matched.length > 0) {
     const selected = new Set(matched.flatMap(({ units }) => units));
-    return { kind: "units", path, units: impact.units.filter((id) => selected.has(id)), globs: matched.map(({ glob }) => glob) };
+    const [first, ...rest] = impact.units.filter((id) => selected.has(id));
+    return first === undefined ? { kind: "unknown", path } : { kind: "units", path, units: [first, ...rest], globs: matched.map(({ glob }) => glob) };
   }
   const t0Only = firstMatch(impact.t0Only, path);
   if (t0Only !== undefined) return { kind: "nothing", path, glob: t0Only.text };
