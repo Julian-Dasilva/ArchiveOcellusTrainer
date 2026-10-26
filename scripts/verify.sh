@@ -347,14 +347,15 @@ ensure_deps() {
 manifest_ready() {
   [[ -f "$MANIFEST" ]] && node --input-type=module -e '
     import { loadConfig } from "osrs-sdk-assets";
-    import { existsSync, readFileSync } from "node:fs";
+    import { existsSync, readFileSync, statSync } from "node:fs";
     import { dirname, join } from "node:path";
     const { assets } = await loadConfig();
     const m = JSON.parse(readFileSync(process.argv[1], "utf8"));
-    const npcs = Object.values(assets.npcs).every(({ id }) => m.assets?.[`npc-${id}`]);
-    const items = Object.values(assets.items).every(({ id }) => m.playerItems?.[`item:${id}`]);
-    const spotAnims = Object.values(assets.spotAnims).every(({ id }) => m.spotAnims?.[id]);
-    const models = Object.values(assets.models).every(({ id }) => m.assets?.[`model-${id}`]);
+    const payload = (key) => typeof m.assets?.[key]?.file === "string" && (statSync(join(dirname(process.argv[1]), m.assets[key].file), { throwIfNoEntry: false })?.size ?? 0) > 0;
+    const npcs = Object.values(assets.npcs).every(({ id }) => payload(`npc-${id}`));
+    const items = Object.values(assets.items).every(({ id }) => payload(m.playerItems?.[`item:${id}`]));
+    const spotAnims = Object.values(assets.spotAnims).every(({ id }) => payload(m.spotAnims?.[id]));
+    const models = Object.values(assets.models).every(({ id }) => payload(`model-${id}`));
     const pack = m.soundEffects && join(dirname(process.argv[1]), m.soundEffects.file);
     const bytes = pack && existsSync(pack) ? readFileSync(pack) : Buffer.alloc(6);
     const packed = new Set();

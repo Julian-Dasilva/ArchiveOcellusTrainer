@@ -26,6 +26,7 @@ jobs:
       - run: scripts/release-notes.test.sh
       - run: scripts/verify/verdicts.test.sh
       - run: scripts/verify/parity.test.sh
+      - run: scripts/verify/bundle.test.sh
       - run: scripts/install-beta-sdk.test.sh
       - run: review-ratchet/checks/shell-test-runs-entry.test.sh
       - run: node review-ratchet/checks/shell-test-runs-entry.mjs .
