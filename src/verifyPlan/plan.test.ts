@@ -19,7 +19,7 @@ describe("verify plan", () => {
     const { impact, plan } = await shipped();
     const selected = plan(impact, ["scripts/install-beta-sdk.sh"]);
     expect(selected.tier).toBe("t2");
-    expect(selected.units).toHaveLength(36);
+    expect(selected.units).toHaveLength(37);
     expect(selected.selections).toEqual([{ kind: "everything", path: "scripts/install-beta-sdk.sh", glob: "scripts/install-beta-sdk.sh" }]);
   });
 
@@ -96,7 +96,7 @@ describe("verify plan", () => {
       units: demoted.units,
       selections: [
         { kind: "everything", path: MAP, glob: MAP },
-        { kind: "units", path: "src/content/ocellus/js/p4/orb.ts", units: ["cues", "invincible", "lifeforce_orb", "orb_late_and_entry", "orb_off_holes"], globs: ["src/content/ocellus/js/p4/orb.ts"] },
+        { kind: "units", path: "src/content/ocellus/js/p4/orb.ts", units: ["cues", "invincible", "lifeforce_orb", "orb_late_and_entry", "orb_off_holes", "recorded_fights"], globs: ["src/content/ocellus/js/p4/orb.ts"] },
       ],
     });
   });
