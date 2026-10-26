@@ -2163,20 +2163,25 @@ click_resume() {
 }
 
 # The WebGL layer reads back blank outside a frame that drew it, so the expected screen waits for a frame callback after a 3D render.
+# The chat's poll is throttled while the tab is hidden and can render a line after that frame, so the overlays are measured again after the screenshot.
 frame_present() {
+  local scene="(() => {
+    const world = document.querySelector('#world'), area = world.parentElement, edges = world.getBoundingClientRect();
+    const box = (e) => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; };
+    const meets = (b) => b.width > 0 && b.height > 0 && b.right > edges.left && b.left < edges.right && b.bottom > edges.top && b.top < edges.bottom;
+    const covers = (b) => b.left <= edges.left && b.top <= edges.top && b.right >= edges.right && b.bottom >= edges.bottom;
+    const layers = [...area.querySelectorAll(':scope > canvas')].filter((canvas) => !canvas.hidden);
+    const overlays = [...area.children, ...document.body.children].filter((e) => !layers.includes(e) && !e.contains(world) && getComputedStyle(e).visibility !== 'hidden' && meets(e.getBoundingClientRect()));
+    const backdrops = overlays.filter((e) => covers(e.getBoundingClientRect()));
+    return { world, box, layers, backdrops, excluded: overlays.flatMap((e) => (backdrops.includes(e) ? [...e.children] : [e])).map(box) };
+  })()"
   ab --json eval "new Promise((done) => {
     let clears = window.__webglClears, waited = 0;
     const compose = () => {
       const drew = window.__webglClears !== clears;
       clears = window.__webglClears;
       if (!drew && waited++ < ${PRESENT_FRAME_WAIT_LIMIT}) return requestAnimationFrame(compose);
-      const world = document.querySelector('#world'), area = world.parentElement, edges = world.getBoundingClientRect();
-      const box = (e) => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; };
-      const meets = (b) => b.width > 0 && b.height > 0 && b.right > edges.left && b.left < edges.right && b.bottom > edges.top && b.top < edges.bottom;
-      const covers = (b) => b.left <= edges.left && b.top <= edges.top && b.right >= edges.right && b.bottom >= edges.bottom;
-      const layers = [...area.querySelectorAll(':scope > canvas')].filter((canvas) => !canvas.hidden);
-      const overlays = [...area.children, ...document.body.children].filter((e) => !layers.includes(e) && !e.contains(world) && getComputedStyle(e).visibility !== 'hidden' && meets(e.getBoundingClientRect()));
-      const backdrops = overlays.filter((e) => covers(e.getBoundingClientRect()));
+      const { world, box, layers, backdrops, excluded } = ${scene};
       const expected = new OffscreenCanvas(world.width, world.height), context = expected.getContext('2d');
       context.fillStyle = 'black';
       context.fillRect(0, 0, world.width, world.height);
@@ -2192,7 +2197,7 @@ frame_present() {
         centre: window.__archiveOcellusProbe.tileCentre(${PRESENT_CENTRE_TILE}),
         world: { ...box(world), backing: [world.width, world.height] },
         layers: layers.map((layer) => ({ ...box(layer), backing: [layer.width, layer.height] })),
-        excluded: overlays.flatMap((e) => (backdrops.includes(e) ? [...e.children] : [e])).map(box),
+        excluded,
       };
       expected.convertToBlob({ type: 'image/png' }).then((blob) => {
         const reader = new FileReader();
@@ -2212,6 +2217,15 @@ frame_present() {
     });
   ' "$VERIFY_DIR/$1" || { log "$1: the expected frame was not composed"; return 1; }
   ab screenshot "$VERIFY_DIR/$1-screen.png" >/dev/null || { log "$1: screenshot failed"; return 1; }
+  ab --json eval "${scene}.excluded" | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      const { success, data } = JSON.parse(s);
+      if (!success) process.exit(1);
+      const file = `${process.argv[1]}.json`, frame = JSON.parse(require("fs").readFileSync(file, "utf8"));
+      require("fs").writeFileSync(file, JSON.stringify({ ...frame, excluded: [...frame.excluded, ...data.result] }));
+    });
+  ' "$VERIFY_DIR/$1" || { log "$1: the overlays were not measured after the screenshot"; return 1; }
 }
 
 camera_still() {
