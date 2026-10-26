@@ -1,17 +1,6 @@
 (() => {
   if (window.__frameClock) return;
-  const clock = (window.__frameClock = { tickMs: 600, frame: null, starts: { fight: {}, world: {} }, due: [], done: {}, audio: null });
-  const nativeFrame = window.requestAnimationFrame.bind(window);
-  // The world loop runs in an animation frame and starts each tick at that frame's timestamp, so a frame-stamped reading shares its clock.
-  window.requestAnimationFrame = (callback) =>
-    nativeFrame((now) => {
-      clock.frame = now;
-      try {
-        callback(now);
-      } finally {
-        clock.frame = null;
-      }
-    });
+  const clock = (window.__frameClock = { tickMs: 600, starts: { fight: {}, world: {} }, due: [], done: {}, audio: null });
 
   const ticksAt = (now) => {
     const snapshot = window.__archiveOcellusProbe?.snapshot(), run = snapshot?.fight?.run;
@@ -43,8 +32,9 @@
     },
   };
 
+  // The world loop starts each tick at its animation frame's timestamp, so the frames that follow it read the tick's start on the same clock.
   const watch = (now) => {
-    nativeFrame(watch);
+    requestAnimationFrame(watch);
     const ticks = ticksAt(now);
     clock.due = clock.due.filter(({ when, action }) => {
       const t = ticks[when.kind];
@@ -54,17 +44,18 @@
       return false;
     });
   };
-  nativeFrame(watch);
+  requestAnimationFrame(watch);
 
   clock.at = (when, action) => {
     delete clock.done[action.name];
     clock.due.push({ when, action });
   };
 
+  // document.timeline holds the current frame's timestamp through its callbacks and their promise jobs, where the SDK starts frame sounds.
   clock.recordAudio = () => {
     const starts = (clock.audio = []), start = AudioBufferSourceNode.prototype.start;
     AudioBufferSourceNode.prototype.start = function (...args) {
-      const now = clock.frame ?? performance.now(), t = ticksAt(now).fight;
+      const now = document.timeline.currentTime, t = ticksAt(now).fight;
       starts.push({ tick: t, phase: t === null ? null : Math.round(into("fight", t, now) * 100) / 100, samples: this.buffer?.length ?? null, rate: this.buffer?.sampleRate ?? null, state: this.context.state });
       return start.apply(this, args);
     };

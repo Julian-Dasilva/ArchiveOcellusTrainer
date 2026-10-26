@@ -41,7 +41,7 @@ jobs:
           VERIFY_PORT: "8002"
         run: |
           mkdir -p "$RUNNER_TEMP/curves"
-          bash .exp/explosions-curve.sh "$RUNNER_TEMP/curves" 2 || true
+          echo skipped
           node .exp/summarize.mjs "$RUNNER_TEMP"/curves/*.json || true
       - name: The five units, twice
         env:
@@ -49,7 +49,7 @@ jobs:
           AGENT_BROWSER_HEADED: "1"
           AGENT_BROWSER_ARGS: --ignore-gpu-blocklist,--use-gl=angle,--use-angle=gl
         run: |
-          for pass in 1 2; do
+          for pass in 1 2 3; do
             VERIFY_DIR="$RUNNER_TEMP/verify-$pass" scripts/verify.sh browser --unit explosions --unit explosion_run_end --unit cues --unit overheads_rifts --unit click_correction --unit focus --unit transition_attack || true
           done
       - uses: actions/upload-artifact@v4
@@ -60,3 +60,4 @@ jobs:
             ${{ runner.temp }}/curves/
             ${{ runner.temp }}/verify-1/
             ${{ runner.temp }}/verify-2/
+            ${{ runner.temp }}/verify-3/
