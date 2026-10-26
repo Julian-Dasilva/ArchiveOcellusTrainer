@@ -117,7 +117,9 @@ function tickGapsByTick(capture: Capture, { from, to }: TickRange): ReadonlyMap<
 
 function tickGapExcess(pairs: readonly Pair[], window: TickRange): number {
   const base = pairs.map((pair) => tickGapsByTick(pair.base, window));
-  const longestBase = (p4: Tick) => Math.max(...base.map((gaps) => gaps.get(p4) ?? -Infinity));
+  // The world loop repays a late tick on the next one, so a base gap shorter than a normal tick is a repayment, not the bar.
+  const normalBase = median(base.flatMap((gaps) => [...gaps.values()]));
+  const longestBase = (p4: Tick) => Math.max(normalBase, ...base.map((gaps) => gaps.get(p4) ?? -Infinity));
   return Math.max(...pairs.flatMap((pair) => [...tickGapsByTick(pair.head, window)].map(([p4, gap]) => gap - longestBase(p4))));
 }
 

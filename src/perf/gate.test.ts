@@ -34,6 +34,7 @@ type Run = Readonly<{
   lastTick?: number;
   tickMs?: number;
   stallAfterTick?: number;
+  lateTick?: number;
   frameMs?: number;
   draws?: readonly number[];
   triangles?: readonly number[];
@@ -44,11 +45,12 @@ type Run = Readonly<{
   errors?: readonly string[];
 }>;
 
-function capture({ lastTick = 280, tickMs = 600, stallAfterTick, frameMs = 16, draws = [500], triangles = [10000], geometriesPerRift = 2, texturesPerRift = 1, leaks = {}, heapReadings = true, errors = [] }: Run): Capture {
+function capture({ lastTick = 280, tickMs = 600, stallAfterTick, lateTick, frameMs = 16, draws = [500], triangles = [10000], geometriesPerRift = 2, texturesPerRift = 1, leaks = {}, heapReadings = true, errors = [] }: Run): Capture {
   const { from, to } = RAW_CONFIG.workload.resources;
   const retiredBy = (p4: number) => RETIRED.filter((at) => at <= p4).length;
   const leaked = (p4: number | null, amount = 0) => (p4 !== null && p4 > from ? amount : 0);
-  const tickTime = (world: number) => world * tickMs + (stallAfterTick !== undefined && world - LEAD_IN_TICKS > stallAfterTick ? 1500 : 0);
+  const tickTime = (world: number) =>
+    world * tickMs + (stallAfterTick !== undefined && world - LEAD_IN_TICKS > stallAfterTick ? 1500 : 0) + (world - LEAD_IN_TICKS === lateTick ? 500 : 0);
   const ticks = Array.from({ length: lastTick + LEAD_IN_TICKS + 1 }, (_, world) => {
     const p4 = world >= LEAD_IN_TICKS ? world - LEAD_IN_TICKS : null;
     const stage = p4 === null ? null : p4 % 60 >= 8 && p4 % 60 < 30 ? "inner-void" : "outer-void";
@@ -79,14 +81,14 @@ function capture({ lastTick = 280, tickMs = 600, stallAfterTick, frameMs = 16, d
   });
 }
 
-function pairs(head: Run): Pair[] {
-  return [1, 2, 3].map(() => ({ base: capture({ lastTick: 80 }), head: capture({ lastTick: 80, ...head }) }));
+function pairs(head: Run, base: Run): Pair[] {
+  return [1, 2, 3].map(() => ({ base: capture({ lastTick: 80, ...base }), head: capture({ lastTick: 80, ...head }) }));
 }
 
 const UNCHANGED: Run = {};
 
-function withPairs(head: Run, long: Capture): Runs {
-  return { long, bundleBytes: BUNDLE_BYTES, timing: { kind: "pairs", pairs: pairs(head) } };
+function withPairs(head: Run, long: Capture, base: Run = UNCHANGED): Runs {
+  return { long, bundleBytes: BUNDLE_BYTES, timing: { kind: "pairs", pairs: pairs(head, base) } };
 }
 
 function summary(line: Line): readonly (string | number | boolean)[] {
@@ -148,6 +150,12 @@ describe("judge", () => {
       ["frameP95", 2.5, false],
       ["tickGapP95", 1000 / 600, false],
     ]);
+  });
+
+  test("passes a head without a stall that its base repays on the next tick", () => {
+    const lines = judge(parseConfig(RAW_CONFIG), withPairs(UNCHANGED, capture({}), { lateTick: 13 }));
+
+    expect(lines.filter((line) => line.kind === "budget" && line.name === "tickGapExcess3d").map(summary)).toEqual([["tickGapExcess3d", 0, true]]);
   });
 
   test("fails heap, mob, entity, projectile and scene object growth between the long run's resource ticks", () => {
