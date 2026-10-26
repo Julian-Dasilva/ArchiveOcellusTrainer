@@ -11,7 +11,7 @@ RuneLite fight logs recorded on 2026-10-23 (two spectated kills and two raids) s
 
 ## How to get to it (user POV)
 
-- Open `http://127.0.0.1:8002/?seed=100`, click the tile north of the 5x5 and click the boss as soon as he appears. The boss bar drops before the first inner void.
+- Start the trainer with `VERIFY_PORT=8073 scripts/verify.sh serve`, open `http://127.0.0.1:8073/?seed=100`, click the tile north of the 5x5 and click the boss as soon as he appears. The boss bar drops before the first inner void.
 - Pick `Lifeforce orb` in the `Focus` selector, click the dark orb once it forms and stand on it. HP comes back as it glows.
 - Pick `Rifts` in the `Focus` selector. Shoot one rift when they rise at 67, then the other at once: the second shot goes on the tick the first rift is destroyed. Or leave one standing and take its burst at 97.
 
