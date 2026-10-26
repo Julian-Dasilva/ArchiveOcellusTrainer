@@ -54,6 +54,7 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 - [Personal explosions](./explosions.md) covers the marks on the player's tile, the hit a tick later, dodging on mark ticks, the late step, standing under the boss and how the shards draw.
 - [Transition attack](./transition-attack.md) covers the boss's rise and landing, the three tells, the styled hit and the protection prayer judged when it lands.
 - [Overheads, heals and rifts](./overheads-rifts.md) covers the boss's curse icons, deflected player hits, the Soul Split heal, and void rifts from spawn to kill or burst, with the kill line in the chat.
+- [Phase 4 as the recorded fights show it](./p4-recorded-fights.md) covers the boss taking damage from P4 tick 4, the orb returned on its glow tick to a player waiting on it, the rift burst 30 ticks on as one hit, and the attack delay reset when a rift is destroyed.
 - [Timing cues](./timing-cues.md) covers the sound checkboxes, resuming audio on the first click, the "End..." shout, the orb chimes, the flood sound and the lifeforce chat line.
 - [P3 drill (hidden)](./p3-drill.md) covers the `ARCHIVE_P3` build flag, the P3 arena, the boss's swings, waves and void shot, the 75% interim end, Start P4 and the Phase box.
 - [P2 drill (hidden)](./p2-drill.md) covers the `ARCHIVE_P2` build flag, the portals and their volleys judged by tile, the portal skip and its marked tiles, the pools, the floor portal, The Blade's stored damage, the interim end at P2 tick 131 and Start P3.

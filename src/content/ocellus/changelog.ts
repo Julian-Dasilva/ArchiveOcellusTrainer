@@ -2,11 +2,18 @@ import type { Changelog } from "../../releases";
 
 export const CHANGELOG: Changelog = [
   {
-    version: "2026.10.25.4",
+    version: "2026.10.26.1",
     notes: [
       "The fight waits for you. Set your keybinds and settings first, then press Start to begin the GET READY countdown.",
       "Pause with the Pause button or P. While paused you can change keybinds and settings, and the fight resumes on the same tick. The result shows how long you paused.",
-      "The trainer now opens when your browser blocks site storage. Your settings then reset each time the page reloads, which Restart does.",
+      "The trainer now opens when your browser blocks site storage or the storage is full. Your settings then reset each time the page reloads, which Restart does.",
+    ],
+  },
+  {
+    version: "2026.10.26",
+    notes: [
+      "Ocellus takes damage as soon as he is back on the platform, and standing on your lifeforce orb as it glows gives your HP back that tick.",
+      "A void rift left alive bursts 30 ticks after it appears and hits you once for 28 to 41, and destroying a rift resets your attack timer.",
     ],
   },
   {
