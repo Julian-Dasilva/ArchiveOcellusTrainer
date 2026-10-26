@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { CacheRenderInstancedModel, CacheRenderModel, CacheRenderReferences, CollisionType, Entity, GROUND_OVERLAY_Y, LineOfSightMask } from "osrs-sdk";
 import type { Location3, Model, Region, Renderable, Unit } from "osrs-sdk";
-import { spriteFile } from "../../../../assets";
+import { spriteFile } from "../../../../servedAssets";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import type { Tile } from "../../../../sim/brands";
 import type { BossOverhead, Special, Stage, VoidKind } from "../P4Types";

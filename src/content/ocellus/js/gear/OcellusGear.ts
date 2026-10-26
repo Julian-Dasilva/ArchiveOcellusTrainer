@@ -21,7 +21,7 @@ import {
 import type { AttackBonuses, ProjectileOptions, UnitBonuses, UnitEquipment, Weapon } from "osrs-sdk";
 import type { StanceSpeeds, TrainerItemKey } from "../OcellusTimings";
 import { OCELLUS_P4 } from "../OcellusTimings";
-import { itemIconFile } from "../../../../assets";
+import { itemIconFile } from "../../../../servedAssets";
 import { Ocellus } from "../mobs/Ocellus";
 import type { InFlight } from "../../../../sim/sdk/EncounterBinding";
 import { isInFlight } from "../../../../sim/sdk/EncounterBinding";

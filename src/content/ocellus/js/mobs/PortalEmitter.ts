@@ -1,6 +1,6 @@
 import { EmptyModel, Mob, Projectile } from "osrs-sdk";
 import type { Model, Region } from "osrs-sdk";
-import { OCELLUS_P2 } from "../OcellusTimings";
+import { OCELLUS_P2 } from "../OcellusTimingsP2";
 import type { Tile } from "../../../../sim/brands";
 
 const BOLT_HEIGHT = 0.2;

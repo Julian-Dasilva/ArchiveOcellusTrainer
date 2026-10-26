@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { ARCHIVE_OCELLUS_SPRITES, type ConfiguredIds, INDEXED_CATEGORIES, type IndexedCategory, type ManifestIndex, manifestAssetKeys, spriteFile } from "../assets";
+import { ARCHIVE_OCELLUS_SPRITES } from "../assets";
+import { type ConfiguredIds, INDEXED_CATEGORIES, type IndexedCategory, type ManifestIndex, manifestAssetKeys, spriteFile } from "../servedAssets";
 
 const REBUILD = "rebuild it with npm run assets -- --cache-dir <openrs2 cache dir> --reader-path <osrscachereader checkout>, or scripts/verify.sh assets";
 

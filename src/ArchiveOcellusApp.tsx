@@ -25,7 +25,7 @@ import type { ReleaseVersion } from "./releases";
 import { releaseDate } from "./releases";
 import { keepHoverTextOnCanvas } from "./hoverText";
 import { loadWebAnalytics, perfDataAllowed, setPerfDataAllowed, startPerfTelemetry } from "./telemetry/perfTelemetry";
-import { reportUnservedAssets } from "./assets";
+import { reportUnservedAssets } from "./servedAssets";
 
 keepHoverTextOnCanvas();
 // Desktop browsers start the SDK's AudioContext suspended until a user gesture, and the SDK never resumes it.

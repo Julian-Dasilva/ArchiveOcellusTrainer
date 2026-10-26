@@ -1,4 +1,4 @@
-import { OCELLUS_P1 } from "../OcellusTimings";
+import { OCELLUS_P1 } from "../OcellusTimingsP1";
 import type { Tile } from "../../../../sim/brands";
 import { tile } from "../../../../sim/brands";
 import type { Side } from "../../../../sim/tiles";

@@ -1,4 +1,4 @@
-import { OCELLUS_P3 } from "../OcellusTimings";
+import { OCELLUS_P3 } from "../OcellusTimingsP3";
 import type { DamageRange } from "../OcellusTimings";
 import type { Seed, Tick, TickSpan, Tile } from "../../../../sim/brands";
 import { after } from "../../../../sim/brands";

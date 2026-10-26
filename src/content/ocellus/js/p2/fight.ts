@@ -1,4 +1,4 @@
-import { OCELLUS_P2 } from "../OcellusTimings";
+import { OCELLUS_P2 } from "../OcellusTimingsP2";
 import type { Seed, Tick, Tile } from "../../../../sim/brands";
 import type { HitRequest, Logged } from "../../../../sim/sdk/EncounterBinding";
 import type { Gaps, P2Beat, P2End, P2Event, P2Hit, P2Phase, PortalIndex, Round, Volley, Wedge } from "../P2Types";

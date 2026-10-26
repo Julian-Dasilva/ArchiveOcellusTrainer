@@ -1,4 +1,4 @@
-import { OCELLUS_P1 } from "../OcellusTimings";
+import { OCELLUS_P1 } from "../OcellusTimingsP1";
 import type { Seed, Tick, TickSpan, Tile } from "../../../../sim/brands";
 import { after, cycle, tick } from "../../../../sim/brands";
 import type { BossHp, Slot } from "../../../../sim/schedule";
