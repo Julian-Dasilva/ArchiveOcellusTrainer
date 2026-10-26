@@ -1,9 +1,33 @@
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import { act } from "react";
 
 const TOKEN = "0123456789abcdef0123456789abcdef";
 const BEACON_SCRIPT = { src: "https://static.cloudflareinsights.com/beacon.min.js", beacon: `{"token":"${TOKEN}","spa":false}`, defer: true };
 
 type Build = Readonly<{ token: string; sampleRate: number | null; optedOut: boolean }>;
+
+const WEBPACK_CONFIG = resolve(__dirname, "../../webpack.config.js");
+
+function tokenTheWebpackConfigDefines(environmentToken: string | null): string {
+  const load = createRequire(WEBPACK_CONFIG);
+  const saved = process.env.CF_WEB_ANALYTICS_TOKEN;
+  if (environmentToken === null) delete process.env.CF_WEB_ANALYTICS_TOKEN;
+  else process.env.CF_WEB_ANALYTICS_TOKEN = environmentToken;
+  try {
+    delete load.cache[WEBPACK_CONFIG];
+    const config: unknown = load(WEBPACK_CONFIG);
+    const plugins: readonly unknown[] = typeof config === "object" && config !== null && "plugins" in config && Array.isArray(config.plugins) ? config.plugins : [];
+    const definitions: unknown = plugins.flatMap((plugin) => (typeof plugin === "object" && plugin !== null && plugin.constructor.name === "DefinePlugin" && "definitions" in plugin ? [plugin.definitions] : []))[0];
+    const defined: unknown = typeof definitions === "object" && definitions !== null && "process.env.CF_WEB_ANALYTICS_TOKEN" in definitions ? definitions["process.env.CF_WEB_ANALYTICS_TOKEN"] : null;
+    const token: unknown = typeof defined === "string" ? JSON.parse(defined) : null;
+    if (typeof token !== "string") throw new Error("webpack.config.js defines no Web Analytics token");
+    return token;
+  } finally {
+    if (saved === undefined) delete process.env.CF_WEB_ANALYTICS_TOKEN;
+    else process.env.CF_WEB_ANALYTICS_TOKEN = saved;
+  }
+}
 
 async function openAFreshBuild({ token, sampleRate, optedOut }: Build) {
   vi.resetModules();
@@ -47,5 +71,14 @@ describe("Cloudflare Web Analytics", () => {
     { name: "built without a token", build: { token: "", sampleRate: 1, optedOut: false }, loaded: { scripts: [], configReads: 1, box: true } },
   ])("a page $name loads $loaded.scripts.length analytics scripts and reads telemetry.json $loaded.configReads times", async ({ build, loaded }) => {
     expect(await openAFreshBuild(build)).toEqual(loaded);
+  });
+
+  test.each([
+    { name: "without CF_WEB_ANALYTICS_TOKEN, as releases build", environmentToken: null, scripts: [] },
+    { name: "with CF_WEB_ANALYTICS_TOKEN set", environmentToken: TOKEN, scripts: [BEACON_SCRIPT] },
+  ])("guard: a page from the real webpack config built $name loads $scripts.length analytics scripts", async ({ environmentToken, scripts }) => {
+    const token = tokenTheWebpackConfigDefines(environmentToken);
+    const loaded = await openAFreshBuild({ token, sampleRate: 1, optedOut: false });
+    expect(loaded.scripts).toEqual(scripts);
   });
 });

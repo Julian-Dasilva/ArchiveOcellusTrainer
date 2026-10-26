@@ -11,8 +11,10 @@ export function judge({ read, env }) {
   const closed = (s) => s.expanded === "false" && s.menu === false && controls.every((id) => s.controls[id] === false) && s.buttons.settings && s.buttons.restart && s.credit;
   const noPageScroll = (s) => s.viewport.scrollWidth <= s.viewport.width;
   const inViewport = (s) => s.menuBox.left >= 0 && s.menuBox.top >= 0 && s.menuBox.right <= s.viewport.width && s.menuBox.bottom <= s.viewport.height;
+  const clearOfFooter = (s) => s.controlsBox.bottom <= s.footerBox.top;
   const checks = {
     menuHiddenUntilOpened: views.every((view) => closed(view.closed) && noPageScroll(view.closed)),
+    buttonsClearOfFooter: views.every((view) => clearOfFooter(view.closed)),
     menuOpensWithEveryControl: views.every((view) => view.open.expanded === "true" && view.open.menu && controls.every((id) => view.open.controls[id] === true) && view.open.buttons.restart && view.open.credit),
     menuFitsEveryViewport: views.every((view) => inViewport(view.open) && noPageScroll(view.open)) && menu.small.open.viewport.width === 800 && menu.mobile.open.viewport.width < 500,
     menuClosesOnSecondClick: views.every((view) => closed(view.secondClick)),
