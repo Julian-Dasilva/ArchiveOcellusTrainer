@@ -336,11 +336,12 @@ const INNER_VOID: VoidRecipe<"inner-void"> = {
     fightLog("L6", "4310 sent on the orb from S+16 to S+27, 4312 at S+28, cycles 1 to 3"),
   ),
   orbLingersAfterClear: selected(
-    span(5),
-    "owner-estimated",
+    span(6),
+    "log-repeated",
     "unscaled",
-    "community feedback: an orb stays pickable a few seconds into the transition attack after its void; 5 ticks, 3.0 s, keeps it through S+26, past the tell at S+24 and before the hit at S+29; a pickup at S+21 returned at S+22 (V1 G175); a 1 fps guide shows the orb on clear floor about 1 s after the clear and gone 1 s later, a weak bound because the camera moved",
-    NO_WIKI_TICKS, owner("healing orbs despawn almost instantly after a phase ends when usually you can grab it for a few seconds during the attack you need to pray against", "2026-10-23"),
+    "the game sends the glowing inner orb, spotanim 4310, through S+27 and its despawn, 4312, at S+28 in all three cycles one fight log recorded, so it stays pickable through S+27, past the tell at S+24 and before the hit at S+29; this replaces an estimate of 5 ticks from community feedback that an orb stays a few seconds into the attack you pray against",
+    NO_WIKI_TICKS, fightLog("L6", "4310 sent on the inner orb from S+16 to S+27 and 4312 at S+28, cycles 1 to 3"),
+    owner("healing orbs despawn almost instantly after a phase ends when usually you can grab it for a few seconds during the attack you need to pray against", "2026-10-23"),
     vod("V1", "G175"),
   ),
 };
@@ -366,10 +367,11 @@ const OUTER_VOID: VoidRecipe<"outer-void"> = {
   ),
   orbLingersAfterClear: selected(
     span(2),
-    "inferred",
-    "team-4-and-5",
-    "the flood clears at S+51 and an unclaimed outer orb heals the boss at hit + 19, S+54 (C17), so the last pickup is S+53, a tick into the tell; the community's few seconds would move that heal later than the footage shows",
-    NO_WIKI_TICKS, vod("V1", "G147"),
+    "log-repeated",
+    "unscaled",
+    "the flood clears at S+51 and the game sends the glowing outer orb, spotanim 4310, through S+52 and its despawn, 4312, at S+53 in both cycles one fight log recorded, so the last pickup is S+52, a tick into the tell; an unclaimed outer orb heals the boss at hit + 19, S+54 (C17)",
+    NO_WIKI_TICKS, fightLog("L6", "4310 sent on the outer orb from S+41 to S+52 and 4312 at S+53, cycles 1 and 2"),
+    vod("V1", "G147"),
     vod("V2", "k102, k222"),
     owner("healing orbs despawn almost instantly after a phase ends when usually you can grab it for a few seconds during the attack you need to pray against", "2026-10-23"),
   ),
@@ -415,7 +417,14 @@ const SPECIAL: SpecialRecipe = {
     "spike-disk": selected("ranged", "footage-repeated", "team-4-and-5", "players on Protect from Missiles take 7, 5 and 9", STRATEGIES_P4, vod("V1", "G122"), vod("V2", "k105, k197")),
     vortex: selected("magic", "footage-repeated", "team-5", "players on Protect from Magic take 7 twice", STRATEGIES_P4, vod("V2", "k77, k165")),
   },
-  protectedDamage: selected({ min: 5, max: 9 }, "footage-repeated", "team-4-and-5", "7, 6, 7, 6, 9 on Kirby and 7, 5, 7, 9 on the streamer under the matching prayer; the solo carry-over is inferred", STRATEGIES_P4, vod("V1", "G62, G90, G122, G150, G182"), vod("V2", "k77, k105, k165, k197")),
+  protectedDamage: selected(
+    { min: 5, max: 10 },
+    "log-repeated",
+    "team-4-and-5",
+    "7, 6, 7, 6, 9 on Kirby and 7, 5, 7, 9 on the streamer under the matching prayer, and a 10 in a fight log, on a player whose hitsplat shows Protect from Magic at S+57 of cycle 4; that log's own line for the hit says no prayer, but 10 is far below the 43 to 50 an unprotected player takes, so the hitsplat's prayer is taken (inferred); the solo carry-over is inferred",
+    STRATEGIES_P4, vod("V1", "G62, G90, G122, G150, G182"), vod("V2", "k77, k105, k165, k197"),
+    fightLog("L6", "Player 12 takes 10 (overhead MAGIC) at P4 +241, S+57 of cycle 4"),
+  ),
   unprotectedDamage: selected({ min: 43, max: 50 }, "footage-repeated", "team-4-and-5", "50 on a teammate whose prayer is not seen, 43 on the streamer under the wrong prayer; the solo carry-over is inferred", STRATEGIES_P4, vod("V1", "G62"), vod("V2", "k137")),
   cues: {
     melee: [
@@ -865,6 +874,14 @@ const GEAR: GearRecipe = {
   specialWeapon: selected("tonalzticsOfRalos", "assumption", "unscaled", "owner: players tend to use Ralos to spec the boss", NO_WIKI_PRACTICE, owner("special attack weapon")),
 };
 
+const EXPLOSION_DAMAGE: DamageRange = { min: 14, max: 16 };
+const EXPLOSION_DAMAGE_NOTE = "an explosion hits 14 to 16, the amounts three fight logs record on the impact ticks apart from the floor and other attacks landing with them; this replaces 16 from one teammate splat";
+const EXPLOSION_HITS = [
+  fightLog("L1", "players take 14, 15 and 16 on the impact ticks S+10 to S+20 and S+41 to S+51, 2, 10 and 8 times"),
+  fightLog("L2", "14, 15 and 16 on the same ticks, 5, 8 and 8 times"),
+  fightLog("L6", "14, 15 and 16 on the same ticks, 16, 12 and 16 times"),
+] as const;
+
 const PRACTICE = owner("practice one mechanic at a time; a drill option, not game data");
 const drill = (first: Mechanic, ...rest: Mechanic[]): Selected<Focus<Mechanic>> =>
   selected<Focus<Mechanic>>({ kind: "drill", mechanics: [first, ...rest] }, "assumption", "unscaled", "the cycle runs from the drill's start; only these mechanics act", NO_WIKI_PRACTICE, PRACTICE);
@@ -911,8 +928,8 @@ export const OCELLUS_P4 = {
       "v2-observed": selected(0.259, "footage-once", "team-5", "V2 entry bar", NO_WIKI_P4, vod("V2", "5:20:18")),
     }),
     explosions: choice("v2-tell-then-six", {
-      "wiki-six": selected<ExplosionRecipe>({ firstMarkAfterHit: span(3), count: 6, period: span(2), impactAfterMark: span(1), damage: { min: 16, max: 16 } }, "spec-single", "unscaled", "six marks every 2 ticks, damage a tick later; first mark from k55; 16 from one teammate splat (inferred)", STRATEGIES, vod("V2", "k55-k65, k62")),
-      "v2-tell-then-six": selected<ExplosionRecipe>({ firstMarkAfterHit: span(5), count: 6, period: span(2), impactAfterMark: span(1), damage: { min: 16, max: 16 } }, "inferred", "team-4-and-5", "k55 read as a tell, marks k57 to k67 (C4); the default because sound 12537 plays at hit + 5 to hit + 15 in every void of both clips and the marks are taken to sit on it", STRATEGIES_P4, vod("V2", "k55-k67"), vod("V1", "3:54:06.58, t17"), vod("V2", "5:20:29.70, t17")),
+      "wiki-six": selected<ExplosionRecipe>({ firstMarkAfterHit: span(3), count: 6, period: span(2), impactAfterMark: span(1), damage: EXPLOSION_DAMAGE }, "spec-single", "unscaled", `six marks every 2 ticks, damage a tick later; first mark from k55; ${EXPLOSION_DAMAGE_NOTE}`, STRATEGIES, vod("V2", "k55-k65, k62"), ...EXPLOSION_HITS),
+      "v2-tell-then-six": selected<ExplosionRecipe>({ firstMarkAfterHit: span(5), count: 6, period: span(2), impactAfterMark: span(1), damage: EXPLOSION_DAMAGE }, "inferred", "team-4-and-5", `k55 read as a tell, marks k57 to k67 (C4); the default because sound 12537 plays at hit + 5 to hit + 15 in every void of both clips and the marks are taken to sit on it; ${EXPLOSION_DAMAGE_NOTE}`, STRATEGIES_P4, vod("V2", "k55-k67"), vod("V1", "3:54:06.58, t17"), vod("V2", "5:20:29.70, t17"), ...EXPLOSION_HITS),
     }),
     explosionDamageReduction: choice("wiki-60", {
       "wiki-60": selected(
