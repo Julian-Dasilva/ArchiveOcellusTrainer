@@ -11,9 +11,17 @@ const receipt = (requested: number, beforeHp: number, prayer: HitReceipt["prayer
 
 describe("P3 drill", () => {
   test.each([
-    { bossHp: 4044, expected: { ended: [[3, "quadrant-cleared"]], hpAfterShot: 3990, stageOnShot: "destroy", runAt6: "ended" } },
-    { bossHp: 4045, expected: { ended: [], hpAfterShot: 3991, stageOnShot: "arrive", runAt6: "running" } },
-  ])("the 76% break ends the run on the landing tick at or below ⌊5250 × 0.76⌋ = 3990: bosshp=$bossHp, seed 100's first shot of 54 lands on P3 tick 3", async ({ bossHp, expected }) => {
+    {
+      name: "the 76% break ends the run on the landing tick at or below ⌊5250 × 0.76⌋ = 3990: bosshp=4044, seed 100's first shot of 54 lands on P3 tick 3",
+      bossHp: 4044,
+      expected: { ended: [[3, "quadrant-cleared"]], hpAfterShot: 3990, stageOnShot: "destroy", runAt6: "ended" },
+    },
+    {
+      name: "guard, one HP above the 76% break: bosshp=4045 leaves the boss at 3991 after seed 100's first shot of 54 lands on P3 tick 3, and the run goes on",
+      bossHp: 4045,
+      expected: { ended: [], hpAfterShot: 3991, stageOnShot: "arrive", runAt6: "running" },
+    },
+  ])("$name", async ({ bossHp, expected }) => {
     const drill = await startP3Drill({ seed: 100, bossHp });
     drill.tickTo(0);
     await drill.click(footprintCentre(drill.boss()));

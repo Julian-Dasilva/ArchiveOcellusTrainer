@@ -115,10 +115,20 @@ describe("P3 smite flick", () => {
   );
 
   test.each([
-    { quadrant: 1, name: "on after S+3 blocks the spin at 31", toggles: [S, S + 3], spins: [[31, 1, 1, "blocked", 0, 0, "melee"]] },
-    { quadrant: 1, name: "on after S+4 is one tick late for 31", toggles: [S, S + 4], spins: [[31, 1, 1, "struck late", 10, 10, null]] },
-    { quadrant: 2, name: "off after S and S+4, on after S+3 and S+6 blocks 31 and 34", toggles: [S, S + 3, S + 4, S + 6], spins: [[31, 1, 2, "blocked", 0, 0, "melee"], [34, 2, 2, "blocked", 0, 0, "melee"]] },
-  ] as const)("firstSpin=4 moves the first landing to S+4, quadrant $quadrant: $name", async ({ quadrant, toggles, spins }) => {
+    {
+      name: "guard, the option keeps the earlier landing: firstSpin=4 lands quadrant 1's spin at S+4, so on after S+3 blocks it at 31",
+      quadrant: 1,
+      toggles: [S, S + 3],
+      spins: [[31, 1, 1, "blocked", 0, 0, "melee"]],
+    },
+    { name: "firstSpin=4 lands quadrant 1's spin at S+4, so on after S+4 is one tick late for 31", quadrant: 1, toggles: [S, S + 4], spins: [[31, 1, 1, "struck late", 10, 10, null]] },
+    {
+      name: "guard, the option keeps the earlier landings: firstSpin=4 lands quadrant 2's spins at S+4 and S+7, so off after S and S+4, on after S+3 and S+6 blocks 31 and 34",
+      quadrant: 2,
+      toggles: [S, S + 3, S + 4, S + 6],
+      spins: [[31, 1, 2, "blocked", 0, 0, "melee"], [34, 2, 2, "blocked", 0, 0, "melee"]],
+    },
+  ] as const)("$name", async ({ quadrant, toggles, spins }) => {
     expect(await flickRun(quadrant, toggles, { firstSpin: 4 })).toEqual(spins);
   });
 
