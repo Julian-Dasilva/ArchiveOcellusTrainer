@@ -161,7 +161,10 @@ export class Phase3 implements PhaseScript {
     fight.setOverhead(null);
     boss.face(fight.player);
     const plan = this.segment === 0 ? P3.first : P3.later;
-    for (const t of plan.bombs) this.at(t - P3.bombDropAfter, () => this.bombs());
+    for (const t of plan.bombs) {
+      this.at(t - P3.bombOverheadBefore, () => this.bombOverhead());
+      this.at(t - P3.bombDropAfter, () => this.bombs());
+    }
     for (const t of plan.rifts) this.at(t, () => this.spawnRift());
     if (this.segment > 0 && this.riftKind === null) this.riftKind = fight.rng.pick(RIFT_ORDER);
     else if (this.segment > 1 && this.riftKind !== null) this.riftKind = RIFT_ORDER[(RIFT_ORDER.indexOf(this.riftKind) + 1) % RIFT_ORDER.length];
@@ -345,10 +348,16 @@ export class Phase3 implements PhaseScript {
     fight.after(this.segment === 0 ? P3.debrisIntoSpin.first : P3.debrisIntoSpin.later, () => {
       if (still()) this.debris();
     });
+    fight.after(P3.spinOpens, () => {
+      if (still() && reach(fight.playerTile, boss.tile) <= 8) fight.hit({ style: "melee", amount: (prayer) => (prayer === "melee" ? 0 : fight.rng.roll(P3.spinOpeningDamage)) });
+    });
     const loops = this.fight.destroyed.size;
     for (let i = 0; i <= loops; i++) {
       const last = i === loops;
       const cut = P3.sawFirstCut + P3.sawEvery * i;
+      fight.after(cut - P3.sawShowsBefore, () => {
+        if (still()) boss.addSpotAnim({ id: last ? SPOT.meleePrayerOut : SPOT.meleePrayer, channel: "spin" });
+      });
       fight.after(cut - 1, () => {
         if (!still() || fight.player.protection === null) return;
         fight.player.prayerController.disableProtectionPrayersForTicks(P3.severTicks);
@@ -358,7 +367,6 @@ export class Phase3 implements PhaseScript {
       fight.after(cut, () => {
         if (!still()) return;
         boss.playAnimation(last ? SEQ.p3PrayerOut : SEQ.p3PrayerLoop);
-        boss.addSpotAnim({ id: last ? SPOT.meleePrayerOut : SPOT.meleePrayer, channel: "spin" });
         if (last) this.stationary = false;
         if (reach(fight.playerTile, this.boss.tile) > 8) return;
         fight.hit({ style: "melee", amount: (prayer) => (prayer === "melee" ? 0 : fight.rng.roll(P3.spinDamage)) });
@@ -400,6 +408,12 @@ export class Phase3 implements PhaseScript {
    * falls, so where you stand now decides where the last quadrant's voids sit in phase 4: the edge, not the middle.
    * [R] [M] [K]
    */
+  private bombOverhead(): void {
+    const { player } = this.fight;
+    player.addSpotAnim({ id: SPOT.bombSpawn, channel: "bomb" });
+    this.fight.after(1, () => player.addSpotAnim({ id: SPOT.bombIdle, channel: "bomb" }));
+  }
+
   private bombs(): void {
     const { fight } = this;
     const here = fight.playerTile;
@@ -601,7 +615,7 @@ export class Phase3 implements PhaseScript {
     this.zone = this.body();
     const u = P3.untether;
     fight.after(2, () => (boss.pose = SEQ.p3UnleashLoop));
-    for (const t of u.pools) fight.after(t, () => this.untetherPools());
+    u.pools.forEach((t, wave) => fight.after(t, () => this.untetherPools(wave > 0)));
     for (const t of u.magic) fight.after(t - u.magicFlight, () => this.untetherShot());
     fight.after(u.unleashVfx, () => boss.addSpotAnim({ id: SPOT.unleashOnBoss, channel: "unleash" }));
     fight.after(u.erupt, () => {
@@ -662,15 +676,13 @@ export class Phase3 implements PhaseScript {
     this.next(u.swingsAgain - u.obliteration, () => this.swing());
   }
 
-  private untetherPools(): void {
+  /** The magic's splash, not a hazard: from the second wave one lands under you as the shot hits. */
+  private untetherPools(underYou: boolean): void {
     const { fight } = this;
-    const tiles = quadrantTiles(this.quadrant).filter((t) => fight.isWalkable(t) && !(this.zone && covers(this.zone, t)));
-    const pools = fight.rng.shuffle(tiles).slice(0, fight.rng.int(10, 15));
-    for (const tile of pools) fight.spot(tile, SPOT.p2Pool, { maxTicks: 4 });
-    this.telegraphs.push({ tiles: pools, landsAt: fight.tick + 2, colour: 0xd02020 });
-    fight.after(2, () => {
-      if (pools.some((t) => same(t, fight.playerTile))) fight.hit({ amount: () => fight.rng.int(20, 30) });
-    });
+    const here = fight.playerTile;
+    const tiles = quadrantTiles(this.quadrant).filter((t) => fight.isWalkable(t) && !same(t, here) && !(this.zone && covers(this.zone, t)));
+    const extras = fight.rng.shuffle(tiles).slice(0, fight.rng.roll(P3.untether.poolsPerWave) - (underYou ? 1 : 0));
+    for (const tile of underYou ? [here, ...extras] : extras) fight.spot(tile, SPOT.p2Pool, { maxTicks: 4 });
   }
 
   /** Magic from the air with each pool wave after the first, so Untether is prayed with Protect from Magic. [M] [R] [K] */

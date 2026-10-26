@@ -343,8 +343,13 @@ export const P3 = {
    */
   sawFirstCut: 5,
   sawEvery: 3,
+  /** Each saw's spotanim (4326, the last saw's 4327) shows on him 2 ticks before its cut. Every spin in fight logs L2, L6 to L8. */
+  sawShowsBefore: 2,
   afterSpin: 4,
   spinDamage: range(15, 27),
+  /** A melee hit on everyone 1 tick into the spin, 0 through Protect from Melee. Every spin in fight logs L1 to L8. */
+  spinOpens: 1,
+  spinOpeningDamage: range(0, 18),
   /** "Severing your prayer!" locks protection prayers this long: back on 3 ticks later in [V] duo 18:53-18:55. */
   severTicks: 3,
   panicLands: 2,
@@ -354,8 +359,10 @@ export const P3 = {
   /**
    * Void bombs fall on every raider but the tank (solo: you), and on the same tile turned into each other standing
    * quadrant. Their voids stay until the quadrant falls, so the last quadrant's carry into phase 4. [R] [M] 8:55
-   * Each shows (spotanim 4299) 2 ticks before it drops. [K]
+   * Each shows over its raider first (spotanim 4302 5 ticks before it drops, 4299 a tick later), then on its floor
+   * tile (4299) 2 ticks before it drops. [K]; every bombed segment in fight logs L2, L6 to L8
    */
+  bombOverheadBefore: 5,
   bombDropAfter: 2,
   bombDamage: range(6, 11),
   /**
@@ -403,7 +410,12 @@ export const P3 = {
   healRiftHeal: [12, 14],
   /** Untether, from U. [R] [W] [K] */
   untether: {
+    /**
+     * Pools (spotanim 4270) splash in waves; from the second, one lands under each raider as the magic hits them. They
+     * never hit: through all 15 Untethers in fight logs L1, L2, L6 to L8, raiders take hits only on the magic's ticks.
+     */
     pools: [6, 10, 14, 18],
+    poolsPerWave: range(10, 15),
     /**
      * Magic at everyone lands with each pool wave after the first: "pray mage, he'll mage you constantly" [M] 4:37;
      * zeros through Protect from Magic on every raider in [K] and [R].

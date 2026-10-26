@@ -254,8 +254,11 @@ describe("phase 3 follows the recorded kill [K]", () => {
     // Two quadrants down: three saws, as in [K]'s third quadrant.
     f.fight.destroyed.add("NW");
     f.fight.destroyed.add("NE");
-    f.tickTo(S + 24, f.stayInReach);
     const P = S + 24;
+    f.tickTo(P - 1, f.stayInReach);
+    const bossSpots: (readonly [number, number])[] = [];
+    vi.spyOn(f.boss(), "addSpotAnim").mockImplementation(({ id }) => bossSpots.push([f.fight.tick - P, id]));
+    f.tickTo(P, f.stayInReach);
     f.tickTo(P + 3, f.stayInReach);
     f.fight.player.prayerController.findPrayerByName("Protect from Melee").toggle(f.fight.player);
     f.tickTo(P + 16, f.stayInReach);
@@ -265,7 +268,22 @@ describe("phase 3 follows the recorded kill [K]", () => {
     ]);
     const severed = f.messages.filter(([, text]) => text.includes("severing your prayer")).map(([t]) => t - P);
     expect(severed[0]).toBe(4);
-    expect(f.hits.filter((h) => h.style === "melee" && h.tick > P && h.tick < P + 12).map((h) => h.tick - P)).toEqual([5, 8, 11]);
+    // Fight logs L1 to L8: an opening hit 1 tick in on every spin, then each saw's cut.
+    expect(f.hits.filter((h) => h.style === "melee" && h.tick > P && h.tick < P + 12).map((h) => h.tick - P)).toEqual([1, 5, 8, 11]);
+    // Fight log L2, P = t276: 4325 with the spin, 4327 for its one saw at t279, 2 ticks before the cut.
+    expect(bossSpots).toEqual([[0, 4325], [3, 4326], [6, 4326], [9, 4327]]);
+  });
+
+  test("each void bomb shows over you 5 ticks before it drops, then on its tile 2 before", () => {
+    const f = recorded(3);
+    f.tickTo(S);
+    const overhead: (readonly [number, number])[] = [];
+    vi.spyOn(f.fight.player, "addSpotAnim").mockImplementation(({ id }) => overhead.push([f.fight.tick - S, id]));
+    f.tickTo(S + 10);
+    const here = f.fight.playerTile;
+    // Fight log L2, S = t252: 4302 over the raider at S+1, 4299 at S+2, 4299 on the floor at S+4, the drop at S+6.
+    expect(overhead.filter(([, id]) => id === 4302 || id === 4299)).toEqual([[1, 4302], [2, 4299], [4, 4302], [5, 4299]]);
+    expect(f.spots.filter(([, id, tile]) => id === 4299 && tile.x === here.x && tile.z === here.z).map(([t]) => t - S)).toEqual([4, 7]);
   });
 
   describe("Untether: under his 3x3 by U+28, one tile out on U+29", () => {
@@ -307,6 +325,14 @@ describe("phase 3 follows the recorded kill [K]", () => {
 
     test("outside the whole time: only the slam, no eruption hit", () => {
       expect(untether({ 27: "out", 28: "out", 29: "out" }).typeless).toEqual([29]);
+    });
+
+    test("a pool splashes under you with each shot from the second wave, and pools never hit", () => {
+      const { f } = untether({ 27: "out", 28: "out", 29: "out" });
+      const here = at(f.boss().tile.x + 1, f.boss().tile.z + 3);
+      // Fight logs L1, L2, L6 to L8: a 4270 under every raider at U+10, U+14 and U+18; hits only from the magic.
+      expect(f.spots.filter(([t, id, tile]) => id === 4270 && t > U && tile.x === here.x && tile.z === here.z).map(([t]) => t - U)).toEqual([10, 14, 18]);
+      expect(f.hits.filter((h) => h.tick > U + 1 && h.tick < U + 27).map((h) => [h.tick - U, h.style])).toEqual([[8, "magic"], [12, "magic"], [16, "magic"], [20, "magic"]]);
     });
   });
 
