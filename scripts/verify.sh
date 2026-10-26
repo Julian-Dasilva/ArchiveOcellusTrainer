@@ -2258,6 +2258,14 @@ all_units() {
   for module in scripts/verify/units/*.mjs; do basename "$module" .mjs; done
 }
 
+plan() {
+  local base changed
+  base="$(git rev-parse --verify "${VERIFY_PLAN_BASE:-$(git merge-base origin/main HEAD)}^{commit}")" || { log "plan: no base revision; set VERIFY_PLAN_BASE"; return 1; }
+  mapfile -t changed < <(git diff --name-only --no-renames "$base" && git ls-files --others --exclude-standard)
+  log "plan: ${#changed[@]} paths changed since ${base}"
+  node node_modules/.bin/tsx src/verifyPlan/main.ts scripts/verify-impact.json scripts/verify/units "$@" -- "${changed[@]}"
+}
+
 judge_evidence() {
   local dir=$1 unit units=("${@:2}")
   [[ ${#units[@]} -gt 0 ]] || mapfile -t units < <(ls "$dir/units")
@@ -2272,6 +2280,7 @@ case "${1:-}" in
   doctor) doctor; exit $? ;;
   stop) stop; exit $? ;;
   units) all_units; exit 0 ;;
+  plan) plan "${@:2}"; exit $? ;;
   judge) [[ -d "${2:-}/units" ]] || { log "usage: scripts/verify.sh judge <evidence dir> [unit...]"; exit 2; }; judge_evidence "${@:2}"; exit $? ;;
 esac
 
