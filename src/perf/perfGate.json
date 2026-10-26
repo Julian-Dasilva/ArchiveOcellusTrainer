@@ -12,8 +12,8 @@
     }
   },
   "budgets": {
-    "drawCallsMedian3d": 550,
-    "drawCallsMax3d": 1234,
+    "drawCallsMedian3d": 14,
+    "drawCallsMax3d": 27,
     "tickGapExcess3d": 300,
     "geometriesPerRetiredRift3d": 2.67,
     "texturesPerRetiredRift3d": 1,
@@ -27,13 +27,5 @@
     "pairs": 5,
     "medianRatioLimit": 1.25
   },
-  "exceptions": [
-    {
-      "budget": "drawCallsMedian3d",
-      "from": 548,
-      "to": 550,
-      "reason": "the fight window's renders draw 547 to 550 calls and the median sits on the 548/549 edge, so a 1500 ms stall with no draw-call change moved it to 549; 550 is the top of that band, and drawCallsMax3d still fails a uniform increase of one call",
-      "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/63"
-    }
-  ]
+  "exceptions": []
 }
