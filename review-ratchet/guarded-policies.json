@@ -169,6 +169,14 @@
           "mutation": [{ "find": "return failed.length === 0 ?", "replace": "return true ?" }]
         },
         {
+          "policy": "a recorded page error fails its unit",
+          "mutation": [{ "find": "...(Object.keys(pageErrors).length > 0 ? [\"noPageErrors\"] : [])", "replace": "...[]" }]
+        },
+        {
+          "policy": "a page-errors capture that is not a list counts as a page error",
+          "mutation": [{ "find": "!Array.isArray(errors) || errors.length > 0", "replace": "errors.length > 0" }]
+        },
+        {
           "policy": "judge exits non-zero unless the unit passed",
           "mutation": [{ "find": "process.exit(verdict.outcome === \"passed\" ? 0 : 1);", "replace": "process.exit(0);" }]
         }
