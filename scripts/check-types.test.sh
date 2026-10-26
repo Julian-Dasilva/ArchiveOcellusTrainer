@@ -142,6 +142,8 @@ sim_import_of_app_fails() { expect_finding src/sim/schedule.ts 'export const app
 sim_core_import_of_the_sdk_fails() { expect_finding src/sim/schedule.ts 'import type { Player } from "osrs-sdk";' "sim core import of the SDK osrs-sdk"; }
 sim_core_import_of_an_sdk_package_fails() { expect_finding src/sim/tiles.ts 'export const react = () => import("osrs-sdk-react");' "sim core import of the SDK osrs-sdk-react"; }
 sim_core_import_of_the_sim_sdk_fails() { expect_finding src/sim/schedule.ts 'export { turn } from "./sdk/binding";' "sim core import of src/sim/sdk src/sim/sdk/binding.ts"; }
+sim_import_of_react_fails() { expect_finding src/sim/schedule.ts 'import type { FC } from "react";' "sim import of React react"; }
+page_import_of_the_director_fails() { expect_finding src/App.tsx 'export { Director } from "./sim/director";' "page import of the fight engine director.ts"; }
 sourced_value_without_a_wiki_answer_fails() {
   expect_compile_error src/content/ocellus/js/OcellusTimings.ts \
     '"one-tile shard", noWiki("the Void Rift infobox leaves size empty (rev 15380527)"), cache("npc 16678 size")' '"one-tile shard", cache("npc 16678 size")' \
@@ -188,6 +190,8 @@ for t in \
   sim_core_import_of_the_sdk_fails \
   sim_core_import_of_an_sdk_package_fails \
   sim_core_import_of_the_sim_sdk_fails \
+  sim_import_of_react_fails \
+  page_import_of_the_director_fails \
   helmet_factory_rejects_a_weapon \
   void_masks_reject_a_swapped_mask \
   sourced_value_without_a_wiki_answer_fails \
