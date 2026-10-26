@@ -11,7 +11,7 @@ import type { PlayerObservation, RiftId } from "../P4Types";
 import { roll, rollInt } from "../roll";
 import type { Adds } from "./adds";
 import { DRAW, NO_ADDS, formVoid, stepAdds } from "./adds";
-import { footprint, shadowSlashBand, superiorSlashBand } from "./arena";
+import { QUADRANT_1_FLOOR, footprint, shadowSlashBand, superiorSlashBand } from "./arena";
 import type { P3Schedule } from "./schedule";
 import { compileP3Schedule } from "./schedule";
 
@@ -37,7 +37,7 @@ export type TurnOutput = Logged<P3Event> | HitRequest<P3Hit> | AttackDelayCut;
 export type TurnStep = Readonly<{ fight: P3Fight; outputs: readonly TurnOutput[]; ending: P3End | null }>;
 type Reaction = Readonly<{ outputs: readonly TurnOutput[]; landings: readonly Landing[]; ending: P3End | null }>;
 
-const { swing, panic, shadowSlash, spin, untether, insolence, fallShouts, bombs, rubble, vine } = OCELLUS_P3;
+const { swing, panic, shadowSlash, spin, untether, insolence, fallShouts, collapse, bombs, rubble, vine } = OCELLUS_P3;
 const HAZARD: Readonly<Record<Hazard, Readonly<{ fallsAfter: TickSpan }>>> = {
   bomb: { fallsAfter: bombs.dropsAfter.value },
   rubble: { fallsAfter: rubble.fallsAfter.value },
@@ -47,6 +47,8 @@ const logged = (event: P3Event): Logged<P3Event> => ({ kind: "event", event });
 const moved = (at: Tick, move: BossMove): Logged<P3Event> => logged({ kind: "boss-moved", at, move });
 const shouted = (at: Tick, text: string): Logged<P3Event> => logged({ kind: "boss-shouted", at, text });
 const only = (...outputs: readonly TurnOutput[]): Reaction => ({ outputs, landings: [], ending: null });
+
+const pick = (seed: Seed, at: Tick, shouts: readonly string[]): string => shouts[Math.floor(roll(seed, "p3Shout", at, 0) * shouts.length)];
 
 export function startFight(): P3Fight {
   return { schedule: compileP3Schedule(), landings: [], adds: NO_ADDS };
@@ -117,11 +119,17 @@ function react(seed: Seed, beat: P3Beat, facts: TurnFacts): Reaction {
       const aimed = aimBand(at, "superior-slash", beat.nth, superiorSlashBand(boss.anchor, player.tile, insolence.width.value), insolence.landsAfter.value);
       return { ...aimed, outputs: [moved(at, "superior-slash"), ...aimed.outputs] };
     }
-    case "quadrant-falls": {
+    case "quadrant-falls":
+      return only(moved(at, "quadrant-falls"), shouted(at, pick(seed, at, fallShouts.value)), logged({ kind: "quadrant-collapsing", at, goneAt: after(at, collapse.goneAfter.value) }));
+    case "fall-loops":
+      return only(moved(at, "fall-loop"));
+    case "escape-shout":
+      return only(moved(at, "escape"), shouted(at, pick(seed, at, collapse.escapeShouts.value)));
+    case "quadrant-gone": {
+      const consumed = QUADRANT_1_FLOOR.contains(player.tile);
       const reason: P3End = { kind: "quadrant-cleared" };
-      const shouts = fallShouts.value;
-      const shout = shouts[Math.floor(roll(seed, "p3Shout", at, 0) * shouts.length)];
-      return { outputs: [moved(at, "quadrant-falls"), shouted(at, shout), logged({ kind: "run-ended", at, reason })], landings: [], ending: reason };
+      const fall = consumed ? [typeless(seed, { kind: "quadrant-gone", at }, collapse.damage.value)] : [];
+      return { outputs: [logged({ kind: "quadrant-gone", at, player: consumed ? "consumed" : "escaped" }), ...fall], landings: [], ending: reason };
     }
     default: {
       const unhandled: never = beat;

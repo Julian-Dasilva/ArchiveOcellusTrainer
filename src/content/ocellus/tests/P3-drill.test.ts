@@ -27,8 +27,8 @@ const has = (tiles: readonly (readonly [number, number])[], east: number, south:
 
 describe("P3 drill", () => {
   test.each([
-    { name: "the quadrant falls the tick after his HP reaches ⌊5250 × 0.76⌋ = 3990, which ends the run", bossHp: 4044, expected: { ended: [[4, "quadrant-cleared"]], hpAfterShot: 3990, stageOnShot: "arrive", runAt6: "ended" } },
-    { name: "guard: one HP above ⌊5250 × 0.76⌋ = 3990 the quadrant stands", bossHp: 4045, expected: { ended: [], hpAfterShot: 3991, stageOnShot: "arrive", runAt6: "running" } },
+    { name: "the quadrant falls the tick after his HP reaches ⌊5250 × 0.76⌋ = 3990", bossHp: 4044, expected: { falls: [4], hpAfterShot: 3990, stageOnShot: "arrive", stageAt6: "destroy" } },
+    { name: "guard: one HP above ⌊5250 × 0.76⌋ = 3990 the quadrant stands", bossHp: 4045, expected: { falls: [], hpAfterShot: 3991, stageOnShot: "arrive", stageAt6: "swing" } },
   ])("$name: bosshp=$bossHp, seed 100's first shot of 54 lands on P3 tick 3", async ({ bossHp, expected }) => {
     const drill = await startP3Drill({ seed: 100, bossHp });
     drill.tickTo(0);
@@ -36,13 +36,67 @@ describe("P3 drill", () => {
     drill.tickTo(6);
     const shot = drill.row(3);
     const observed = {
-      ended: drill.events("run-ended").map((event) => [event.at, event.reason.kind]),
+      falls: drill.moves().flatMap(([at, move]) => (move === "quadrant-falls" ? [at] : [])),
       hpAfterShot: shot.bossHp.atPostTick,
       stageOnShot: shot.phase.stage,
-      runAt6: drill.region.snapshot()?.run.kind,
+      stageAt6: drill.row(6).phase.stage,
     };
     drill.dispose();
     expect(observed).toEqual(expected);
+  });
+
+  describe("the falling quadrant: shout F, loop F+2, escape shout F+11, the floor gone at F+13 with whoever still stands on it", () => {
+    async function fallFromTick4(cross: At | null) {
+      const drill = await startP3Drill({ seed: 100, bossHp: 4044 });
+      drill.tickTo(0);
+      await drill.click(footprintCentre(drill.boss()));
+      drill.tickTo(4);
+      if (cross) await drill.click(cross);
+      drill.tickTo(30);
+      const observed = {
+        moves: drill.moves().filter(([at]) => at >= 4),
+        chat: drill.region.chat().filter((line) => !line.startsWith("Invincible")),
+        gone: drill.events("quadrant-gone").map((event) => [event.at, event.player]),
+        fallHits: drill.events("player-hit").filter((event) => event.hit.kind === "quadrant-gone").map((event) => [event.at, event.receipt.requested, event.receipt.afterHp]),
+        ended: drill.events("run-ended").map((event) => [event.at, event.reason.kind]),
+        path: drill.rows().filter((row) => row.tick >= 4).map((row) => [row.tick, row.playerAtPostTick.tile.x, row.playerAtPostTick.tile.y]),
+        bossShownAfterDrop: drill.region.snapshot()?.boss.visible,
+      };
+      drill.dispose();
+      return observed;
+    }
+
+    test("left on the quadrant, the void takes the player as it drops and the run ends in death on F+13", async () => {
+      const observed = await fallFromTick4(null);
+      expect({ ...observed, path: observed.path.at(-1) }).toEqual({
+        moves: [[4, "quadrant-falls"], [6, "fall-loop"], [15, "escape"]],
+        chat: ["The quadrant begins to collapse! Jump across the stones!", "The void consumes you."],
+        gone: [[17, "consumed"]],
+        fallHits: [[17, 255, 0]],
+        ended: [[17, "death"]],
+        path: [17, 19, 9],
+        bossShownAfterDrop: false,
+      });
+    });
+
+    test("a click on the north arm's nearest stone walks to its bank, hops a stone a tick to the north-west wedge, and the run ends cleared on F+13 with the boss gone with his quadrant", async () => {
+      const observed = await fallFromTick4({ x: 15, y: 9 });
+      expect({ gone: observed.gone, fallHits: observed.fallHits, ended: observed.ended, path: observed.path, bossShownAfterDrop: observed.bossShownAfterDrop }).toEqual({
+        bossShownAfterDrop: false,
+        gone: [[17, "escaped"]],
+        fallHits: [],
+        ended: [[17, "quadrant-cleared"]],
+        path: [[4, 19, 9], [5, 17, 9], [6, 15, 9], [7, 15, 6], [8, 15, 3], [9, 13, 3], [10, 13, 3], [11, 13, 3], [12, 13, 3], [13, 13, 3], [14, 13, 3], [15, 13, 3], [16, 13, 3], [17, 13, 3]],
+      });
+    });
+
+    test("a click across the east arm onto the south-east wedge crosses by the east arm's stones", async () => {
+      const observed = await fallFromTick4({ x: 24, y: 17 });
+      expect({ ended: observed.ended, path: observed.path.slice(0, 7) }).toEqual({
+        ended: [[17, "quadrant-cleared"]],
+        path: [[4, 19, 9], [5, 19, 11], [6, 19, 13], [7, 22, 13], [8, 25, 13], [9, 25, 15], [10, 25, 15]],
+      });
+    });
   });
 
   test("quadrant 1 runs as the logs do: swings 4 and 7 after he lands, the slash at 10, the spin at 24, Untether at 53 and with the quadrant standing a swing at U+37", async () => {
@@ -282,21 +336,21 @@ describe("P3 drill", () => {
       drill.tickTo(floorAt);
       drill.bossHp(3990);
       drill.tickTo(until);
-      const observed = { moves: drill.moves().filter(([at]) => at > floorAt - 4), ended: drill.events("run-ended").map((event) => [event.at, event.reason.kind]) };
+      const observed = drill.moves().filter(([at]) => at > floorAt - 4);
       drill.dispose();
       return observed;
     }
 
     test("between the second swing and the slash: the slash never comes", async () => {
-      expect(await fallAfter(8, 12)).toEqual({ moves: [[7, "swing"], [9, "quadrant-falls"]], ended: [[9, "quadrant-cleared"]] });
+      expect(await fallAfter(8, 12)).toEqual([[7, "swing"], [9, "quadrant-falls"], [11, "fall-loop"]]);
     });
 
     test("mid-spin: the rest of the spin goes with the quadrant", async () => {
-      expect(await fallAfter(P + 2, P + 6)).toEqual({ moves: [[P, "spin"], [P + 3, "quadrant-falls"]], ended: [[P + 3, "quadrant-cleared"]] });
+      expect(await fallAfter(P + 2, P + 6)).toEqual([[P, "spin"], [P + 3, "quadrant-falls"], [P + 5, "fall-loop"]]);
     });
 
     test("through Untether: it waits for U+31", async () => {
-      expect(await fallAfter(U + 11, U + 32)).toEqual({ moves: [[U + 29, "slam"], [U + 31, "quadrant-falls"]], ended: [[U + 31, "quadrant-cleared"]] });
+      expect(await fallAfter(U + 11, U + 32)).toEqual([[U + 29, "slam"], [U + 31, "quadrant-falls"]]);
     });
 
     test("an attack already under way still lands", async () => {
@@ -304,9 +358,9 @@ describe("P3 drill", () => {
       drill.tickTo(10);
       drill.bossHp(3990);
       drill.tickTo(12);
-      const observed = { slash: hitsOf(drill, "shadow-slash").map(([at]) => at), ended: drill.events("run-ended").map((event) => event.at) };
+      const observed = { slash: hitsOf(drill, "shadow-slash").map(([at]) => at), falls: drill.moves().flatMap(([at, move]) => (move === "quadrant-falls" ? [at] : [])) };
       drill.dispose();
-      expect(observed).toEqual({ slash: [11], ended: [11] });
+      expect(observed).toEqual({ slash: [11], falls: [11] });
     });
   });
 

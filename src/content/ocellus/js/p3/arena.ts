@@ -4,13 +4,65 @@ import { tile } from "../../../../sim/brands";
 import { TileSet } from "../../../../sim/tiles";
 
 const GLYPHS = ["1", "2", "3", "4", "+", "b", "B", "."] as const;
-const { grid } = OCELLUS_P3.arena;
+const { grid, stones } = OCELLUS_P3.arena;
+const MIDDLE = OCELLUS_P3.arena.middle.value;
 const BOSS_SIZE = OCELLUS_P4.boss.size.value;
 
+export type Wedge = 1 | 2 | 3 | 4;
+export const WEDGES: readonly Wedge[] = [1, 2, 3, 4];
+
 export const ARENA_SIZE = { width: Math.max(...grid.value.map((row) => row.length)), height: grid.value.length };
+export const WEDGE_FLOOR: Readonly<Record<Wedge, TileSet>> = {
+  1: TileSet.grid(grid.value, GLYPHS, "1"),
+  2: TileSet.grid(grid.value, GLYPHS, "2"),
+  3: TileSet.grid(grid.value, GLYPHS, "3"),
+  4: TileSet.grid(grid.value, GLYPHS, "4"),
+};
 export const FLOOR = TileSet.grid(grid.value, GLYPHS, "1", "2", "3", "4", "+");
+export const STANDING = TileSet.grid(grid.value, GLYPHS, "1", "2", "3", "4");
+export const CHASM = TileSet.grid(grid.value, GLYPHS, "+");
 export const RIM = TileSet.grid(grid.value, GLYPHS, "b", "B");
-export const QUADRANT_1_FLOOR = TileSet.grid(grid.value, GLYPHS, "1");
+export const BRAZIERS = TileSet.grid(grid.value, GLYPHS, "B");
+export { MIDDLE };
+export const QUADRANT_1_FLOOR = WEDGE_FLOOR[1];
+
+export function wedgeOf(at: Tile): Wedge | null {
+  return WEDGES.find((wedge) => WEDGE_FLOOR[wedge].contains(at)) ?? null;
+}
+
+const sameTile = (a: Tile, b: Tile) => a.x === b.x && a.y === b.y;
+
+type Bank = Readonly<{ wedge: Wedge; near: Tile; far: Tile }>;
+type Arm = Readonly<{ stones: readonly [Tile, ...Tile[]]; sides: readonly [Bank, Bank] }>;
+
+function arm(dx: number, dy: number): Arm {
+  const [first, ...rest] = [...stones.value].sort((a, b) => a - b).map((n) => tile(MIDDLE.x + dx * n, MIDDLE.y + dy * n));
+  const last = rest.length > 0 ? rest[rest.length - 1] : first;
+  const across = (stone: Tile, side: 1 | -1) => tile(stone.x + dy * 2 * side, stone.y + dx * 2 * side);
+  const bank = (side: 1 | -1): Bank => {
+    const [near, far] = [across(first, side), across(last, side)];
+    const wedge = wedgeOf(near);
+    if (wedge === null || wedgeOf(far) !== wedge) throw new RangeError(`the stones from ${first.x},${first.y} have no single wedge beside them on side ${side}`);
+    return { wedge, near, far };
+  };
+  return { stones: [first, ...rest], sides: [bank(1), bank(-1)] };
+}
+
+const ARMS: readonly Arm[] = [arm(0, -1), arm(1, 0), arm(0, 1), arm(-1, 0)];
+export const STONES: readonly Tile[] = ARMS.flatMap(({ stones: onArm }) => onArm);
+
+export type Crossing = Readonly<{ bank: Tile; hops: readonly [Tile, ...Tile[]] }>;
+
+export function crossingRoute(from: Tile, to: Tile): Crossing | null {
+  const here = wedgeOf(from);
+  for (const { stones: onArm, sides: [a, b] } of ARMS) {
+    const sides = a.wedge === here ? ([a, b] as const) : b.wedge === here ? ([b, a] as const) : null;
+    if (sides === null) continue;
+    const [near, far] = sides;
+    if (onArm.some((stone) => sameTile(stone, to)) || wedgeOf(to) === far.wedge) return { bank: near.near, hops: [...onArm, far.far] };
+  }
+  return null;
+}
 
 /** The boss's 3x3 from its south-west tile; y runs south, so it covers anchor.y - 2 to anchor.y. */
 export function footprint(anchor: Tile): TileSet {

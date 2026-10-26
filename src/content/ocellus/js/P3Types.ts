@@ -32,7 +32,10 @@ export type P3Beat =
   | Readonly<{ kind: "untether-aftershock" }>
   | Readonly<{ kind: "insolence-starts" }>
   | Readonly<{ kind: "superior-slash"; nth: number }>
-  | Readonly<{ kind: "quadrant-falls" }>;
+  | Readonly<{ kind: "quadrant-falls" }>
+  | Readonly<{ kind: "fall-loops" }>
+  | Readonly<{ kind: "escape-shout" }>
+  | Readonly<{ kind: "quadrant-gone" }>;
 
 export type P3Hit =
   | Readonly<{ kind: "swing"; at: Tick }>
@@ -47,10 +50,11 @@ export type P3Hit =
   | Readonly<{ kind: "bomb"; at: Tick }>
   | Readonly<{ kind: "void"; at: Tick }>
   | Readonly<{ kind: "rubble"; at: Tick }>
-  | Readonly<{ kind: "rift-detonation"; at: Tick; rift: RiftId }>;
+  | Readonly<{ kind: "rift-detonation"; at: Tick; rift: RiftId }>
+  | Readonly<{ kind: "quadrant-gone"; at: Tick }>;
 export type P3HitSource = P3Hit["kind"];
 
-export type BossMove = "swing" | "panic" | "shadow-slash" | "spin" | "saw" | "last-saw" | "untether" | "slam" | "superior-slash" | "quadrant-falls";
+export type BossMove = "swing" | "panic" | "shadow-slash" | "spin" | "saw" | "last-saw" | "untether" | "slam" | "superior-slash" | "quadrant-falls" | "fall-loop" | "escape";
 export type BandAttack = "shadow-slash" | "superior-slash";
 /** Falls on the tile it shows over, a fixed time later. */
 export type Hazard = "bomb" | "rubble";
@@ -70,6 +74,8 @@ export type P3Event =
   | Readonly<{ kind: "rift-spawned"; at: Tick; rift: RiftId; tile: Tile }>
   | Readonly<{ kind: "rift-destroyed"; at: Tick; rift: RiftId; tile: Tile }>
   | Readonly<{ kind: "rift-detonated"; at: Tick; rift: RiftId; tile: Tile }>
+  | Readonly<{ kind: "quadrant-collapsing"; at: Tick; goneAt: Tick }>
+  | Readonly<{ kind: "quadrant-gone"; at: Tick; player: "escaped" | "consumed" }>
   | Readonly<{ kind: "player-hit"; at: Tick; hit: P3Hit; receipt: HitReceipt }>
   | Readonly<{ kind: "death-prevented"; at: Tick; source: P3HitSource }>
   | Readonly<{ kind: "run-ended"; at: Tick; reason: P3End }>;

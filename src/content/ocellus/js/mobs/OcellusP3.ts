@@ -29,6 +29,7 @@ export class OcellusP3 extends Mob {
   private stance: BossStance = "chasing";
   private readonly rifts = new Map<RiftId, Readonly<{ mob: VoidRift; spawnedAt: Tick }>>();
   private readonly vines = new Set<VoidVine>();
+  private fallen = false;
 
   private readonly hooks: Hooks<P3Run> = {
     "tick-opened": () => undefined,
@@ -57,6 +58,10 @@ export class OcellusP3 extends Mob {
   levitating(): boolean {
     const run = this.binding.view();
     return run.kind === "running" && this.fight.schedule.at(run.at).phase.boss === "levitating";
+  }
+
+  override visible(): boolean {
+    return super.visible() && !this.fallen;
   }
 
   override mobName(): string {
@@ -207,6 +212,10 @@ export class OcellusP3 extends Mob {
         this.rifts.get(event.rift)?.mob.detonate();
         this.rifts.delete(event.rift);
         return;
+      case "quadrant-gone":
+        this.fallen = true;
+        return;
+      case "quadrant-collapsing":
       case "stage-entered":
       case "boss-shouted":
       case "band-aimed":
@@ -232,8 +241,7 @@ export class OcellusP3 extends Mob {
 
   private closeRow({ time, inputs, snapshot, events, combatDraws, ending }: FrameOf<P3Run, "tick-ended">): Readonly<{ row: P3Row; ending: P3End | null }> {
     const playerAtPostTick = this.target.observe();
-    const died = ending === null && playerAtPostTick.hp <= 0;
-    const death: P3End = { kind: "death" };
+    const end: P3End | null = playerAtPostTick.hp <= 0 ? { kind: "death" } : ending;
     const { phase, beats } = this.fight.schedule.at(time.encounter);
     const row: P3Row = {
       tick: time.encounter,
@@ -245,8 +253,8 @@ export class OcellusP3 extends Mob {
       bossHp: { atBossStep: snapshot.bossHp, atPostTick: this.currentStats.hitpoint },
       combatDraws,
       inputs,
-      events: died ? [...events, { kind: "run-ended", at: time.encounter, reason: death }] : events,
+      events: end ? [...events, { kind: "run-ended", at: time.encounter, reason: end }] : events,
     };
-    return { row, ending: ending ?? (died ? death : null) };
+    return { row, ending: end };
   }
 }

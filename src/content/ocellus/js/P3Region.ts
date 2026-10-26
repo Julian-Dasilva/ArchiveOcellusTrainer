@@ -11,7 +11,7 @@ import type { BossMove, P3Event, P3HitSource, P3Log, P3Snapshot } from "./P3Type
 import { P3Marks } from "./entities/P3Marks";
 import { FloorHole, PlayerLook } from "./entities/P4Views";
 import { OcellusP3 } from "./mobs/OcellusP3";
-import { ARENA_SIZE, FLOOR, QUADRANT_1_FLOOR, RIM, footprint } from "./p3/arena";
+import { ARENA_SIZE, FLOOR, QUADRANT_1_FLOOR, RIM, STANDING, footprint } from "./p3/arena";
 
 const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   swing: "a swing",
@@ -27,21 +27,27 @@ const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   void: "a void",
   rubble: "falling rubble",
   "rift-detonation": "a void rift",
+  "quadrant-gone": "the falling quadrant",
 };
 
-const { bossPoses, spin, shoutLasts } = OCELLUS_P3;
-const MOVE_POSE: Readonly<Record<BossMove, number>> = {
-  swing: bossPoses.swing.value,
-  panic: bossPoses.panic.value,
-  "shadow-slash": bossPoses.shadowSlash.value,
-  spin: bossPoses.spinStarts.value,
-  saw: bossPoses.spinLoops.value,
-  "last-saw": bossPoses.spinEnds.value,
-  untether: bossPoses.untetherStarts.value,
-  slam: bossPoses.slam.value,
-  "superior-slash": bossPoses.superiorSlash.value,
-  "quadrant-falls": bossPoses.quadrantFalls.value,
+const { bossPoses, spin, shoutLasts, collapse } = OCELLUS_P3;
+type MoveLook = Readonly<{ pose: number | null; spots: readonly number[] }>;
+const NO_SPOTS: readonly number[] = [];
+const MOVE_LOOK: Readonly<Record<BossMove, MoveLook>> = {
+  swing: { pose: bossPoses.swing.value, spots: NO_SPOTS },
+  panic: { pose: bossPoses.panic.value, spots: NO_SPOTS },
+  "shadow-slash": { pose: bossPoses.shadowSlash.value, spots: NO_SPOTS },
+  spin: { pose: bossPoses.spinStarts.value, spots: NO_SPOTS },
+  saw: { pose: bossPoses.spinLoops.value, spots: NO_SPOTS },
+  "last-saw": { pose: bossPoses.spinEnds.value, spots: NO_SPOTS },
+  untether: { pose: bossPoses.untetherStarts.value, spots: NO_SPOTS },
+  slam: { pose: bossPoses.slam.value, spots: NO_SPOTS },
+  "superior-slash": { pose: bossPoses.superiorSlash.value, spots: NO_SPOTS },
+  "quadrant-falls": { pose: bossPoses.quadrantFalls.value, spots: collapse.bossSpotAnims.falls.value },
+  "fall-loop": { pose: null, spots: collapse.bossSpotAnims.loops.value },
+  escape: { pose: bossPoses.escapeShout.value, spots: collapse.bossSpotAnims.escape.value },
 };
+
 const OPEN_FLOOR = ["#4a4339", "#3f392f"] as const;
 const CLOSED_FLOOR = ["#2c2822", "#25221d"] as const;
 
@@ -50,8 +56,17 @@ type Mounted = Readonly<{ kind: "unmounted" }> | (Readonly<{ kind: "mounted"; un
 
 function present(event: P3Event, { region, boss, marks, player, chat }: Views): void {
   switch (event.kind) {
-    case "boss-moved":
-      boss.playAnimation(MOVE_POSE[event.move]);
+    case "boss-moved": {
+      const { pose, spots } = MOVE_LOOK[event.move];
+      if (pose !== null) boss.playAnimation(pose);
+      spots.forEach((id) => boss.addSpotAnim({ id, channel: `move-${id}` }));
+      return;
+    }
+    case "quadrant-collapsing":
+      chat.push(collapse.chat.value);
+      return;
+    case "quadrant-gone":
+      if (event.player === "consumed") chat.push(collapse.consumedChat.value);
       return;
     case "boss-shouted":
       boss.setOverheadText(event.text);
@@ -129,7 +144,7 @@ export class P3Region extends Region {
     const boss: OcellusP3 = new OcellusP3(this, this.config, player, () => this.invincible);
     const marks = new P3Marks(this);
     dress(player, this.config.choices.setup.option.value);
-    for (const edge of QUADRANT_1_FLOOR.surround().tiles()) this.addEntity(new InvisibleMovementBlocker(this, { ...edge }));
+    for (const edge of STANDING.surround().tiles()) this.addEntity(new InvisibleMovementBlocker(this, { ...edge }));
     this.addEntity(marks);
     this.addPlayer(player);
     this.addMob(boss);

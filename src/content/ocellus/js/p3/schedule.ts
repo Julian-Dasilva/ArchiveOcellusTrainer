@@ -9,7 +9,7 @@ export type P3Schedule = Schedule<P3Stage, P3Phase, P3Beat, never>;
 type Table = readonly [Slot<P3Phase, P3Beat>, ...Slot<P3Phase, P3Beat>[]];
 
 const QUADRANTS: readonly Quadrant[] = [1, 2, 3];
-const { chain, specials, spin, untether, insolence, rubble } = OCELLUS_P3;
+const { chain, specials, spin, untether, insolence, rubble, collapse } = OCELLUS_P3;
 
 const slot = (phase: P3Phase, beats: readonly P3Beat[]): Slot<P3Phase, P3Beat> => ({ phase: () => phase, beats: beats.map((beat) => () => beat) });
 
@@ -65,6 +65,19 @@ function insolenceTable(): Table {
   );
 }
 
+function destroyTable(): Table {
+  const beatAt: ReadonlyMap<number, P3Beat> = new Map<number, P3Beat>([
+    [0, { kind: "quadrant-falls" }],
+    [collapse.loopsAfter.value, { kind: "fall-loops" }],
+    [collapse.escapeAfter.value, { kind: "escape-shout" }],
+    [collapse.goneAfter.value, { kind: "quadrant-gone" }],
+  ]);
+  return table(collapse.goneAfter.value + 1, (offset) => {
+    const beat = beatAt.get(offset);
+    return beat ? [beat] : [];
+  }, () => ({ stage: "destroy", boss: "standing" }));
+}
+
 /**
  * Phase 3 as a chain of moves: each stage is one move and lasts until the next. Two swings and a slash make a set; after
  * `setsBeforeSpecial` sets comes the next special in turn. A panic is cut in by the turn when a swing finds nobody in reach.
@@ -91,7 +104,7 @@ export function compileP3Schedule(): P3Schedule {
       untether: { slots: untetherTable(), breakable: false, then: () => "untether-ends" },
       "untether-ends": { slots: table(untether.swingsAgain.value - untether.fallsOrStandsAt.value, () => [], chasing("untether-ends")), breakable: true, then: () => "swing" },
       insolence: { slots: insolenceTable(), breakable: true, then: () => "swing" },
-      destroy: { slots: [slot({ stage: "destroy", boss: "standing" }, [{ kind: "quadrant-falls" }])], breakable: false, then: () => "destroy" },
+      destroy: { slots: destroyTable(), breakable: false, then: () => "destroy" },
     },
     breakpoints: QUADRANTS.map((quadrant) => ({ atOrBelow: thresholds.value[quadrant], enter: "destroy" })),
   };
