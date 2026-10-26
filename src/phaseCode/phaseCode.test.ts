@@ -28,7 +28,7 @@ describe("strayPhaseModules", () => {
     { flags: { p2: true, p3: false }, strays: [{ module: "src/content/ocellus/js/P3Region.ts", phases: ["p3"] }] },
     { flags: { p2: true, p3: true }, strays: [] },
   ])("with $flags, reports each emitted phase module whose phases are all off", async ({ flags, strays }) => {
-    expect(await strayPhaseModules(SOURCES, { ...flags, p1: false })).toEqual(strays);
+    expect(await strayPhaseModules(SOURCES, { ...flags, p1: false, full: false })).toEqual(strays);
   });
 
   test.each([
@@ -41,6 +41,6 @@ describe("strayPhaseModules", () => {
     },
     { flags: { p3: false, p2: false, p1: true }, strays: [] },
   ])("with $flags, P1's region is stray unless p1 is on, and P1 keeps P3's arena it builds on", async ({ flags, strays }) => {
-    expect(await strayPhaseModules(["webpack://archive-ocellus-trainer/./src/content/ocellus/js/P1Region.ts", "webpack://archive-ocellus-trainer/./src/content/ocellus/js/p3/arena.ts"], flags)).toEqual(strays);
+    expect(await strayPhaseModules(["webpack://archive-ocellus-trainer/./src/content/ocellus/js/P1Region.ts", "webpack://archive-ocellus-trainer/./src/content/ocellus/js/p3/arena.ts"], { ...flags, full: false })).toEqual(strays);
   });
 });

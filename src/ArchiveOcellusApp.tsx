@@ -151,6 +151,20 @@ function openTrainer(): Opening {
   };
   switch (request.phase) {
     case "p4":
+      if (process.env.ARCHIVE_FULL === "on") {
+        const carry = new URL(window.location.href).searchParams.get("carry");
+        if (carry !== null) return {
+          kind: "loading",
+          opened: import("./content/ocellus/js/carry").then(({ CarriedRegion, decodeCarried }) => {
+            const carried = decodeCarried(carry);
+            if (carried === null) return start({ phase: "p4", region: new OcellusRegion(request.config), config: request.config });
+            const opened = start({ phase: "p4", region: new CarriedRegion(request.config, carried), config: request.config });
+            // The drill's parser lists carry as an unknown option; this build reads it.
+            if (process.env.NODE_ENV !== "production") exposeVerificationProbe(opened.trainer, opened.drill.region, request.rejected.filter((option) => !option.startsWith("carry=")));
+            return opened;
+          }),
+        };
+      }
       return { kind: "open", opened: start({ phase: "p4", region: new OcellusRegion(request.config), config: request.config }) };
     case "p3":
       return {

@@ -251,7 +251,7 @@ describe("P1 drill", () => {
     { link: "?phase=p1&seed=1&bosshp=2501", flags: { p3: false, p1: true }, expected: { phase: "p1", rejected: ["bosshp=2501"] } },
   ])("parseRequest opens $expected.phase for $link with flags $flags and rejects $expected.rejected", async ({ link, flags, expected }) => {
     const { parseRequest } = await loadTimings();
-    const request = parseRequest(new URL(`http://127.0.0.1:8012/${link}`), () => 99, { ...flags, p2: false });
+    const request = parseRequest(new URL(`http://127.0.0.1:8012/${link}`), () => 99, { ...flags, p2: false, full: false });
     expect({ phase: request.phase, rejected: request.rejected }).toEqual(expected);
   });
 
@@ -261,7 +261,7 @@ describe("P1 drill", () => {
     { link: "?phase=p1&seed=1", flags: { p3: false, p1: false }, expected: { phase: "p4", rejected: ["phase=p1"] } },
   ])("guard: parseRequest opens $expected.phase for $link with flags $flags and rejects $expected.rejected", async ({ link, flags, expected }) => {
     const { parseRequest } = await loadTimings();
-    const request = parseRequest(new URL(`http://127.0.0.1:8012/${link}`), () => 99, { ...flags, p2: false });
+    const request = parseRequest(new URL(`http://127.0.0.1:8012/${link}`), () => 99, { ...flags, p2: false, full: false });
     expect({ phase: request.phase, rejected: request.rejected }).toEqual(expected);
   });
 });
