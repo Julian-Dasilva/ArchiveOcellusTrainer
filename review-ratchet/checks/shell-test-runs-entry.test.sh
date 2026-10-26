@@ -48,6 +48,7 @@ failing_test|clean|2|scripts/build.fixture.sh fails with exit 3 before any mutat
 failing_case_as_is|clean|2|scripts/build.fixture.sh reports FAIL failed_install_is_not_reused before any mutation|printf 'echo "FAIL failed_install_is_not_reused"\n' >scripts/build.fixture.sh
 passes_only_when_broken|clean|2|scripts/build.fixture.sh fails with exit 1 before any mutation|printf 'grep -q "^set -uo pipefail" scripts/build.sh\n' >scripts/build.fixture.sh
 mutation_breaks_syntax|clean|2|cannot break "errexit stops the build at the first failed command" in scripts/build.sh: the mutant fails bash -n|sed -i.bak 's/"replace": "set -uo pipefail/"replace": "fi/' review-ratchet/guarded-policies.json && rm review-ratchet/guarded-policies.json.bak
+typescript_mutation_breaks_syntax|typescript|2|cannot break "an empty file is refused" in scripts/size.ts: the mutant fails esbuild|sed -i.bak 's/"replace": "statSync(file).size < 0 ?/"replace": "statSync(file).size === ?/' review-ratchet/guarded-policies.json && rm review-ratchet/guarded-policies.json.bak
 mutation_text_twice|clean|2|cannot break "errexit stops the build at the first failed command" in scripts/build.sh: "set -euo pipefail\\n" occurs 2 times|printf 'set -euo pipefail\n' >>scripts/build.sh
 missing_policy_file|clean|2|cannot read review-ratchet/guarded-policies.json|rm review-ratchet/guarded-policies.json
 EOF

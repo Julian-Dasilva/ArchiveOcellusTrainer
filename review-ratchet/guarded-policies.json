@@ -149,6 +149,10 @@
         {
           "policy": "a mutant that fails its syntax check is refused",
           "mutation": [{ "find": "if (invalid !== null) throw new Error(invalid);", "replace": "" }]
+        },
+        {
+          "policy": "a TypeScript mutant must parse with esbuild, the parser tsx runs it with",
+          "mutation": [{ "find": "\".ts\": [fileURLToPath(new URL(\"../../node_modules/.bin/esbuild\", import.meta.url))]", "replace": "\".ts\": [process.execPath, \"--experimental-strip-types\", \"--check\"]" }]
         }
       ]
     },
