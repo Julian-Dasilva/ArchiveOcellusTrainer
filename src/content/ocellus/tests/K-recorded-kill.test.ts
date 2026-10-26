@@ -1,6 +1,6 @@
 import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import { dress } from "../js/OcellusLoadout";
-import { OCELLUS_P4 } from "../js/OcellusTimings";
+import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
 import type { Range } from "../fight/data";
 import { P3, SEQ } from "../fight/data";
 import type { SpotOptions } from "../fight/effects";
@@ -39,7 +39,7 @@ describe("phase 3 follows the recorded kill [K]", () => {
       onHandOver: (state) => handOvers.push({ tick: region.fight?.tick ?? -1, state }), ...overrides,
     };
     const region = new FightRegion(options, (player) => {
-      if (setup) dress(player, OCELLUS_P4.choices.setup.options[setup].value);
+      if (setup) dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options[setup].value));
     });
     const trainer = new TrainerInstance(region, { force2d: true });
     trainer.mount(document.createElement("canvas"), document.createElement("div"));
