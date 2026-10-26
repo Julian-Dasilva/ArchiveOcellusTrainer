@@ -338,6 +338,15 @@ P3_BLADES_TICK=30
 P3_BLADES_BOX='{"left":260,"right":120,"up":20,"down":280}'
 P3_BLADES_MIN_SHARE=0.5
 P3_BLADES_MAX_CONTROL_SHARE=0.3
+P3_RIFT_FIRST_QUADRANT_QUERY="?phase=p3&seed=1&invincible=on"
+P3_RIFT_FIRST_QUADRANT='[[86,"rift-86-0"]]'
+P3_RIFT_QUERY="?phase=p3&seed=1&invincible=on&start=2"
+P3_RIFT_SPAWN_TICK=3
+P3_RIFT_CLICK_TICK=4
+P3_RIFT_KILLED='[[8,"rift-3-0"]]'
+P3_RIFT_BURST='[[33,"rift-3-0",39]]'
+P3_RIFT_BAR_FILL='{"5":0.067,"26":0.767,"32":0.967}'
+P3_RIFT_BAR_BOX='{"left":70,"right":-20,"up":85,"down":-60}'
 CREDIT_LINE="Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex."
 
 log() { echo "verify: $*"; }
@@ -2879,6 +2888,90 @@ drive() {
   cat "$VERIFY_DIR/observed.json"
   drive_p3_drill || verdict=1
   drive_p3_smite || verdict=1
+  drive_p3_rifts || verdict=1
+  return $verdict
+}
+
+p3_rift_pixel() {
+  local tile
+  fight_tick_at_least "$P3_RIFT_SPAWN_TICK" 120000 || { log "the $1 page never reached P3 tick ${P3_RIFT_SPAWN_TICK}"; return 1; }
+  tile="$(ab --json eval "window.__archiveOcellusProbe.log().rows.flatMap((row) => row.events).find((event) => event.kind === 'rift-spawned')?.tile ?? null" | json data.result)" || return 1
+  [[ "$tile" != null ]] || { log "$1: no rift spawned by P3 tick ${P3_RIFT_SPAWN_TICK}"; return 1; }
+  tile_pixel "$1" "$tile" "$P3_RIFT_CLICK_TICK" || return 1
+  echo "{\"tile\":${tile},\"x\":${CLICK_X},\"y\":${CLICK_Y}}" >"$VERIFY_DIR/$1-pixel.json"
+}
+
+drive_p3_rifts() {
+  local shot
+  ab open "${URL}${P3_RIFT_FIRST_QUADRANT_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 87 150000 || { log "the quadrant 1 rift page never reached P3 tick 87"; return 1; }
+  ab screenshot "$VERIFY_DIR/p3-rift-first-quadrant.png" >/dev/null || return 1
+  p3_page_done p3-rift-first-quadrant || return 1
+
+  ab open "${URL}${P3_RIFT_QUERY}" >/dev/null || return 1
+  canvas_centre || { log "canvas box unreadable"; return 1; }
+  p3_rift_pixel p3-rift-kill || return 1
+  click_after_tick "$P3_RIFT_CLICK_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the rift was not clicked"; return 1; }
+  ab wait --fn "window.__archiveOcellusProbe.log().rows.some((row) => row.events.some((e) => e.kind === 'rift-destroyed'))" --timeout 30000 >/dev/null || { log "no rift was destroyed after the click"; return 1; }
+  ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
+  ab screenshot "$VERIFY_DIR/p3-rift-kill.png" >/dev/null || return 1
+  ab --json eval "[...document.querySelectorAll('#game_chat li')].map((line) => line.textContent)" | json data.result >"$VERIFY_DIR/p3-rift-kill-chat.json" || { log "the rift kill chat was not read"; return 1; }
+  p3_page_done p3-rift-kill || return 1
+
+  ab open "${URL}${P3_RIFT_QUERY}" >/dev/null || return 1
+  p3_rift_pixel p3-rift-burst || return 1
+  for shot in $(node -e 'console.log(Object.keys(JSON.parse(process.argv[1])).join(" "))' "$P3_RIFT_BAR_FILL"); do
+    shot_after_tick "$shot" 0 "p3-rift-bar-${shot}.png" || { log "the rift bar screenshot at P3 tick ${shot} failed"; return 1; }
+  done
+  fight_tick_at_least 34 30000 || { log "the rift burst page never reached P3 tick 34"; return 1; }
+  p3_page_done p3-rift-burst || return 1
+
+  local capture
+  for capture in p3-rift-first-quadrant{.png,.json,-page-errors.json} p3-rift-kill{.png,.json,-chat.json,-pixel.json,-page-errors.json} p3-rift-burst{.json,-pixel.json,-page-errors.json} $(node -e 'console.log(Object.keys(JSON.parse(process.argv[1])).map((t) => `p3-rift-bar-${t}.png`).join(" "))' "$P3_RIFT_BAR_FILL"); do
+    [[ -s "$VERIFY_DIR/$capture" ]] || { log "required capture ${capture} is missing or empty"; return 1; }
+  done
+
+  node -e '
+    const fs = require("fs"), { pixelShare } = require("./scripts/png-pixels.cjs");
+    const [dir, firstJson, killedJson, burstJson, barFillJson, boxJson, killChat] = process.argv.slice(1);
+    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
+    const [first, killed, burst, barFill, box] = [firstJson, killedJson, burstJson, barFillJson, boxJson].map((text) => JSON.parse(text));
+    const events = (log, kind) => log.rows.flatMap((row) => row.events).filter((event) => event.kind === kind);
+    const spawned = (log) => events(log, "rift-spawned").map(({ at, rift }) => [at, rift]);
+    const bursts = (log) => events(log, "player-hit").filter(({ hit }) => hit.kind === "rift-burst").map(({ at, hit, receipt }) => [at, hit.rift, receipt.requested]);
+    const destroyed = (log) => events(log, "rift-destroyed").map(({ at, rift }) => [at, rift]);
+    const clicks = (log) => log.rows.flatMap((row) => row.inputs.map((input) => [row.tick, input.kind]));
+    const [firstLog, killLog, burstLog] = ["p3-rift-first-quadrant.json", "p3-rift-kill.json", "p3-rift-burst.json"].map(read);
+    const { x, y } = read("p3-rift-burst-pixel.json");
+    const area = { minX: x - box.left, maxX: x + box.right, minY: y - box.up, maxY: y + box.down };
+    const timerYellow = (r, g, b) => r >= 180 && g >= 140 && b <= 90 && r - b >= 120;
+    const timerOlive = (r, g, b) => r > 15 && r < 50 && g < 50 && b < 30 && Math.abs(r - g) < 8 && r - b > 8;
+    const fill = (t) => {
+      const [yellow, olive] = [timerYellow, timerOlive].map((matches) => pixelShare(`${dir}/p3-rift-bar-${t}.png`, matches, area));
+      return yellow + olive === 0 ? null : Number((yellow / (yellow + olive)).toFixed(3));
+    };
+    const bar = Object.fromEntries(Object.keys(barFill).map((t) => [t, fill(t)]));
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const observed = {
+      firstQuadrant: spawned(firstLog),
+      kill: { spawned: spawned(killLog), destroyed: destroyed(killLog), bursts: bursts(killLog), chat: read("p3-rift-kill-chat.json"), inputs: clicks(killLog) },
+      burst: { spawned: spawned(burstLog), destroyed: destroyed(burstLog), bursts: bursts(burstLog) },
+      bar,
+      area,
+    };
+    const checks = {
+      p3RiftAppearsAfterSecondSpecial: same(observed.firstQuadrant, first),
+      p3RiftKilledByClick: same(observed.kill.destroyed, killed) && observed.kill.bursts.length === 0 && observed.kill.chat.includes(killChat),
+      p3StandingRiftBursts: same(observed.burst.bursts, burst) && observed.burst.destroyed.length === 0,
+      p3RiftTimerBarFills: Object.entries(barFill).every(([t, expected]) => bar[t] !== null && Math.abs(bar[t] - expected) <= 0.034),
+      noP3RiftPageErrors: ["p3-rift-first-quadrant-page-errors.json", "p3-rift-kill-page-errors.json", "p3-rift-burst-page-errors.json"].map(read).every((list) => list.length === 0),
+    };
+    console.log(JSON.stringify({ observed, checks }, null, 2));
+    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
+  ' "$VERIFY_DIR" "$P3_RIFT_FIRST_QUADRANT" "$P3_RIFT_KILLED" "$P3_RIFT_BURST" "$P3_RIFT_BAR_FILL" "$P3_RIFT_BAR_BOX" "$KILL_CHAT" >"$VERIFY_DIR/p3-rift-checks.json"
+  local verdict=$?
+  cat "$VERIFY_DIR/p3-rift-checks.json"
+  [[ $verdict -eq 0 ]] || log "a P3 rift check failed"
   return $verdict
 }
 

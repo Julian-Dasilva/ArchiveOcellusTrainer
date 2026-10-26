@@ -36,4 +36,5 @@ Preconditions:
 - A click after tick t is read by the boss on t + 1, so the log's `prayer-published` input sits on the row after the click. A click that slips past the next tick changes the verdict, and the check fails on the spin, not on the click.
 - Two clicks in one 0.6 s interval cancel out. The SDK applies the last state of the interval, so off and on in one interval reads as held.
 - Without Invincible, a run with no prayer before the smite can die to the swings and a missed spin.
+- With `start=2` or `start=3`, the quadrant's first void rift bursts for 39 at 33, between the spins, unless it is killed ([p3-rifts.md](./p3-rifts.md)).
 - Model 62698's centre is 144 faces textured with 215. The SDK draws spotanims without textures, so the blades take P4's `tellCentre` recolour, which draws those faces black.

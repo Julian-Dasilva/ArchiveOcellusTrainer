@@ -56,3 +56,4 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 - [Timing cues](./timing-cues.md) covers the sound checkboxes, resuming audio on the first click, the "End..." shout, the orb chimes, the flood sound and the lifeforce chat line.
 - [P3 drill (hidden)](./p3-drill.md) covers the `ARCHIVE_P3` build flag, the P3 arena, the boss's swings, waves and void shot, the 75% interim end, Start P4 and the Phase box.
 - [P3 smite flick (hidden)](./p3-smite.md) covers the smite's opening blow, flicking Protect from Melee through one, two or three spins, the chat for a missed flick, the blades, and the rubble.
+- [P3 void rifts (hidden)](./p3-rifts.md) covers when and where P3's rifts appear, their 30-tick timer bar, the burst, and a kill by clicking the rift.
