@@ -173,6 +173,26 @@ describe("P3 drill", () => {
     });
 
     test.each([
+      { name: "off after P+1, on after P+4", toggles: [P + 1, P + 4], severed: [], saw: [[P + 5, 0, "melee"]] },
+      { name: "off after P+3, on after P+4", toggles: [P + 3, P + 4], severed: [], saw: [[P + 5, 0, "melee"]] },
+      { name: "off after P+1, on after P+5, a tick late", toggles: [P + 1, P + 5], severed: [], saw: [[P + 5, 17, null]] },
+      { name: "off after P+4, during the tell", toggles: [P + 4], severed: [P + 4], saw: [[P + 5, 17, null]] },
+      { name: "held through", toggles: [], severed: [P + 4], saw: [[P + 5, 17, null]] },
+      { name: "off and on both after P+2", toggles: [P + 2, P + 2], severed: [P + 4], saw: [[P + 5, 17, null]] },
+    ])("guard, PR 75's quadrant 1 flick rows moved to the S+5 landing: Protect from Melee on, then $name", async ({ toggles, severed, saw }) => {
+      const drill = await startP3Drill({ seed: 1, invincible: true });
+      drill.pray("Protect from Melee");
+      for (const after of toggles) {
+        drill.tickTo(after);
+        drill.pray("Protect from Melee");
+      }
+      drill.tickTo(P + 6);
+      const observed = { severed: drill.events("prayer-severed").map((event) => event.at), saw: hitsOf(drill, "saw") };
+      drill.dispose();
+      expect(observed).toEqual({ severed, saw });
+    });
+
+    test.each([
       { prayer: "Protect from Melee" as const, opening: [[P + 1, "spin-opening", 0, 0, "melee"]] },
       { prayer: null, opening: [[P + 1, "spin-opening", 16, 16, null]] },
     ])("the spin opens with a melee hit on P+1 that Protect from Melee blocks: $prayer", async ({ prayer, opening }) => {
