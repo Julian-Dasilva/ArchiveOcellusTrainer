@@ -178,6 +178,24 @@ describe("cuts", () => {
 
     expect([cut.visitAt(tick(5)), cut.breakpointsFiredBy(tick(5))]).toEqual([{ stage: "destroy", start: 5, number: 1, entered: "breakpoint" }, 1]);
   });
+
+  test("a cut keeps the visit it cuts short and refuses ticks before that visit", () => {
+    const twice = schedule(chain()).cut(tick(3), "panic").cut(tick(11), "panic");
+    const refusal = (run: () => unknown) => {
+      try {
+        run();
+      } catch (error) {
+        return error instanceof Error ? `${error.name}: ${error.message}` : error;
+      }
+      return "no error";
+    };
+
+    expect({ cutShort: twice.visitAt(tick(9)), cut: twice.visitAt(tick(11)), before: refusal(() => twice.visitAt(tick(8))) }).toEqual({
+      cutShort: { stage: "swing", start: 9, number: 2, entered: "table-ended" },
+      cut: { stage: "panic", start: 11, number: 2, entered: "cut" },
+      before: "RangeError: tick 8 is before tick 9, the start of the visit the last cut cut short",
+    });
+  });
 });
 
 describe("the stage contract", () => {
@@ -357,6 +375,32 @@ describe("a long run", () => {
     expect([await afterCycles(10), await afterCycles(1000)]).toEqual([
       { callsInNextCycle: 11, visitsKept: 1 },
       { callsInNextCycle: 11, visitsKept: 1 },
+    ]);
+  });
+
+  test("after 1000 cuts a schedule keeps as many visits as after 10", async () => {
+    type Chain = "swing" | "panic";
+    const script: Script<Chain, string, string> = {
+      first: "swing",
+      stages: { swing: stage<Chain>("swing", 3, true, () => "swing"), panic: stage<Chain>("panic", 6, true, () => "swing") },
+      breakpoints: [],
+    };
+    const afterCuts = async (cuts: number) => {
+      let fight = schedule(script);
+      const passed: Readonly<{ deref: () => Visit<Chain> | undefined }>[] = [];
+      for (let n = 1; n <= cuts; n++) {
+        const at = tick(6 * n);
+        fight = fight.cut(at, "panic");
+        passed.push(new WeakRef(fight.visitAt(at)));
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      collectGarbage();
+      return { current: fight.visitAt(tick(6 * cuts)), visitsKept: passed.filter((visit) => visit.deref() !== undefined).length };
+    };
+
+    expect([await afterCuts(10), await afterCuts(1000)]).toEqual([
+      { current: { stage: "panic", start: 60, number: 10, entered: "cut" }, visitsKept: 2 },
+      { current: { stage: "panic", start: 6000, number: 1000, entered: "cut" }, visitsKept: 2 },
     ]);
   });
 });
