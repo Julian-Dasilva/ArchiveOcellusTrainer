@@ -26,6 +26,7 @@ export const PHASE_ONLY_MODULES: ReadonlyMap<string, readonly [Phase, ...Phase[]
   ["src/content/ocellus/js/p1/schedule.ts", ["p1"]],
   ["src/content/ocellus/js/p3/arena.ts", ["p1", "p2", "p3"]],
   ["src/content/ocellus/js/OcellusTimingsP3.ts", ["p1", "p2", "p3"]],
+  ["src/menu/Sidebar.tsx", ["full"]],
 ]);
 
 export type StrayModule = Readonly<{ module: string; phases: readonly Phase[] }>;
