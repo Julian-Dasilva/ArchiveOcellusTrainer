@@ -47,13 +47,18 @@ export class EncounterRegion<E extends Entries, Ph extends Phases<E, EncounterHo
   override initialiseRegion(): { player: Player } {
     this.scenery?.dispose();
     const spawn = this.setup.room.spawn;
-    const player = new EncounterPlayer(this, { x: spawn.x, y: spawn.y }, () => this.playerHooks());
+    const player = this.createPlayer({ x: spawn.x, y: spawn.y }, () => this.playerHooks());
     this.player = player;
     this.bound = null;
     this.scenery = this.setup.room.mount(this);
     this.addPlayer(player);
     this.director.begin(this.host(player));
     return { player };
+  }
+
+  /** A fight supplies its own player. The default is the engine player. */
+  protected createPlayer(at: Readonly<{ x: number; y: number }>, hooks: () => EncounterPlayerHooks): EncounterPlayer {
+    return new EncounterPlayer(this, at, hooks);
   }
 
   /** Unit constructors and Region.reset's setStats write SDK default stats, so phase entry is applied after both. */

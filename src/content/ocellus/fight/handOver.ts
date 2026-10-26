@@ -33,7 +33,7 @@ export function handOverOf(player: FightPlayer, boss: BossForm): HandOver {
   const { equipment: worn, currentStats: now } = player;
   return {
     player: {
-      tile: player.tile,
+      tile: player.arenaTile(),
       hp: now.hitpoint,
       prayerPoints: now.prayer ?? 0,
       prayers: player.prayerController.activePrayers().map((prayer) => prayer.name),

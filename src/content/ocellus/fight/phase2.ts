@@ -127,7 +127,7 @@ export class Phase2 implements PhaseScript {
     const here = fight.playerTile;
     if (this.walls.has(here)) {
       const { sx, sz } = QUADRANT_SIGN[sideOf(here)];
-      fight.player.hop(at(here.x === 0 ? sx : here.x, here.z === 0 ? sz : here.z));
+      fight.player.hopTo(at(here.x === 0 ? sx : here.x, here.z === 0 ? sz : here.z));
     }
     this.cross = new PortalCross(fight.region, () => this.portalLooks());
     fight.region.addEntity(this.cross);
@@ -274,7 +274,7 @@ export class Phase2 implements PhaseScript {
       round.escaped = true;
       const next = clockwise(round.q);
       const landing = fight.rng.pick(this.quadrantTiles(next));
-      fight.player.hop(landing);
+      fight.player.hopTo(landing);
       fight.player.addSpotAnim({ id: SPOT.safePortalDespawn, channel: "portal" });
       return;
     }

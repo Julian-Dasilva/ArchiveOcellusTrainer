@@ -414,33 +414,26 @@ export class Emitter extends Mob {
   override detectDeath(): void {}
 }
 
-/** The full fight's player. Walk, attack and vine answers come from the mounted phase through the engine player. */
+/** The full fight's player. Arena tiles stay in the fight's frame. The engine player keeps room tiles. */
 export class FightPlayer extends EncounterPlayer {
-  constructor(region: Region, at: ATile, hooks: EncounterPlayerHooks) {
+  constructor(region: Region, at: ATile, hooks: () => EncounterPlayerHooks) {
     super(region, toSdk(at), hooks);
   }
 
-  get tile(): ATile {
+  arenaTile(): ATile {
     return fromSdk(this.location);
   }
 
-  get protection(): Style | null {
-    if (this.prayerController.matchFeature("melee")) return "melee";
-    if (this.prayerController.matchFeature("range")) return "ranged";
-    if (this.prayerController.matchFeature("magic")) return "magic";
-    return null;
-  }
-
   /** A walk ordered by the fight itself, past the walk interception. */
-  walkDirect(at: ATile): void {
+  walkTo(at: ATile): void {
     const s = toSdk(at);
-    this.moveUnchecked(s.x, s.y);
+    this.walkDirect(tile(s.x, s.y));
   }
 
   /** A forced hop (stepping stones, the safe portal): land on the tile, drop any walk. */
-  hop(at: ATile): void {
+  hopTo(at: ATile): void {
     const s = toSdk(at);
-    this.land(tile(s.x, s.y));
+    this.hop({ x: s.x, y: s.y });
   }
 }
 

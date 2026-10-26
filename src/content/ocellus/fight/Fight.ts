@@ -233,7 +233,7 @@ export class Fight implements BossHooks {
   // ---- services the phases use ----------------------------------------------------------------------------------
 
   get playerTile(): ATile {
-    return this.player.tile;
+    return this.player.arenaTile();
   }
 
   hit(spec: HitSpec): void {
@@ -242,7 +242,7 @@ export class Fight implements BossHooks {
     const projectile = new FightHit(from, this.player, attackStyle, (spec.delay ?? 0) + 1, () => {
       const hp = this.player.currentStats.hitpoint;
       if (hp <= 0) return 0;
-      let amount = spec.amount(this.player.protection);
+      let amount = spec.amount(this.player.protection());
       // Practice mode: the hit still shows, but never kills.
       if (this.practice && amount >= hp) amount = hp - 1;
       spec.onLand?.(amount);

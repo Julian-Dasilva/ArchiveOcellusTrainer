@@ -143,6 +143,7 @@ export class EncounterPlayer extends Player {
         this.hooks().hop(lastTile(decision.tiles));
         return;
       case "handled":
+        this.interruptCombat();
         return;
       default: {
         const unhandled: never = decision;

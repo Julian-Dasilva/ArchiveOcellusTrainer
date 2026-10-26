@@ -99,7 +99,7 @@ describe("phase 3 follows the recorded kill [K]", () => {
       const sw = b.tile;
       const sides: ATile[] = [at(sw.x - 1, sw.z + 1), at(sw.x + 3, sw.z + 1), at(sw.x + 1, sw.z - 1), at(sw.x + 1, sw.z + 3)];
       const side = sides.find((t) => fight.isWalkable(t));
-      if (side) fight.player.hop(side);
+      if (side) fight.player.hopTo(side);
     };
     const from = (start: number, kinds: readonly number[]) => anims.filter(([t, id]) => t >= start && kinds.includes(id)).map(([t, id]) => [t - start, id]);
     /** His HP at a whole-number percentage of the pool. */
@@ -198,7 +198,7 @@ describe("phase 3 follows the recorded kill [K]", () => {
       const f = recorded(3);
       f.tickTo(S + 8, f.stayInReach);
       const mid = at(f.boss().tile.x + 1, f.boss().tile.z + 1);
-      f.fight.player.hop(at(mid.x + east, mid.z - south));
+      f.fight.player.hopTo(at(mid.x + east, mid.z - south));
       f.tickTo(S + 9);
       return f.fight.marks().filter((m) => m.colour === 0xb01030).map((m) => [m.tile.x - mid.x, mid.z - m.tile.z] as const);
     }
@@ -237,7 +237,7 @@ describe("phase 3 follows the recorded kill [K]", () => {
     const f = recorded(3);
     f.tickTo(S + 3, f.stayInReach);
     // Out of his reach (another quadrant) as his first move comes.
-    f.fight.player.hop(at(8, 8));
+    f.fight.player.hopTo(at(8, 8));
     f.tickTo(S + 4);
     f.tickTo(S + 28, f.stayInReach);
     // [K]'s second quadrant from S = t578: panic 582, 588, slash 591 | 595 598 601 | spin 605.
@@ -278,10 +278,10 @@ describe("phase 3 follows the recorded kill [K]", () => {
       const under = at(f.boss().tile.x + 1, f.boss().tile.z + 2);
       const out = at(f.boss().tile.x + 1, f.boss().tile.z + 3);
       // Off the bombs' voids by his side, onto clean floor.
-      f.fight.player.hop(plan[27] === "under" ? under : out);
+      f.fight.player.hopTo(plan[27] === "under" ? under : out);
       for (const t of [27, 28, 29] as const) {
         f.tickTo(U + t);
-        f.fight.player.hop(plan[t] === "under" ? under : out);
+        f.fight.player.hopTo(plan[t] === "under" ? under : out);
         expect(covers(f.body(), f.fight.playerTile)).toBe(plan[t] === "under");
       }
       f.tickTo(U + 31);
@@ -375,7 +375,7 @@ describe("phase 3 follows the recorded kill [K]", () => {
     expect(left).toHaveLength(1);
     const standing = quadrantTiles(left[0]).find((t) => f.fight.isWalkable(t));
     if (!standing) throw new Error(`no floor left in ${left[0]}`);
-    f.fight.player.hop(standing);
+    f.fight.player.hopTo(standing);
     f.fight.player.prayerController.findPrayerByName("Protect from Range").toggle(f.fight.player);
     f.fight.player.inventory[12].inventoryLeftClick(f.fight.player);
     expect(f.handOvers).toEqual([]);
