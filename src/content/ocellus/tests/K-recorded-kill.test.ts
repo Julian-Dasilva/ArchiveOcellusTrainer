@@ -6,7 +6,7 @@ import { P3, SEQ } from "../fight/data";
 import type { SpotOptions } from "../fight/effects";
 import type { FightOptions, HitSpec } from "../fight/Fight";
 import type { HandOver } from "../fight/handOver";
-import { FightRegion } from "../full/prefix";
+import { FightRegion } from "../fight/FightRegion";
 import type { ATile, Body } from "../fight/geometry";
 import { QUADRANTS, at, covers, distanceToBody, quadrantTiles } from "../fight/geometry";
 import { BossForm } from "../fight/units";
