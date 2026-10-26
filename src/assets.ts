@@ -23,6 +23,7 @@ export const ARCHIVE_OCELLUS_ASSETS = {
     ["explosion", { id: explosion.spotAnim.value }],
     ...Object.entries(OCELLUS_P3.smite.blades).map(([cue, spotAnim]) => [`smiteBlades${cue.charAt(0).toUpperCase()}${cue.slice(1)}`, { id: spotAnim.value }]),
     ...Object.entries(OCELLUS_P3.smite.rubbleLook).map(([cue, spotAnim]) => [`rubble${cue.charAt(0).toUpperCase()}${cue.slice(1)}`, { id: spotAnim.value }]),
+    ["waveBand", { id: OCELLUS_P3.wave.band.value }],
   ]),
   sounds: Object.fromEntries(Object.entries(presentation.sounds).map(([cue, sound]) => [cue, { id: sound.value }])),
 } as const satisfies CacheAssets;

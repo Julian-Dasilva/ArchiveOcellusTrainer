@@ -9,7 +9,7 @@ import type { HitReceipt } from "../../../sim/combat";
 import type { FlickMiss, P3Event, P3Hit, P3HitSource, P3Log, P3Snapshot, P3Stage, Spin } from "./P3Types";
 import { OcellusP3 } from "./mobs/OcellusP3";
 import { ARENA_SIZE, FLOOR, QUADRANT_1_FLOOR, RIM } from "./p3/arena";
-import { RubbleView, SmiteBlades } from "./entities/P3Views";
+import { RubbleView, SmiteBlades, WaveBand } from "./entities/P3Views";
 
 const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   swing: "a swing",
@@ -40,7 +40,7 @@ const CLOSED_FLOOR = ["#2c2822", "#25221d"] as const;
 
 type Mounted =
   | Readonly<{ kind: "unmounted" }>
-  | Readonly<{ kind: "mounted"; boss: OcellusP3; player: OcellusPlayer; chat: string[]; blades: SmiteBlades; rubble: Set<RubbleView> }>;
+  | Readonly<{ kind: "mounted"; boss: OcellusP3; player: OcellusPlayer; chat: string[]; blades: SmiteBlades; rubble: Set<RubbleView>; waves: Set<WaveBand> }>;
 type Shown = Extract<Mounted, { kind: "mounted" }>;
 
 function presentHit(hit: P3Hit, receipt: HitReceipt, { boss, blades, chat }: Shown): void {
@@ -126,7 +126,7 @@ export class P3Region extends Region {
     this.setBoss(boss);
     const blades = new SmiteBlades(this, boss);
     this.addEntity(blades);
-    this.mounted = { kind: "mounted", boss, player, chat: [], blades, rubble: new Set() };
+    this.mounted = { kind: "mounted", boss, player, chat: [], blades, rubble: new Set(), waves: new Set() };
     return { player };
   }
 
@@ -152,6 +152,10 @@ export class P3Region extends Region {
       rubble.show(row.tick);
       if (rubble.done) shown.rubble.delete(rubble);
     }
+    for (const wave of shown.waves) {
+      wave.show(row.tick);
+      if (wave.done) shown.waves.delete(wave);
+    }
   }
 
   private present(event: P3Event, shown: Shown): void {
@@ -162,6 +166,12 @@ export class P3Region extends Region {
       case "stage-entered":
         if (opensSmite(event.stage)) shown.blades.open();
         return;
+      case "wave-aimed": {
+        const wave = new WaveBand(this, event.line, event.landsAt);
+        this.addEntity(wave);
+        shown.waves.add(wave);
+        return;
+      }
       case "wave-cast":
         shown.boss.playAnimation(bossPoses.wave.value);
         return;
@@ -174,7 +184,6 @@ export class P3Region extends Region {
       case "death-prevented":
         shown.chat.push(`Invincible: ${LETHAL_HIT[event.source]} would have killed you on tick ${event.at}.`);
         return;
-      case "wave-aimed":
       case "hazard-avoided":
       case "run-ended":
         return;

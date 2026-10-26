@@ -1,5 +1,6 @@
-import { CollisionType, EmptyModel, Entity, LineOfSightMask, Settings } from "osrs-sdk";
-import type { Model, Region, Unit } from "osrs-sdk";
+import * as THREE from "three";
+import { CollisionType, EmptyModel, Entity, GROUND_OVERLAY_Y, GraphicsObject, LineOfSightMask, Settings } from "osrs-sdk";
+import type { Location3, Model, Region, Unit } from "osrs-sdk";
 import { OCELLUS_P3, OCELLUS_P4 } from "../OcellusTimings";
 import type { Tick, Tile } from "../../../../sim/brands";
 import type { Spin } from "../P3Types";
@@ -128,5 +129,76 @@ export class RubbleView extends Entity {
 
   protected override create3dModel(): Model {
     return new SpotAnimModel(this, () => RUBBLE_CUES[this.state]);
+  }
+}
+
+const { band, bandRings, telegraph } = OCELLUS_P3.wave;
+let telegraphMaterial: THREE.MeshBasicMaterial | null = null;
+
+function markGeometry(tiles: readonly Tile[], inset: number): THREE.BufferGeometry {
+  const corners = tiles.flatMap(({ x, y }) => {
+    const [west, east, north, south] = [x + inset, x + 1 - inset, y - 1 + inset, y - inset];
+    return [[west, north], [east, north], [east, south], [west, north], [east, south], [west, south]];
+  });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(corners.flatMap(([x, z]) => [x, GROUND_OVERLAY_Y, z]), 3));
+  return geometry;
+}
+
+class TileMarksModel implements Model {
+  private readonly mesh: THREE.Mesh;
+
+  constructor(tiles: readonly Tile[]) {
+    const { colour, opacity, inset } = telegraph.value;
+    telegraphMaterial ??= new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    this.mesh = new THREE.Mesh(markGeometry(tiles, inset), telegraphMaterial);
+  }
+
+  draw(scene: THREE.Scene, clockDelta: number, tickPercent: number, location: Location3, angleRadians: number, pitchRadians: number, visible: boolean): void {
+    if (this.mesh.parent !== scene) scene.add(this.mesh);
+    this.mesh.visible = visible;
+  }
+
+  destroy(scene: THREE.Scene): void {
+    scene.remove(this.mesh);
+    this.mesh.geometry.dispose();
+  }
+
+  getWorldPosition(): THREE.Vector3 {
+    return this.mesh.getWorldPosition(new THREE.Vector3());
+  }
+
+  async preload(): Promise<void> {}
+}
+
+export class WaveBand extends Entity {
+  private landed = false;
+
+  constructor(region: Region, private readonly line: readonly Tile[], private readonly landsAt: Tick) {
+    super(region, { x: 0, y: 0 });
+  }
+
+  show(at: Tick): void {
+    if (this.landed || at < this.landsAt) return;
+    this.landed = true;
+    const { tiles, delayCycles } = bandRings.value;
+    this.line.forEach(({ x, y }, nearest) => this.region.addEntity(new GraphicsObject(this.region, { x, y }, band.value, { delay: delayCycles * (Math.floor(nearest / tiles) + 1) })));
+    this.dying = 0;
+  }
+
+  get done(): boolean {
+    return this.landed;
+  }
+
+  override get collisionType(): CollisionType {
+    return CollisionType.NONE;
+  }
+
+  override get lineOfSight(): LineOfSightMask {
+    return LineOfSightMask.NONE;
+  }
+
+  protected override create3dModel(): Model {
+    return new TileMarksModel(this.line);
   }
 }
