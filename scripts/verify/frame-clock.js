@@ -10,19 +10,26 @@
   };
   const into = (kind, tick, now) => (now - clock.starts[kind][tick]) / clock.tickMs;
 
-  const encode = (canvas) =>
-    canvas.convertToBlob({ type: "image/png" }).then((blob) => new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
-    }));
+  let snapshots = [];
+  const encode = ({ done, bitmap, box }) =>
+    bitmap
+      .then((frame) => {
+        const page = new OffscreenCanvas(window.innerWidth, window.innerHeight);
+        page.getContext("2d").drawImage(frame, box.x, box.y, box.width, box.height);
+        return page.convertToBlob({ type: "image/png" });
+      })
+      .then((blob) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      }))
+      .then((png) => (done.png = png));
+  // createImageBitmap copies the canvas when called and costs a fraction of a millisecond; drawing and encoding a copy took about 100 ms on llvmpipe, so they wait until no other shot is due in the same tick.
   const perform = {
-    shot: (_action, done) => {
-      const world = document.querySelector("#world"), box = world.getBoundingClientRect();
-      const page = new OffscreenCanvas(window.innerWidth, window.innerHeight);
-      page.getContext("2d").drawImage(world, box.x, box.y, box.width, box.height);
+    shot: (_action, done, when) => {
+      const world = document.querySelector("#world");
       done.png = null;
-      encode(page).then((png) => (done.png = png));
+      snapshots.push({ when, done, bitmap: createImageBitmap(world), box: world.getBoundingClientRect() });
     },
     click: (action) => {
       const world = document.querySelector("#world");
@@ -41,11 +48,14 @@
       if (t === null || t < when.tick || (t === when.tick && into(when.kind, t, now) < when.fraction)) return true;
       const done = (clock.done[action.name] = { tick: t, into: Math.round(into(when.kind, t, now) * 1000) / 1000 });
       const began = performance.now();
-      perform[action.kind](action, done);
+      perform[action.kind](action, done, when);
       done.costMs = Math.round(performance.now() - began);
       requestAnimationFrame((next) => (done.nextFrameMs = Math.round(next - now)));
       return false;
     });
+    const waiting = ({ when }) => clock.due.some((due) => due.action.kind === "shot" && due.when.kind === when.kind && due.when.tick === when.tick);
+    snapshots.filter((snapshot) => !waiting(snapshot)).forEach(encode);
+    snapshots = snapshots.filter(waiting);
   };
   requestAnimationFrame(watch);
 
