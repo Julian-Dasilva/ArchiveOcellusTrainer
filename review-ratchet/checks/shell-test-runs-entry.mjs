@@ -20,7 +20,7 @@ applied to the copy's script. A test that still passes under a mutation does
 not exercise the policy it guards, for example because it runs its own copy
 of the script's code under its own shell options.
 
-A mutant must pass its syntax check (bash -n for .sh, node --check for .mjs),
+A mutant must pass its syntax check (bash -n for .sh, node --check for .mjs and .ts),
 so a test that runs the real script reaches its assertions. A test reports
 each case on a line "PASS NAME" or "FAIL NAME", followed by that case's
 output; output before the first case belongs to no case. Each case prints
@@ -43,7 +43,7 @@ such a case. Each run may take up to --timeout seconds (default 300).
 
 const CASE = /^(PASS|FAIL) (\S+)$/;
 const ASSERTION_FAILED = /^[ \t]*ASSERTION FAILED: /;
-const SYNTAX_CHECKS = { ".sh": ["bash", "-n"], ".mjs": [process.execPath, "--check"] };
+const SYNTAX_CHECKS = { ".sh": ["bash", "-n"], ".mjs": [process.execPath, "--check"], ".ts": [process.execPath, "--experimental-strip-types", "--check"] };
 
 class Undecidable extends Error {}
 

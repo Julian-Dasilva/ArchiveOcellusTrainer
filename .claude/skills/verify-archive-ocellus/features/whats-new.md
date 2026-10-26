@@ -31,7 +31,7 @@ Preconditions:
 - **Keyboard.** `agent-browser focus "#settings"`, then `press Enter` and `press Shift+Tab`; `document.activeElement` is `#whats_new`. `press Enter`; the panel is visible and focus is on `#whats_new_title`. `agent-browser focus "#whats_new_close"` and `press Enter`; the panel is hidden and focus is on the visible `#settings`. Open it the same way and `press Escape`; focus is on `#settings` again.
 - **Reload.** Open `?seed=1` again. `#settings .unseen_dot` is not visible, and after a click on `#settings` neither is `#whats_new .unseen_dot`.
 - **Version.** `agent-browser --json get text "#app_version"` is `v` and the newest version. Its box starts at or right of the credit line's right edge and overlaps it vertically. `#credit_line` still reads the exact credit sentence.
-- **Scripted.** `scripts/verify.sh browser` runs these steps after the run results and writes `whats-new.json` and `whats-new-checks.json`.
+- **Scripted.** `scripts/verify.sh browser --unit whats_new` runs these steps, writes `whats-new.json` and records each check in `units/whats_new/verdict.json`.
 
 ## Gotchas
 

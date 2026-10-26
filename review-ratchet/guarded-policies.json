@@ -151,6 +151,158 @@
           "mutation": [{ "find": "if (invalid !== null) throw new Error(invalid);", "replace": "" }]
         }
       ]
+    },
+    {
+      "path": "scripts/verify/judge.mjs",
+      "tests": ["scripts/verify/verdicts.test.sh"],
+      "policies": [
+        {
+          "policy": "a drive that exited non-zero aborts its unit",
+          "mutation": [{ "find": "  if (driveStatus !== \"0\") return { outcome: \"aborted\", cause: \"drive\", detail: logged() };\n", "replace": "" }]
+        },
+        {
+          "policy": "a unit missing a capture aborts before its checks run",
+          "mutation": [{ "find": "  if (missing.length > 0) return { outcome: \"aborted\", cause: \"captures\", detail: missing };\n", "replace": "" }]
+        },
+        {
+          "policy": "a unit with a failing check fails and names it",
+          "mutation": [{ "find": "return failed.length === 0 ?", "replace": "return true ?" }]
+        },
+        {
+          "policy": "a recorded page error fails its unit",
+          "mutation": [{ "find": "...(Object.keys(pageErrors).length > 0 ? [\"noPageErrors\"] : [])", "replace": "...[]" }]
+        },
+        {
+          "policy": "a page-errors capture that is not a list counts as a page error",
+          "mutation": [{ "find": "!Array.isArray(errors) || errors.length > 0", "replace": "errors.length > 0" }]
+        },
+        {
+          "policy": "judge exits non-zero unless the unit passed",
+          "mutation": [{ "find": "process.exit(verdict.outcome === \"passed\" ? 0 : 1);", "replace": "process.exit(0);" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify/report.mjs",
+      "tests": ["scripts/verify/verdicts.test.sh"],
+      "policies": [
+        {
+          "policy": "a selected unit without a verdict fails the browser stage",
+          "mutation": [
+            { "find": "const verdicts = selected.map(verdictOf);", "replace": "const verdicts = selected.map(verdictOf).filter(({ outcome }) => outcome !== \"missing\");" }
+          ]
+        },
+        {
+          "policy": "a cross-unit check is judged only once every unit it reads completed",
+          "mutation": [{ "find": "const absent = units.filter((unit) => !completed.has(unit));", "replace": "const absent = [];" }]
+        },
+        {
+          "policy": "a failing cross-unit check fails the browser stage",
+          "mutation": [{ "find": "failedChecks.length === 0 ? 0 : 1", "replace": "true ? 0 : 1" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify.sh",
+      "tests": ["scripts/verify/bundle.test.sh"],
+      "policies": [
+        {
+          "policy": "the bundle stage runs the asset bundle guard",
+          "mutation": [{ "find": "node_modules/.bin/tsx src/assetBundle/check.ts", "replace": "true" }]
+        }
+      ]
+    },
+    {
+      "path": "src/assetBundle/check.ts",
+      "tests": ["scripts/verify/bundle.test.sh"],
+      "policies": [
+        {
+          "policy": "every configured npc needs a non-empty payload file",
+          "mutation": [{ "find": "([key, file]) => fileGaps(outDir, file)", "replace": "([key, file]) => (key.startsWith(\"npc-\") ? [] : fileGaps(outDir, file))" }]
+        },
+        {
+          "policy": "every configured model needs a non-empty payload file",
+          "mutation": [{ "find": "([key, file]) => fileGaps(outDir, file)", "replace": "([key, file]) => (key.startsWith(\"model-\") ? [] : fileGaps(outDir, file))" }]
+        },
+        {
+          "policy": "every configured item needs a non-empty payload file",
+          "mutation": [{ "find": "([key, file]) => fileGaps(outDir, file)", "replace": "([key, file]) => (key.startsWith(\"player-item-\") ? [] : fileGaps(outDir, file))" }]
+        },
+        {
+          "policy": "every configured spot animation needs a non-empty payload file",
+          "mutation": [{ "find": "([key, file]) => fileGaps(outDir, file)", "replace": "([key, file]) => (key.startsWith(\"spotanim-\") ? [] : fileGaps(outDir, file))" }]
+        },
+        {
+          "policy": "an empty payload file counts as missing",
+          "mutation": [{ "find": "found.size === 0 ?", "replace": "found.size < 0 ?" }]
+        },
+        {
+          "policy": "a payload path that is not a regular file counts as missing",
+          "mutation": [{ "find": "if (!found.isFile()) return [`${file} is not a file`];\n", "replace": "" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify/parity.mjs",
+      "tests": ["scripts/verify/parity.test.sh"],
+      "policies": [
+        {
+          "policy": "a seeded fight that differs fails unless the expectations name it",
+          "mutation": [{ "find": "if (expected[name]?.head === sha)", "replace": "if (true)" }]
+        },
+        {
+          "policy": "an expectation accepts only the head sha256 it names",
+          "mutation": [{ "find": "if (expected[name]?.head === sha)", "replace": "if (expected[name] !== undefined)" }]
+        },
+        {
+          "policy": "an expectation without a reason is refused",
+          "mutation": [{ "find": "if (typeof entry.why !== \"string\" || entry.why.trim() === \"\") throw", "replace": "if (false) throw" }]
+        },
+        {
+          "policy": "a seeded fight missing at the head differs",
+          "mutation": [{ "find": "const names = [...new Set([...Object.keys(base), ...Object.keys(head)])];", "replace": "const names = Object.keys(head);" }]
+        },
+        {
+          "policy": "each differing fight is printed with its first differing value",
+          "mutation": [{ "find": "firstDifference(base[name], head[name], name)}", "replace": "name}" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify/shard.mjs",
+      "tests": ["scripts/verify/t2.test.sh"],
+      "policies": [
+        {
+          "policy": "each unit goes to the shard with the least time so far",
+          "mutation": [{ "find": "const lightest = load.reduce((best, shard) => (shard.seconds < best.seconds ? shard : best));", "replace": "const lightest = load[0];" }]
+        },
+        {
+          "policy": "a shard prints only its own units",
+          "mutation": [{ "find": "for (const unit of units.filter((unit) => load[at - 1].units.has(unit))) console.log(unit);", "replace": "for (const unit of units) console.log(unit);" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify/t2-summary.mjs",
+      "tests": ["scripts/verify/t2.test.sh"],
+      "policies": [
+        {
+          "policy": "a browser unit that did not pass, or never reported, fails T2",
+          "mutation": [{ "find": "const failedUnits = units.filter(([, { outcome }]) => outcome !== \"passed\");", "replace": "const failedUnits = [];" }]
+        },
+        {
+          "policy": "a stage that did not pass fails T2",
+          "mutation": [{ "find": "verdict.production === \"PASS\" && verdict.perf === \"PASS\"", "replace": "verdict.production === \"PASS\"" }]
+        },
+        {
+          "policy": "timing pairs the plan selected must pass",
+          "mutation": [{ "find": "(verdict.perfTiming === \"PASS\" || !timingSelected)", "replace": "true" }]
+        },
+        {
+          "policy": "every asset the head deletes is listed",
+          "mutation": [{ "find": "verdict.assets.deleted.map((key) => `  - deleted ${key}`)", "replace": "[]" }]
+        }
+      ]
     }
   ]
 }
