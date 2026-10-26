@@ -10,6 +10,12 @@ import { SOUND, SPOT } from "./data";
  * used, which mid-fight cost a visible stall (phase 3's first bombs and shadow slash), so they are built ahead.
  */
 const FLOOR_SPOTS: Readonly<Record<StartPhase, readonly number[]>> = {
+  1: [
+    ...SPOT.crackStraightStart, ...SPOT.crackStraight, ...SPOT.crackStraightEnd,
+    ...SPOT.crackDiagonalStart, ...SPOT.crackDiagonal, ...SPOT.crackDiagonalEnd,
+    ...SPOT.p1ExplodeFloor,
+  ],
+  2: [SPOT.swordDrop, SPOT.swordDropExplosion, SPOT.swordRepair, SPOT.p2Pool, SPOT.safePortalSpawn, SPOT.safePortalIdle, SPOT.safePortalDespawn],
   3: [
     ...SPOT.collapsingExplosion, SPOT.bombIdle, SPOT.bombDrop, SPOT.bombImpact, SPOT.shadowSlash,
     SPOT.fallingDebris, SPOT.superiorSlash, SPOT.p2Pool, ...SPOT.unleashArena,

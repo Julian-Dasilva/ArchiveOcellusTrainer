@@ -7,7 +7,7 @@ import { dress } from "./content/ocellus/js/OcellusLoadout";
 import { OCELLUS_P4 } from "./content/ocellus/js/OcellusTimings";
 import { installBossBar } from "./content/ocellus/fight/bossBar";
 import type { ChatLine, Fight, FightOptions, StartPhase } from "./content/ocellus/fight/Fight";
-import { formatTicks } from "./content/ocellus/fight/Fight";
+import { START_PHASES, formatTicks } from "./content/ocellus/fight/Fight";
 import { FightRegion, START_NPC } from "./content/ocellus/fight/FightRegion";
 import type { ATile, Quadrant } from "./content/ocellus/fight/geometry";
 import { toSdk } from "./content/ocellus/fight/geometry";
@@ -40,6 +40,7 @@ type Params = Omit<FightOptions, "onHandOver"> & Readonly<{ setup: Setup }>;
 function readParams(): Params {
   const url = new URL(window.location.href);
   const get = (name: string) => url.searchParams.get(name);
+  const startPhase = START_PHASES.find((phase) => String(phase) === get("phase")) ?? 1;
   const rawSeed = get("seed");
   const seed = rawSeed !== null && /^\d{1,10}$/.test(rawSeed) ? Number(rawSeed) % 4294967296 : crypto.getRandomValues(new Uint32Array(1))[0];
   const flag = (name: string, fallback: boolean) => {
@@ -49,7 +50,7 @@ function readParams(): Params {
   return {
     seed,
     party: 1,
-    startPhase: 3,
+    startPhase,
     hazardTiles: flag("tiles", true),
     videoMarkers: flag("markers", false),
     skipMarkers: flag("skip", false),
@@ -68,6 +69,7 @@ function rememberFlag(name: string, on: boolean): void {
 
 function writeParams(params: Params, fresh = true): void {
   const url = new URL(window.location.href);
+  url.searchParams.set("phase", String(params.startPhase));
   url.searchParams.delete("party");
   url.searchParams.set("setup", params.setup);
   url.searchParams.set("tiles", params.hazardTiles ? "1" : "0");
@@ -90,6 +92,25 @@ function createTrainer() {
   installBossBar((r: Region) => (r instanceof FightRegion ? r.fight : null));
   const trainer = new TrainerInstance(region, { readyTimer: 5 });
   return { trainer, region, params };
+}
+
+/**
+ * Ocellus's later bodies are big (each animation is baked as vertex frames: 12 MB for phase 2, 34 MB for phase 3).
+ * Fetch them one at a time once the fight has loaded (his first body loads behind the splash), so the transformations
+ * do not stall; the hashed files are cached as immutable.
+ */
+function prefetchLaterPhases(start: StartPhase): void {
+  const later = START_PHASES.filter((phase) => phase > start).map((phase) => START_NPC[phase]);
+  const ids = [...new Set(later)].filter((npc) => npc !== START_NPC[start]).map((npc) => `npc-${npc}`);
+  void CacheRender.bundle().then(async (bundle) => {
+    for (const id of ids) {
+      try {
+        await bundle.fetchAsset(id);
+      } catch {
+        // The model loader fetches it again when the phase begins.
+      }
+    }
+  });
 }
 
 type Download = Readonly<{ done: number; total: number }>;
@@ -233,6 +254,17 @@ function Result({ fight, params }: Readonly<{ fight: Fight; params: Params }>) {
 }
 
 const TIPS: Readonly<Record<StartPhase, readonly string[]>> = {
+  1: [
+    "Pray Missiles for the orange fire volleys, Magic for the blue water ones. Prayer is checked when the shot lands.",
+    "At each corner 7 cracks grow toward him. Stand on a closing crack to block it: it heals you instead of him. Unblocked, it feeds his yellow meter and heals him.",
+    "Be 3+ tiles from his 3x3 when he explodes (28-30).",
+    "At 66% and 25% he teleports to the middle: block the diagonal cracks from the marked squares, dodge the blasts. A full meter makes the strike lethal.",
+  ],
+  2: [
+    "Attack The Blade. Purple portals fire across their rows 4 ticks after lighting; stand where the two orange gaps cross (green tiles).",
+    "When pools appear, step on the orange floor portal before all twelve fire.",
+    "The skip (\"Phase 2 skip tiles\"): wait on the outer pink tile, 6 out diagonally, and click the inner one, 4 out, one tick before each volley. Running through the wave dodges it.",
+  ],
   3: [
     "Pray Melee for his two swings, then step out of the shadow slash: 3 wide, straight or diagonal toward you.",
     "When he starts to spin, turn your overhead OFF (or be injured), then Protect from Melee for the saw blades.",
@@ -300,13 +332,22 @@ function Sidebar({ params, fight, region }: Readonly<{ params: Params; fight: Fi
   const [draft, setDraft] = useState<Params>(params);
   const [credits, setCredits] = useState(false);
   const set = (patch: Partial<Params>) => setDraft((current) => ({ ...current, ...patch }));
+  const phaseNow = START_PHASES.find((phase) => fight?.label() === `Phase ${phase}`) ?? params.startPhase;
   // Restart replays the current fight; if a setting that only applies at load changed, it relaunches with it instead.
-  const changedAtLoad = (["setup", "hazardTiles", "videoMarkers", "soloVine"] as const).some((key) => draft[key] !== params[key]);
+  const changedAtLoad = (["startPhase", "setup", "hazardTiles", "videoMarkers", "soloVine"] as const).some((key) => draft[key] !== params[key]);
   useFightVersion(fight);
   return (
     <div className="fight-sidebar">
       <h3 className="fight-title">Ocellus</h3>
       <div className="fight-subtitle">The Fractured Archive · full fight</div>
+      <label>
+        Start at
+        <select value={draft.startPhase} onChange={(event) => set({ startPhase: START_PHASES.find((phase) => String(phase) === event.target.value) ?? 1 })}>
+          <option value={1}>Phase 1 · Corners</option>
+          <option value={2}>Phase 2 · The Blade</option>
+          <option value={3}>Phase 3 · Quadrants</option>
+        </select>
+      </label>
       <label>
         Setup
         <select value={draft.setup} onChange={(event) => set({ setup: event.target.value === "melee" ? "melee" : "ranged" })}>
@@ -346,8 +387,8 @@ function Sidebar({ params, fight, region }: Readonly<{ params: Params; fight: Fi
       <TileIndicators />
       <hr />
       <div className="fight-tips">
-        <div className="fight-tips-title">Phase 3</div>
-        <ul>{TIPS[3].map((tip) => <li key={tip}>{tip}</li>)}</ul>
+        <div className="fight-tips-title">{`Phase ${phaseNow}`}</div>
+        <ul>{TIPS[phaseNow].map((tip) => <li key={tip}>{tip}</li>)}</ul>
       </div>
       <hr />
       <RuneScapeButton type="button" style={{ width: "100%" }} onClick={() => ControlPanelController.controller.setActiveControl("SETTINGS")}>Game settings</RuneScapeButton>
@@ -419,6 +460,7 @@ export function FullFightApp() {
   useEffect(() => {
     if (!ready) return;
     const anchor = region.entities[0];
+    prefetchLaterPhases(params.startPhase);
     if (anchor) warmLaterPhases(anchor, params.startPhase);
   }, [ready, params.startPhase, region]);
 

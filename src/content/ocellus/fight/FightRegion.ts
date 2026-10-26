@@ -7,7 +7,10 @@ import { warmStartPhase } from "./warmup";
 import { TileMarks, VoidFloor } from "./effects";
 import type { FightOptions, PhaseScript, StartPhase } from "./Fight";
 import { Fight } from "./Fight";
+import type { ATile } from "./geometry";
 import { GRID, at } from "./geometry";
+import { Phase1 } from "./phase1";
+import { Phase2 } from "./phase2";
 import { Phase3 } from "./phase3";
 import { FightPlayer } from "./units";
 
@@ -43,10 +46,16 @@ class FightClock extends Entity {
 }
 
 /** The body he spawns in for each start phase (phase 1's hooded intro wears the phase 1 model). */
-export const START_NPC: Readonly<Record<StartPhase, number>> = { 3: NPC.p3 };
+export const START_NPC: Readonly<Record<StartPhase, number>> = { 1: NPC.p1, 2: NPC.p2, 3: NPC.p3 };
+
+const SPAWN: Readonly<Record<StartPhase, ATile>> = { 1: at(0, -9), 2: at(5, -3), 3: at(5, -3) };
 
 export function makePhase(n: StartPhase, fight: Fight): PhaseScript {
   switch (n) {
+    case 1:
+      return new Phase1(fight);
+    case 2:
+      return new Phase2(fight);
     case 3:
       return new Phase3(fight);
     default: {
@@ -107,8 +116,7 @@ export class FightRegion extends Region {
   }
 
   initialiseRegion(): { player: Player } {
-    const spawn = at(5, -3);
-    const player = new FightPlayer(this, spawn);
+    const player = new FightPlayer(this, SPAWN[this.options.startPhase]);
     this.dressPlayer(player);
     const fight = new Fight(this, this.options, player, makePhase);
     this.fight = fight;
