@@ -13,8 +13,8 @@
   },
   "budgets": {
     "drawCallsMedian3d": 14,
-    "drawCallsMax3d": 27,
-    "trianglesMax3d": 15962,
+    "drawCallsMax3d": 28,
+    "trianglesMax3d": 16172,
     "tickGapExcess3d": 300,
     "geometriesPerRetiredRift3d": 0.67,
     "texturesPerRetiredRift3d": 0,
@@ -32,5 +32,8 @@
   "headless": {
     "viewAllocationsPerFrame": 0
   },
-  "exceptions": []
+  "exceptions": [
+    {"budget": "drawCallsMax3d", "from": 27, "to": 28, "reason": "spotanim 4316, the levitation the game plays on the boss at each inner lifeforce hit (L2 and L6, S+4), adds one mesh; at P4 tick 72 it is the only new effect, drawn beside the two cycle 2 rifts and the new orb, the window's busiest render", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40382815660"},
+    {"budget": "trianglesMax3d", "from": 15962, "to": 16172, "reason": "spotanim 4316, the levitation the game plays on the boss at each inner lifeforce hit (L2 and L6, S+4), adds one mesh; at P4 tick 72 it is the only new effect, drawn beside the two cycle 2 rifts and the new orb, the window's busiest render", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40382815660"}
+  ]
 }
