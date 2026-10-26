@@ -41,10 +41,10 @@ function bindings() {
 function bindingsDeclaredBy(configFile: string) {
   const config: unknown = JSON.parse(readFileSync(resolve(__dirname, "../..", configFile), "utf8"));
   const datasets: readonly unknown[] = typeof config === "object" && config !== null && "analytics_engine_datasets" in config && Array.isArray(config.analytics_engine_datasets) ? config.analytics_engine_datasets : [];
-  const declaresPerf = datasets.some((dataset) => typeof dataset === "object" && dataset !== null && "binding" in dataset && dataset.binding === "PERF");
+  const datasetBindings = datasets.map((dataset) => (typeof dataset === "object" && dataset !== null && "binding" in dataset ? String(dataset.binding) : "unnamed"));
   const { env, written } = bindings();
   const { PERF: _undeclared, ...assetsOnly } = env;
-  return { env: declaresPerf ? env : assetsOnly, written };
+  return { env: datasetBindings.includes("PERF") ? env : assetsOnly, written, datasetBindings };
 }
 
 const SUMMARY_WITHOUT_CORES = Object.fromEntries(Object.entries(SUMMARY).filter(([key]) => key !== "cores"));
@@ -128,12 +128,13 @@ describe("Performance beacon Worker", () => {
   });
 
   test.each([
-    { name: "guard: under the bindings wrangler.jsonc declares", config: "wrangler.jsonc", stored: 1 },
-    { name: "under the bindings wrangler.release.jsonc declares", config: "wrangler.release.jsonc", stored: 0 },
-  ])("$name, a valid summary at /t answers 204 and stores $stored data points, and / still serves", async ({ config, stored }) => {
-    const { env, written } = bindingsDeclaredBy(config);
+    { name: "guard: wrangler.jsonc declares the PERF dataset, and under its bindings", config: "wrangler.jsonc", datasets: ["PERF"], stored: 1 },
+    { name: "wrangler.release.jsonc declares no Analytics Engine dataset, and under its bindings", config: "wrangler.release.jsonc", datasets: [], stored: 0 },
+  ])("$name a valid summary at /t answers 204 and stores $stored data points, and / still serves", async ({ config, datasets, stored }) => {
+    const { env, written, datasetBindings } = bindingsDeclaredBy(config);
     const responses = await Promise.all([send(env, "/t", { method: "POST", body: JSON.stringify(SUMMARY) }), send(env, "/")]);
-    expect({ responses, stored: written.length }).toEqual({
+    expect({ datasets: datasetBindings, responses, stored: written.length }).toEqual({
+      datasets,
       responses: [
         { status: 204, body: "" },
         { status: 200, body: "asset /" },
