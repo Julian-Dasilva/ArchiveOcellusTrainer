@@ -990,11 +990,17 @@ open_ticking() {
 
 tile_pixel() {
   local page="$1" tile="$2" after="$3" read
-  [[ "$after" == now ]] || fight_tick_at_least "$after" 90000 || { log "${page}: the fight never reached P4 tick ${after}"; return 1; }
-  read="$(ab --json eval "(() => {
-    const probe = window.__archiveOcellusProbe, at = probe.tileCentre(${tile}), box = document.querySelector('#world').getBoundingClientRect();
-    return { at: at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y) }, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length };
-  })()" | json data.result)" || { log "${page}: tile ${tile} was not read"; return 1; }
+  # The eval reads the first frame of tick $after so the next click lands in that tick; it stays under agent-browser's 25 s timeout.
+  [[ "$after" == now ]] || fight_tick_at_least $((after - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((after - 1))"; return 1; }
+  read="$(ab --json eval "new Promise((done) => {
+    const probe = window.__archiveOcellusProbe, ready = () => '${after}' === 'now' || (probe.snapshot().fight?.run.tick ?? -1) >= Number('${after}');
+    const read = () => {
+      if (!ready()) return requestAnimationFrame(read);
+      const at = probe.tileCentre(${tile}), box = document.querySelector('#world').getBoundingClientRect();
+      done({ at: at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y) }, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length });
+    };
+    read();
+  })" | json data.result)" || { log "${page}: tile ${tile} was not read"; return 1; }
   [[ "$(json at <<<"$read")" != null ]] || { log "${page}: tile ${tile} is not on the canvas"; return 1; }
   CLICK_X="$(json at.x <<<"$read")" CLICK_Y="$(json at.y <<<"$read")" WALK_ORDERS="$(json orders <<<"$read")"
 }
