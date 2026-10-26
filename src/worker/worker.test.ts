@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { DataPoint } from "../telemetry/perfSummary";
 import type { Env } from "./worker";
 
@@ -34,6 +36,15 @@ function bindings() {
     PERF: { writeDataPoint: (point) => void written.push(point) },
   };
   return { env, written };
+}
+
+function bindingsDeclaredBy(configFile: string) {
+  const config: unknown = JSON.parse(readFileSync(resolve(__dirname, "../..", configFile), "utf8"));
+  const datasets: readonly unknown[] = typeof config === "object" && config !== null && "analytics_engine_datasets" in config && Array.isArray(config.analytics_engine_datasets) ? config.analytics_engine_datasets : [];
+  const declaresPerf = datasets.some((dataset) => typeof dataset === "object" && dataset !== null && "binding" in dataset && dataset.binding === "PERF");
+  const { env, written } = bindings();
+  const { PERF: _undeclared, ...assetsOnly } = env;
+  return { env: declaresPerf ? env : assetsOnly, written };
 }
 
 const SUMMARY_WITHOUT_CORES = Object.fromEntries(Object.entries(SUMMARY).filter(([key]) => key !== "cores"));
@@ -116,14 +127,19 @@ describe("Performance beacon Worker", () => {
     }).toEqual({ status, points: point ? [point] : [] });
   });
 
-  test("without the PERF binding, as the release config deploys, a valid summary at /t answers 204 and never reaches the assets, while other paths still serve", async () => {
-    const { env } = bindings();
-    const { PERF: _dropped, ...withoutPerf } = env;
-    const responses = await Promise.all([send(withoutPerf, "/t", { method: "POST", body: JSON.stringify(SUMMARY) }), send(withoutPerf, "/")]);
-    expect(responses).toEqual([
-      { status: 204, body: "" },
-      { status: 200, body: "asset /" },
-    ]);
+  test.each([
+    { name: "guard: under the bindings wrangler.jsonc declares", config: "wrangler.jsonc", stored: 1 },
+    { name: "under the bindings wrangler.release.jsonc declares", config: "wrangler.release.jsonc", stored: 0 },
+  ])("$name, a valid summary at /t answers 204 and stores $stored data points, and / still serves", async ({ config, stored }) => {
+    const { env, written } = bindingsDeclaredBy(config);
+    const responses = await Promise.all([send(env, "/t", { method: "POST", body: JSON.stringify(SUMMARY) }), send(env, "/")]);
+    expect({ responses, stored: written.length }).toEqual({
+      responses: [
+        { status: 204, body: "" },
+        { status: 200, body: "asset /" },
+      ],
+      stored,
+    });
   });
 
   test("every other path, including a POST, is served from the static assets", async () => {
