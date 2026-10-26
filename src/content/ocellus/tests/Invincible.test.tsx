@@ -115,20 +115,12 @@ describe("Invincible", () => {
     expect({ off: orbReturn(false), on: orbReturn(true) }).toEqual({ off: returned, on: returned });
   });
 
-  test.each([
+  const LETHAL_SCYTHE = [
     {
       lethal: "two reflections land on one tick and the second is lethal",
       focus: "explosions", seed: 167, at: 30,
       blocked: [["melee", "blocked", 20], ["melee", "blocked", 16], ["melee", "blocked", 0]],
       hits: [["deflect-reflected", 2, 2, 3, 1], ["deflect-reflected", 1, 1, 1, 0]],
-      source: "deflect-reflected",
-      chat: "Invincible: a deflected hit's reflection would have killed you on tick 30.",
-    },
-    {
-      lethal: "a lethal reflection lands before a second one",
-      focus: "explosions", seed: 3, at: 30,
-      blocked: [["melee", "blocked", 31], ["melee", "blocked", 16], ["melee", "blocked", 0]],
-      hits: [["deflect-reflected", 3, 1, 1, 0], ["deflect-reflected", 1, 0, 0, 0]],
       source: "deflect-reflected",
       chat: "Invincible: a deflected hit's reflection would have killed you on tick 30.",
     },
@@ -140,7 +132,18 @@ describe("Invincible", () => {
       source: "rift-burst",
       chat: "Invincible: a void rift burst would have killed you on tick 217.",
     },
-  ] as const)("scythe swings into Deflect Melee, $lethal: off, the run dies on those receipts; on, one death is prevented, naming the first lethal hit", ({ focus, seed, at, blocked, hits, source, chat }) => {
+  ] as const;
+  const REFLECTION_ORDER = [
+    {
+      lethal: "a lethal reflection lands before a second one",
+      focus: "explosions", seed: 3, at: 30,
+      blocked: [["melee", "blocked", 31], ["melee", "blocked", 16], ["melee", "blocked", 0]],
+      hits: [["deflect-reflected", 3, 1, 1, 0], ["deflect-reflected", 1, 0, 0, 0]],
+      source: "deflect-reflected",
+      chat: "Invincible: a deflected hit's reflection would have killed you on tick 30.",
+    },
+  ] as const;
+  const scytheIntoDeflect = ({ focus, seed, at, blocked, hits, source, chat }: (typeof LETHAL_SCYTHE)[number] | (typeof REFLECTION_ORDER)[number]) => {
     const scytheTheBoss = (invincible: boolean) => {
       const drill = startDrill({ seed, selection: { focus, setup: "melee", hoverMeleeReach: "reachable", drillStart: "cycle-start" } });
       drill.region.invincible = invincible;
@@ -163,7 +166,9 @@ describe("Invincible", () => {
       off: { blocked, hits, prevented: [], hp: 0, ended: [[at, "death"]], dying: true, chat: [] },
       on: { blocked, hits, prevented: [{ kind: "death-prevented", at, source, clearedOrbCredit: 0 }], hp: 99, ended: [], dying: false, chat: [chat] },
     });
-  });
+  };
+  test.each(LETHAL_SCYTHE)("scythe swings into Deflect Melee, $lethal: off, the run dies on those receipts; on, one death is prevented, naming the first lethal hit", scytheIntoDeflect);
+  test.each(REFLECTION_ORDER)("guard: scythe swings into Deflect Melee, $lethal: off, the run dies on those receipts; on, one death is prevented, naming the first lethal hit", scytheIntoDeflect);
 
   test("the Invincible box starts unchecked, a link with invincible=on starts it checked, and Restart carries what the box shows", () => {
     localStorage.removeItem("osrs-sdk:settings");

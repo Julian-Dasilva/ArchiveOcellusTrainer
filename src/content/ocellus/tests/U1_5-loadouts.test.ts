@@ -181,7 +181,7 @@ describe("U1.5 loadouts", () => {
     drill.dispose();
   });
 
-  test("Division drains Ocellus's Defence only for glaives that land damage, so a spec into Deflect Range drains nothing, nor does a glaive the explosion reduction cuts to 0", () => {
+  test("guard: Division drains Ocellus's Defence only for glaives that land damage, so a spec into Deflect Range drains nothing, nor does a glaive the explosion reduction cuts to 0", () => {
     const spec = (throwAt: number, landedBy: number, selection: DrillSelection = {}) => {
       const drill = startDrill({ seed: 4, selection });
       drill.walkTo({ x: 5, y: 2 });
