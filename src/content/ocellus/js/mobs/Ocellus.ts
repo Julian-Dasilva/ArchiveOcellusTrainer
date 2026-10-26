@@ -168,6 +168,10 @@ export class Ocellus extends Mob {
     return bossBonuses();
   }
 
+  override get deathAnimationLength(): number {
+    return OCELLUS_P4.presentation.deathLasts.value;
+  }
+
   override create3dModel(): Model {
     return CacheRenderModel.forRenderable(this, CacheRenderReferences.npc(OCELLUS_P4.boss.npcId.value));
   }

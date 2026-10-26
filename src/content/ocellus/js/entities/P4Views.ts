@@ -371,7 +371,7 @@ export class FragmentFlash extends Entity {
   }
 }
 
-const { bossPoses, transitionTells, tellCentre, overheadIcons, overheadIconBelowHpBar } = OCELLUS_P4.presentation;
+const { bossPoses, transitionTells, tellCentre, overheadIcons, overheadIconBelowHpBar, deathEffects, levitation, deflectWind } = OCELLUS_P4.presentation;
 const OVERHEAD_ICONS = new Map<BossOverhead, HTMLImageElement>();
 
 export function drawOverheadIcon(context: OffscreenCanvasRenderingContext2D, scale: number, overhead: BossOverhead): void {
@@ -412,6 +412,10 @@ export class PlayerLook {
   explosionsWarned(): void {
     this.player.addSpotAnim({ id: OCELLUS_P4.explosion.telegraph.value, channel: "explosion-telegraph" });
   }
+
+  deflected(): void {
+    this.player.addSpotAnim({ id: deflectWind.value, channel: "deflect-wind" });
+  }
 }
 
 export class BossLook {
@@ -436,6 +440,16 @@ export class BossLook {
 
   land(): void {
     this.boss.playAnimation(bossPoses.deflectOut.value);
+  }
+
+  drained(kind: VoidKind): void {
+    const { spotAnim, during } = levitation.value;
+    if (kind === during) this.boss.addSpotAnim({ id: spotAnim, channel: "levitation" });
+  }
+
+  die(): void {
+    this.boss.playAnimation(bossPoses.death.value);
+    for (const [effect, spotAnim] of Object.entries(deathEffects)) this.boss.addSpotAnim({ id: spotAnim.value, channel: `death-${effect}` });
   }
 
   tell(variant: Special): void {

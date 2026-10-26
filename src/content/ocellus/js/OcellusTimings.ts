@@ -217,17 +217,24 @@ type BossPose =
   | "meleePrayer"
   | "unleashIn"
   | "unleashLoop"
-  | "unleashOut";
+  | "unleashOut"
+  | "death";
 
 export type TransitionSound = "meleeTell" | "meleeHit" | "rangedBeforeHit" | "rangedHit" | "magicWindUp";
 export type TransitionCue = Readonly<{ sound: TransitionSound; afterTell: TickSpan; delayMs: number }>;
-type CueSound = "endShout" | "flood" | "explosionSeriesStart" | "explosionMark" | TransitionSound;
+type CueSound = "endShout" | "flood" | "explosionSeriesStart" | "explosionMark" | "orbReturn" | TransitionSound;
 type SoundPlayback = Readonly<{ volume: number; range: number; retain: number }>;
 
 export type SpriteFrame = Readonly<{ archive: number; frame: number }>;
 
+type DeathEffect = "burst" | "skirt" | "crack";
+
 type PresentationRecipe = Readonly<{
   bossPoses: Readonly<Record<BossPose, Selected<number>>>;
+  deathEffects: Readonly<Record<DeathEffect, Selected<number>>>;
+  deathLasts: Selected<TickSpan>;
+  levitation: Selected<Readonly<{ spotAnim: number; during: VoidKind }>>;
+  deflectWind: Selected<number>;
   sounds: Readonly<Record<CueSound, Selected<SoundId>>>;
   soundPlayback: Selected<SoundPlayback>;
   landingBeforeInnerClears: Selected<TickSpan>;
@@ -776,6 +783,9 @@ const EXPLOSION: ExplosionSeriesRecipe = {
   ),
 };
 
+const deathEffect = (id: number, name: string): Selected<number> =>
+  selected(id, "log-repeated", "unscaled", "on the boss on the kill tick, with his death sequence", NO_WIKI_PRESENTATION, cache(`spotanim ${id} ${name}`), fightLog("L2", `spotanim ${id} on the boss at P4 +105, the kill`));
+
 const sound = (id: number, note: string, first: Source, ...rest: Source[]): Selected<SoundId> =>
   selected(soundId(id), "footage-repeated", "team-4-and-5", note, NO_WIKI_PRESENTATION, first, ...rest, cache(`synth ${id}`));
 
@@ -799,7 +809,45 @@ const PRESENTATION: PresentationRecipe = {
     unleashIn: pose(14857, "phase3_unleash_in", "inferred", "transition attack candidate, 2 ticks"),
     unleashLoop: pose(14858, "phase3_unleash_loop", "inferred", "transition attack candidate, 2-tick loop"),
     unleashOut: pose(14861, "phase3_unleash_out", "inferred", "transition attack candidate, 4 ticks"),
+    death: selected(
+      14872,
+      "log-repeated",
+      "unscaled",
+      "the boss's death, played on the tick his HP reaches 0 in both logged kills",
+      NO_WIKI_PRESENTATION, cache("seq 14872 npc_ocellus_phase3_death, keyframes 0 to 440"),
+      fightLog("L1", "anim 14872 at P4 +121, the kill"),
+      fightLog("L2", "anim 14872 at P4 +105, the kill"),
+    ),
   },
+  deathEffects: {
+    burst: deathEffect(4274, "vfx_ocellus_death"),
+    skirt: deathEffect(4275, "vfx_ocellus_death_skirt_spotanim01"),
+    crack: deathEffect(4276, "vfx_ocellus_death_crack_spotanim01"),
+  },
+  deathLasts: selected(
+    span(15),
+    "inferred",
+    "unscaled",
+    "his body stays on the platform until the death sequence ends: its 440 client cycles are 14.7 ticks, and in one logged kill the next NPC appears on his tile 14 ticks after it",
+    NO_WIKI_PRESENTATION, cache("seq 14872 keyframes 0 to 440"),
+    fightLog("L2", "anim 14872 at P4 +105, npc 16683 on his tile at P4 +119"),
+  ),
+  levitation: selected(
+    { spotAnim: 4316, during: "inner-void" },
+    "log-repeated",
+    "unscaled",
+    "vfx_ocellus_soul_fragment_ocellus_levitating_idle, 2 ticks, on the boss on the tick of the inner void's lifeforce hit, S+4, in every cycle two fight logs record, and never at the outer void's",
+    NO_WIKI_PRESENTATION, cache("spotanim 4316 vfx_ocellus_soul_fragment_ocellus_levitating_idle: seq 14920, 60 client cycles"),
+    fightLog("L6", "spotanim 4316 on the boss at S+4 of cycles 1 to 5"),
+    fightLog("L2", "spotanim 4316 on the boss at S+4 of cycles 1 and 2"),
+  ),
+  deflectWind: selected(
+    4322,
+    "assumption",
+    "unscaled",
+    "vfx_ocellus_deflect_wind_spotanim_01, 2 ticks, played on the player when Deflect turns away their hit; no fight log shows it, though three log every spotanim on the players, so where and when the game plays it is assumed from its name",
+    NO_WIKI_PRESENTATION, cache("spotanim 4322 vfx_ocellus_deflect_wind_spotanim_01: model 62676, 65 client cycles"),
+  ),
   sounds: {
     endShout: sound(12490, "the \"End...\" shout at t5, three ticks before the first inner void, in both clips; no sequence references it, so the server sends it", vod("V1", "3:53:59.39, t5.0"), vod("V2", "5:20:22.50, t5.0")),
     flood: sound(12497, "the outer flood at S + 31, five ticks before the floor hurts; heard in 1 V1 and 2 V2 floods, and 4 of 7 floods beat the null; the server sends it", vod("V1", "3:54:55.81, t99.0"), vod("V2", "5:20:42.89, t39.0")),
@@ -809,6 +857,13 @@ const PRESENTATION: PresentationRecipe = {
     meleeHit: sound(12567, "the melee transition hit, in all 5 melee attacks and none of the other 7; the server sends it", vod("V1", "3:54:18.66, t37.1")),
     rangedBeforeHit: sound(12555, "before the ranged transition hit, in all 4 ranged attacks, scoring at most 0.21 in the other styles; the server sends it", vod("V1", "3:54:54.23, t96.4"), vod("V2", "5:20:58.27, t64.6")),
     rangedHit: sound(12556, "the ranged transition hit, in 3 of 4 ranged attacks; the server sends it", vod("V1", "t97.1, t157.1"), vod("V2", "t65.3")),
+    orbReturn: selected(
+      soundId(5281),
+      "assumption",
+      "unscaled",
+      "a heal sound played as the orb returns the player's HP; the fight logs record no sounds and the cache names none for it, so the cue is assumed",
+      NO_WIKI_PRESENTATION, cache("synth 5281"),
+    ),
     magicWindUp: sound(12554, "the magic transition wind-up, in 3 of 3 magic attacks, scoring at most 0.09 in the other styles; the server sends it", vod("V2", "5:20:39.13, t32.7")),
   },
   soundPlayback: selected({ volume: 0.1, range: 31, retain: 31 }, "inferred", "unscaled", "played as area sounds on the player's tile, so they share the area-sound toggle with the boss; range and retain copy the boss's own frame sounds and volume the SDK's level for them, because the clips cannot show the server's values", NO_WIKI_PRESENTATION, cache("seq 14863 frame sound 12613 location 31, retain 31")),

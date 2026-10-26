@@ -23,6 +23,9 @@ export const P4_ASSETS = {
     ["riftFlare", { id: rifts.burstFlare.value }],
     ["explosion", { id: explosion.spotAnim.value }],
     ["explosionTelegraph", { id: explosion.telegraph.value }],
+    ...Object.entries(presentation.deathEffects).map(([effect, spotAnim]) => [`death${effect.charAt(0).toUpperCase()}${effect.slice(1)}`, { id: spotAnim.value }]),
+    ["levitation", { id: presentation.levitation.value.spotAnim }],
+    ["deflectWind", { id: presentation.deflectWind.value }],
   ]),
   sounds: Object.fromEntries(Object.entries(presentation.sounds).map(([cue, sound]) => [cue, { id: sound.value }])),
 } as const satisfies CacheAssets;
