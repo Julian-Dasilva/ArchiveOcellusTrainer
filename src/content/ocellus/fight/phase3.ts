@@ -735,17 +735,19 @@ export class Phase3 implements PhaseScript {
         fight.hit({ amount: () => 255 });
       }
       this.segment++;
-      if (this.segment < P3.hpFloors.length) this.floorFraction = P3.hpFloors[this.segment];
-    });
-    fight.after(u.nextSegment - u.obliteration, () => {
-      this.levitating = false;
-      boss.hidden = false;
-      if (this.segment >= 3) {
-        this.finished = true;
-        fight.lingeringVoids = this.patches.filter((p) => p.until === Infinity).map(({ tile, placed }) => ({ tile, placed }));
-        fight.options.onHandOver(handOverOf(fight.player, boss));
+      if (this.segment < P3.hpFloors.length) {
+        this.floorFraction = P3.hpFloors[this.segment];
         return;
       }
+      // This tick is the phase 4 drill's tick 0, and its lead-in keeps him hidden 4 more ticks.
+      this.finished = true;
+      fight.lingeringVoids = this.patches.filter((p) => p.until === Infinity).map(({ tile, placed }) => ({ tile, placed }));
+      fight.options.onHandOver(handOverOf(fight.player, boss));
+    });
+    fight.after(u.nextSegment - u.obliteration, () => {
+      if (this.finished) return;
+      this.levitating = false;
+      boss.hidden = false;
       const here = quadrantOf(fight.playerTile);
       this.startSegment(here && !fight.destroyed.has(here) ? here : this.nearestStanding(q));
     });
