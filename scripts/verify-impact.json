@@ -3,9 +3,9 @@
   "groups": {
     "shell": ["stored_view", "load_retry", "get_ready", "settings_menu", "run_results", "whats_new", "telemetry", "seed", "invincible", "focus", "keybinds", "cues", "production"],
     "walking": ["p4_cycle", "walkway", "control_walk", "click_correction", "back_wall", "corner", "boss_pathing"],
-    "orbs": ["lifeforce_orb", "orb_late_and_entry", "orb_off_holes", "invincible", "cues"],
+    "orbs": ["lifeforce_orb", "orb_late_and_entry", "orb_off_holes", "invincible", "cues", "recorded_fights"],
     "explosion_set": ["explosions", "dodge_speedup", "explosion_run_end"],
-    "combat": ["loadouts", "defence_floor", "supplies", "overheads_rifts", "dodge_speedup", "run_results", "telemetry"],
+    "combat": ["loadouts", "defence_floor", "supplies", "overheads_rifts", "dodge_speedup", "run_results", "telemetry", "recorded_fights"],
     "p3": ["p3_drill", "production"]
   },
   "everything": [
@@ -71,7 +71,7 @@
     { "paths": ["src/perf/**"], "units": ["perf_timing"] },
     { "paths": ["src/content/ocellus/js/p4/orb.ts"], "units": ["@orbs"] },
     { "paths": ["src/content/ocellus/js/p4/explosions.ts"], "units": ["@explosion_set"] },
-    { "paths": ["src/content/ocellus/js/mobs/VoidRift.ts"], "units": ["overheads_rifts"] },
+    { "paths": ["src/content/ocellus/js/mobs/VoidRift.ts"], "units": ["overheads_rifts", "recorded_fights"] },
     { "paths": ["src/content/ocellus/js/gear/**", "src/content/ocellus/js/OcellusLoadout.ts", "src/content/ocellus/js/bossStats.ts"], "units": ["@combat"] },
     { "paths": ["src/content/ocellus/js/P3Region.ts", "src/content/ocellus/js/P3Types.ts", "src/content/ocellus/js/mobs/OcellusP3.ts", "src/content/ocellus/js/p3/**"], "units": ["@p3"] }
   ]
