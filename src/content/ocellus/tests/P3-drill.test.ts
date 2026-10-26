@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { CollisionType } from "osrs-sdk";
 import type { At } from "./drill";
 import { footprintCentre, startP3Drill } from "./p3drill";
 
@@ -23,6 +24,7 @@ function bandFrom(drill: Drill, at: number): (readonly [number, number])[] {
   const { x, y } = drill.boss().location;
   return aimed.tiles.map((tile) => [tile.x - (x + 1), tile.y - (y - 1)] as const);
 }
+const BRAZIER_TILES = [[6, 4], [24, 4], [6, 22], [24, 22]] as const;
 const has = (tiles: readonly (readonly [number, number])[], east: number, south: number) => tiles.some(([x, y]) => x === east && y === south);
 
 describe("P3 drill", () => {
@@ -70,7 +72,7 @@ describe("P3 drill", () => {
       const observed = await fallFromTick4(null);
       expect({ ...observed, path: observed.path.at(-1) }).toEqual({
         moves: [[4, "quadrant-falls"], [6, "fall-loop"], [15, "escape"]],
-        chat: ["The quadrant begins to collapse! Jump across the stones!", "The void consumes you."],
+        chat: ["Challenge started: Ocellus.", "The quadrant begins to collapse! Jump across the stones!", "The void consumes you."],
         gone: [[17, "consumed"]],
         fallHits: [[17, 255, 0]],
         ended: [[17, "death"]],
@@ -95,6 +97,79 @@ describe("P3 drill", () => {
       expect({ ended: observed.ended, path: observed.path.slice(0, 7) }).toEqual({
         ended: [[17, "quadrant-cleared"]],
         path: [[4, 19, 9], [5, 19, 11], [6, 19, 13], [7, 22, 13], [8, 25, 13], [9, 25, 15], [10, 25, 15]],
+      });
+    });
+
+    test("a player the vine roots is let go as the quadrant falls, so a click on the stones still crosses before the drop", async () => {
+      const drill = await startP3Drill({ seed: 100, bossHp: 3991, invincible: true });
+      drill.tickTo(36);
+      drill.region.world.tickClient(1);
+      const drawn = drill.boss().getPerceivedLocation(drill.region.world.tickPercent);
+      await drill.click({ x: Math.floor(drawn.x) + 1, y: Math.floor(drawn.y) - 1 });
+      drill.tickTo(37);
+      const attacking = drill.player().aggro?.mobName() ?? null;
+      drill.tickTo(44);
+      await drill.click({ x: 15, y: 9 });
+      drill.tickTo(57);
+      const observed = {
+        attacking,
+        rooted: drill.events("vine-rooted").map((event) => event.at),
+        falls: drill.events("quadrant-collapsing").map((event) => event.at),
+        released: drill.events("vine-released").map((event) => event.at),
+        vines: drill.region.mobs.filter((mob) => mob.mobName() === "Void Vine").length,
+        path: drill.rows().filter((row) => row.tick >= 44 && row.tick <= 50).map((row) => [row.tick, row.playerAtPostTick.tile.x, row.playerAtPostTick.tile.y]),
+        gone: drill.events("quadrant-gone").map((event) => [event.at, event.player]),
+        ended: drill.events("run-ended").map((event) => [event.at, event.reason.kind]),
+      };
+      drill.dispose();
+      expect(observed).toEqual({
+        attacking: "Ocellus",
+        rooted: [36],
+        falls: [44],
+        released: [44],
+        vines: 0,
+        path: [[44, 19, 9], [45, 17, 9], [46, 15, 9], [47, 15, 6], [48, 15, 3], [49, 13, 3], [50, 13, 3]],
+        gone: [[57, "escaped"]],
+        ended: [[57, "quadrant-cleared"]],
+      });
+    });
+
+    test("a player still attacking their vine when the quadrant falls stops attacking it as it goes", async () => {
+      const drill = await startP3Drill({ seed: 1, invincible: true });
+      drill.tickTo(37);
+      const before = drill.player().aggro?.mobName() ?? null;
+      drill.bossHp(3990);
+      drill.tickTo(40);
+      const observed = {
+        before,
+        falls: drill.events("quadrant-collapsing").map((event) => event.at),
+        released: drill.events("vine-released").map((event) => event.at),
+        after: drill.player().aggro?.mobName() ?? null,
+      };
+      drill.dispose();
+      expect(observed).toEqual({ before: "Void Vine", falls: [38], released: [38], after: null });
+    });
+
+    test("the brazier over the quadrant drops with its platform, and the other three stay lit", async () => {
+      const drill = await startP3Drill({ seed: 100, bossHp: 4044 });
+      drill.tickTo(0);
+      await drill.click(footprintCentre(drill.boss()));
+      drill.tickTo(4);
+      await drill.click({ x: 15, y: 9 });
+      drill.tickTo(17);
+      const braziers = (tickPercent: number) => drill.region.entities
+        .filter((entity) => entity.collisionType === CollisionType.NONE && BRAZIER_TILES.some(([x, y]) => entity.location.x === x && entity.location.y === y))
+        .map((brazier) => {
+          const { x, y, z } = brazier.getPerceivedLocation(tickPercent);
+          return [x, y, Math.round(z * 100) / 100, brazier.visible(tickPercent)];
+        });
+      const onTheDrop = braziers(0.25);
+      drill.region.world.tickWorld(3);
+      const threeTicksOn = braziers(0);
+      drill.dispose();
+      expect({ onTheDrop, threeTicksOn }).toEqual({
+        onTheDrop: [[6, 4, 0.4, true], [24, 4, 0.3, true], [6, 22, 0.4, true], [24, 22, 0.4, true]],
+        threeTicksOn: [[6, 4, 0.4, true], [24, 4, -14.18, false], [6, 22, 0.4, true], [24, 22, 0.4, true]],
       });
     });
   });
@@ -205,7 +280,7 @@ describe("P3 drill", () => {
       expect(observed).toEqual({
         severed: [[P + 4, 3]],
         saw: [[P + 5, 17, null]],
-        chat: ["Ocellus disrupts your concentration, severing your prayer!", "You've been injured and can't use protection prayers!"],
+        chat: ["Challenge started: Ocellus.", "Ocellus disrupts your concentration, severing your prayer!", "You've been injured and can't use protection prayers!"],
         prayerAfterClick: [[P + 6, null], [P + 7, null], [P + 8, "melee"]],
       });
     });

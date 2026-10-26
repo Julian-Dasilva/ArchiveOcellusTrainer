@@ -71,6 +71,7 @@ export type P3Event =
   | Readonly<{ kind: "void-formed"; at: Tick; tile: Tile }>
   | Readonly<{ kind: "vine-rooted"; at: Tick; tile: Tile }>
   | Readonly<{ kind: "vine-cut"; at: Tick }>
+  | Readonly<{ kind: "vine-released"; at: Tick }>
   | Readonly<{ kind: "rift-spawned"; at: Tick; rift: RiftId; tile: Tile }>
   | Readonly<{ kind: "rift-destroyed"; at: Tick; rift: RiftId; tile: Tile }>
   | Readonly<{ kind: "rift-detonated"; at: Tick; rift: RiftId; tile: Tile }>

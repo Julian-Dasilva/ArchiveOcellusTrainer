@@ -9,10 +9,11 @@ import { TileSet, beside } from "../../../../sim/tiles";
 import type { Wedge } from "../p3/arena";
 import { ARENA_SIZE, CHASM, FLOOR, MIDDLE, RIM, STANDING, WEDGES, WEDGE_FLOOR, wedgeOf } from "../p3/arena";
 import { SpotAnimModel, rimEdges } from "./P4Views";
+import { Brazier } from "./Scenery";
 
 export type Cross = Readonly<{ kind: "floor" }> | Readonly<{ kind: "chasm"; stones: readonly Tile[] }>;
 
-type Fall = Readonly<{ kind: "standing" }> | Readonly<{ kind: "crumbling"; lasts: TickSpan }> | Readonly<{ kind: "dropping" }>;
+type Fall = Readonly<{ kind: "standing" }> | Readonly<{ kind: "crumbling"; lasts: TickSpan }> | Readonly<{ kind: "dropping"; since: number }>;
 
 const FLOOR_Y = -0.5;
 const RIM_TOP = GROUND_OVERLAY_Y + OCELLUS_P4.geometry.walkway.value.height;
@@ -238,7 +239,7 @@ class RoomModel implements Model {
   private readonly wedges: ReadonlyMap<Wedge, WedgeView>;
   private time = 0;
 
-  constructor(cross: Cross, private readonly fallOf: (wedge: Wedge) => Fall) {
+  constructor(cross: Cross, private readonly fallOf: (wedge: Wedge) => Fall, private readonly droppedBy: (wedge: Wedge, tickPercent: number) => number) {
     const floor = cross.kind === "floor" ? FLOOR : STANDING;
     const stone = () => new THREE.MeshLambertMaterial({ map: this.texture, vertexColors: true });
     this.wedges = new Map(WEDGES.map((wedge) => [wedge, { mesh: new THREE.Mesh(wedgeGeometry(wedge, floor), stone()), seen: STANDS, since: 0 }]));
@@ -252,10 +253,10 @@ class RoomModel implements Model {
     if (this.group.parent !== scene) scene.add(this.group);
     this.group.visible = visible;
     this.time += clockDelta;
-    this.wedges.forEach((view, wedge) => this.settle(view, this.fallOf(wedge)));
+    this.wedges.forEach((view, wedge) => this.settle(view, this.fallOf(wedge), this.droppedBy(wedge, tickPercent)));
   }
 
-  private settle(view: WedgeView, fall: Fall): void {
+  private settle(view: WedgeView, fall: Fall, dropped: number): void {
     if (fall !== view.seen) {
       view.seen = fall;
       view.since = this.time;
@@ -277,7 +278,7 @@ class RoomModel implements Model {
       }
       case "dropping":
         mesh.material.color.copy(LOOK.crumble);
-        mesh.position.set(0, -0.5 * DROP_GRAVITY * t * t, 0);
+        mesh.position.set(0, dropped, 0);
         mesh.visible = mesh.position.y > DROP_HIDDEN_BELOW;
         return;
       default: {
@@ -319,7 +320,14 @@ export class ArenaRoom extends Entity {
   }
 
   drop(wedge: Wedge): void {
-    this.falls.set(wedge, { kind: "dropping" });
+    this.falls.set(wedge, { kind: "dropping", since: this.region.world.globalTickCounter });
+  }
+
+  droppedBy(wedge: Wedge | null, tickPercent: number): number {
+    const fall = wedge === null ? STANDS : this.falls.get(wedge) ?? STANDS;
+    if (fall.kind !== "dropping") return 0;
+    const t = (this.region.world.globalTickCounter - fall.since + tickPercent) * SECONDS_PER_TICK;
+    return -0.5 * DROP_GRAVITY * t * t;
   }
 
   override get collisionType(): CollisionType {
@@ -335,7 +343,22 @@ export class ArenaRoom extends Entity {
   }
 
   protected override create3dModel(): Model {
-    return new RoomModel(this.cross, (wedge) => this.falls.get(wedge) ?? STANDS);
+    return new RoomModel(this.cross, (wedge) => this.falls.get(wedge) ?? STANDS, (wedge, tickPercent) => this.droppedBy(wedge, tickPercent));
+  }
+}
+
+export class RimBrazier extends Brazier {
+  constructor(region: Region, private readonly at: Tile, private readonly room: ArenaRoom) {
+    super(region, at);
+  }
+
+  override getPerceivedLocation(tickPercent: number): Location3 {
+    const standing = super.getPerceivedLocation(tickPercent);
+    return { ...standing, z: standing.z + this.room.droppedBy(rimWedge(this.at), tickPercent) };
+  }
+
+  override visible(tickPercent: number): boolean {
+    return super.visible(tickPercent) && this.room.droppedBy(rimWedge(this.at), tickPercent) > DROP_HIDDEN_BELOW;
   }
 }
 

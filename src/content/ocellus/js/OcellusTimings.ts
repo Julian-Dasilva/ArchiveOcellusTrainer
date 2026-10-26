@@ -1082,6 +1082,8 @@ type P3Recipe = Readonly<{
     name: Selected<string>;
     combatLevel: Selected<number>;
     stats: Selected<VineStats>;
+    rootedChat: Selected<string>;
+    brokeFreeChat: Selected<string>;
   }>;
   rifts: Readonly<{
     afterUntether: Selected<TickSpan>;
@@ -1091,6 +1093,7 @@ type P3Recipe = Readonly<{
     detonatesAfter: Selected<TickSpan>;
     detonationDamage: Selected<DamageRange>;
   }>;
+  startChat: Selected<string>;
   shoutLasts: Selected<TickSpan>;
   bossPoses: Readonly<Record<P3BossPose, Selected<number>>>;
 }>;
@@ -1289,6 +1292,8 @@ const P3: P3Recipe = {
     name: selected("Void Vine", "spec-confirmed", "unscaled", "its name in game", wiki("https://oldschool.runescape.wiki/w/Void_Vine", 15377692)),
     combatLevel: selected(0, "spec-confirmed", "unscaled", "level 0 on its hover text", wiki("https://oldschool.runescape.wiki/w/Void_Vine", 15377692), ...p3Logs(["L3", "L4", "L5"], "fights 3 to 5: npc 16681 at level 0")),
     stats: selected<VineStats>({ attack: 1, strength: 1, defence: 1, range: 1, magic: 1, hitpoint: 44 }, "spec-single", "unscaled", "44 hitpoints; the wiki lists no other stat, so the rest are 1 (assumption)", wiki("https://oldschool.runescape.wiki/w/Void_Vine", 15377692), analysis(RSPROX_PLAN, "the rifts and vine row: 44 health")),
+    rootedChat: selected("You've been rooted in place!", "assumption", "unscaled", "the chat line as the vine roots the player; no fight log records it", NO_WIKI_PRESENTATION, OCELLUS_SIM("phase3.ts", "rootInVine")),
+    brokeFreeChat: selected("You break free of the vine.", "assumption", "unscaled", "the chat line as the player's cut kills the vine; the quadrant's fall lets the vine go with no line; no fight log records either", NO_WIKI_PRESENTATION, OCELLUS_SIM("phase3.ts", "vineBroken and the collapse's releaseVine")),
   },
   rifts: {
     afterUntether: selected(span(32), "log-repeated", "unscaled", "none before quadrant 1's first Untether; after each Untether the quadrant stands through, a Void Rift 32 ticks after Untether starts", NO_WIKI_P3_TICKS, analysis(RSPROX_PLAN, "phase 3 rifts: U+32 during Untether"), ...P3_RIFT_LOGS),
@@ -1298,6 +1303,7 @@ const P3: P3Recipe = {
     detonatesAfter: selected(span(30), "log-repeated", "unscaled", "a rift left alive detonates 30 ticks after it appears, its flare on the player and its hit on the same tick; destroying one first resets the player's attack cooldown, and standard ranged and melee attacks max-hit it, as in phase 4", VOID_RIFT_PAGE, analysis(RSPROX_PLAN, "phase 3 rifts: detonates 30 ticks from its add"), ...p3Logs(["L3", "L5"], "fight 3: a Void Rift from S+88 detonated at S+118; fight 5: two Void Augmenters 30 ticks after they appeared")),
     detonationDamage: selected<DamageRange>({ min: 39, max: 41 }, "footage-repeated", "unscaled", "typeless; 39 from a Void Rift and 40, 40 and 41 from a Void Augmenter; one raider under Protect from Magic took 18", noWiki("the Void Rift page does not say what an unkilled rift does (Void Rift rev 15380527)"), ...p3Logs(["L3", "L5"], "fights 3 and 5")),
   },
+  startChat: selected("Challenge started: Ocellus.", "log-repeated", "unscaled", "the game chat as the fight starts; the drill starts at phase 3, so the line comes as it opens", NO_WIKI_PRESENTATION, ...p3Logs(["L3", "L4", "L5", "L6", "L7", "L8"], "fights 3 to 8: the line as the fight starts"), OCELLUS_SIM("phase3.ts", "begin, on a direct phase 3 start")),
   shoutLasts: selected(span(3), "assumption", "unscaled", "how long his overhead text shows", NO_WIKI_PRESENTATION),
   bossPoses: {
     swing: pose(14842, "npc_ocellus_phase3_melee_basic", "inferred", "the swing, 2 ticks; by its name"),

@@ -12,8 +12,7 @@ import { P3Marks } from "./entities/P3Marks";
 import { FloorHole, PlayerLook } from "./entities/P4Views";
 import { OcellusP3 } from "./mobs/OcellusP3";
 import { ARENA_SIZE, BRAZIERS, STANDING, STONES, footprint } from "./p3/arena";
-import { ArenaRoom, Rubble } from "./entities/ArenaRoom";
-import { Brazier } from "./entities/Scenery";
+import { ArenaRoom, RimBrazier, Rubble } from "./entities/ArenaRoom";
 
 const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   swing: "a swing",
@@ -32,7 +31,7 @@ const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   "quadrant-gone": "the falling quadrant",
 };
 
-const { bossPoses, spin, shoutLasts, collapse } = OCELLUS_P3;
+const { bossPoses, spin, shoutLasts, collapse, vine, startChat } = OCELLUS_P3;
 type MoveLook = Readonly<{ pose: number | null; spots: readonly number[] }>;
 const NO_SPOTS: readonly number[] = [];
 const MOVE_LOOK: Readonly<Record<BossMove, MoveLook>> = {
@@ -103,10 +102,15 @@ function present(event: P3Event, { region, boss, marks, player, room, rubble, ho
     case "run-ended":
       marks.clear();
       return;
+    case "vine-rooted":
+      chat.push(vine.rootedChat.value);
+      return;
+    case "vine-cut":
+      chat.push(vine.brokeFreeChat.value);
+      return;
     case "stage-entered":
     case "player-hit":
-    case "vine-rooted":
-    case "vine-cut":
+    case "vine-released":
     case "rift-spawned":
       return;
     default: {
@@ -144,12 +148,12 @@ export class P3Region extends Region {
     dress(player, this.config.choices.setup.option.value);
     for (const edge of STANDING.surround().tiles()) this.addEntity(new InvisibleMovementBlocker(this, { ...edge }));
     this.addEntity(room);
-    BRAZIERS.tiles().forEach((at) => this.addEntity(new Brazier(this, at)));
+    BRAZIERS.tiles().forEach((at) => this.addEntity(new RimBrazier(this, at, room)));
     this.addEntity(marks);
     this.addPlayer(player);
     this.addMob(boss);
     this.setBoss(boss);
-    this.mounted = { kind: "mounted", region: this, boss, unit: player, marks, player: new PlayerLook(player), room, rubble: new Rubble(this), holes: [], chat: [] };
+    this.mounted = { kind: "mounted", region: this, boss, unit: player, marks, player: new PlayerLook(player), room, rubble: new Rubble(this), holes: [], chat: [startChat.value] };
     return { player };
   }
 

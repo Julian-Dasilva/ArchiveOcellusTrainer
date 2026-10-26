@@ -110,7 +110,7 @@ export class Brazier extends Entity {
     return LineOfSightMask.NONE;
   }
 
-  override getPerceivedLocation(): Location3 {
+  override getPerceivedLocation(tickPercent: number): Location3 {
     return { ...this.location, z: LOOK.height };
   }
 

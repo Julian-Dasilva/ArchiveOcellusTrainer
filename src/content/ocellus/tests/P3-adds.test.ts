@@ -73,6 +73,22 @@ describe("P3 adds and hazards", () => {
     });
   });
 
+  test("the chat says the challenge started, that the vine roots the player and that they broke free when it dies", async () => {
+    const drill = await startP3Drill({ seed: 1, invincible: true });
+    drill.tickTo(70);
+    const observed = {
+      rooted: drill.events("vine-rooted").map((event) => event.at),
+      cut: drill.events("vine-cut").map((event) => event.at),
+      chat: drill.region.chat().filter((line) => !line.startsWith("Invincible")),
+    };
+    drill.dispose();
+    expect(observed).toEqual({
+      rooted: [36],
+      cut: [63],
+      chat: ["Challenge started: Ocellus.", "You've been rooted in place!", "You break free of the vine."],
+    });
+  });
+
   test("a rooted player cannot walk until the vine dies", async () => {
     const drill = await startP3Drill({ seed: 1, invincible: true });
     drill.tickTo(37);

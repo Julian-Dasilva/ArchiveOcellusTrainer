@@ -169,9 +169,18 @@ export class OcellusP3 extends Mob {
     this.fight = step.fight;
     this.stance = step.fight.schedule.at(at).phase.boss;
     step.outputs.forEach((output) => this.enact(output));
+    const released = step.outputs.some((output) => output.kind === "event" && output.event.kind === "quadrant-collapsing") ? this.releaseVines(at) : [];
     this.rifts.forEach(({ mob, spawnedAt }) => mob.charge(chargeBar(at - spawnedAt)));
     if (this.vines.size > 0) this.target.freeze(2);
-    return { outputs: [...cut, ...step.outputs], ending: step.ending };
+    return { outputs: [...cut, ...step.outputs, ...released], ending: step.ending };
+  }
+
+  private releaseVines(at: Tick): readonly Logged<P3Event>[] {
+    if (this.vines.size === 0) return [];
+    this.vines.forEach((vine) => this.region.removeMob(vine));
+    this.vines.clear();
+    if (this.target.aggro instanceof VoidVine) this.target.interruptCombat();
+    return [{ kind: "event", event: { kind: "vine-released", at } }];
   }
 
   private vineCut(at: Tick): readonly Logged<P3Event>[] {
@@ -222,6 +231,7 @@ export class OcellusP3 extends Mob {
       case "hazard-shown":
       case "void-formed":
       case "vine-cut":
+      case "vine-released":
       case "player-hit":
       case "death-prevented":
       case "run-ended":
