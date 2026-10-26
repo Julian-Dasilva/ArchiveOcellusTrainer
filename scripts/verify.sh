@@ -407,7 +407,7 @@ serve() {
   fi
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
 
-  ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --host 127.0.0.1 --port "$VERIFY_PORT" \
+  ARCHIVE_P2=on ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --host 127.0.0.1 --port "$VERIFY_PORT" \
     >"$VERIFY_DIR/server.log" 2>&1 &
   local pid=$!
   LAUNCHED_PID=$pid
@@ -3002,7 +3002,7 @@ serve_static() {
 stage_production() {
   production_port_free || return 1
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
-  ARCHIVE_P3=off node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/production" >"$VERIFY_DIR/production-build.log" 2>&1 || { log "the production build failed"; return 1; }
+  ARCHIVE_P2=off ARCHIVE_P3=off node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/production" >"$VERIFY_DIR/production-build.log" 2>&1 || { log "the production build failed"; return 1; }
 
   local BROWSER_SESSION="archive-ocellus-verify-$(basename "$VERIFY_DIR")-production" PRODUCTION_PID= result=1
   trap 'release_production; exit 130' INT TERM

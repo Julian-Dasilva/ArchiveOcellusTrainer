@@ -19,7 +19,7 @@ export async function startP3Drill(options: P3DrillOptions = {}) {
   if (options.reach !== undefined) link.searchParams.set("reach", options.reach);
   const request = parseRequest(link, () => {
     throw new Error(`the drill link has no usable seed: ${link.search}`);
-  }, { p3: true, p1: false });
+  }, { p3: true, p2: false, p1: false });
   if (request.phase !== "p3") throw new Error(`the drill link opened ${request.phase}: ${link.search}`);
   if (request.rejected.length > 0) throw new Error(`the drill link has options the trainer rejects: ${request.rejected.join(", ")}`);
   const region = new P3Region(request.config);

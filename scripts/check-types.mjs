@@ -10,7 +10,7 @@ const FIGHT = path.join(root, "src/content/ocellus/js");
 const SIM = path.join(root, "src/sim");
 const SIM_SDK = path.join(SIM, "sdk");
 const SDK_PACKAGE = /^osrs-sdk(-[a-z]+)?(\/|$)/;
-const PUBLIC = new Set(["OcellusRegion.ts", "OcellusTimings.ts", "P4Types.ts", "P3Region.ts", "P3Types.ts", "P1Region.ts", "P1Types.ts"].map((file) => path.join(FIGHT, file)));
+const PUBLIC = new Set(["OcellusRegion.ts", "OcellusTimings.ts", "P4Types.ts", "P3Region.ts", "P3Types.ts", "P2Region.ts", "P2Types.ts", "P1Region.ts", "P1Types.ts"].map((file) => path.join(FIGHT, file)));
 const SUPPRESSION = /@ts-(ignore|expect-error|nocheck)\b/;
 const TEST_FILE = /(^|[/\\])__tests__[/\\]|\.(test|spec)(-d)?\.[cm]?[jt]sx?$/;
 

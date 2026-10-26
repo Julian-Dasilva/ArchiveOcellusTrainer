@@ -245,7 +245,7 @@ export class FloorHole extends Entity {
 const ORB_LOOK = OCELLUS_P4.lifeforceOrb.look;
 const SPAWN_LOOK: Readonly<Record<VoidKind, number>> = { "inner-void": ORB_LOOK.innerSpawn.value, "outer-void": ORB_LOOK.outerSpawn.value };
 
-type Cue = Readonly<{ spotAnim: number; loops: boolean }>;
+export type Cue = Readonly<{ spotAnim: number; loops: boolean }>;
 
 class Playing {
   ended = false;

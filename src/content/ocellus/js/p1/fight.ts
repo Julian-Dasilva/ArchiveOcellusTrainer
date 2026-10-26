@@ -161,8 +161,8 @@ class TurnBuilder {
           damage: {
             kind: "by-prayer",
             style: volley.styles.value[element],
-            protectedAmount: rollInt(seed, "volleyDamage", at, volley.protectedDamage.value, 0),
-            unprotectedAmount: rollInt(seed, "volleyDamage", at, volley.unprotectedDamage.value, 1),
+            protectedAmount: rollInt(seed, "p1VolleyDamage", at, volley.protectedDamage.value, 0),
+            unprotectedAmount: rollInt(seed, "p1VolleyDamage", at, volley.unprotectedDamage.value, 1),
           },
           cause: { kind: "volley", at: landsAt, element, launchedAt: at },
         };
