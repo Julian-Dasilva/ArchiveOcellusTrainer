@@ -330,6 +330,23 @@ P3_CHAIN_LAST_TICK=134
 P3_ADDS='[[4,"hazard-shown"],[6,"void-formed"],[7,"hazard-shown"],[27,"hazard-shown"],[36,"vine-rooted"],[63,"vine-cut"],[85,"rift-spawned"],[113,"hazard-shown"],[115,"rift-detonated"],[133,"rift-spawned"]]'
 P3_CHAIN='[[4,"swing"],[7,"swing"],[10,"shadow-slash"],[14,"swing"],[17,"swing"],[20,"shadow-slash"],[24,"spin"],[29,"last-saw"],[33,"swing"],[36,"swing"],[39,"shadow-slash"],[43,"swing"],[46,"swing"],[49,"shadow-slash"],[53,"untether"],[82,"slam"],[90,"swing"]]'
 P3_START_P4='{"search":"?phase=p4&setup=ranged","bossHp":1312}'
+PRESENT_QUERY="?seed=1&invincible=on"
+PRESENT_RESIZED_VIEWPORT="1000 700"
+PRESENT_DEVICE_SCALE=2
+PRESENT_RESIZED_TILE='{"x":8,"y":3}'
+PRESENT_SCALED_TILE='{"x":10,"y":1}'
+PRESENT_CENTRE_TILE='{"x":5,"y":5}'
+PRESENT_CENTRE_HALF_PX=30
+PRESENT_LIT_LEVEL_SUM=30
+PRESENT_DRAWN_MIN_SHARE=10
+PRESENT_LOST_MAX_SHARE=5
+PRESENT_LEVEL_TOLERANCE=2
+PRESENT_MAX_OFF_SHARE=1
+PRESENT_HOLD_MS=2000
+PRESENT_LOST_MS=1500
+PRESENT_CONTEXT_LOST_LOG="[osrs-sdk] WebGL context lost while rendering the 3D viewport"
+PRESENT_FRAME_WAIT_LIMIT=120
+PRESENT_WEBGL_HOOKS_JS='(() => { const contexts = []; window.__webglContexts = contexts; window.__webglClears = 0; for (const Canvas of [HTMLCanvasElement, OffscreenCanvas]) { const getContext = Canvas.prototype.getContext; Canvas.prototype.getContext = function (type, ...rest) { const context = getContext.call(this, type, ...rest); if (type === "webgl2" && context && !contexts.includes(context)) contexts.push(context); return context; }; } const clear = WebGL2RenderingContext.prototype.clear; WebGL2RenderingContext.prototype.clear = function (...args) { window.__webglClears++; return clear.apply(this, args); }; })();'
 # Phase 4 as RuneLite fight logs recorded on 2026-10-23 show it: the lead-in, an orb taken by a player waiting on it, and a rift kill's reset.
 RECORDED_LEAD_IN_QUERY="?seed=100"
 RECORDED_RING_TILE='{"x":5,"y":3}'
@@ -1976,6 +1993,138 @@ drive_p3_drill() {
   ab --json errors | json data.errors >"$VERIFY_DIR/p3-start-p4-page-errors.json" || { log "page error capture failed"; return 1; }
 }
 
+pause_by_tab_switch() {
+  local trainer
+  trainer="$(ab --json tab list | node -e 'let s="";process.stdin.on("data",(d)=>(s+=d)).on("end",()=>console.log(JSON.parse(s).data.tabs.find((tab)=>tab.active).tabId))')" || return 1
+  ab tab new about:blank >/dev/null && ab tab close >/dev/null && ab tab "$trainer" >/dev/null || { log "the tab switch that pauses the trainer failed"; return 1; }
+  ab wait --fn "window.__archiveOcellusProbe.snapshot().ticking === false && [...document.querySelectorAll('button')].some((button) => button.textContent === 'Resume')" --timeout 5000 >/dev/null ||
+    { log "switching tabs did not pause the trainer"; return 1; }
+}
+
+click_resume() {
+  ab find role button click --name Resume >/dev/null && ab wait --fn "window.__archiveOcellusProbe.snapshot().ticking === true" --timeout 5000 >/dev/null || log "Resume did not restart the trainer"
+}
+
+# The WebGL layer reads back blank outside a frame that drew it, so the expected screen waits for a frame callback after a 3D render.
+frame_present() {
+  local scene="(() => {
+    const world = document.querySelector('#world'), area = world.parentElement, edges = world.getBoundingClientRect();
+    const box = (e) => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; };
+    const meets = (b) => b.width > 0 && b.height > 0 && b.right > edges.left && b.left < edges.right && b.bottom > edges.top && b.top < edges.bottom;
+    const covers = (b) => b.left <= edges.left && b.top <= edges.top && b.right >= edges.right && b.bottom >= edges.bottom;
+    const layers = [...area.querySelectorAll(':scope > canvas')].filter((canvas) => !canvas.hidden);
+    const overlays = [...area.children, ...document.body.children].filter((e) => !layers.includes(e) && !e.contains(world) && getComputedStyle(e).visibility !== 'hidden' && meets(e.getBoundingClientRect()));
+    const backdrops = overlays.filter((e) => covers(e.getBoundingClientRect()));
+    return { world, box, layers, backdrops, excluded: overlays.flatMap((e) => (backdrops.includes(e) ? [...e.children] : [e])).map(box) };
+  })()"
+  ab --json eval "new Promise((done) => {
+    let clears = window.__webglClears, waited = 0;
+    const compose = () => {
+      const drew = window.__webglClears !== clears;
+      clears = window.__webglClears;
+      if (!drew && waited++ < ${PRESENT_FRAME_WAIT_LIMIT}) return requestAnimationFrame(compose);
+      const { world, box, layers, backdrops, excluded } = ${scene};
+      const expected = new OffscreenCanvas(world.width, world.height), context = expected.getContext('2d');
+      context.fillStyle = 'black';
+      context.fillRect(0, 0, world.width, world.height);
+      for (const layer of layers) context.drawImage(layer, 0, 0);
+      for (const backdrop of backdrops) {
+        context.fillStyle = getComputedStyle(backdrop).backgroundColor;
+        context.fillRect(0, 0, world.width, world.height);
+      }
+      const frame = {
+        ticking: window.__archiveOcellusProbe.snapshot().ticking,
+        drew,
+        devicePixelRatio,
+        centre: window.__archiveOcellusProbe.tileCentre(${PRESENT_CENTRE_TILE}),
+        world: { ...box(world), backing: [world.width, world.height] },
+        layers: layers.map((layer) => ({ ...box(layer), backing: [layer.width, layer.height] })),
+        excluded,
+      };
+      expected.convertToBlob({ type: 'image/png' }).then((blob) => {
+        const reader = new FileReader();
+        reader.onload = () => done({ ...frame, expected: String(reader.result).split(',')[1] });
+        reader.readAsDataURL(blob);
+      });
+    };
+    requestAnimationFrame(compose);
+  })" | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      const { success, data } = JSON.parse(s);
+      if (!success) process.exit(1);
+      const { expected, ...frame } = data.result;
+      require("fs").writeFileSync(`${process.argv[1]}-expected.png`, Buffer.from(expected, "base64"));
+      require("fs").writeFileSync(`${process.argv[1]}.json`, JSON.stringify(frame));
+    });
+  ' "$VERIFY_DIR/$1" || { log "$1: the expected frame was not composed"; return 1; }
+  ab screenshot "$VERIFY_DIR/$1-screen.png" >/dev/null || { log "$1: screenshot failed"; return 1; }
+  ab --json eval "${scene}.excluded" | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      const { success, data } = JSON.parse(s);
+      if (!success) process.exit(1);
+      const file = `${process.argv[1]}.json`, frame = JSON.parse(require("fs").readFileSync(file, "utf8"));
+      require("fs").writeFileSync(file, JSON.stringify({ ...frame, excluded: [...frame.excluded, ...data.result] }));
+    });
+  ' "$VERIFY_DIR/$1" || { log "$1: the overlays were not measured after the screenshot"; return 1; }
+}
+
+camera_still() {
+  [[ "$(ab --json eval "new Promise((done) => {
+    const seen = [], started = performance.now();
+    const look = () => {
+      seen.push(JSON.stringify(window.__archiveOcellusProbe.tileCentre($1)));
+      if (seen.length >= 5 && seen.slice(-5).every((at) => at === seen.at(-1))) return done(true);
+      if (performance.now() - started > 10000) return done(false);
+      setTimeout(look, 100);
+    };
+    look();
+  })" | json data.result)" == true ]] || log "the camera never settled on $1"
+}
+
+live_present() {
+  ab --json eval "({ lost: window.__webglContexts[0].isContextLost(), contexts: window.__webglContexts.length, centre: window.__archiveOcellusProbe.tileCentre(${PRESENT_CENTRE_TILE}) })" |
+    json data.result >"$VERIFY_DIR/$1.json" || { log "$1: context state capture failed"; return 1; }
+  ab screenshot "$VERIFY_DIR/$1.png" >/dev/null || { log "$1: screenshot failed"; return 1; }
+}
+
+drive_layered_present() {
+  local BROWSER_SESSION="${BROWSER_SESSION}-present"
+  echo "$PRESENT_WEBGL_HOOKS_JS" >"$VERIFY_DIR/present-webgl-hooks.js"
+  ab --init-script "$VERIFY_DIR/present-webgl-hooks.js" set viewport 1280 800 >/dev/null || { log "the present session did not start"; return 1; }
+  ab open "${URL}${PRESENT_QUERY}" >/dev/null && wait_until_ticking || return 1
+
+  ab set viewport $PRESENT_RESIZED_VIEWPORT >/dev/null || return 1
+  ab wait --fn "(([width, height], world) => world.width === width && world.height === height)([${PRESENT_RESIZED_VIEWPORT// /,}], document.querySelector('#world'))" --timeout 5000 >/dev/null ||
+    { log "#world never took the ${PRESENT_RESIZED_VIEWPORT} viewport"; return 1; }
+  camera_still "$PRESENT_RESIZED_TILE"
+  walk_to_tile present-resized "$PRESENT_RESIZED_TILE" "$PRESENT_RESIZED_TILE" || return 1
+  pause_by_tab_switch && frame_present present-resized && click_resume || return 1
+
+  ab set viewport $PRESENT_RESIZED_VIEWPORT "$PRESENT_DEVICE_SCALE" >/dev/null || return 1
+  ab wait --fn "devicePixelRatio === ${PRESENT_DEVICE_SCALE}" --timeout 5000 >/dev/null || { log "the device scale never became ${PRESENT_DEVICE_SCALE}"; return 1; }
+  camera_still "$PRESENT_SCALED_TILE"
+  walk_to_tile present-scaled "$PRESENT_SCALED_TILE" "$PRESENT_SCALED_TILE" || return 1
+  pause_by_tab_switch && frame_present present-scaled && click_resume || return 1
+
+  ab set viewport 1280 800 >/dev/null && ab wait --fn "devicePixelRatio === 1 && document.querySelector('#world').width === 1280" --timeout 5000 >/dev/null || return 1
+  pause_by_tab_switch && frame_present present-paused || return 1
+  ab wait "$PRESENT_HOLD_MS" >/dev/null && ab screenshot "$VERIFY_DIR/present-paused-held-screen.png" >/dev/null || { log "held pause screenshot failed"; return 1; }
+  click_resume
+  probe "snapshot().ticking" >"$VERIFY_DIR/present-resumed.json"
+
+  ab eval "(window.__loseContext = window.__webglContexts[0].getExtension('WEBGL_lose_context')).loseContext()" >/dev/null || { log "the WebGL context could not be lost"; return 1; }
+  ab wait "$PRESENT_LOST_MS" >/dev/null && live_present present-context-lost || return 1
+  ab eval "window.__loseContext.restoreContext()" >/dev/null || { log "the WebGL context could not be restored"; return 1; }
+  ab wait --fn "!window.__webglContexts[0].isContextLost()" --timeout 5000 >/dev/null || log "the WebGL context was never restored"
+  ab wait "$PRESENT_LOST_MS" >/dev/null && live_present present-context-restored-live || return 1
+  pause_by_tab_switch && frame_present present-context-restored && click_resume || return 1
+  ab console >"$VERIFY_DIR/present-console.log" 2>&1 || { log "console capture failed"; return 1; }
+  ab --json errors | json data.errors >"$VERIFY_DIR/present-page-errors.json" || { log "page error capture failed"; return 1; }
+  ab close >/dev/null 2>&1
+}
+
 click_tile_after_tick() {
   tile_pixel "$1" "$2" "$3" || return 1
   canvas_centre || { log "$1: canvas box unreadable"; return 1; }
@@ -2048,6 +2197,7 @@ release_browser() {
   agent-browser --session "${BROWSER_SESSION}-autoplay" close >/dev/null 2>&1
   agent-browser --session "${BROWSER_SESSION}-mobile" close >/dev/null 2>&1
   agent-browser --session "${BROWSER_SESSION}-stored-view" close >/dev/null 2>&1
+  agent-browser --session "${BROWSER_SESSION}-present" close >/dev/null 2>&1
   [[ -n "$LAUNCHED_PID" && -f "$STATE_FILE" && "$(state pid)" == "$LAUNCHED_PID" ]] || return 0
   stop
 }
