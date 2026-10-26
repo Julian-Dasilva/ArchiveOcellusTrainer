@@ -33,13 +33,13 @@ describe("strayPhaseModules", () => {
 
   test.each([
     {
-      flags: { p3: false, p2: false, p1: false },
+      flags: { p3: false, p2: false, p1: false, full: false },
       strays: [
         { module: "src/content/ocellus/js/P1Region.ts", phases: ["p1"] },
         { module: "src/content/ocellus/js/p3/arena.ts", phases: ["p1", "p2", "p3"] },
       ],
     },
-    { flags: { p3: false, p2: false, p1: true }, strays: [] },
+    { flags: { p3: false, p2: false, p1: true, full: false }, strays: [] },
   ])("with $flags, P1's region is stray unless p1 is on, and P1 keeps P3's arena it builds on", async ({ flags, strays }) => {
     expect(await strayPhaseModules(["webpack://archive-ocellus-trainer/./src/content/ocellus/js/P1Region.ts", "webpack://archive-ocellus-trainer/./src/content/ocellus/js/p3/arena.ts"], { ...flags, full: false })).toEqual(strays);
   });
