@@ -13,7 +13,7 @@ import type { BossHooks, Form, PlayerHooks, Style } from "./units";
 import { BossForm, FightPlayer } from "./units";
 
 /** Phase 3's third fall hands the fight to our phase 4 drill, so his phase 4 is not a start phase. */
-export const START_PHASES = [3] as const;
+export const START_PHASES = [1, 2, 3] as const;
 export type StartPhase = (typeof START_PHASES)[number];
 
 export type FightOptions = Readonly<{
