@@ -11,6 +11,14 @@ export const CHANGELOG: Changelog = [
     ],
   },
   {
+    version: "2026.10.26.1",
+    notes: [
+      "The fight waits for you. Set your keybinds and settings first, then press Start to begin the GET READY countdown.",
+      "Pause with the Pause button or P. While paused you can change keybinds and settings, and the fight resumes on the same tick. The result shows how long you paused.",
+      "The trainer now opens when your browser blocks site storage or the storage is full. Your settings then reset each time the page reloads, which Restart does.",
+    ],
+  },
+  {
     version: "2026.10.26",
     notes: [
       "The 2D view is gone, and the 3D view draws each frame in about 14 draw calls instead of about 550. Gear switches after your first hitch far less. A typical switch's slowest frame drops from about 50 ms to one frame at 60 Hz.",

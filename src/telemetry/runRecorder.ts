@@ -68,6 +68,11 @@ export class RunRecorder {
     this.lastTickAt = at;
   }
 
+  excludePause(ms: number): void {
+    if (this.lastFrameAt !== null) this.lastFrameAt += ms;
+    if (this.lastTickAt !== null) this.lastTickAt += ms;
+  }
+
   timings(): RunTimings {
     const ms = (value: number) => Math.round(value * 10) / 10;
     return {

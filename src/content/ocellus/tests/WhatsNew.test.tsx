@@ -14,13 +14,14 @@ const FIRST_RELEASE = {
 };
 
 const NEXT_RELEASE = {
-  version: "2026.10.26.2",
+  version: "2026.10.26",
   date: "2026-10-26",
   notes: [
-    "Before each run of void explosions, a ring of dark ovals forms around your feet, as in game, three ticks before the first mark.",
-    "Ocellus plays his death animation when you kill him, glows as he steals your lifeforce in the melee phase, and a gust blows back at you when Deflect turns your hit away. Your lifeforce orb plays a heal sound as it returns your HP.",
-    "Explosions hit 14 to 16, a transition attack you pray against hits up to 10, and the inner orb stays one tick longer, as the recorded fights show.",
-    "Void rifts come 2, 3, 4 and then 5 a cycle, on random tiles 2 to 5 from Ocellus, as in the recorded fights.",
+    "The 2D view is gone, and the 3D view draws each frame in about 14 draw calls instead of about 550. Gear switches after your first hitch far less. A typical switch's slowest frame drops from about 50 ms to one frame at 60 Hz.",
+    "The void shards of each explosion now come in high over your head, from the game's own effect, so you can see the cue to step while you move.",
+    "Change your mind before the tick, like in game. Whatever you click last before the tick is what you do, even a click made right before it.",
+    "Ocellus takes damage as soon as he is back on the platform, and standing on your lifeforce orb as it glows gives your HP back that tick.",
+    "A void rift left alive bursts 30 ticks after it appears and hits you once for 28 to 41, and destroying a rift resets your attack timer.",
   ],
 };
 
@@ -76,15 +77,17 @@ describe("What's new", () => {
     expect(opened.releases.at(-1)).toEqual(FIRST_RELEASE);
   });
 
-  test("a player who saw the last shipped release sees the dot again, and What's new opens on the next release", () => {
-    localStorage.setItem(SEEN_RELEASE_KEY, "2026.10.26");
+  test("a player who saw the last shipped release sees the dot again, and What's new opens on the unshipped releases, newest first, with the next shipped one below them", () => {
+    localStorage.setItem(SEEN_RELEASE_KEY, "2026.10.25.1");
     const page = loadPage("/?seed=1");
     const { settingsDot, menuDot } = whatsNew(page);
     page.click("settings");
     page.click("whats_new");
     const { releases } = whatsNew(page);
     page.close();
-    expect({ settingsDot, menuDot, newest: releases[0] }).toEqual({ settingsDot: true, menuDot: true, newest: NEXT_RELEASE });
+    expect({ settingsDot, menuDot, unshipped: releases.slice(0, 2).map((release) => release.version), next: releases[2] }).toEqual({
+      settingsDot: true, menuDot: true, unshipped: ["2026.10.26.2", "2026.10.26.1"], next: NEXT_RELEASE,
+    });
   });
 
   test("opening What's new from the keyboard moves focus to the panel's title", () => {

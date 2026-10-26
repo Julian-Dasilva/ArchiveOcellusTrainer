@@ -1,7 +1,7 @@
 import { CardinalDirection, InvisibleMovementBlocker, Projectile, Region } from "osrs-sdk";
 import type { Player } from "osrs-sdk";
-import type { P1Config } from "./OcellusTimings";
-import { OCELLUS_P4 } from "./OcellusTimings";
+import type { Loadout, P1Config } from "./OcellusTimings";
+import { OCELLUS_P4, defaultLoadout } from "./OcellusTimings";
 import { OCELLUS_P1 } from "./OcellusTimingsP1";
 import { dress, loadoutSnapshot } from "./OcellusLoadout";
 import { OcellusPlayer } from "./OcellusPlayer";
@@ -36,7 +36,7 @@ export class P1Region extends Region {
   private mounted: Mounted = { kind: "unmounted" };
   invincible = false;
 
-  constructor(private readonly config: P1Config) {
+  constructor(private readonly config: P1Config, private readonly loadout: Loadout = defaultLoadout(config.choices.setup.option.value)) {
     super();
   }
 
@@ -69,7 +69,7 @@ export class P1Region extends Region {
   initialiseRegion(): { player: Player } {
     const player: OcellusPlayer = new OcellusPlayer(this, { ...OCELLUS_P1.room.playerSpawn.value }, () => boss.binding, () => false);
     const boss: OcellusP1 = new OcellusP1(this, this.config, player, () => this.invincible);
-    dress(player, this.config.choices.setup.option.value);
+    dress(player, this.loadout);
     for (const edge of ROOM.surround().tiles()) this.addEntity(new InvisibleMovementBlocker(this, { ...edge }));
     this.addPlayer(player);
     this.addMob(boss);
