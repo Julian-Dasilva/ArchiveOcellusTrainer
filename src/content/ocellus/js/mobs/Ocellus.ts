@@ -7,6 +7,7 @@ import { bossBonuses, withDefenceFloor } from "../bossStats";
 import type { Cycle, Tick, Tile } from "../../../../sim/brands";
 import { after, span, tick, tile } from "../../../../sim/brands";
 import type { IncomingStyle, Style } from "../../../../sim/combat";
+import { cutAttackDelay } from "../../../../sim/combat";
 import type { AttackDelayCut, FrameOf, Heal, HitRequest, Hooks, InFlight, IncomingHit, Judgement, Landed, Logged } from "../../../../sim/sdk/EncounterBinding";
 import { EncounterBinding, incomingStyle } from "../../../../sim/sdk/EncounterBinding";
 import type {
@@ -93,7 +94,6 @@ function landedDamage(verdict: Verdict, hit: IncomingHit): number {
 function damageable(state: BossState): boolean {
   switch (state) {
     case "hidden":
-    case "present-invulnerable":
       return false;
     case "present-out-of-melee-reach":
     case "present-damageable":
@@ -240,7 +240,7 @@ export class Ocellus extends Mob {
     const moment = this.schedule.at(at);
     const phased = logs(...phaseEvents(at > 0 ? this.schedule.at(tick(at - 1)).phase : null, moment.phase, at));
     if (this.currentStats.hitpoint <= 0) return { outputs: [...phased, ...logs({ kind: "run-ended", at, reason: "kill" })], ending: "kill" };
-    const destroyed = logs(...this.destroyFallenRifts(at));
+    const destroyed = this.destroyFallenRifts(at, player.attackDelay);
     this.rifts.forEach((rift) => rift.mob.charge(span(at - rift.spawnedAt)));
     const reactions = moment.beats.flatMap((beat) => this.react(beat, at, player));
     return { outputs: [...phased, ...destroyed, ...reactions, ...this.strikeHole(at, player)], ending: null };
@@ -297,7 +297,7 @@ export class Ocellus extends Mob {
       case "lifeforce-hit":
         return [drain({ ...this.config, holes: this.holes }, this.orbs, beat.void, at, player.tile)];
       case "orb-matures":
-        return logs(...this.stepOrbs(matureOrb(this.orbs, beat.void, at)));
+        return logs(...this.stepOrbs(matureOrb(this.orbs, beat.void, at, player.tile, this.config.choices.orbPickupRadius.option.value)));
       case "orb-expires":
         return logs(...this.stepOrbs(expireOrb(this.orbs, beat.void, at)));
       case "unclaimed-orb-heals":
@@ -368,20 +368,25 @@ export class Ocellus extends Mob {
     });
   }
 
-  private destroyFallenRifts(at: Tick): FightEvent[] {
+  /** A destroyed rift empowers the player, resetting the attack delay (`OCELLUS_P4.rifts.killEmpowers`). */
+  private destroyFallenRifts(at: Tick, attackDelay: number): readonly TurnOutput[] {
     const fallen = this.rifts.filter((rift) => rift.hpAtPostTick <= 0);
     this.rifts = this.rifts.filter((rift) => rift.hpAtPostTick > 0);
-    return fallen.map((rift) => ({ kind: "rift-destroyed", at, rift: rift.id, tile: rift.tile }));
+    if (fallen.length === 0) return [];
+    const reset = span(Math.max(0, attackDelay));
+    const change = { before: attackDelay, after: cutAttackDelay(attackDelay, reset) };
+    return [{ kind: "cut-attack-delay", by: reset }, ...logs(...fallen.map((rift): FightEvent => ({ kind: "rift-destroyed", at, rift: rift.id, tile: rift.tile, attackDelay: change })))];
   }
 
+  /** Every rift due bursts, and together they hit the player once. */
   private burstRifts(forCycle: Cycle, at: Tick): readonly Output[] {
     const isDue = (rift: Rift) => rift.forCycle === forCycle;
     const due = this.rifts.filter(isDue);
     this.rifts = this.rifts.filter((rift) => !isDue(rift));
-    return due.map((rift, draw) => {
-      rift.mob.detonate();
-      return fixedHit(rollInt(this.config.seed, "riftBurst", at, OCELLUS_P4.rifts.burstDamage.value, draw), { kind: "rift-burst", at, rift: rift.id, tile: rift.tile });
-    });
+    if (due.length === 0) return [];
+    const [first, ...rest] = due;
+    due.forEach((rift) => rift.mob.detonate());
+    return [fixedHit(rollInt(this.config.seed, "riftBurst", at, OCELLUS_P4.rifts.burstDamage.value, 0), { kind: "rift-burst", at, rifts: [first.id, ...rest.map((rift) => rift.id)] })];
   }
 
   private healBoss(cause: HealCause, requested: number, at: Tick): FightEvent {

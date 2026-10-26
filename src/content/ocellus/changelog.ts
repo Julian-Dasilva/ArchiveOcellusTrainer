@@ -2,6 +2,13 @@ import type { Changelog } from "../../releases";
 
 export const CHANGELOG: Changelog = [
   {
+    version: "2026.10.26",
+    notes: [
+      "Ocellus takes damage as soon as he is back on the platform, and standing on your lifeforce orb as it glows gives your HP back that tick.",
+      "A void rift left alive bursts 30 ticks after it appears and hits you once for 28 to 41, and destroying a rift resets your attack timer.",
+    ],
+  },
+  {
     version: "2026.10.25.3",
     notes: [
       "The void shards of each explosion now come in high over your head, from the game's own effect, so you can see the cue to step while you move.",

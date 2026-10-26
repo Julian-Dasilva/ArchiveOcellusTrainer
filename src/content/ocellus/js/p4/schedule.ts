@@ -70,7 +70,7 @@ export function compileSchedule(seed: Seed, choices: ResolvedChoices): P4Schedul
   if (shout.at >= leadInLength) throw new RangeError(`lead-in shout at ${shout.at} is outside the ${leadInLength}-tick lead-in`);
   const shoutBeat: Beat = { kind: "boss-shouts", text: shout.text, lasts: shout.lasts };
   const leadInSlots = Array.from({ length: leadInLength }, (_, t): Slot<Phase, Beat> => {
-    const phase: Phase = { stage: "lead-in", boss: t < hidden ? "hidden" : "present-invulnerable", overhead: null };
+    const phase: Phase = { stage: "lead-in", boss: t < hidden ? "hidden" : leadIn.presentBoss.value, overhead: null };
     return { phase: () => phase, beats: t === shout.at ? [() => shoutBeat] : [] };
   });
 
