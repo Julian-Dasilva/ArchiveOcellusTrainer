@@ -1,7 +1,7 @@
 import { InvisibleMovementBlocker, Region, TileMarker } from "osrs-sdk";
 import type { Player } from "osrs-sdk";
-import type { P2Config } from "./OcellusTimings";
-import { OCELLUS_P4 } from "./OcellusTimings";
+import type { Loadout, P2Config } from "./OcellusTimings";
+import { OCELLUS_P4, defaultLoadout } from "./OcellusTimings";
 import { OCELLUS_P2 } from "./OcellusTimingsP2";
 import { dress, loadoutSnapshot } from "./OcellusLoadout";
 import { OcellusPlayer } from "./OcellusPlayer";
@@ -73,7 +73,7 @@ export class P2Region extends Region {
   private mounted: Mounted = { kind: "unmounted" };
   invincible = false;
 
-  constructor(private readonly config: P2Config) {
+  constructor(private readonly config: P2Config, private readonly loadout: Loadout = defaultLoadout(config.choices.setup.option.value)) {
     super();
   }
 
@@ -112,7 +112,7 @@ export class P2Region extends Region {
         player.pathTargetLocation = undefined;
       },
     });
-    dress(player, this.config.choices.setup.option.value);
+    dress(player, this.loadout);
     const middle = OCELLUS_P2.arena.middle.value;
     const views: Views = {
       portals: ARMS.flatMap((arm) => PORTAL_INDICES.map((index): Portal => {

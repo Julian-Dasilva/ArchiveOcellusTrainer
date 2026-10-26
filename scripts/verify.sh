@@ -261,6 +261,22 @@ KILL_RESULT_LINES='["Ocellus defeated","P4 time: 16 ticks (0:09.6)"]'
 RESULT_BUTTONS='["Restart","Retry seed"]'
 TELEMETRY_FIELDS='["version","view","gpu","browser","stage","end","sampleRate","frames","frameMedianMs","frameP95Ms","frameP99Ms","framesOver50Ms","runTicks","tickMedianMs","tickP95Ms","tickMaxMs","lateTicks","devicePixelRatio","canvasWidth","canvasHeight","cores"]'
 TELEMETRY_BEACON_WAIT_MS=1800
+TELEMETRY_PAUSE_MS=2500
+SETUP_QUERY="?seed=1&invincible=on"
+SETUP_WATCH_MS=3000
+PAUSE_AT_TICK=10
+PAUSE_HOLD_MS=3000
+PAUSE_REBIND_KEY=F7
+PRAYER_KEY=F3
+REPLACEMENT_HOLD_MS=1200
+SAVED_LOADOUTS_KEY="archive-ocellus:loadouts"
+SAVED_LOADOUT_PAGES='{"p4":"?seed=1","p3":"?phase=p3&seed=1"}'
+SAVED_LOADOUT_LAYOUT='{"worn":{"weapon":"scytheOfVitur","helmet":"inquisitorsGreatHelm","chest":"inquisitorsHauberk","legs":"inquisitorsPlateskirt","gloves":"ferociousGloves","cape":"infernalCape","necklace":"amuletOfRancour","feet":"avernicTreadsMax","ring":"ultorRing","ammo":"dragonArrows"},"inventory":["saradominBrew","superRestore","twistedBow","masoriMaskF","masoriBodyF","masoriChapsF","zaryteVambraces","dizanasQuiver","necklaceOfRupture","venatorRing","tonalzticsOfRalos",null,"bastionPotion","superCombatPotion",null,null,null,null,null,null,null,null,null,null,null,null,null,"saradominBrew"]}'
+SAVED_LOADOUT_INVENTORY='[6685,3024,20997,27235,27238,27241,26235,28951,33639,28310,28922,null,22461,12695,null,null,null,null,null,null,null,null,null,null,null,null,null,6685]'
+SAVED_LOADOUT_STORES_JS='((layout) => { const store = (ranged, version = 1) => JSON.stringify({ version, setups: { ranged } }); return { saved: store(layout), malformed: "{not json", "other-version": store(layout, 2), "unknown-item": store({ ...layout, inventory: ["dragonClaws", ...layout.inventory.slice(1)] }), "weapon-as-helmet": store({ ...layout, worn: { ...layout.worn, helmet: "twistedBow" } }), "27-slots": store({ ...layout, inventory: layout.inventory.slice(1) }) }; })'
+SAVED_LOADOUT_UNREADABLE="malformed other-version unknown-item weapon-as-helmet 27-slots"
+SAVED_LOADOUT_NOTE="Your saved Ranged loadout could not be read, so this run uses the default loadout."
+REFUSED_STORAGE_JS='Object.defineProperty(window, "localStorage", { configurable: true, get() { throw new DOMException("The user denied storage", "SecurityError"); } });'
 LOAD_RETRY_QUERY="?seed=1"
 GET_READY_QUERY="?seed=1"
 STORED_VIEW_QUERY="?seed=1"
@@ -549,8 +565,26 @@ stop() {
   [[ -z "$(VERIFY_PORT=$port port_listener)" ]] || { log "stop: port ${port} is still held by $(VERIFY_PORT=$port port_listener)"; return 1; }
 }
 
+START_ON_LOAD=1
+
 ab() {
-  agent-browser --session "$BROWSER_SESSION" "$@"
+  agent-browser --session "$BROWSER_SESSION" "$@" || return
+  [[ "$START_ON_LOAD" == 1 && ( "$1" == open || "$1" == reload ) && "${2:-}" != about:blank ]] || return 0
+  start_run
+}
+
+wait_for_start() {
+  ab wait --fn "document.getElementById('start')?.checkVisibility() === true" --timeout 120000 >/dev/null
+}
+
+start_run() {
+  wait_for_start && ab click "#start" >/dev/null || { log "Start never showed or was not clicked" >&2; return 1; }
+}
+
+reloaded_from() {
+  ab wait --fn "performance.timeOrigin !== $1 && document.getElementById('start')?.checkVisibility() === true" --timeout 120000 >/dev/null || return 1
+  [[ "$START_ON_LOAD" == 1 ]] || return 0
+  start_run && fight_tick_at_least 0 120000
 }
 
 probe() {
@@ -766,16 +800,19 @@ keep_seed() {
 }
 
 choose_focus() {
+  local loaded
   if [[ -n "${2:-}" ]]; then type_seed "$2"; else keep_seed; fi || return 1
+  loaded="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
   ab select "#focus" "$1" >/dev/null || { log "focus control did not accept $1"; return 1; }
   ab wait --fn "new URLSearchParams(location.search).get('focus') === '$1'" --timeout 30000 >/dev/null || { log "choosing $1 did not load focus=$1 without Restart"; return 1; }
+  reloaded_from "$loaded" || { log "the focus=$1 page never started"; return 1; }
 }
 
 drive_focus() {
   open_ticking "$DRILL_QUERY" || return 1
-  choose_focus "$FOCUS_DRILL" || return 1
-  ab wait --fn "window.__archiveOcellusProbe?.snapshot().fight?.run.kind === 'waiting'" --timeout 30000 >/dev/null || { log "the reloaded drill started before the audio probe could listen"; return 1; }
+  START_ON_LOAD=0 choose_focus "$FOCUS_DRILL" || return 1
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
+  start_run || return 1
   fight_tick_at_least "$FOCUS_LAST_TICK" 120000 || { log "the reloaded boss never stepped to P4 tick ${FOCUS_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/focus.json"
   ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/focus-audio.json" || { log "audio capture failed"; return 1; }
@@ -857,8 +894,11 @@ drive_loadouts() {
   ab console >"$VERIFY_DIR/loadout-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/loadout-page-errors.json" || { log "page error capture failed"; return 1; }
 
+  local loaded
+  loaded="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
   keep_seed && ab select "#setup" melee >/dev/null && ab click "#restart" >/dev/null || { log "setup control did not accept melee"; return 1; }
   ab wait --fn "new URLSearchParams(location.search).get('setup') === 'melee'" --timeout 30000 >/dev/null || { log "restart did not load setup=melee"; return 1; }
+  reloaded_from "$loaded" || { log "the melee page never started"; return 1; }
   fight_tick_at_least 1 120000 || { log "the reloaded melee drill never stepped to P4 tick 1"; return 1; }
   probe "snapshot().fight" >"$VERIFY_DIR/loadout-selector.json"
   ab --json errors | json data.errors >"$VERIFY_DIR/loadout-selector-page-errors.json" || { log "page error capture failed"; return 1; }
@@ -960,7 +1000,7 @@ restart_run() {
   local loaded
   loaded="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
   ab click "#restart" >/dev/null || return 1
-  ab wait --fn "performance.timeOrigin !== ${loaded} && (window.__archiveOcellusProbe?.snapshot().fight?.run.tick ?? -1) >= 0" --timeout 120000 >/dev/null || { log "Restart never loaded a new run"; return 1; }
+  reloaded_from "$loaded" || { log "Restart never loaded a new run"; return 1; }
 }
 
 drive_seed() {
@@ -1412,8 +1452,7 @@ drive_transition_attack() {
   ab --json errors | json data.errors >"$VERIFY_DIR/special-page-errors.json" || { log "page error capture failed"; return 1; }
 
   save_sound_settings true || { log "the sound settings were not saved"; return 1; }
-  keep_seed && ab click "#restart" >/dev/null || { log "Restart was not clicked"; return 1; }
-  ab wait --fn "new URLSearchParams(location.search).has('setup')" --timeout 30000 >/dev/null || { log "Restart did not reload the transition drill"; return 1; }
+  keep_seed && restart_run || { log "Restart did not reload the transition drill"; return 1; }
   fight_tick_at_least 0 120000 || { log "the late-prayer drill never started"; return 1; }
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
   click_after_tick "$SPECIAL_HIT_TICK" "$PROTECT_MAGIC_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "the late Protect from Magic was not clicked"; return 1; }
@@ -1435,8 +1474,7 @@ drive_overheads_rifts() {
   ab open "${URL}${RIFT_QUERY}" >/dev/null || return 1
   fight_tick_at_least 0 120000 || { log "the rifts drill never loaded"; return 1; }
   save_sound_settings true || { log "the sound settings were not saved"; return 1; }
-  keep_seed && ab click "#restart" >/dev/null || { log "Restart was not clicked"; return 1; }
-  ab wait --fn "new URLSearchParams(location.search).has('setup')" --timeout 30000 >/dev/null || { log "Restart did not reload the rifts drill"; return 1; }
+  keep_seed && restart_run || { log "Restart did not reload the rifts drill"; return 1; }
   fight_tick_at_least 0 120000 || { log "the rifts drill never started"; return 1; }
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
   record_overhead_draws || { log "the overhead draw probe was not installed"; return 1; }
@@ -1560,14 +1598,15 @@ audio_resumed() {
 }
 
 drive_cues() {
-  local BROWSER_SESSION="${BROWSER_SESSION}-autoplay"
+  local BROWSER_SESSION="${BROWSER_SESSION}-autoplay" START_ON_LOAD=0
   echo "$AUTOPLAY_POLICY_JS" >"$VERIFY_DIR/autoplay-policy.js"
   ab --init-script "$VERIFY_DIR/autoplay-policy.js" set viewport 1280 800 >/dev/null || { log "the autoplay session did not start"; return 1; }
   ab open "${URL}${CUE_QUERY}" >/dev/null || return 1
-  fight_tick_at_least 0 120000 || { log "the fresh cue drill never started"; return 1; }
+  wait_for_start || { log "the fresh cue drill never loaded"; return 1; }
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
   audio_contexts >"$VERIFY_DIR/cue-contexts-fresh.json" || { log "audio context capture failed"; return 1; }
   sound_toggles >"$VERIFY_DIR/cue-toggles-fresh.json" || { log "sound toggle capture failed"; return 1; }
+  start_run && fight_tick_at_least 0 120000 || { log "the fresh cue drill never started"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick 0 0 0 || { log "the canvas was not clicked"; return 1; }
   probe "snapshot().fight.run.tick" >"$VERIFY_DIR/cue-fresh-click.json"
@@ -1582,9 +1621,10 @@ drive_cues() {
 
   keep_seed && restart_run || { log "Restart did not reload the fresh cue drill"; return 1; }
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
-  probe "snapshot().fight.run.tick" >"$VERIFY_DIR/cue-recording-from.json"
+  probe "snapshot().fight.run.tick ?? -1" >"$VERIFY_DIR/cue-recording-from.json"
   audio_contexts >"$VERIFY_DIR/cue-contexts-loaded.json" || { log "audio context capture failed"; return 1; }
   sound_toggles >"$VERIFY_DIR/cue-toggles-off.json" || { log "sound toggle capture failed"; return 1; }
+  start_run || return 1
   fight_tick_at_least "$CUE_TOGGLE_TICK" 30000 || { log "the cue drill never stepped to P4 tick ${CUE_TOGGLE_TICK}"; return 1; }
   open_settings && ab click "#area_sound" >/dev/null && ab click "#sound" >/dev/null || { log "the sound toggles were not clicked"; return 1; }
   probe "snapshot().fight.run.tick" >"$VERIFY_DIR/cue-toggle-click.json"
@@ -1601,6 +1641,7 @@ drive_cues() {
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
   audio_contexts >"$VERIFY_DIR/cue-contexts-reloaded.json" || { log "audio context capture failed"; return 1; }
   sound_toggles >"$VERIFY_DIR/cue-toggles-reloaded.json" || { log "sound toggle capture failed"; return 1; }
+  start_run && fight_tick_at_least 0 120000 || { log "the reloaded cue drill never started"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick 0 0 0 || { log "the canvas was not clicked"; return 1; }
   audio_resumed || log "the audio context did not resume after the canvas click"
@@ -1696,7 +1737,15 @@ click_result() {
   local loaded
   loaded="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
   ab click "#$1" >/dev/null || return 1
-  ab wait --fn "performance.timeOrigin !== ${loaded} && (window.__archiveOcellusProbe?.snapshot().fight?.run.tick ?? -1) >= 0" --timeout 120000 >/dev/null || { log "#$1 never loaded a new run"; return 1; }
+  reloaded_from "$loaded" || { log "#$1 never loaded a new run"; return 1; }
+}
+
+pause_over_result() {
+  local paused
+  ab click "#pause" >/dev/null && ab wait 300 >/dev/null || return 1
+  paused="$(ab --json eval "(() => { const box = document.getElementById('resume')?.getBoundingClientRect(); const top = box ? document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) : null; return { resume: box !== undefined, onTop: top?.id ?? null }; })()" | json data.result)" || return 1
+  ab click "#resume" >/dev/null && ab wait 300 >/dev/null || return 1
+  printf '{"paused":%s,"resumed":%s}\n' "$paused" "$(result_panel)"
 }
 
 drive_run_results() {
@@ -1707,7 +1756,7 @@ drive_run_results() {
   result_panel >"$VERIFY_DIR/death-result.json" || { log "death result capture failed"; return 1; }
   ab screenshot "$VERIFY_DIR/death-result.png" >/dev/null || { log "death result screenshot failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/death-result-page-errors.json" || { log "page error capture failed"; return 1; }
-  click_result result_restart || return 1
+  replace_run result_restart result-restart || return 1
   next_run >"$VERIFY_DIR/death-restart.json" || { log "restarted run capture failed"; return 1; }
 
   ab open "${URL}${KILL_RESULT_QUERY}" >/dev/null || return 1
@@ -1722,7 +1771,8 @@ drive_run_results() {
   ab set viewport $MENU_SMALL_VIEWPORT >/dev/null && ab wait 600 >/dev/null && ab screenshot "$VERIFY_DIR/kill-result-small.png" >/dev/null || { log "small kill result screenshot failed"; return 1; }
   ab set viewport 1280 800 >/dev/null && ab wait 600 >/dev/null || return 1
   ab --json errors | json data.errors >"$VERIFY_DIR/kill-result-page-errors.json" || { log "page error capture failed"; return 1; }
-  click_result result_retry || return 1
+  pause_over_result >"$VERIFY_DIR/result-paused.json" || { log "the result page was not paused and resumed"; return 1; }
+  replace_run result_retry result-retry || return 1
   printf '{"start":%s,"retry":%s}\n' "$start" "$(next_run)" >"$VERIFY_DIR/kill-retry.json" || { log "retried run capture failed"; return 1; }
 }
 
@@ -1743,6 +1793,7 @@ drive_telemetry() {
   ab network route "**/telemetry.json" --body '{"sampleRate":1}' >/dev/null && ab network route "**/t" --body '' >/dev/null || { log "the telemetry routes were not set"; ab network unroute >/dev/null; return 1; }
   ab network requests --clear >/dev/null || return 1
   ab open "${URL}${KILL_RESULT_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 2 120000 && ab click "#pause" >/dev/null && ab wait "$TELEMETRY_PAUSE_MS" >/dev/null && ab click "#resume" >/dev/null || { log "the telemetry run was not paused and resumed"; ab network unroute >/dev/null; return 1; }
   kill_and_wait_for_beacon || { ab network unroute >/dev/null; return 1; }
   open_settings && ab wait 300 >/dev/null || { ab network unroute >/dev/null; return 1; }
   before="$(telemetry_box)" || return 1
@@ -1759,6 +1810,138 @@ drive_telemetry() {
   printf '{"before":%s,"after":%s,"restored":%s}\n' "$before" "$after" "$restored" >"$VERIFY_DIR/telemetry-box.json"
 }
 
+record_setup_draws() {
+  ab eval '(() => {
+    const record = window.__setupDraws = { frames: 0, orbFrames: 0, getReady: 0 };
+    let orbs = 0;
+    const fillText = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) {
+      if (String(text).startsWith("GET READY")) record.getReady++;
+      if (this.font.endsWith("px Stats_11") && /^\d+$/.test(String(text))) orbs++;
+      return fillText.call(this, text, ...rest);
+    };
+    const frame = () => {
+      record.frames++;
+      if (orbs > 0) record.orbFrames++;
+      orbs = 0;
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  })()' >/dev/null
+}
+
+record_ticks_seen() {
+  ab eval '(() => {
+    const seen = window.__ticksSeen = [];
+    const watch = () => {
+      const t = window.__archiveOcellusProbe.snapshot().tick;
+      if (seen[seen.length - 1] !== t) seen.push(t);
+      requestAnimationFrame(watch);
+    };
+    watch();
+  })()' >/dev/null
+}
+
+gate_state() {
+  ab --json eval "({ start: document.getElementById('start')?.checkVisibility() === true, pause: document.getElementById('pause')?.checkVisibility() === true, resume: document.getElementById('resume')?.checkVisibility() === true })" | json data.result
+}
+
+click_with_departing_input() {
+  canvas_centre || return 1
+  printf '[["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["press","%s"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["press","%s"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["click","#%s"]]' \
+    $((CX - WALK_CLICK_LEFT_PX)) $((CY - WALK_CLICK_UP_PX)) "$PRAYER_KEY" $((CX + PROTECT_MAGIC_RIGHT_PX)) $((CY + PROTECT_DOWN_PX)) \
+    "$KEYBIND_DEFAULT_KEY" "$LOADOUT_SLOT_X" "$LOADOUT_SLOT_Y" "$1" | ab batch --bail >/dev/null
+}
+
+replace_run() {
+  local button="$1" name="$2" origin waiting first_tick first_row
+  origin="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
+  click_with_departing_input "$button" || { log "${name}: the walk, prayer and inventory clicks or #${button} were not sent"; return 1; }
+  ab wait --fn "performance.timeOrigin !== $origin && document.getElementById('start')?.checkVisibility() === true" --timeout 60000 >/dev/null || log "${name}: no new page showed Start"
+  ab wait "$REPLACEMENT_HOLD_MS" >/dev/null
+  waiting="$(ab --json eval "(() => { const probe = window.__archiveOcellusProbe, snapshot = probe.snapshot(); return { reloaded: performance.timeOrigin !== $origin, search: location.search, start: document.getElementById('start')?.checkVisibility() === true, pause: document.getElementById('pause') !== null, tick: snapshot.tick, ticking: snapshot.ticking, rows: probe.log().rows.length }; })()" | json data.result)" || return 1
+  [[ "$(json start <<<"$waiting")" != true ]] || ab click "#start" >/dev/null || { log "${name}: Start was not clicked"; return 1; }
+  ab wait --fn "window.__archiveOcellusProbe.snapshot().tick > $(json tick <<<"$waiting")" --timeout 30000 >/dev/null || log "${name}: the world never ticked"
+  first_tick="$(ab --json eval "(() => { const snapshot = window.__archiveOcellusProbe.snapshot(), carrier = snapshot.fight?.player; return { tick: snapshot.tick, player: snapshot.player, destination: snapshot.destination, weapon: carrier?.equipped.weapon ?? null, slot0: carrier?.inventory[0] ?? null }; })()" | json data.result)" || return 1
+  ab wait --fn "window.__archiveOcellusProbe.log().rows.length > $(json rows <<<"$waiting")" --timeout 30000 >/dev/null || log "${name}: the boss never stepped"
+  first_row="$(probe "log().rows.map((row) => ({ tick: row.tick, tile: row.playerAtPostTick.tile, prayer: row.playerAtPostTick.prayer, inputs: row.inputs })).at(-1) ?? null")" || return 1
+  printf '{"waiting":%s,"firstTick":%s,"firstRow":%s}\n' "$waiting" "$first_tick" "$first_row" >"$VERIFY_DIR/${name}.json"
+}
+
+drive_setup_pause() {
+  local held
+  START_ON_LOAD=0 ab open "${URL}${SETUP_QUERY}" >/dev/null || return 1
+  wait_for_start || { log "the set-up page never showed Start"; return 1; }
+  record_setup_draws || { log "the set-up draw probe was not installed"; return 1; }
+  ab wait "$SETUP_WATCH_MS" >/dev/null
+  ab --json eval "({ snapshot: window.__archiveOcellusProbe.snapshot(), rows: window.__archiveOcellusProbe.log().rows.length, draws: window.__setupDraws })" | json data.result >"$VERIFY_DIR/setup.json" || { log "set-up state capture failed"; return 1; }
+  gate_state >"$VERIFY_DIR/setup-gate.json" || return 1
+  ab screenshot "$VERIFY_DIR/setup.png" >/dev/null || { log "set-up screenshot failed"; return 1; }
+  bind_inventory_key "$KEYBIND_NEW_KEY" || { log "the inventory key was not bound before Start"; return 1; }
+  ab --json eval "({ snapshot: window.__archiveOcellusProbe.snapshot(), rows: window.__archiveOcellusProbe.log().rows.length })" | json data.result >"$VERIFY_DIR/setup-bound.json" || { log "bound state capture failed"; return 1; }
+  start_run && fight_tick_at_least 1 120000 || { log "Start did not begin the run"; return 1; }
+  ab press "$KEYBIND_NEW_KEY" >/dev/null && ab wait 300 >/dev/null || return 1
+  probe "snapshot().panel" >"$VERIFY_DIR/setup-started-key.json"
+
+  fight_tick_at_least "$PAUSE_AT_TICK" 60000 || { log "the run never reached P4 tick ${PAUSE_AT_TICK}"; return 1; }
+  ab click "#pause" >/dev/null || { log "Pause was not clicked"; return 1; }
+  held="$(probe "snapshot().tick")" || return 1
+  ab wait "$PAUSE_HOLD_MS" >/dev/null
+  probe "snapshot()" >"$VERIFY_DIR/pause-held.json"
+  gate_state >"$VERIFY_DIR/pause-gate.json" || return 1
+  ab screenshot "$VERIFY_DIR/pause.png" >/dev/null || { log "pause screenshot failed"; return 1; }
+  bind_inventory_key "$PAUSE_REBIND_KEY" || { log "the inventory key was not bound while paused"; return 1; }
+  probe "snapshot()" >"$VERIFY_DIR/pause-bound.json"
+  record_ticks_seen || { log "the tick probe was not installed"; return 1; }
+  ab click "#resume" >/dev/null || { log "Resume was not clicked"; return 1; }
+  ab wait 2000 >/dev/null
+  ab --json eval "window.__ticksSeen" | json data.result >"$VERIFY_DIR/pause-ticks.json" || { log "tick capture failed"; return 1; }
+  ab press "$PAUSE_REBIND_KEY" >/dev/null && ab wait 300 >/dev/null || return 1
+  probe "snapshot().panel" >"$VERIFY_DIR/pause-resumed-key.json"
+  printf '{"held":%s,"resumed":%s}\n' "$held" "$(gate_state)" >"$VERIFY_DIR/pause-key.json"
+  probe "log()" >"$VERIFY_DIR/pause-log.json"
+  bind_inventory_key "$KEYBIND_DEFAULT_KEY" || { log "the default inventory key was not restored"; return 1; }
+  ab --json errors | json data.errors >"$VERIFY_DIR/setup-pause-page-errors.json" || { log "page error capture failed"; return 1; }
+  ab click "#pause" >/dev/null || { log "Pause was not clicked before Restart"; return 1; }
+  replace_run restart restart-paused
+}
+
+saved_loadout_page() {
+  local seen
+  seen="$(ab --json errors | json data.errors.length)" || return 1
+  ab open "${URL}$(json "$1" <<<"$SAVED_LOADOUT_PAGES")" >/dev/null || return 1
+  ab wait --fn "document.getElementById('start')?.checkVisibility() === true || (window.__archiveOcellusProbe?.snapshot().tick ?? 0) >= 1" --timeout 60000 >/dev/null ||
+    log "the ${1} page with the ${2} store never showed Start" >&2
+  printf '{"page":%s,"errors":%s}\n' \
+    "$(ab --json eval "(() => { const carrier = window.__archiveOcellusProbe?.snapshot().fight?.player ?? null; return { start: document.getElementById('start')?.checkVisibility() === true, note: document.getElementById('loadout_note')?.textContent ?? null, worn: carrier?.equipped ?? null, inventory: carrier?.inventory ?? null }; })()" | json data.result)" \
+    "$(ab --json errors | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify(JSON.parse(s).data.errors.slice(Number(process.argv[1])))))' "$seen")"
+}
+
+drive_saved_loadouts() {
+  local START_ON_LOAD=0 store phase
+  ab open "${URL}$(json p4 <<<"$SAVED_LOADOUT_PAGES")" >/dev/null || return 1
+  for store in saved $SAVED_LOADOUT_UNREADABLE; do
+    ab eval "localStorage.setItem(\"${SAVED_LOADOUTS_KEY}\", ${SAVED_LOADOUT_STORES_JS}(${SAVED_LOADOUT_LAYOUT})[\"${store}\"])" >/dev/null || { log "the ${store} store was not saved"; return 1; }
+    for phase in p4 p3; do
+      saved_loadout_page "$phase" "$store" >"$VERIFY_DIR/saved-loadout-${phase}-${store}.json" || { log "the ${phase} page with the ${store} store was not captured"; return 1; }
+    done
+  done
+
+  local BROWSER_SESSION="${BROWSER_SESSION}-refused" result=0
+  echo "$REFUSED_STORAGE_JS" >"$VERIFY_DIR/refused-storage.js"
+  if ab --init-script "$VERIFY_DIR/refused-storage.js" set viewport 1280 800 >/dev/null; then
+    for phase in p4 p3; do
+      saved_loadout_page "$phase" refused >"$VERIFY_DIR/saved-loadout-${phase}-refused.json" || { log "the ${phase} page with refused storage was not captured"; result=1; break; }
+    done
+  else
+    log "the refused-storage session did not start"
+    result=1
+  fi
+  # A set-up page redraws every frame, so a session left open slows the units after this one.
+  ab close >/dev/null 2>&1
+  return "$result"
+}
+
 record_get_ready() {
   ab eval '(() => {
     const now = () => window.__archiveOcellusProbe?.snapshot() ?? null;
@@ -1771,7 +1954,7 @@ record_get_ready() {
       if (t !== undefined && !(record.overlay[t] ??= []).includes(Number(count))) record.overlay[t].push(Number(count));
       return fillText.call(this, text, ...rest);
     };
-    document.addEventListener("mousedown", () => { record.clickTick ??= now()?.tick ?? null; }, true);
+    document.addEventListener("mousedown", (event) => { if (event.target?.id === "world") record.clickTick ??= now()?.tick ?? null; }, true);
     const frame = () => {
       const snapshot = now();
       if (snapshot?.player) record.player[snapshot.tick] = snapshot.player;
@@ -1785,7 +1968,7 @@ drive_stored_view() {
   local BROWSER_SESSION="${BROWSER_SESSION}-stored-view"
   echo "$VIEWPORT_RENDERS_JS" >"$VERIFY_DIR/viewport-renders.js"
   ab --init-script "$VERIFY_DIR/viewport-renders.js" set viewport 1280 800 >/dev/null || { log "the stored view session did not start"; return 1; }
-  ab open "${URL}osrs-assets/manifest.json" >/dev/null || return 1
+  START_ON_LOAD=0 ab open "${URL}osrs-assets/manifest.json" >/dev/null || return 1
   ab eval "localStorage.setItem('${SOUND_SETTINGS_KEY}', JSON.stringify({ version: 1, values: { use3dView: false, rotated: 'south' } }))" >/dev/null || { log "the 2D view was not stored"; return 1; }
   ab --json eval "JSON.parse(localStorage.getItem('${SOUND_SETTINGS_KEY}')).values" | json data.result >"$VERIFY_DIR/stored-view-before.json" || { log "the stored view was not read"; return 1; }
   ab open "${URL}${STORED_VIEW_QUERY}" >/dev/null || return 1
@@ -1798,8 +1981,9 @@ drive_stored_view() {
 }
 
 drive_get_ready() {
-  ab open "${URL}${GET_READY_QUERY}" >/dev/null || return 1
+  START_ON_LOAD=0 ab open "${URL}${GET_READY_QUERY}" >/dev/null || return 1
   record_get_ready || { log "the GET READY probe was not installed"; return 1; }
+  start_run || return 1
   ab wait --fn "window.__archiveOcellusProbe?.snapshot().ticking === true && window.__archiveOcellusProbe.snapshot().tick >= ${GET_READY_CLICK_TICK}" \
     --timeout 90000 >/dev/null || { log "the GET READY page never started ticking"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
@@ -1818,7 +2002,7 @@ drive_load_retry() {
   ab network har start --content none >/dev/null || { log "HAR recording did not start"; return 1; }
   ab network route "**/osrs-assets/${file}" --abort >/dev/null || { log "the boss asset route was not set"; return 1; }
   ab network requests --clear >/dev/null || return 1
-  ab open "${URL}${LOAD_RETRY_QUERY}" >/dev/null &
+  START_ON_LOAD=0 ab open "${URL}${LOAD_RETRY_QUERY}" >/dev/null &
   opened=$!
   deadline=$((SECONDS + 90))
   until [[ "$(ab --json network requests --filter "$file" | json data.requests.length)" -gt 0 ]]; do
@@ -1826,6 +2010,7 @@ drive_load_retry() {
   done
   ab network unroute >/dev/null || { log "the boss asset route was not lifted"; return 1; }
   wait "$opened" || return 1
+  start_run || return 1
   ab wait --fn "window.__archiveOcellusProbe?.snapshot().tick >= 8" --timeout 90000 >/dev/null || log "the trainer never started ticking after the dropped boss asset"
   ab network har stop "$VERIFY_DIR/load-retry.har" >/dev/null || { log "HAR capture failed"; return 1; }
   ab --json network requests --filter "favicon.ico" | json data.requests >"$VERIFY_DIR/load-favicon-requests.json" || { log "favicon request capture failed"; return 1; }
@@ -1981,7 +2166,7 @@ pause_by_tab_switch() {
 }
 
 click_resume() {
-  ab find role button click --name Resume >/dev/null && ab wait --fn "window.__archiveOcellusProbe.snapshot().ticking === true" --timeout 5000 >/dev/null || log "Resume did not restart the trainer"
+  ab find role button click --name Resume --exact >/dev/null && ab wait --fn "window.__archiveOcellusProbe.snapshot().ticking === true" --timeout 5000 >/dev/null || log "Resume did not restart the trainer"
 }
 
 # The WebGL layer reads back blank outside a frame that drew it, so the expected screen waits for a frame callback after a 3D render.
@@ -2144,7 +2329,7 @@ drive_p4_cycle() {
 }
 
 clear_browser() {
-  ab set viewport 1280 800 >/dev/null && ab network unroute >/dev/null && ab open "${URL}osrs-assets/manifest.json" >/dev/null &&
+  ab set viewport 1280 800 >/dev/null && ab network unroute >/dev/null && START_ON_LOAD=0 ab open "${URL}osrs-assets/manifest.json" >/dev/null &&
     ab eval "localStorage.clear(); sessionStorage.clear()" >/dev/null && ab console --clear >/dev/null && ab errors --clear >/dev/null
 }
 
@@ -2176,6 +2361,7 @@ release_browser() {
   agent-browser --session "${BROWSER_SESSION}-autoplay" close >/dev/null 2>&1
   agent-browser --session "${BROWSER_SESSION}-mobile" close >/dev/null 2>&1
   agent-browser --session "${BROWSER_SESSION}-stored-view" close >/dev/null 2>&1
+  agent-browser --session "${BROWSER_SESSION}-refused" close >/dev/null 2>&1
   agent-browser --session "${BROWSER_SESSION}-present" close >/dev/null 2>&1
   [[ -n "$LAUNCHED_PID" && -f "$STATE_FILE" && "$(state pid)" == "$LAUNCHED_PID" ]] || return 0
   stop
@@ -2202,6 +2388,7 @@ production_listener() {
 watch_production_page() {
   local name=$1
   ab wait --fn "window.__orbs?.first !== null" --timeout 90000 >/dev/null || log "${name}: the minimap orbs never drew their numbers"
+  start_run || return 1
   sleep "$PRODUCTION_WATCH_SECONDS"
   ab --json eval "({ text: document.body.innerText, orbs: window.__orbs })" | json data.result >"$VERIFY_DIR/${name}.json" || { log "${name}: page state capture failed"; return 1; }
   ab screenshot "$VERIFY_DIR/${name}.png" >/dev/null || { log "${name}: screenshot failed"; return 1; }
@@ -2339,7 +2526,7 @@ stage_production() {
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
   ARCHIVE_P2=off ARCHIVE_P3=off node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/production" >"$VERIFY_DIR/production-build.log" 2>&1 || { log "the production build failed"; return 1; }
 
-  local BROWSER_SESSION="archive-ocellus-verify-$(basename "$VERIFY_DIR")-production" PRODUCTION_PID= result=1
+  local BROWSER_SESSION="archive-ocellus-verify-$(basename "$VERIFY_DIR")-production" PRODUCTION_PID= START_ON_LOAD=0 result=1
   trap 'release_production; exit 130' INT TERM
   if serve_static "$VERIFY_DIR/production" "$VERIFY_DIR/production-server.log"; then
     drive_production
@@ -2402,9 +2589,15 @@ throttle_perf() {
   return 1
 }
 
+start_or_await_run() {
+  ab wait --fn "document.getElementById('start')?.checkVisibility() === true || window.__perfGate.p4Tick() >= 0" --timeout 120000 >/dev/null || return 1
+  [[ "$(ab --json eval "document.getElementById('start')?.checkVisibility() === true" | json data.result)" != true ]] || ab click "#start" >/dev/null
+}
+
 perf_capture() {
   local name=$1 side=$2 until=$3 heap_from=${4:-} at
   ab open about:blank >/dev/null && ab open "http://127.0.0.1:${PRODUCTION_PORT}/${side}/$(perf_gate workload.query)#perf" >/dev/null || { log "perf: the ${name} page did not open"; return 1; }
+  start_or_await_run || { log "perf: the ${name} run did not start"; return 1; }
   for at in $heap_from "$until"; do
     ab wait --fn "window.__perfGate.p4Tick() >= ${at}" --timeout $((until * 600 + 120000)) >/dev/null || { log "perf: the ${name} run did not reach P4 tick ${at}"; return 1; }
     [[ -z "$heap_from" ]] || node --import tsx src/perf/devtools.ts heap "$(ab get cdp-url)" "$(perf_tab)" >>"$VERIFY_DIR/perf/heap.log" || { log "perf: no heap reading at P4 tick ${at} of ${name}"; return 1; }
@@ -2449,7 +2642,7 @@ perf_stage() {
   perf_base_revision || return 1
   [[ $mode == no-pairs ]] || build_perf_base || return 1
 
-  local BROWSER_SESSION="archive-ocellus-verify-$(basename "$VERIFY_DIR")-perf" PRODUCTION_PID= THROTTLE_PID= result=1
+  local BROWSER_SESSION="archive-ocellus-verify-$(basename "$VERIFY_DIR")-perf" PRODUCTION_PID= THROTTLE_PID= START_ON_LOAD=0 result=1
   trap 'release_throttle; release_production; exit 130' INT TERM
   if serve_static "$VERIFY_DIR/perf/www" "$VERIFY_DIR/perf/server.log"; then
     drive_perf "$mode"

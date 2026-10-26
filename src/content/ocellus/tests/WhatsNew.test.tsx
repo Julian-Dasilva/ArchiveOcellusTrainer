@@ -77,7 +77,7 @@ describe("What's new", () => {
     expect(opened.releases.at(-1)).toEqual(FIRST_RELEASE);
   });
 
-  test("a player who saw the last shipped release sees the dot again, and What's new opens on the next release", () => {
+  test("a player who saw the last shipped release sees the dot again, and What's new opens on the newest release with the next shipped one below it", () => {
     localStorage.setItem(SEEN_RELEASE_KEY, "2026.10.25.1");
     const page = loadPage("/?seed=1");
     const { settingsDot, menuDot } = whatsNew(page);
@@ -85,7 +85,7 @@ describe("What's new", () => {
     page.click("whats_new");
     const { releases } = whatsNew(page);
     page.close();
-    expect({ settingsDot, menuDot, newest: releases[0] }).toEqual({ settingsDot: true, menuDot: true, newest: NEXT_RELEASE });
+    expect({ settingsDot, menuDot, newest: releases[0].version, next: releases[1] }).toEqual({ settingsDot: true, menuDot: true, newest: "2026.10.26.1", next: NEXT_RELEASE });
   });
 
   test("opening What's new from the keyboard moves focus to the panel's title", () => {

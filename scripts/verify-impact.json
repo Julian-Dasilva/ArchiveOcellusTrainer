@@ -1,7 +1,7 @@
 {
   "stages": { "production": "production", "perf_timing": "perf" },
   "groups": {
-    "shell": ["stored_view", "load_retry", "get_ready", "settings_menu", "run_results", "whats_new", "telemetry", "seed", "invincible", "focus", "keybinds", "cues", "production"],
+    "shell": ["stored_view", "load_retry", "get_ready", "setup_pause", "saved_loadouts", "settings_menu", "run_results", "whats_new", "telemetry", "seed", "invincible", "focus", "keybinds", "cues", "production"],
     "walking": ["p4_cycle", "walkway", "control_walk", "click_correction", "back_wall", "corner", "boss_pathing"],
     "orbs": ["lifeforce_orb", "orb_late_and_entry", "orb_off_holes", "invincible", "cues", "recorded_fights"],
     "explosion_set": ["explosions", "dodge_speedup", "explosion_run_end"],
@@ -62,6 +62,8 @@
   "rules": [
     { "paths": ["src/index.html"], "units": ["@shell", "p4_cycle", "layered_present"] },
     { "paths": ["src/ArchiveOcellusApp.tsx"], "units": ["@shell", "loadouts", "p3_drill", "layered_present"] },
+    { "paths": ["src/browserStorage.ts"], "units": ["@shell"] },
+    { "paths": ["src/savedLoadouts.ts"], "units": ["saved_loadouts", "loadouts"] },
     { "paths": ["src/content/ocellus/changelog.ts", "src/releases.ts", "scripts/release-notes.mjs"], "units": ["whats_new", "production"] },
     { "paths": ["src/hoverText.ts"], "units": ["supplies", "keybinds"] },
     { "paths": ["src/telemetry/**", "src/telemetry.json"], "units": ["telemetry", "production"] },
