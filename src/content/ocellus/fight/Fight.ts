@@ -9,7 +9,7 @@ import type { HandOver } from "./handOver";
 import type { ATile, Quadrant } from "./geometry";
 import { CENSERS, GRID, QUADRANTS, QUADRANT_SIGN, TileSet, at, fromSdk, inRoom, key, quadrantOf, toSdk } from "./geometry";
 import { Rng } from "./rng";
-import type { BossHooks, Form, PlayerHooks, Style } from "./units";
+import type { BossHooks, Form, Style } from "./units";
 import { BossForm, FightPlayer } from "./units";
 
 /** Phase 3's third fall hands the fight to our phase 4 drill, so his phase 4 is not a start phase. */
@@ -97,7 +97,7 @@ export type HitSpec = Readonly<{
   onLand?: (applied: number) => void;
 }>;
 
-export class Fight implements BossHooks, PlayerHooks {
+export class Fight implements BossHooks {
   readonly rng: Rng;
   tick = 0;
   started = false;
@@ -140,7 +140,6 @@ export class Fight implements BossHooks, PlayerHooks {
     this.practice = options.invincible;
     this.skipTiles = options.skipMarkers;
     this.makePhase = makePhase;
-    player.hooks = this;
     for (const q of QUADRANTS) this.censers.set(q, { tile: CENSERS[q].tile, god: CENSERS[q].god, lit: false });
     this.setFloor(roomFloor());
   }
@@ -161,7 +160,7 @@ export class Fight implements BossHooks, PlayerHooks {
     this.changed();
   }
 
-  /** Called at the start of every game tick, before NPCs act, by the fight clock. */
+  /** Called once a tick from the prefix, after entity ticks and before NPC timers. */
   step(): void {
     if (!this.started || this.outcome.kind !== "running") return;
     this.tick++;

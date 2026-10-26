@@ -2,17 +2,17 @@ import React, { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { CacheRender, ControlPanelController, Settings, SoundCache, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
 import type { Player, Region, SettingsSnapshot, TrainerLoadingState } from "osrs-sdk";
 import { DefaultSidebar, GameOverlay, RuneScapeButton, TrainerApp, useSettingsSnapshot } from "osrs-sdk-react";
-import { CREDIT_LINE, readSettings } from "./ArchiveOcellusApp";
-import { dress } from "./content/ocellus/js/OcellusLoadout";
-import { OCELLUS_P4, defaultLoadout } from "./content/ocellus/js/OcellusTimings";
-import { installBossBar } from "./content/ocellus/fight/bossBar";
-import type { ChatLine, Fight, FightOptions, StartPhase } from "./content/ocellus/fight/Fight";
-import { START_PHASES, formatTicks } from "./content/ocellus/fight/Fight";
-import { FightRegion, START_NPC } from "./content/ocellus/fight/FightRegion";
-import type { ATile, Quadrant } from "./content/ocellus/fight/geometry";
-import { toSdk } from "./content/ocellus/fight/geometry";
-import { warmLaterPhases } from "./content/ocellus/fight/warmup";
-import { FULL_FIGHT_CSS } from "./fullFightStyles";
+import { CREDIT_LINE, readSettings } from "../../../ArchiveOcellusApp";
+import { dress } from "../js/OcellusLoadout";
+import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
+import { installBossBar } from "../fight/bossBar";
+import type { ChatLine, Fight, FightOptions, StartPhase } from "../fight/Fight";
+import { START_PHASES, formatTicks } from "../fight/Fight";
+import type { ATile, Quadrant } from "../fight/geometry";
+import { toSdk } from "../fight/geometry";
+import { warmLaterPhases } from "../fight/warmup";
+import { FULL_FIGHT_CSS } from "../../../fullFightStyles";
+import { FightRegion, START_NPC, fullFightStaged } from "./prefix";
 
 declare global {
   interface Window {
@@ -86,9 +86,9 @@ function createTrainer() {
   CacheRender.configure(new URL("osrs-assets/manifest.json", window.location.href).href);
   readSettings();
   const params = readParams();
-  const setup = OCELLUS_P4.choices.setup.options[params.setup].value;
+  const worn = OCELLUS_P4.choices.setup.options[params.setup].value;
   const options: FightOptions = { ...params, onHandOver: (state) => console.info("full-fight: hand over", JSON.stringify(state)) };
-  const region = new FightRegion(options, (player: Player) => dress(player, defaultLoadout(setup)));
+  const region = fullFightStaged(options, (player: Player) => dress(player, defaultLoadout(worn)));
   installBossBar((r: Region) => (r instanceof FightRegion ? r.fight : null));
   const trainer = new TrainerInstance(region, { readyTimer: 5 });
   return { trainer, region, params };
@@ -442,7 +442,7 @@ function exposeProbe(trainer: TrainerInstance, region: FightRegion): void {
   });
 }
 
-export function FullFightApp() {
+export function FullFightPage() {
   const [{ trainer, region, params }] = useState(createTrainer);
   const [loading, setLoading] = useState<TrainerLoadingState>();
   const fight = useFight(region);
