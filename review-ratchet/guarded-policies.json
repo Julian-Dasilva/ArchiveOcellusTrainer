@@ -149,6 +149,10 @@
         {
           "policy": "a mutant that fails its syntax check is refused",
           "mutation": [{ "find": "if (invalid !== null) throw new Error(invalid);", "replace": "" }]
+        },
+        {
+          "policy": "a TypeScript mutant must parse with esbuild, the parser tsx runs it with",
+          "mutation": [{ "find": "\".ts\": [fileURLToPath(new URL(\"../../node_modules/.bin/esbuild\", import.meta.url))]", "replace": "\".ts\": [process.execPath, \"--experimental-strip-types\", \"--check\"]" }]
         }
       ]
     },
@@ -207,28 +211,38 @@
       "tests": ["scripts/verify/bundle.test.sh"],
       "policies": [
         {
+          "policy": "the bundle stage runs the asset bundle guard",
+          "mutation": [{ "find": "node_modules/.bin/tsx src/assetBundle/check.ts", "replace": "true" }]
+        }
+      ]
+    },
+    {
+      "path": "src/assetBundle/check.ts",
+      "tests": ["scripts/verify/bundle.test.sh"],
+      "policies": [
+        {
           "policy": "every configured npc needs a non-empty payload file",
-          "mutation": [{ "find": "every(({ id }) => payload(`npc-${id}`))", "replace": "every(({ id }) => m.assets?.[`npc-${id}`])" }]
+          "mutation": [{ "find": "([key, file]) => fileGaps(outDir, file)", "replace": "([key, file]) => (key.startsWith(\"npc-\") ? [] : fileGaps(outDir, file))" }]
         },
         {
           "policy": "every configured model needs a non-empty payload file",
-          "mutation": [{ "find": "every(({ id }) => payload(`model-${id}`))", "replace": "every(({ id }) => m.assets?.[`model-${id}`])" }]
+          "mutation": [{ "find": "([key, file]) => fileGaps(outDir, file)", "replace": "([key, file]) => (key.startsWith(\"model-\") ? [] : fileGaps(outDir, file))" }]
         },
         {
           "policy": "every configured item needs a non-empty payload file",
-          "mutation": [{ "find": "every(({ id }) => payload(m.playerItems?.[`item:${id}`]))", "replace": "every(({ id }) => m.playerItems?.[`item:${id}`])" }]
+          "mutation": [{ "find": "([key, file]) => fileGaps(outDir, file)", "replace": "([key, file]) => (key.startsWith(\"player-item-\") ? [] : fileGaps(outDir, file))" }]
         },
         {
           "policy": "every configured spot animation needs a non-empty payload file",
-          "mutation": [{ "find": "every(({ id }) => payload(m.spotAnims?.[id]))", "replace": "every(({ id }) => m.spotAnims?.[id])" }]
+          "mutation": [{ "find": "([key, file]) => fileGaps(outDir, file)", "replace": "([key, file]) => (key.startsWith(\"spotanim-\") ? [] : fileGaps(outDir, file))" }]
         },
         {
           "policy": "an empty payload file counts as missing",
-          "mutation": [{ "find": "stat.size > 0;", "replace": "stat.size >= 0;" }]
+          "mutation": [{ "find": "found.size === 0 ?", "replace": "found.size < 0 ?" }]
         },
         {
           "policy": "a payload path that is not a regular file counts as missing",
-          "mutation": [{ "find": "stat.isFile() && ", "replace": "" }]
+          "mutation": [{ "find": "if (!found.isFile()) return [`${file} is not a file`];\n", "replace": "" }]
         }
       ]
     },

@@ -14,6 +14,7 @@ export const PHASE_ONLY_MODULES: ReadonlyMap<string, readonly [Phase, ...Phase[]
   ["src/content/ocellus/js/mobs/OcellusP3.ts", ["p3"]],
   ["src/content/ocellus/js/p3/fight.ts", ["p3"]],
   ["src/content/ocellus/js/p3/schedule.ts", ["p3"]],
+  ["src/content/ocellus/js/entities/P3Marks.ts", ["p3"]],
   ["src/content/ocellus/js/P1Region.ts", ["p1"]],
   ["src/content/ocellus/js/P1Types.ts", ["p1"]],
   ["src/content/ocellus/js/entities/P1Views.ts", ["p1"]],

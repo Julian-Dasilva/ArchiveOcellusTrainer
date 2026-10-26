@@ -145,6 +145,59 @@ describe("HP breakpoints", () => {
   });
 });
 
+describe("cuts", () => {
+  type Chain = "swing" | "panic" | "destroy";
+  const chain = (): Script<Chain, string, string> => ({
+    first: "swing",
+    stages: {
+      swing: stage<Chain>("swing", 3, true, () => "swing"),
+      panic: stage<Chain>("panic", 6, true, () => "swing"),
+      destroy: stage<Chain>("destroy", 2, false, () => "destroy"),
+    },
+    breakpoints: [{ atOrBelow: hpFraction(0.5), enter: "destroy" }],
+  });
+
+  test("a cut enters its stage on its tick, so the table after it runs from there", () => {
+    const cut = schedule(chain()).cut(tick(3), "panic");
+
+    expect(ticks(2, 9).map((t) => cut.visitAt(t))).toEqual([
+      { stage: "swing", start: 0, number: 1, entered: "first" },
+      { stage: "panic", start: 3, number: 1, entered: "cut" },
+      { stage: "panic", start: 3, number: 1, entered: "cut" },
+      { stage: "panic", start: 3, number: 1, entered: "cut" },
+      { stage: "panic", start: 3, number: 1, entered: "cut" },
+      { stage: "panic", start: 3, number: 1, entered: "cut" },
+      { stage: "panic", start: 3, number: 1, entered: "cut" },
+      { stage: "swing", start: 9, number: 2, entered: "table-ended" },
+    ]);
+    expect(cut.at(tick(3))).toEqual({ tick: 3, phase: "panic-0 #1", beats: ["panic-0 of visit 1 from 3"] });
+  });
+
+  test("a cut is not a breakpoint, so the first breakpoint still fires after it", () => {
+    const cut = schedule(chain()).cut(tick(3), "panic").advance(tick(5), { hp: 50, maxHp: 100 });
+
+    expect([cut.visitAt(tick(5)), cut.breakpointsFiredBy(tick(5))]).toEqual([{ stage: "destroy", start: 5, number: 1, entered: "breakpoint" }, 1]);
+  });
+
+  test("a cut keeps the visit it cuts short and refuses ticks before that visit", () => {
+    const twice = schedule(chain()).cut(tick(3), "panic").cut(tick(11), "panic");
+    const refusal = (run: () => unknown) => {
+      try {
+        run();
+      } catch (error) {
+        return error instanceof Error ? `${error.name}: ${error.message}` : error;
+      }
+      return "no error";
+    };
+
+    expect({ cutShort: twice.visitAt(tick(9)), cut: twice.visitAt(tick(11)), before: refusal(() => twice.visitAt(tick(8))) }).toEqual({
+      cutShort: { stage: "swing", start: 9, number: 2, entered: "table-ended" },
+      cut: { stage: "panic", start: 11, number: 2, entered: "cut" },
+      before: "RangeError: tick 8 is before tick 9, the start of the visit the last cut cut short",
+    });
+  });
+});
+
 describe("the stage contract", () => {
   const header = [
     'import { Schedule, slotTable, type Script, type Slot, type Stage, type Visit } from "./schedule";',
@@ -237,7 +290,7 @@ describe("the stage contract", () => {
       "unknown-breakpoint": ["4: Type '\"unknown\"' is not assignable to type '\"fight\"'."],
       "unknown-first": ["4: Type '\"unknown\"' is not assignable to type '\"fight\"'."],
       "stage-typed-string": [
-        "5: Type '(ended: Readonly<{ stage: string; start: Tick; number: Cycle; entered: \"first\" | \"table-ended\" | \"breakpoint\"; }>, visits: (stage: string) => number) => string' is not assignable to type '(ended: Readonly<{ stage: \"fight\"; start: Tick; number: Cycle; entered: \"first\" | \"table-ended\" | \"breakpoint\"; }>, visits: (stage: \"fight\") => number) => \"fight\"'.",
+        "5: Type '(ended: Readonly<{ stage: string; start: Tick; number: Cycle; entered: \"first\" | \"table-ended\" | \"breakpoint\" | \"cut\"; }>, visits: (stage: string) => number) => string' is not assignable to type '(ended: Readonly<{ stage: \"fight\"; start: Tick; number: Cycle; entered: \"first\" | \"table-ended\" | \"breakpoint\" | \"cut\"; }>, visits: (stage: \"fight\") => number) => \"fight\"'.",
       ],
       "table-typed-record-string": ["5: Type 'string' is not assignable to type 'Readonly<{ \"stage names must be string literals\": string; }>'."],
       "explicit-string-type-argument": ["4: Type 'string' is not assignable to type 'Readonly<{ \"stage names must be string literals\": string; }>'."],
@@ -322,6 +375,32 @@ describe("a long run", () => {
     expect([await afterCycles(10), await afterCycles(1000)]).toEqual([
       { callsInNextCycle: 11, visitsKept: 1 },
       { callsInNextCycle: 11, visitsKept: 1 },
+    ]);
+  });
+
+  test("after 1000 cuts a schedule keeps as many visits as after 10", async () => {
+    type Chain = "swing" | "panic";
+    const script: Script<Chain, string, string> = {
+      first: "swing",
+      stages: { swing: stage<Chain>("swing", 3, true, () => "swing"), panic: stage<Chain>("panic", 6, true, () => "swing") },
+      breakpoints: [],
+    };
+    const afterCuts = async (cuts: number) => {
+      let fight = schedule(script);
+      const passed: Readonly<{ deref: () => Visit<Chain> | undefined }>[] = [];
+      for (let n = 1; n <= cuts; n++) {
+        const at = tick(6 * n);
+        fight = fight.cut(at, "panic");
+        passed.push(new WeakRef(fight.visitAt(at)));
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      collectGarbage();
+      return { current: fight.visitAt(tick(6 * cuts)), visitsKept: passed.filter((visit) => visit.deref() !== undefined).length };
+    };
+
+    expect([await afterCuts(10), await afterCuts(1000)]).toEqual([
+      { current: { stage: "panic", start: 60, number: 10, entered: "cut" }, visitsKept: 2 },
+      { current: { stage: "panic", start: 6000, number: 1000, entered: "cut" }, visitsKept: 2 },
     ]);
   });
 });

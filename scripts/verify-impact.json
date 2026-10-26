@@ -76,6 +76,6 @@
     { "paths": ["src/content/ocellus/js/p4/explosions.ts"], "units": ["@explosion_set"] },
     { "paths": ["src/content/ocellus/js/mobs/VoidRift.ts"], "units": ["overheads_rifts", "recorded_fights"] },
     { "paths": ["src/content/ocellus/js/gear/**", "src/content/ocellus/js/OcellusLoadout.ts", "src/content/ocellus/js/bossStats.ts"], "units": ["@combat"] },
-    { "paths": ["src/content/ocellus/js/P3Region.ts", "src/content/ocellus/js/P3Types.ts", "src/content/ocellus/js/mobs/OcellusP3.ts", "src/content/ocellus/js/p3/**"], "units": ["@p3"] }
+    { "paths": ["src/content/ocellus/js/P3Region.ts", "src/content/ocellus/js/P3Types.ts", "src/content/ocellus/js/entities/P3Marks.ts", "src/content/ocellus/js/mobs/OcellusP3.ts", "src/content/ocellus/js/p3/**"], "units": ["@p3"] }
   ]
 }

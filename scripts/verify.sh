@@ -332,15 +332,18 @@ P3_CLEAR_QUERY="?phase=p3&seed=100&bosshp=3991"
 P3_ARENA_SHOT_TICK=3
 P3_ARENA_TILES='{"open":[{"x":25,"y":11},{"x":26,"y":11}],"closed":[{"x":16,"y":13},{"x":17,"y":13}],"rim":[{"x":28,"y":10}]}'
 P3_PRAY_TICK=1
-P3_SWINGS_LAST_TICK=21
-P3_SWINGS='[[7,"swing",5,5,"melee"],[10,"swing",2,2,"melee"],[17,"swing",1,1,"melee"],[20,"swing",2,2,"melee"]]'
+P3_SWINGS_LAST_TICK=18
+P3_SWINGS='[[4,"swing",2,2,"melee"],[7,"swing",5,5,"melee"],[14,"swing",4,4,"melee"],[17,"swing",1,1,"melee"]]'
 P3_FAR_EAST_TILE='{"x":27,"y":9}'
-P3_ESCAPE_TICK=6
-P3_VOID_SHOT_LAST_TICK=11
-P3_VOID_SHOT='[[7,"swing",5,5,"melee"],[10,"void-shot",20,20,"melee"]]'
+P3_ESCAPE_TICK=3
+P3_PANIC_LAST_TICK=11
+P3_PANIC='[[4,"swing",2,2,"melee"],[9,"panic",25,25,"melee"]]'
 P3_BOSS_TILE='{"x":20,"y":7}'
 P3_BOSS_CLICK_TICK=2
-P3_CLEAR='{"panel":{"lines":["Quadrant 1 cleared (interim end)","P3 time: 5 ticks (0:03.0)"],"buttons":["Repeat P3","Retry seed","Start P4"]},"tick":5,"bossHp":3937}'
+P3_CLEAR='{"panel":{"lines":["Quadrant 1 cleared (interim end)","P3 time: 6 ticks (0:03.6)"],"buttons":["Repeat P3","Retry seed","Start P4"]},"tick":6,"bossHp":3937}'
+P3_CHAIN_QUERY="?phase=p3&seed=1&invincible=on"
+P3_CHAIN_LAST_TICK=91
+P3_CHAIN='[[4,"swing"],[7,"swing"],[10,"shadow-slash"],[14,"swing"],[17,"swing"],[20,"shadow-slash"],[24,"spin"],[29,"last-saw"],[33,"swing"],[36,"swing"],[39,"shadow-slash"],[43,"swing"],[46,"swing"],[49,"shadow-slash"],[53,"untether"],[82,"slam"],[90,"swing"]]'
 P3_START_P4='{"search":"?phase=p4&setup=ranged","bossHp":1312}'
 PRESENT_QUERY="?seed=1&invincible=on"
 PRESENT_RESIZED_VIEWPORT="1000 700"
@@ -398,27 +401,7 @@ ensure_deps() {
 }
 
 manifest_ready() {
-  [[ -f "$MANIFEST" ]] && node --input-type=module -e '
-    import { loadConfig } from "osrs-sdk-assets";
-    import { existsSync, readFileSync, statSync } from "node:fs";
-    import { dirname, join } from "node:path";
-    const { assets } = await loadConfig();
-    const m = JSON.parse(readFileSync(process.argv[1], "utf8"));
-    const payload = (key) => {
-      const stat = typeof m.assets?.[key]?.file === "string" && statSync(join(dirname(process.argv[1]), m.assets[key].file), { throwIfNoEntry: false });
-      return !!stat && stat.isFile() && stat.size > 0;
-    };
-    const npcs = Object.values(assets.npcs).every(({ id }) => payload(`npc-${id}`));
-    const items = Object.values(assets.items).every(({ id }) => payload(m.playerItems?.[`item:${id}`]));
-    const spotAnims = Object.values(assets.spotAnims).every(({ id }) => payload(m.spotAnims?.[id]));
-    const models = Object.values(assets.models).every(({ id }) => payload(`model-${id}`));
-    const pack = m.soundEffects && join(dirname(process.argv[1]), m.soundEffects.file);
-    const bytes = pack && existsSync(pack) ? readFileSync(pack) : Buffer.alloc(6);
-    const packed = new Set();
-    for (let at = 6, n = 0; n < bytes.readUInt16BE(4); n++, at += 4 + bytes.readUInt16BE(at + 2)) packed.add(bytes.readUInt16BE(at));
-    const sounds = Object.values(assets.sounds).every(({ id }) => packed.has(id));
-    process.exit(m.cache?.source === "openrs2:2746" && npcs && items && spotAnims && models && sounds ? 0 : 1);
-  ' "$MANIFEST" && node scripts/extract-sprites.mjs --check
+  node_modules/.bin/tsx src/assetBundle/check.ts
 }
 
 stage_build() {
@@ -439,12 +422,12 @@ stage_test() {
 
 stage_assets() {
   local flags=(--cache-dir "$OSRS_CACHE_DIR" --reader-path "$OSRS_CACHE_READER")
-  if manifest_ready; then
-    log "assets: manifest already has every configured npc, model, item, spotanim and sound from openrs2:2746, and every sprite, skipping the model rebuild" | tee "$VERIFY_DIR/assets.log"
+  if manifest_ready >"$VERIFY_DIR/assets.log" 2>&1; then
+    log "assets: public/osrs-assets already has every configured asset and sprite, skipping the model rebuild" | tee -a "$VERIFY_DIR/assets.log"
     npm run item-icons -- "${flags[@]}" >>"$VERIFY_DIR/assets.log" 2>&1
     return
   fi
-  npm run assets -- "${flags[@]}" >"$VERIFY_DIR/assets.log" 2>&1 && manifest_ready
+  npm run assets -- "${flags[@]}" >>"$VERIFY_DIR/assets.log" 2>&1 && manifest_ready
 }
 
 stage_bundle() {
@@ -2117,41 +2100,46 @@ p3_tile_samples() {
   })()" | json data.result
 }
 
-p3_arena_page() {
+p3_arena_shot() {
   local samples
-  ab open "${URL}${P3_QUERY}" >/dev/null || return 1
-  fight_tick_at_least "$P3_ARENA_SHOT_TICK" 120000 || { log "the P3 drill never reached P3 tick ${P3_ARENA_SHOT_TICK}"; return 1; }
+  fight_tick_at_least "$P3_ARENA_SHOT_TICK" 30000 || { log "the P3 drill never reached P3 tick ${P3_ARENA_SHOT_TICK}"; return 1; }
   samples="$(p3_tile_samples)" || { log "the P3 tile pixels were not read"; return 1; }
   ab screenshot "$VERIFY_DIR/p3-arena.png" >/dev/null || { log "the P3 arena screenshot failed"; return 1; }
   echo "$samples" >"$VERIFY_DIR/p3-arena-tiles.json"
 }
 
 drive_p3_drill() {
-  p3_arena_page || return 1
-  record_boss_bar || { log "the boss bar probe was not installed"; return 1; }
+  ab open "${URL}${P3_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the P3 drill never started"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick "$P3_PRAY_TICK" "$PROTECT_MELEE_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Melee was not clicked in P3"; return 1; }
+  p3_arena_shot || return 1
+  record_boss_bar || { log "the boss bar probe was not installed"; return 1; }
   fight_tick_at_least "$P3_SWINGS_LAST_TICK" 60000 || { log "the P3 drill never reached P3 tick ${P3_SWINGS_LAST_TICK}"; return 1; }
   probe "snapshot()" >"$VERIFY_DIR/p3-snapshot.json"
   ab --json eval "window.__bossBar" | json data.result >"$VERIFY_DIR/p3-boss-bar.json" || { log "P3 boss bar capture failed"; return 1; }
   p3_page_done p3-swings || return 1
 
   ab open "${URL}${P3_QUERY}" >/dev/null || return 1
-  fight_tick_at_least 0 120000 || { log "the P3 void shot page never started"; return 1; }
+  fight_tick_at_least 0 120000 || { log "the P3 panic page never started"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
-  click_after_tick "$P3_PRAY_TICK" "$PROTECT_MELEE_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Melee was not clicked on the void shot page"; return 1; }
-  if tile_pixel p3-void-shot "$P3_FAR_EAST_TILE" "$P3_ESCAPE_TICK"; then
+  click_after_tick "$P3_PRAY_TICK" "$PROTECT_MELEE_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Melee was not clicked on the panic page"; return 1; }
+  if tile_pixel p3-panic "$P3_FAR_EAST_TILE" "$P3_ESCAPE_TICK"; then
     click_after_tick "$P3_ESCAPE_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the run to the far east was not clicked"; return 1; }
   fi
-  fight_tick_at_least "$P3_VOID_SHOT_LAST_TICK" 30000 || { log "the void shot page never reached P3 tick ${P3_VOID_SHOT_LAST_TICK}"; return 1; }
-  p3_page_done p3-void-shot || return 1
+  fight_tick_at_least "$P3_PANIC_LAST_TICK" 30000 || { log "the panic page never reached P3 tick ${P3_PANIC_LAST_TICK}"; return 1; }
+  p3_page_done p3-panic || return 1
+
+  ab open "${URL}${P3_CHAIN_QUERY}" >/dev/null || return 1
+  fight_tick_at_least "$P3_CHAIN_LAST_TICK" 180000 || { log "the P3 chain page never reached P3 tick ${P3_CHAIN_LAST_TICK}"; return 1; }
+  p3_page_done p3-chain || return 1
 
   ab open "${URL}${P3_CLEAR_QUERY}" >/dev/null || return 1
   fight_tick_at_least 0 120000 || { log "the P3 interim clear page never started"; return 1; }
   tile_pixel p3-clear "$P3_BOSS_TILE" "$P3_BOSS_CLICK_TICK" || return 1
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick "$P3_BOSS_CLICK_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the P3 boss was not clicked"; return 1; }
-  ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 30000 >/dev/null || log "the P3 run never reached the 75% break"
+  ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 30000 >/dev/null || log "the P3 run never reached the 76% break"
   ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
   result_panel >"$VERIFY_DIR/p3-clear-panel.json" || { log "P3 result panel capture failed"; return 1; }
   ab screenshot "$VERIFY_DIR/p3-clear.png" >/dev/null || { log "P3 result screenshot failed"; return 1; }
@@ -2700,7 +2688,7 @@ while [[ $# -gt 0 ]]; do
     *) stages+=("$1"); shift ;;
   esac
 done
-[[ ${#stages[@]} -gt 0 ]] || stages=(build types test assets browser production)
+[[ ${#stages[@]} -gt 0 ]] || stages=(assets build types test browser production)
 for stage in "${stages[@]}"; do
   case "$stage" in bundle | build | types | test | parity | assets | browser | production | perf | perfbudgets) ;; *) log "unknown stage: ${stage}"; exit 2 ;; esac
 done

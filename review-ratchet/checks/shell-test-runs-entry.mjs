@@ -3,6 +3,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const POLICIES = "review-ratchet/guarded-policies.json";
 const usage = `usage: shell-test-runs-entry.mjs [--timeout SECS] [ROOT]
@@ -20,7 +21,8 @@ applied to the copy's script. A test that still passes under a mutation does
 not exercise the policy it guards, for example because it runs its own copy
 of the script's code under its own shell options.
 
-A mutant must pass its syntax check (bash -n for .sh, node --check for .mjs),
+A mutant must pass its syntax check (bash -n for .sh, node --check for .mjs,
+and for .ts esbuild, the parser tsx runs it with),
 so a test that runs the real script reaches its assertions. A test reports
 each case on a line "PASS NAME" or "FAIL NAME", followed by that case's
 output; output before the first case belongs to no case. Each case prints
@@ -43,7 +45,7 @@ such a case. Each run may take up to --timeout seconds (default 300).
 
 const CASE = /^(PASS|FAIL) (\S+)$/;
 const ASSERTION_FAILED = /^[ \t]*ASSERTION FAILED: /;
-const SYNTAX_CHECKS = { ".sh": ["bash", "-n"], ".mjs": [process.execPath, "--check"] };
+const SYNTAX_CHECKS = { ".sh": ["bash", "-n"], ".mjs": [process.execPath, "--check"], ".ts": [fileURLToPath(new URL("../../node_modules/.bin/esbuild", import.meta.url))] };
 
 class Undecidable extends Error {}
 
@@ -160,7 +162,7 @@ function syntaxError(script, text) {
     const file = path.join(dir, path.basename(script));
     fs.writeFileSync(file, text);
     const [command, ...args] = check;
-    const result = spawnSync(command, [...args, file], { encoding: "utf8" });
+    const result = spawnSync(command, [...args, file], { cwd: dir, encoding: "utf8", stdio: ["ignore", "ignore", "pipe"] });
     if (result.error) return `cannot run ${command}: ${result.error.message}`;
     if (result.status === 0) return null;
     return withTail(`the mutant fails ${[path.basename(command), ...args].join(" ")}`, result.stderr.replaceAll(file, script));

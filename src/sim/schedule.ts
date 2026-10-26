@@ -8,7 +8,7 @@ export type Slot<P, B> = Readonly<{ phase: (visitNumber: Cycle) => P; beats: rea
 export type Focus<M extends string> = Readonly<{ kind: "full-fight" }> | Readonly<{ kind: "drill"; mechanics: readonly [M, ...M[]] }>;
 export type DrillStart = Readonly<{ kind: "before-first-beat"; lead: TickSpan }> | Readonly<{ kind: "cycle-start" }>;
 
-export type Visit<S extends string> = Readonly<{ stage: S; start: Tick; number: Cycle; entered: "first" | "table-ended" | "breakpoint" }>;
+export type Visit<S extends string> = Readonly<{ stage: S; start: Tick; number: Cycle; entered: "first" | "table-ended" | "breakpoint" | "cut" }>;
 
 type NoInfer<S> = [S][S extends unknown ? 0 : never];
 
@@ -63,11 +63,12 @@ class Visits<S extends string, P, B> {
     const { first, stages, breakpoints } = script;
     assertStage(stages, first);
     for (const breakpoint of breakpoints) assertStage(stages, breakpoint.enter);
-    return new Visits(script, [enter<S>(first, tick(0), "first", new Map())]);
+    return new Visits(script, tick(0), [enter<S>(first, tick(0), "first", new Map())]);
   }
 
   private constructor(
     private readonly script: Script<S, P, B>,
+    private readonly answersFrom: Tick,
     private readonly runStarts: readonly Entry<S>[],
     private previous: Entry<S> | null = null,
   ) {
@@ -82,13 +83,17 @@ class Visits<S extends string, P, B> {
     return this.runStarts.filter(({ visit }) => visit.entered === "breakpoint" && visit.start < t).length;
   }
 
-  cutAt(t: Tick, stage: S): Visits<S, P, B> {
+  cutAt(t: Tick, stage: S, entered: "breakpoint" | "cut"): Visits<S, P, B> {
     const before = t === 0 ? null : this.entryAt(tick(t - 1));
-    const kept = this.runStarts.filter(({ visit }) => visit.start < t);
-    return new Visits(this.script, [...kept, enter(stage, t, "breakpoint", before?.visits ?? new Map())], before);
+    const cut = enter(stage, t, entered, before?.visits ?? new Map());
+    if (entered === "breakpoint" || before === null) return new Visits(this.script, this.answersFrom, [...this.runStarts.filter(({ visit }) => visit.start < t), cut], before);
+    const breakpoints = this.runStarts.filter(({ visit }) => visit.entered === "breakpoint" && visit.start < before.visit.start);
+    const boundedHistory = [...breakpoints, before, cut];
+    return new Visits(this.script, before.visit.start, boundedHistory, before);
   }
 
   private entryAt(t: Tick): Entry<S> {
+    if (t < this.answersFrom) throw new RangeError(`tick ${t} is before tick ${this.answersFrom}, the start of the visit the last cut cut short`);
     if (t >= this.latest.visit.start) {
       while (t >= this.end(this.latest)) {
         this.previous = this.latest;
@@ -166,7 +171,12 @@ export class Schedule<S extends string, P, B, M extends string> {
   advance(t: Tick, boss: BossHp): Schedule<S, P, B, M> {
     const next = this.script.breakpoints[this.visits.firedBefore(t)];
     if (next === undefined || !this.script.stages[this.visitAt(t).stage].breakable || boss.hp > Math.floor(boss.maxHp * next.atOrBelow)) return this;
-    return new Schedule(this.script, this.mechanicOf, this.focus, this.drillStart, this.horizon, this.visits.cutAt(t, next.enter));
+    return new Schedule(this.script, this.mechanicOf, this.focus, this.drillStart, this.horizon, this.visits.cutAt(t, next.enter, "breakpoint"));
+  }
+
+  /** Enters `stage` at `t` in place of the visit running there, for a turn that branches on a fact other than HP. Breakpoints still fire in order. */
+  cut(t: Tick, stage: S): Schedule<S, P, B, M> {
+    return new Schedule(this.script, this.mechanicOf, this.focus, this.drillStart, this.horizon, this.visits.cutAt(t, stage, "cut"));
   }
 
   private momentIn(visits: Visits<S, P, B>, t: Tick): Moment<P, B> {

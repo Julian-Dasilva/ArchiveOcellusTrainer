@@ -2,12 +2,12 @@ import { inflateSync } from "node:zlib";
 
 export const captures = () => [
   "p3-arena.png", "p3-arena-tiles.json", "p3-snapshot.json", "p3-boss-bar.json", "p3-swings.json", "p3-swings-console.log", "p3-swings-page-errors.json",
-  "p3-void-shot.json", "p3-void-shot-console.log", "p3-void-shot-page-errors.json", "p3-clear-panel.json", "p3-clear.png", "p3-clear.json", "p3-clear-console.log",
+  "p3-panic.json", "p3-panic-console.log", "p3-panic-page-errors.json", "p3-chain.json", "p3-chain-page-errors.json", "p3-clear-panel.json", "p3-clear.png", "p3-clear.json", "p3-clear-console.log",
   "p3-clear-page-errors.json", "p3-start-p4.json", "p3-start-p4-page-errors.json",
 ];
 
 export function judge({ read, bytes, env }) {
-  const { BOSS_NPC: bossNpc, P3_SWINGS: swings, P3_VOID_SHOT: voidShot, P3_CLEAR: clear, P3_START_P4: startP4 } = env;
+  const { BOSS_NPC: bossNpc, P3_SWINGS: swings, P3_PANIC: panic, P3_CLEAR: clear, P3_START_P4: startP4, P3_CHAIN: chain } = env;
   function decode(file) {
     const buf = bytes(file);
     let at = 8, width = 0, channels = 4;
@@ -44,16 +44,17 @@ export function judge({ read, bytes, env }) {
   const arenaDrawn = ({ open, closed, rim }) => [...open, ...closed].every(grey) && rim.every((rgb) => rgb !== null && rgb[1] - rgb[2] >= 20) &&
     Math.min(...open.map(lum)) >= Math.max(...closed.map(lum)) + 12;
   const hits = (log) => log.rows.flatMap((row) => row.events).filter((event) => event.kind === "player-hit").map(({ at, hit, receipt }) => [at, hit.kind, receipt.requested, receipt.applied, receipt.prayer]);
-  const [snapshot, bar, swingLog, voidLog, clearLog, panel, p4] = ["p3-snapshot.json", "p3-boss-bar.json", "p3-swings.json", "p3-void-shot.json", "p3-clear.json", "p3-clear-panel.json", "p3-start-p4.json"].map(read);
+  const [snapshot, bar, swingLog, panicLog, clearLog, panel, p4, chainLog] = ["p3-snapshot.json", "p3-boss-bar.json", "p3-swings.json", "p3-panic.json", "p3-clear.json", "p3-clear-panel.json", "p3-start-p4.json", "p3-chain.json"].map(read);
   const expectedClear = JSON.parse(clear), expectedStart = JSON.parse(startP4);
   const clearedAt = clearLog.rows.find((row) => row.events.some((event) => event.kind === "run-ended"));
   const observed = {
     arena,
     bossBar: [...new Set(Object.values(bar).flat())],
-    swings: hits(swingLog).filter(([at]) => at <= 20),
+    swings: hits(swingLog).filter(([at, kind]) => kind === "swing" && at <= 17),
     prayerOrders: swingLog.rows.flatMap((row) => row.inputs.filter((input) => input.kind === "prayer-published").map((input) => [row.tick, input.prayer])),
-    voidShot: hits(voidLog).filter(([at]) => at <= 10),
-    escape: voidLog.rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered").map((input) => [row.tick, input.destination])),
+    panic: hits(panicLog).filter(([at]) => at <= 10),
+    chain: chainLog.rows.flatMap((row) => row.events).filter((event) => event.kind === "boss-moved" && event.at <= 90).map(({ at, move }) => [at, move]),
+    escape: panicLog.rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered").map((input) => [row.tick, input.destination])),
     clear: { panel: { lines: panel.lines, buttons: panel.buttons }, run: panel.run, row: clearedAt && { tick: clearedAt.tick, bossHp: clearedAt.bossHp, events: clearedAt.events.map((event) => event.kind) } },
     startP4: p4,
   };
@@ -61,12 +62,13 @@ export function judge({ read, bytes, env }) {
   const checks = {
     p3BossIsNpc16677: swingLog.header.phase === "p3" && snapshot.fight?.boss.npcId === Number(bossNpc) && snapshot.fight.boss.visible && observed.bossBar.includes("5250 / 5250 (100.0%)"),
     p3ArenaDrawn: arenaDrawn(arena),
-    p3SwingsChipUnderMeleePrayer: observed.prayerOrders.length > 0 && observed.prayerOrders[0][0] < 7 && observed.prayerOrders[0][1] === "melee" && same(observed.swings, JSON.parse(swings)),
-    p3VoidShotOutOfReach: same(observed.voidShot, JSON.parse(voidShot)) && observed.escape.length === 1,
+    p3SwingsChipUnderMeleePrayer: observed.prayerOrders.length > 0 && observed.prayerOrders[0][0] <= JSON.parse(swings)[0][0] && observed.prayerOrders[0][1] === "melee" && same(observed.swings, JSON.parse(swings)),
+    p3PanicOutOfReach: same(observed.panic, JSON.parse(panic)) && observed.escape.length === 1,
+    p3ChainAsRecorded: same(observed.chain, JSON.parse(chain)),
     p3InterimClear: same(observed.clear.panel, expectedClear.panel) && observed.clear.run?.kind === "ended" && observed.clear.run.reason.kind === "quadrant-cleared" &&
       observed.clear.row?.tick === expectedClear.tick && observed.clear.run.at === expectedClear.tick && observed.clear.row.bossHp.atPostTick === expectedClear.bossHp && observed.clear.row.events.includes("run-ended"),
     p3StartP4OpensP4: p4.search === expectedStart.search && p4.bossHp === expectedStart.bossHp && same(p4.rejected, []) && p4.logPhase === null && p4.phaseBox === "p4",
-    noP3PageErrors: ["p3-swings-page-errors.json", "p3-void-shot-page-errors.json", "p3-clear-page-errors.json", "p3-start-p4-page-errors.json"].map(read).every((list) => list.length === 0),
+    noP3PageErrors: ["p3-swings-page-errors.json", "p3-panic-page-errors.json", "p3-chain-page-errors.json", "p3-clear-page-errors.json", "p3-start-p4-page-errors.json"].map(read).every((list) => list.length === 0),
   };
   return { observed, checks };
 }

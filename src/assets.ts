@@ -1,3 +1,4 @@
+import type { CacheRenderBundleManifest } from "osrs-sdk";
 import type { CacheAssets } from "osrs-sdk/asset-manifest";
 import type { SpriteFrame } from "./content/ocellus/js/OcellusTimings";
 import { OCELLUS_P1, OCELLUS_P2, OCELLUS_P3, OCELLUS_P4 } from "./content/ocellus/js/OcellusTimings";
@@ -49,6 +50,45 @@ export const ARCHIVE_OCELLUS_ASSETS = {
   ]),
   sounds: Object.fromEntries(Object.entries(presentation.sounds).map(([cue, sound]) => [cue, { id: sound.value }])),
 } as const satisfies CacheAssets;
+
+export type ConfiguredIds = Readonly<Record<string, Readonly<{ id: number }>>>;
+
+export type ManifestIndex = Pick<CacheRenderBundleManifest, "references" | "spotAnims" | "playerItems" | "sharedAssets">;
+
+export const INDEXED_CATEGORIES = ["npcs", "models", "spotAnims", "items", "playerAnimations"] as const;
+export type IndexedCategory = (typeof INDEXED_CATEGORIES)[number];
+
+export function manifestAssetKeys(manifest: ManifestIndex, category: IndexedCategory, id: number): readonly string[] | undefined {
+  const one = (key: string | undefined) => (key === undefined ? undefined : [key]);
+  switch (category) {
+    case "npcs":
+      return manifest.references[`npc:${id}`];
+    case "models":
+      return manifest.references[`model:${id}`];
+    case "spotAnims":
+      return one(manifest.spotAnims?.[id]);
+    case "items":
+      return one(manifest.playerItems?.[`item:${id}`]);
+    case "playerAnimations":
+      return one(manifest.sharedAssets?.playerAnimations);
+    default: {
+      const unhandled: never = category;
+      return unhandled;
+    }
+  }
+}
+
+const RENDER_CATEGORIES = ["npcs", "models", "spotAnims"] as const satisfies readonly IndexedCategory[];
+
+const RENDERED: Readonly<Record<(typeof RENDER_CATEGORIES)[number], ConfiguredIds>> = ARCHIVE_OCELLUS_ASSETS;
+
+export function reportUnservedAssets(manifest: CacheRenderBundleManifest): void {
+  for (const category of RENDER_CATEGORIES) {
+    for (const [name, { id }] of Object.entries(RENDERED[category])) {
+      if (manifestAssetKeys(manifest, category, id) === undefined) console.error(`assets: osrs-assets/manifest.json has no ${category}.${name} (${id}); rebuild public/osrs-assets with npm run assets`);
+    }
+  }
+}
 
 export const ITEM_ICON_DIR = "item-icons";
 export const itemIconFile = (itemId: number) => `${ITEM_ICON_DIR}/${itemId}.png`;
