@@ -50,11 +50,13 @@ function present(event: FightEvent, views: Views, player: Tile): void {
     case "orb-returned":
       views.orbs[event.void].leave();
       views.fragment.regain(player);
+      playCue(sounds.orbReturn.value, player);
       return;
     case "orb-expired":
       views.orbs[event.void].leave();
       return;
     case "explosion-series-started":
+      views.player.explosionsWarned();
       playCue(sounds.explosionSeriesStart.value, player);
       return;
     case "explosion-marked":
@@ -91,14 +93,19 @@ function present(event: FightEvent, views: Views, player: Tile): void {
       return;
     case "run-ended":
       views.explosions.retire();
+      if (event.reason === "kill") views.boss.die();
+      return;
+    case "lifeforce-drained":
+      views.boss.drained(event.void);
+      return;
+    case "player-hit-judged":
+      if (event.outcome === "blocked") views.player.deflected();
       return;
     case "overhead-switched":
     case "boss-state-changed":
-    case "player-hit-judged":
     case "deflect-reflected":
     case "floor-hit":
     case "hole-hit":
-    case "lifeforce-drained":
     case "boss-healed":
     case "special-hit":
     case "rift-spawned":
