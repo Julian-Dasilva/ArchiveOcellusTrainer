@@ -191,10 +191,10 @@ EXPLOSION_GLOW_MIN_SHARE=1.5
 EXPLOSION_GLOW_MAX_SHARE=0.1
 EXPLOSION_OVERHEAD_BOX='{"minX":-100,"maxX":99,"minY":-150,"maxY":-41}'
 EXPLOSION_OVERHEAD_MIN_SHARE=0.2
-EXPLOSION_OVERHEAD_SHOT_FRACTION=0.05
+EXPLOSION_OVERHEAD_SHOT_FRACTION=0.25
 EXPLOSION_OUTSIDE_TICKS="15 29"
 EXPLOSION_GLOW_SHOT_FRACTION=0.85
-EXPLOSION_MARKED_SHOT_FRACTIONS="0.6 0.8"
+EXPLOSION_MARKED_SHOT_FRACTIONS="0.75 0.85"
 EXPLOSION_RUN_END_QUERY="?seed=38&bosshp=1&focus=explosions"
 EXPLOSION_KILL_CLICK_TICK=14
 EXPLOSION_RUN_END_EXPECTED='{"marked":[[17,{"x":5,"y":1}]],"ended":[[18,"kill"]],"resolved":[]}'
@@ -570,10 +570,6 @@ take_shot() {
   taken="$(ab --json eval "window.__frameClock.done['${name}']" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const { png, ...at } = JSON.parse(s).data.result;require("fs").writeFileSync(process.argv[1],Buffer.from(png.replace(/^data:image\/png;base64,/,""),"base64"));process.stdout.write(JSON.stringify(at))})' "$VERIFY_DIR/$name")" || return 1
   log "${name} copied at ${taken}"
   [[ "$(json tick <<<"$taken")" == "$tick" ]] || { log "${name} missed tick ${tick}"; return 1; }
-}
-
-shot_in_tick() {
-  arm_shot "$@" && take_shot "$4" "$2"
 }
 
 save_settings() {
@@ -1306,14 +1302,16 @@ drive_explosions() {
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
   start_frame_clock || { log "the frame clock was not installed"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
-  shot_in_tick fight "${outside[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-before.png || { log "pre-series shot failed"; return 1; }
+  arm_shot fight "${outside[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-before.png && arm_shot fight "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-left.png &&
+    arm_shot fight "${outside[1]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-after.png && arm_shot fight "${outer[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-standing.png ||
+    { log "the explosion shots were not armed"; return 1; }
+  take_shot explosion-before.png "${outside[0]}" || { log "pre-series shot failed"; return 1; }
   click_after_tick $((inner[0] - 1)) "$DODGE_CLICK_SIDE_PX" "$STEP_CLICK_DOWN_PX" || { log "the first dodge was not clicked"; return 1; }
-  shot_in_tick fight "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-left.png || { log "left marker shot failed"; return 1; }
+  take_shot explosion-left.png "${inner[0]}" || { log "left marker shot failed"; return 1; }
   step_on_marks "-$DODGE_CLICK_SIDE_PX" "${inner[@]:1}" || { log "the other dodges were not clicked"; return 1; }
-  shot_in_tick fight "${outside[1]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-after.png || { log "post-series shot failed"; return 1; }
-  arm_shot fight "${outer[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-standing.png || { log "the late step shot was not armed"; return 1; }
+  take_shot explosion-after.png "${outside[1]}" || { log "post-series shot failed"; return 1; }
   click_after_tick "${outer[0]}" "$DODGE_CLICK_SIDE_PX" "$STEP_CLICK_DOWN_PX" || { log "the late step was not clicked"; return 1; }
-  take_shot explosion-standing.png "${outer[0]}" || { log "the late step shot missed its mark tick"; return 1; }
+  take_shot explosion-standing.png "${outer[0]}" || { log "the late step shot failed"; return 1; }
   fight_tick_at_least "$EXPLOSION_LAST_TICK" 30000 || { log "the explosions drill never stepped to P4 tick ${EXPLOSION_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/explosions.json"
   ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/explosion-audio.json" || { log "audio capture failed"; return 1; }
@@ -1325,7 +1323,7 @@ drive_explosions() {
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick 0 0 "-$UNDER_BOSS_CLICK_UP_PX" || { log "the walk under the hidden boss was not clicked"; return 1; }
   start_frame_clock || { log "the frame clock was not installed"; return 1; }
-  shot_in_tick fight "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-under.png || { log "under-boss shot failed"; return 1; }
+  arm_shot fight "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-under.png && take_shot explosion-under.png "${inner[0]}" || { log "under-boss shot failed"; return 1; }
   fight_tick_at_least "$EXPLOSION_UNDER_LAST_TICK" 30000 || { log "the camping drill never stepped to P4 tick ${EXPLOSION_UNDER_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/explosions-under.json"
   ab console >"$VERIFY_DIR/explosion-under-console.log" 2>&1 || { log "console capture failed"; return 1; }
@@ -1361,12 +1359,18 @@ drive_explosion_run_end() {
   frame=0
   for fraction in $EXPLOSION_MARKED_SHOT_FRACTIONS; do
     frame=$((frame + 1))
-    shot_in_tick fight "${inner[0]}" "$fraction" "explosion-run-end-marked-${frame}.png" || { log "marked shot failed"; return 1; }
+    arm_shot fight "${inner[0]}" "$fraction" "explosion-run-end-marked-${frame}.png" || { log "marked shot was not armed"; return 1; }
+  done
+  for frame in $(seq 1 "$frame"); do
+    take_shot "explosion-run-end-marked-${frame}.png" "${inner[0]}" || { log "marked shot failed"; return 1; }
   done
   ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 30000 >/dev/null || { log "the run-end drill never ended"; return 1; }
   ended="$(probe "snapshot().tick")" || return 1
   for frame in $(seq 1 "$EXPLOSION_RUN_END_FRAMES"); do
-    shot_in_tick world $((ended + frame)) "$EXPLOSION_GLOW_SHOT_FRACTION" "explosion-run-end-${frame}.png" || { log "run-end shot failed"; return 1; }
+    arm_shot world $((ended + frame)) "$EXPLOSION_GLOW_SHOT_FRACTION" "explosion-run-end-${frame}.png" || { log "run-end shot was not armed"; return 1; }
+  done
+  for frame in $(seq 1 "$EXPLOSION_RUN_END_FRAMES"); do
+    take_shot "explosion-run-end-${frame}.png" $((ended + frame)) || { log "run-end shot failed"; return 1; }
   done
   probe "log()" >"$VERIFY_DIR/explosion-run-end.json"
   ab console >"$VERIFY_DIR/explosion-run-end-console.log" 2>&1 || { log "console capture failed"; return 1; }
