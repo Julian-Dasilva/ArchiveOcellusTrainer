@@ -22,6 +22,7 @@ export const P4_ASSETS = {
     ...Object.entries(presentation.transitionTells).map(([variant, spotAnim]) => [`${variant.replace(/-(.)/g, (_, letter: string) => letter.toUpperCase())}Tell`, { id: spotAnim.value }]),
     ["riftFlare", { id: rifts.burstFlare.value }],
     ["explosion", { id: explosion.spotAnim.value }],
+    ["explosionTelegraph", { id: explosion.telegraph.value }],
   ]),
   sounds: Object.fromEntries(Object.entries(presentation.sounds).map(([cue, sound]) => [cue, { id: sound.value }])),
 } as const satisfies CacheAssets;

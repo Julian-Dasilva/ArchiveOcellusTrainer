@@ -729,12 +729,30 @@ const LIFEFORCE_ORB: LifeforceOrbRecipe = {
 
 type ExplosionSeriesRecipe = Readonly<{
   seriesStartsAfterHit: Selected<TickSpan>;
+  telegraph: Selected<number>;
   spotAnim: Selected<number>;
   dodge: Selected<Readonly<{ radius: number; attackDelayCut: TickSpan }>>;
 }>;
 
 const EXPLOSION: ExplosionSeriesRecipe = {
-  seriesStartsAfterHit: selected(span(2), "footage-repeated", "team-4-and-5", "sound 12638 two ticks after the lifeforce hit, before the first mark of every option; what the server marks with it is inferred", NO_WIKI_TICKS, vod("V1", "3:54:04.77, t14"), vod("V2", "5:20:27.89, t14")),
+  seriesStartsAfterHit: selected(
+    span(2),
+    "log-repeated",
+    "team-4-and-5",
+    "sound 12638 two ticks after the lifeforce hit, before the first mark of every option, in both clips; the fight logs put the warning spotanim on every player on that tick, S+6 and S+37, in every cycle they record",
+    NO_WIKI_TICKS, vod("V1", "3:54:04.77, t14"), vod("V2", "5:20:27.89, t14"),
+    fightLog("L2", "spotanim 4340 on every player at S+6 and S+37, cycles 1 and 2"),
+    fightLog("L6", "spotanim 4340 on every player at S+6 and S+37, cycles 1 to 4, and S+6 of cycle 5"),
+  ),
+  telegraph: selected(
+    4340,
+    "log-repeated",
+    "unscaled",
+    "vfx_void_chain_player_telegraph, a ring of dark purple ovals around the player's legs, played on the player as the series starts, with sound 12638, and gone by the first mark 3 ticks later; the game's warning to get ready to step",
+    NO_WIKI_PRESENTATION, cache("spotanim 4340 vfx_void_chain_player_telegraph: model 62704, seq 14934 vfx_void_chain_player, 90 client cycles"),
+    fightLog("L6", "on all six players at P4 +10, S+6 of cycle 1"),
+    vod("V1", "3:54:04.77 to 3:54:05.6, the ring around the legs from the series start to the first mark"),
+  ),
   spotAnim: selected(
     4339,
     "inferred",

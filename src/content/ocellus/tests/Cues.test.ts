@@ -23,6 +23,24 @@ function cuesThrough(lastTick: number, selection: DrillSelection) {
   return { sounds, chat };
 }
 
+type Drill = ReturnType<typeof startDrill>;
+
+function spotAnimsThrough(lastTick: number, drill: Drill, act: (t: number) => void = () => undefined) {
+  // Unit.addSpotAnim is the SDK's entry for an effect on a unit, so the spies read each one as it reaches the player or the boss.
+  const onPlayer = vi.spyOn(drill.player(), "addSpotAnim");
+  const onBoss = vi.spyOn(drill.boss(), "addSpotAnim");
+  const played: [number, string, number][] = [];
+  for (let t = 0; t <= lastTick; t++) {
+    const [player, boss] = [onPlayer.mock.calls.length, onBoss.mock.calls.length];
+    act(t);
+    drill.tickTo(t);
+    played.push(...onPlayer.mock.calls.slice(player).map(([spotAnim]): [number, string, number] => [t, "player", spotAnim.id]));
+    played.push(...onBoss.mock.calls.slice(boss).map(([spotAnim]): [number, string, number] => [t, "boss", spotAnim.id]));
+  }
+  drill.dispose();
+  return played;
+}
+
 describe("timing cues", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -34,6 +52,19 @@ describe("timing cues", () => {
       [5, "cache-sound:12490"],
       [39, "cache-sound:12497"],
       [99, "cache-sound:12497"],
+    ]);
+  });
+
+  test("each explosion series warns with spotanim 4340 on the player and sound 12638 at 14 and 45, two ticks after the lifeforce hit and three before the first mark, and a drill without explosions shows no warning", () => {
+    const series = { focus: "explosions" } as const;
+    expect([
+      spotAnimsThrough(46, startDrill({ selection: series })),
+      cuesThrough(46, series).sounds.filter(([, sound]) => sound === "cache-sound:12638"),
+      spotAnimsThrough(46, startDrill({ selection: { focus: "void-floor" } })),
+    ]).toEqual([
+      [[14, "player", 4340], [45, "player", 4340]],
+      [[14, "cache-sound:12638"], [45, "cache-sound:12638"]],
+      [],
     ]);
   });
 

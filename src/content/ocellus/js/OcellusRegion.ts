@@ -66,6 +66,7 @@ function present(event: FightEvent, views: Views, player: Tile): void {
       views.orbs[event.void].leave();
       return;
     case "explosion-series-started":
+      views.player.explosionsWarned();
       playCue(sounds.explosionSeriesStart.value, player);
       return;
     case "explosion-marked":

@@ -408,6 +408,10 @@ export class PlayerLook {
   riftBurst(): void {
     this.player.addSpotAnim({ id: OCELLUS_P4.rifts.burstFlare.value, channel: "rift-burst" });
   }
+
+  explosionsWarned(): void {
+    this.player.addSpotAnim({ id: OCELLUS_P4.explosion.telegraph.value, channel: "explosion-telegraph" });
+  }
 }
 
 export class BossLook {
