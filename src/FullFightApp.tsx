@@ -87,7 +87,15 @@ function createTrainer() {
   readSettings();
   const params = readParams();
   const setup = OCELLUS_P4.choices.setup.options[params.setup].value;
-  const options: FightOptions = { ...params, onHandOver: (state) => console.info("full-fight: hand over", JSON.stringify(state)) };
+  const options: FightOptions = {
+    ...params,
+    onHandOver: (state) => {
+      const practice = region.fight?.practice ?? params.invincible;
+      void import("./content/ocellus/js/carry").then(({ handOverToP4 }) => {
+        handOverToP4(state, practice);
+      });
+    },
+  };
   const region = new FightRegion(options, (player: Player) => dress(player, defaultLoadout(setup)));
   installBossBar((r: Region) => (r instanceof FightRegion ? r.fight : null));
   const trainer = new TrainerInstance(region, { readyTimer: 5 });
