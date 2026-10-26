@@ -14,7 +14,14 @@ export const PHASE_ONLY_MODULES: ReadonlyMap<string, readonly [Phase, ...Phase[]
   ["src/content/ocellus/js/mobs/OcellusP3.ts", ["p3"]],
   ["src/content/ocellus/js/p3/fight.ts", ["p3"]],
   ["src/content/ocellus/js/p3/schedule.ts", ["p3"]],
-  ["src/content/ocellus/js/p3/arena.ts", ["p2", "p3"]],
+  ["src/content/ocellus/js/P1Region.ts", ["p1"]],
+  ["src/content/ocellus/js/P1Types.ts", ["p1"]],
+  ["src/content/ocellus/js/entities/P1Views.ts", ["p1"]],
+  ["src/content/ocellus/js/mobs/OcellusP1.ts", ["p1"]],
+  ["src/content/ocellus/js/p1/arena.ts", ["p1"]],
+  ["src/content/ocellus/js/p1/fight.ts", ["p1"]],
+  ["src/content/ocellus/js/p1/schedule.ts", ["p1"]],
+  ["src/content/ocellus/js/p3/arena.ts", ["p1", "p2", "p3"]],
 ]);
 
 export type StrayModule = Readonly<{ module: string; phases: readonly Phase[] }>;

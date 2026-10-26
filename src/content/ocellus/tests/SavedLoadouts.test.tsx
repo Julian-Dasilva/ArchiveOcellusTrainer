@@ -53,7 +53,9 @@ describe("Saved loadouts", () => {
     { phase: "p4", url: "/?seed=1" },
     { phase: "p3", url: "/?seed=1&phase=p3" },
     { phase: "p2", url: "/?seed=1&phase=p2" },
+    { phase: "p1", url: "/?seed=1&phase=p1" },
   ])("a loadout saved for the setup is worn and carried, slot for slot, at the start of a $phase run", async ({ phase, url }) => {
+    vi.stubEnv("ARCHIVE_P1", "on");
     vi.stubEnv("ARCHIVE_P2", "on");
     vi.stubEnv("ARCHIVE_P3", "on");
     expect(await startingLoadout(url, store({ ranged: { worn: MELEE_WORN, inventory: BREW_FIRST } }))).toEqual({

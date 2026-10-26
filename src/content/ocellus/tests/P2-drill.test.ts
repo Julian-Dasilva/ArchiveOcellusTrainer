@@ -182,7 +182,7 @@ describe("P2 drill", () => {
     { link: "?phase=p2&seed=1&focus=void-floor&reach=within-two", flags: { p3: true, p2: true }, expected: { phase: "p2", rejected: ["focus=void-floor", "reach=within-two"] } },
   ])("with flags $flags, parseRequest opens $expected.phase for $link and rejects $expected.rejected", async ({ link, flags, expected }) => {
     const { parseRequest } = await loadTimings();
-    const request = parseRequest(new URL(`http://127.0.0.1:8002/${link}`), () => 99, flags);
+    const request = parseRequest(new URL(`http://127.0.0.1:8002/${link}`), () => 99, { ...flags, p1: false });
     expect({ phase: request.phase, rejected: request.rejected }).toEqual(expected);
   });
 
@@ -192,7 +192,7 @@ describe("P2 drill", () => {
     { link: "?phase=p2&seed=1", flags: { p3: false, p2: false }, expected: { phase: "p4", rejected: ["phase=p2"] } },
   ])("guard: with flags $flags, parseRequest opens $expected.phase for $link and rejects $expected.rejected", async ({ link, flags, expected }) => {
     const { parseRequest } = await loadTimings();
-    const request = parseRequest(new URL(`http://127.0.0.1:8002/${link}`), () => 99, flags);
+    const request = parseRequest(new URL(`http://127.0.0.1:8002/${link}`), () => 99, { ...flags, p1: false });
     expect({ phase: request.phase, rejected: request.rejected }).toEqual(expected);
   });
 });

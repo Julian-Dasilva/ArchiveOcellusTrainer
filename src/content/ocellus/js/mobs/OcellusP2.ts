@@ -117,7 +117,7 @@ export class OcellusP2 extends Mob {
 
   override drawHitsplats(context: OffscreenCanvasRenderingContext2D, scale: number, verticalOffset = 0): void {
     super.drawHitsplats(context, scale, verticalOffset);
-    drawHealSplats(context, this.damageHitsplatImage, this.releaseSplats.map((splat) => splat.amount), verticalOffset);
+    drawHealSplats(context, this.damageHitsplatImage, this.releaseSplats, verticalOffset);
   }
 
   runState(): P2RunState {
