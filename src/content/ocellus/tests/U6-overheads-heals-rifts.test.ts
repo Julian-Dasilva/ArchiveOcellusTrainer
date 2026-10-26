@@ -2,6 +2,8 @@ import { BladeOfSaeldor } from "osrs-sdk";
 import type { Fill } from "../../../../test/paintedTiles";
 import { paintedFills } from "../../../../test/paintedTiles";
 import type { DrillSelection } from "../js/OcellusTimings";
+import type { RiftId } from "../js/P4Types";
+import type { At } from "./drill";
 import { RING_NORTH, UNDER_BOSS, startDrill } from "./drill";
 
 const TRANSITIONS = { focus: "transition-attacks", specialSelection: "replay-v2" } as const;
@@ -13,21 +15,30 @@ const FIRST_ATTACK_ON_SEED_100 = {
 
 type Drill = ReturnType<typeof startDrill>;
 
-const NORTH_EAST_RIFT = { x: 10, y: 2 } as const;
-const NORTH_WEST_RIFT = { x: 2, y: 2 } as const;
+const FIRST_RIFT: RiftId = "rift-67-0";
+const SECOND_RIFT: RiftId = "rift-67-1";
 
-async function attackNorthEastRift(drill: Drill, special: boolean) {
-  drill.tickTo(68);
-  drill.player().useSpecialAttack = special;
-  await drill.click(NORTH_EAST_RIFT);
-  drill.tickTo(79);
-  return [drill.events("rift-hit").map((e) => [e.at, e.damage]), drill.events("rift-destroyed").map((e) => e.at)];
+function riftTile(drill: Drill, rift: RiftId): At {
+  const spawned = drill.events("rift-spawned").find((e) => e.rift === rift);
+  if (!spawned) throw new Error(`${rift} has not spawned`);
+  return spawned.tile;
 }
 
-function northEastRift(drill: Drill) {
-  const rift = drill.region.mobs.find((mob) => mob.location.x === NORTH_EAST_RIFT.x && mob.location.y === NORTH_EAST_RIFT.y);
-  if (!rift) throw new Error("no rift on (10, 2)");
-  return rift;
+function riftMob(drill: Drill, rift: RiftId) {
+  const at = riftTile(drill, rift);
+  const mob = [...drill.region.mobs, ...drill.region.newMobs].find((unit) => unit.location.x === at.x && unit.location.y === at.y);
+  if (!mob) throw new Error(`no mob stands on ${rift}'s tile (${at.x}, ${at.y})`);
+  return mob;
+}
+
+const secondRift = (drill: Drill) => riftMob(drill, SECOND_RIFT);
+
+async function attackSecondRift(drill: Drill, special: boolean) {
+  drill.tickTo(68);
+  drill.player().useSpecialAttack = special;
+  await drill.click(riftTile(drill, SECOND_RIFT));
+  drill.tickTo(79);
+  return [drill.events("rift-hit").map((e) => [e.at, e.damage]), drill.events("rift-destroyed").map((e) => e.at)];
 }
 
 type DeflectAttack = Readonly<{
@@ -63,10 +74,10 @@ function attackIntoDeflect({ selection, seed, wield, special, from, to, judged, 
 
 describe("U6 boss overheads, heals and rifts", () => {
   test.each([
-    { target: "the size-1 north-east rift once", seed: 2, selection: { focus: "rifts", setup: "melee" }, aggroAt: 68, pick: northEastRift, swingAt: 71, hits: [35], hpAfter: 9 },
-    { target: "the size-1 north-east rift once more on its next swing", seed: 2, selection: { focus: "rifts", setup: "melee" }, aggroAt: 68, pick: northEastRift, swingAt: 76, hits: [9], hpAfter: 0 },
+    { target: "the size-1 second rift once", seed: 2, selection: { focus: "rifts", setup: "melee" }, aggroAt: 68, pick: secondRift, swingAt: 71, hits: [35], hpAfter: 9 },
+    { target: "the size-1 second rift once more on its next swing", seed: 2, selection: { focus: "rifts", setup: "melee" }, aggroAt: 68, pick: secondRift, swingAt: 76, hits: [9], hpAfter: 0 },
     { target: "the size-3 boss three times", seed: 4, selection: { focus: "rifts", drillStart: "cycle-start", setup: "melee", deflect: "none", hoverMeleeReach: "reachable" }, aggroAt: 12, pick: (drill: Drill) => drill.boss(), swingAt: 13, hits: [4, 12, 8], hpAfter: 1288 },
-  ] as const)("one scythe swing hits $target", ({ seed, selection, aggroAt, pick, swingAt, hits, hpAfter }) => {
+  ] as const)("guard: one scythe swing hits $target", ({ seed, selection, aggroAt, pick, swingAt, hits, hpAfter }) => {
     const drill = startDrill({ seed, selection });
     drill.tickTo(aggroAt);
     const target = pick(drill);
@@ -195,15 +206,15 @@ describe("U6 boss overheads, heals and rifts", () => {
   });
 
   test.each([
-    { attack: "the ranged setup's Twisted Bow", seed: 2, setup: "ranged", wield: null, special: false, landed: [[72, 44]], destroyedAt: [73] },
-    { attack: "the melee setup's Twisted Bow", seed: 2, setup: "melee", wield: 20997, special: false, landed: [[72, 44]], destroyedAt: [73] },
-    { attack: "the ranged setup's Ralos", seed: 2, setup: "ranged", wield: 28922, special: false, landed: [[72, 18], [72, 18], [78, 8], [78, 8]], destroyedAt: [79] },
-    { attack: "the melee setup's Ralos", seed: 2, setup: "melee", wield: 28922, special: false, landed: [[72, 15], [72, 15], [78, 14], [78, 14]], destroyedAt: [79] },
+    { attack: "the ranged setup's Twisted Bow", seed: 2, setup: "ranged", wield: null, special: false, landed: [[71, 44]], destroyedAt: [72] },
+    { attack: "the melee setup's Twisted Bow", seed: 2, setup: "melee", wield: 20997, special: false, landed: [[71, 44]], destroyedAt: [72] },
+    { attack: "the ranged setup's Ralos", seed: 2, setup: "ranged", wield: 28922, special: false, landed: [[71, 18], [71, 18], [77, 8], [77, 8]], destroyedAt: [78] },
+    { attack: "the melee setup's Ralos", seed: 2, setup: "melee", wield: 28922, special: false, landed: [[71, 15], [71, 15], [77, 14], [77, 14]], destroyedAt: [78] },
     { attack: "a Division special, which rolls", seed: 3, setup: "ranged", wield: 28922, special: true, landed: [[72, 15], [72, 5], [78, 18], [78, 18]], destroyedAt: [79] },
   ] as const)("a standard ranged attack always lands its max hit on a Void Rift: $attack", async ({ seed, setup, wield, special, landed, destroyedAt }) => {
     const drill = startDrill({ seed, selection: { focus: "rifts", setup } });
     if (wield !== null) drill.clickInventory(wield);
-    expect(await attackNorthEastRift(drill, special)).toEqual([landed, destroyedAt]);
+    expect(await attackSecondRift(drill, special)).toEqual([landed, destroyedAt]);
     drill.dispose();
   });
 
@@ -217,7 +228,7 @@ describe("U6 boss overheads, heals and rifts", () => {
       drill.player().inventory[0] = weapon;
       drill.clickInventory(weapon.cacheItemId);
     }
-    expect(await attackNorthEastRift(drill, false)).toEqual([landed, destroyedAt]);
+    expect(await attackSecondRift(drill, false)).toEqual([landed, destroyedAt]);
     drill.dispose();
   });
 
@@ -246,11 +257,26 @@ describe("U6 boss overheads, heals and rifts", () => {
     drill.dispose();
   });
 
-  test("guard: two rifts spawn north of the 5x5 one tick before each inner void from cycle 2", () => {
+  test("one tick before each inner void from cycle 2, 2, 3, 4 and then 5 rifts spawn, each on its own floor tile 2 to 5 from the boss's 3x3, new each cycle", () => {
     const drill = startDrill({ selection: { focus: "rifts" } });
-    drill.tickTo(127);
+    drill.region.invincible = true;
+    drill.tickTo(247);
     expect(drill.events("rift-spawned").map((e) => [e.at, e.rift, e.tile])).toEqual([
-      [67, "rift-67-0", { x: 2, y: 2 }], [67, "rift-67-1", { x: 10, y: 2 }], [127, "rift-127-0", { x: 2, y: 2 }], [127, "rift-127-1", { x: 10, y: 2 }],
+      [67, "rift-67-0", { x: 4, y: 2 }], [67, "rift-67-1", { x: 2, y: 1 }],
+      [127, "rift-127-0", { x: 3, y: 1 }], [127, "rift-127-1", { x: 9, y: 4 }], [127, "rift-127-2", { x: 1, y: 4 }],
+      [187, "rift-187-0", { x: 8, y: 4 }], [187, "rift-187-1", { x: 10, y: 1 }], [187, "rift-187-2", { x: 4, y: 10 }], [187, "rift-187-3", { x: 9, y: 4 }],
+      [247, "rift-247-0", { x: 2, y: 4 }], [247, "rift-247-1", { x: 1, y: 3 }], [247, "rift-247-2", { x: 10, y: 1 }], [247, "rift-247-3", { x: 5, y: 9 }], [247, "rift-247-4", { x: 1, y: 11 }],
+    ]);
+    drill.dispose();
+  });
+
+  test("a rift never forms on a floor hole: seed 5's cycle 2 rifts in the full fight, beside the holes stacked on x 11", () => {
+    const drill = startDrill({ seed: 5 });
+    drill.region.invincible = true;
+    drill.tickTo(67);
+    expect([drill.region.fightLog().header.choices.floorHoleLayout.option.value.tiles, drill.events("rift-spawned").map((e) => e.tile)]).toEqual([
+      [{ x: 11, y: 1 }, { x: 11, y: 2 }, { x: 11, y: 3 }],
+      [{ x: 4, y: 9 }, { x: 1, y: 3 }],
     ]);
     drill.dispose();
   });
@@ -261,43 +287,43 @@ describe("U6 boss overheads, heals and rifts", () => {
       destroyed: [[97, "rift-67-1"]],
       bursts: [[97, ["rift-67-0"], { requested: 36, applied: 36, beforeHp: 99, afterHp: 63, prayer: null }]],
       chat: ["Destroying the void rift empowers you!"],
-      northEastRiftSequences: [14896, 14897],
+      secondRiftSequences: [14896, 14897],
     },
     {
       killLandsAt: 97,
       destroyed: [],
       bursts: [[97, ["rift-67-0", "rift-67-1"], { requested: 36, applied: 36, beforeHp: 99, afterHp: 63, prayer: null }]],
       chat: [],
-      northEastRiftSequences: [14896, 14898],
+      secondRiftSequences: [14896, 14898],
     },
-  ])("a rift dead by the end of 96 despawns and is destroyed at 97, and the rifts still standing at 97, 30 ticks after they rose, detonate and hit the player once: north-east rift killed by a hit landing at $killLandsAt", ({ killLandsAt, destroyed, bursts, chat, northEastRiftSequences }) => {
+  ])("guard: a rift dead by the end of 96 despawns and is destroyed at 97, and the rifts still standing at 97, 30 ticks after they rose, detonate and hit the player once: second rift killed by a hit landing at $killLandsAt", ({ killLandsAt, destroyed, bursts, chat, secondRiftSequences }) => {
     const drill = startDrill({ selection: { focus: "rifts" } });
     drill.tickTo(68);
-    const northEast = northEastRift(drill);
+    const second = secondRift(drill);
     const sequences: number[] = [];
-    northEast.setAnimationListener({ animationChanged: (id) => Promise.resolve(void sequences.push(id)), modelChanged: () => undefined });
+    second.setAnimationListener({ animationChanged: (id) => Promise.resolve(void sequences.push(id)), modelChanged: () => undefined });
     drill.tickTo(killLandsAt - 1);
-    drill.hit(drill.player(), northEast, 44);
+    drill.hit(drill.player(), second, 44);
     drill.tickTo(98);
     expect([drill.events("rift-destroyed").map((e) => [e.at, e.rift]), drill.events("rift-burst").map((e) => [e.at, e.rifts, e.receipt]), drill.region.chat(), sequences]).toEqual([
       destroyed,
       bursts,
       chat,
-      northEastRiftSequences,
+      secondRiftSequences,
     ]);
     drill.dispose();
   });
 
-  test("destroying a rift resets the attack delay: the bow's shot at the other rift goes on the destroy tick, 73, and lands at 76, 2 ticks sooner than its 5-tick delay allows", async () => {
+  test("destroying a rift resets the attack delay: the bow's shot at the other rift goes on the destroy tick, 73, and lands at 75, 2 ticks sooner than its 5-tick delay allows", async () => {
     const drill = startDrill({ selection: { focus: "rifts" } });
     drill.tickTo(68);
-    await drill.click(NORTH_EAST_RIFT);
+    await drill.click(riftTile(drill, SECOND_RIFT));
     drill.tickTo(72);
-    await drill.click(NORTH_WEST_RIFT);
+    await drill.click(riftTile(drill, FIRST_RIFT));
     drill.tickTo(78);
     expect([drill.events("rift-hit").map((e) => [e.at, e.rift, e.damage]), drill.events("rift-destroyed").map((e) => [e.at, e.rift, e.attackDelay])]).toEqual([
-      [[72, "rift-67-1", 44], [76, "rift-67-0", 44]],
-      [[73, "rift-67-1", { before: 2, after: 0 }], [77, "rift-67-0", { before: 2, after: 0 }]],
+      [[72, "rift-67-1", 44], [75, "rift-67-0", 44]],
+      [[73, "rift-67-1", { before: 2, after: 0 }], [76, "rift-67-0", { before: 3, after: 0 }]],
     ]);
     drill.dispose();
   });
@@ -305,11 +331,11 @@ describe("U6 boss overheads, heals and rifts", () => {
   test.each([
     { lands: "on the tick it bursts", delays: [2], logged: [[97, "rift-67-1", "ranged", 44]] },
     { lands: "on the tick it is destroyed, after the hit that killed it", delays: [1, 2], logged: [[96, "rift-67-1", "ranged", 44], [97, "rift-67-1", "ranged", 44]] },
-  ] as const)("guard: a hit landing on the north-east rift $lands logs its rift-hit", ({ delays, logged }) => {
+  ] as const)("guard: a hit landing on the second rift $lands logs its rift-hit", ({ delays, logged }) => {
     const drill = startDrill({ selection: { focus: "rifts" } });
     drill.tickTo(95);
-    const northEast = northEastRift(drill);
-    delays.forEach((delay) => drill.hit(drill.player(), northEast, 44, "range", delay));
+    const second = secondRift(drill);
+    delays.forEach((delay) => drill.hit(drill.player(), second, 44, "range", delay));
     drill.tickTo(98);
     expect(drill.events("rift-hit").map((e) => [e.at, e.rift, e.style, e.damage])).toEqual(logged);
     drill.dispose();
@@ -320,8 +346,8 @@ describe("U6 boss overheads, heals and rifts", () => {
     const drawn: Record<number, readonly Fill[]> = {};
     for (const t of [67, 69, 82, 96, 97]) {
       drill.tickTo(t);
-      const northWest = [...drill.region.mobs, ...drill.region.newMobs].find((mob) => mob.location.x === 2 && mob.location.y === 2);
-      drawn[t] = northWest ? paintedFills((context) => northWest.drawHPBar(context, 1, 0)) : [];
+      const first = drill.events("rift-spawned").some((e) => e.rift === FIRST_RIFT) ? riftMob(drill, FIRST_RIFT) : null;
+      drawn[t] = first ? paintedFills((context) => first.drawHPBar(context, 1, 0)) : [];
     }
     const bars = (yellow: number): readonly Fill[] => [
       { style: "red", x: -15, y: 0, width: 30, height: 5 },

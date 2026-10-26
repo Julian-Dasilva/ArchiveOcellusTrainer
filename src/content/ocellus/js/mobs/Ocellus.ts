@@ -5,7 +5,7 @@ import { OCELLUS_P4 } from "../OcellusTimings";
 import type { OcellusPlayer } from "../OcellusPlayer";
 import { bossBonuses, withDefenceFloor } from "../bossStats";
 import type { Cycle, Tick, Tile } from "../../../../sim/brands";
-import { after, span, tick, tile } from "../../../../sim/brands";
+import { after, span, tick } from "../../../../sim/brands";
 import type { IncomingStyle, Style } from "../../../../sim/combat";
 import { cutAttackDelay } from "../../../../sim/combat";
 import type { AttackDelayCut, FrameOf, Heal, HitRequest, Hooks, InFlight, IncomingHit, Judgement, Landed, Logged } from "../../../../sim/sdk/EncounterBinding";
@@ -39,6 +39,7 @@ import type { Orbs, OrbStep } from "../p4/orb";
 import { drain, expireOrb, forgiveOrbDebt, formOrb, matureOrb, moveOver, NO_ORBS, releaseUnclaimedOuterOrb, returnDueOrbs } from "../p4/orb";
 import { rollInt } from "../roll";
 import { compileSchedule } from "../p4/schedule";
+import { riftTiles } from "../p4/rifts";
 import { VoidRift } from "./VoidRift";
 
 type BossStep = Readonly<{ player: PlayerObservation; bossHp: number; rifts: readonly Rift[] }>;
@@ -357,9 +358,7 @@ export class Ocellus extends Mob {
   }
 
   private spawnRifts(forCycle: Cycle, at: Tick): FightEvent[] {
-    const anchor = OCELLUS_P4.geometry.bossAnchor.value;
-    return OCELLUS_P4.rifts.offsetsFromBoss.value.map(({ dx, dy }, slot): FightEvent => {
-      const place = tile(anchor.x + dx, anchor.y + dy);
+    return riftTiles(this.config.seed, forCycle, at, this.holes).map((place, slot): FightEvent => {
       const mob = new VoidRift(this.region, place);
       this.region.addMob(mob);
       const id = riftId(at, slot);

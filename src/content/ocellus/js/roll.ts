@@ -1,7 +1,7 @@
 import type { DamageRange } from "./OcellusTimings";
 import type { Seed, Tick } from "../../../sim/brands";
 
-type RollStream = "orbTile" | "floorDamage" | "explosionDamage" | "specialDamage" | "specialVariant" | "riftBurst" | "holeLayout" | "holeDamage" | "swingDamage" | "p3Damage" | "p3Shout" | P2RollStream | P1RollStream;
+type RollStream = "orbTile" | "floorDamage" | "explosionDamage" | "specialDamage" | "specialVariant" | "riftBurst" | "holeLayout" | "holeDamage" | "riftTile" | "swingDamage" | "p3Damage" | "p3Shout" | P2RollStream | P1RollStream;
 type P2RollStream = "portalGap" | "volleyDamage" | "poolTiles" | "safePortalTile" | "poolDamage";
 type P1RollStream = "cornerRoute" | "volleyElement" | "p1VolleyDamage" | "crackShape" | "beatSide" | "taunt" | "blastDamage" | "blockDamage" | "strikeDamage";
 
@@ -17,6 +17,7 @@ const STREAM_ID: Readonly<Record<RollStream, number>> = {
   swingDamage: 9,
   p3Damage: 10,
   p3Shout: 11,
+  riftTile: 12,
   portalGap: 20,
   volleyDamage: 21,
   poolTiles: 22,

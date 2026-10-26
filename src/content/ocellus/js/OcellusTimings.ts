@@ -165,7 +165,6 @@ type SpecialRecipe = Readonly<{
 }>;
 export type SpecialStyle<V extends Special> = SpecialRecipe["styles"][V]["value"];
 type BossHealRecipe = Readonly<{ soulSplitAfterHit: Selected<TickSpan> }>;
-type RiftOffset = Readonly<{ dx: number; dy: number }>;
 type RiftPose = "idle" | "spawn" | "despawn" | "detonate";
 type RiftRecipe = Readonly<{
   firstCycle: Selected<Cycle>;
@@ -178,7 +177,8 @@ type RiftRecipe = Readonly<{
   size: Selected<number>;
   stats: Selected<Readonly<{ attack: number; strength: number; defence: number; range: number; magic: number; hitpoint: number }>>;
   defenceBonuses: Selected<Readonly<{ stab: number; slash: number; crush: number; magic: number; range: number }>>;
-  offsetsFromBoss: Selected<readonly [RiftOffset, ...RiftOffset[]]>;
+  countFromFirstCycle: Selected<readonly [number, ...number[]]>;
+  distanceFromBoss: Selected<Readonly<{ min: number; max: number }>>;
   burstDamage: Selected<DamageRange>;
   standardRangedAndMeleeRoll: Selected<Readonly<{ guaranteedHit: boolean; maxDamage: boolean }>>;
   killChat: Selected<string>;
@@ -478,13 +478,23 @@ const RIFTS: RiftRecipe = {
   size: selected(1, "spec-confirmed", "unscaled", "one-tile shard", noWiki("the Void Rift infobox leaves size empty (rev 15380527)"), cache("npc 16678 size")),
   stats: selected({ attack: 1, strength: 1, defence: 175, range: 1, magic: 300, hitpoint: 44 }, "spec-confirmed", "unscaled", "the rift never attacks", VOID_RIFT_PAGE, cache("npc 16678 stats [1, 175, 1, 44, 1, 300]")),
   defenceBonuses: selected({ stab: 0, slash: 0, crush: 0, magic: 0, range: 0 }, "spec-confirmed", "unscaled", "params 5 to 8 are 0; the decode has no ranged defence param, taken as 0 (inferred)", VOID_RIFT_PAGE, cache("npc 16678 params 5, 6, 7, 8")),
-  offsetsFromBoss: selected(
-    [{ dx: -2, dy: -4 }, { dx: 6, dy: -4 }],
-    "footage-once",
-    "team-4-and-5",
-    "(2, 2) and (10, 2), north of the 5x5: V1's two rifts, placed from their HP bars and carried onto the V2 platform by the east-west mirror; (2, 2) is the same tile under the 270-degree turn; the second carries to (11, 2), also a V2 second-spawn rift, and sits 1 tile west on (10, 2) so it stays off the middle of the 3 holes players stack against the east wall on x 11 (inferred, 2026-10-23); every observed rift is north of the 5x5, and V2's other rift tiles lie on the undrawn strip north of this grid",
-    NO_WIKI_ARENA, vod("V1", "G152-G164"),
-    vod("V2", "k167-k173"),
+  countFromFirstCycle: selected<readonly [number, ...number[]]>(
+    [2, 3, 4, 5],
+    "log-repeated",
+    "team-7",
+    "the rifts for each cycle from the first rift cycle on, one tick before its inner void: one fight log has 2, 3, 4 and 5 for cycles 2 to 5, and the other that reached a rift cycle has 2 for cycle 2; the last count repeats, so a cycle after the fifth also gets 5 (inferred, no log reached a sixth cycle)",
+    noWiki("the wiki says rifts spawn but gives no count (Strategies rev 15381030)"),
+    fightLog("L6", "Void Rift appears 2, 3, 4 and 5 times at P4 +63, +123, +183 and +243, S-1 of cycles 2 to 5"),
+    fightLog("L2", "2 at P4 +63, S-1 of cycle 2"),
+  ),
+  distanceFromBoss: selected(
+    { min: 2, max: 5 },
+    "log-repeated",
+    "team-7",
+    "each rift on its own floor tile 2 to 5 tiles from the boss's 3x3, new tiles each cycle: the 16 rifts two fight logs record on this platform all stand on its floor, 2 to 5 from him; which tiles is taken as a seeded random pick, and that rifts avoid floor holes, as healing orbs do, is inferred",
+    NO_WIKI_ARENA,
+    fightLog("L6", "14 rifts in cycles 2 to 5, at 5 and 4; 4, 4 and 4; 4, 5, 2 and 3; 4, 4, 4, 2 and 3 tiles from his 3x3"),
+    fightLog("L2", "2 rifts in cycle 2, at 5 and 3 tiles from his 3x3"),
   ),
   burstDamage: selected(
     { min: 28, max: 41 },
