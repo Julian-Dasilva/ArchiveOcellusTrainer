@@ -447,7 +447,7 @@ serve() {
   fi
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
 
-  ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --host 127.0.0.1 --port "$VERIFY_PORT" \
+  ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --no-color --host 127.0.0.1 --port "$VERIFY_PORT" \
     >"$VERIFY_DIR/server.log" 2>&1 &
   local pid=$!
   LAUNCHED_PID=$pid
@@ -2282,12 +2282,14 @@ case "${1:-}" in
   units) all_units; exit 0 ;;
   plan) plan "${@:2}"; exit $? ;;
   judge) [[ -d "${2:-}/units" ]] || { log "usage: scripts/verify.sh judge <evidence dir> [unit...]"; exit 2; }; judge_evidence "${@:2}"; exit $? ;;
+  report) [[ -d "${2:-}/units" ]] || { log "usage: scripts/verify.sh report <evidence dir>"; exit 2; }; node scripts/verify/report.mjs "$2" $(all_units); exit $? ;;
 esac
 
-stages=() BROWSER_UNITS=()
+stages=() BROWSER_UNITS=() BROWSER_SHARD=
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --unit) [[ -n "${2:-}" ]] || { log "--unit needs a unit name"; exit 2; }; BROWSER_UNITS+=("$2"); shift 2 ;;
+    --shard) [[ "${2:-}" =~ ^[1-9][0-9]*/[1-9][0-9]*$ ]] || { log "--shard needs INDEX/COUNT, such as 3/8"; exit 2; }; BROWSER_SHARD=$2; shift 2 ;;
     t0) stages+=(bundle build types test parity); shift ;;
     *) stages+=("$1"); shift ;;
   esac
@@ -2298,11 +2300,13 @@ for stage in "${stages[@]}"; do
 done
 if [[ " ${stages[*]} " == *" browser "* ]]; then
   [[ ${#BROWSER_UNITS[@]} -gt 0 ]] || mapfile -t BROWSER_UNITS < <(all_units)
+  [[ -z "$BROWSER_SHARD" ]] || mapfile -t BROWSER_UNITS < <(node scripts/verify/shard.mjs scripts/verify/unit-seconds.json "${BROWSER_SHARD%/*}" "${BROWSER_SHARD#*/}" "${BROWSER_UNITS[@]}")
+  [[ ${#BROWSER_UNITS[@]} -gt 0 ]] || { log "browser shard ${BROWSER_SHARD} has no units"; exit 2; }
   for unit in "${BROWSER_UNITS[@]}"; do
     [[ -f "scripts/verify/units/${unit}.mjs" ]] && declare -F "drive_${unit}" >/dev/null || { log "unknown browser unit ${unit}; scripts/verify.sh units lists them"; exit 2; }
   done
-elif [[ ${#BROWSER_UNITS[@]} -gt 0 ]]; then
-  log "--unit selects browser units; add the browser stage"
+elif [[ ${#BROWSER_UNITS[@]} -gt 0 || -n "$BROWSER_SHARD" ]]; then
+  log "--unit and --shard select browser units; add the browser stage"
   exit 2
 fi
 
