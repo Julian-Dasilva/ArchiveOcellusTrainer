@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { CacheRender, ControlPanelController, Settings, SoundCache, Trainer, TrainerInstance } from "osrs-sdk";
+import { CacheRender, ControlPanelController, Settings, SoundCache, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
 import type { Player, Region, SettingsSnapshot, TrainerLoadingState } from "osrs-sdk";
 import { DefaultSidebar, GameOverlay, RuneScapeButton, TrainerApp, useSettingsSnapshot } from "osrs-sdk-react";
 import { CREDIT_LINE, readSettings } from "./ArchiveOcellusApp";
@@ -10,12 +10,16 @@ import type { ChatLine, Fight, FightOptions, StartPhase } from "./content/ocellu
 import { formatTicks } from "./content/ocellus/fight/Fight";
 import { FightRegion, START_NPC } from "./content/ocellus/fight/FightRegion";
 import type { ATile, Quadrant } from "./content/ocellus/fight/geometry";
+import { toSdk } from "./content/ocellus/fight/geometry";
 import { warmLaterPhases } from "./content/ocellus/fight/warmup";
 import { FULL_FIGHT_CSS } from "./fullFightStyles";
 
 declare global {
   interface Window {
-    __fullFightProbe?: () => FullFightSnapshot;
+    __fullFightProbe?: Readonly<{
+      snapshot(): FullFightSnapshot;
+      tileCentre(at: ATile): Readonly<{ x: number; y: number }> | null;
+    }>;
   }
 }
 
@@ -373,23 +377,28 @@ type FullFightSnapshot = Readonly<{
   hp: number;
   boss: Readonly<{ tile: ATile; hp: number; hidden: boolean }> | null;
   fallen: readonly Quadrant[];
+  crumbling: readonly Quadrant[];
   chat: readonly string[];
 }>;
 
-function exposeProbe(region: FightRegion): void {
-  window.__fullFightProbe = () => {
-    const fight = region.fight;
-    return {
-      tick: fight?.tick ?? 0,
-      phase: fight?.label() ?? "",
-      outcome: fight?.outcome.kind ?? "running",
-      player: fight ? fight.playerTile : null,
-      hp: fight?.player.currentStats.hitpoint ?? 0,
-      boss: fight?.boss ? { tile: fight.boss.tile, hp: fight.boss.currentStats.hitpoint, hidden: fight.boss.hidden } : null,
-      fallen: fight ? [...fight.destroyed] : [],
-      chat: fight?.chat.slice(-6).map((line) => line.text) ?? [],
-    };
-  };
+function exposeProbe(trainer: TrainerInstance, region: FightRegion): void {
+  window.__fullFightProbe = Object.freeze({
+    snapshot(): FullFightSnapshot {
+      const fight = region.fight;
+      return {
+        tick: fight?.tick ?? 0,
+        phase: fight?.label() ?? "",
+        outcome: fight?.outcome.kind ?? "running",
+        player: fight ? fight.playerTile : null,
+        hp: fight?.player.currentStats.hitpoint ?? 0,
+        boss: fight?.boss ? { tile: fight.boss.tile, hp: fight.boss.currentStats.hitpoint, hidden: fight.boss.hidden } : null,
+        fallen: fight ? [...fight.destroyed] : [],
+        crumbling: fight ? fight.floorState().crumbling : [],
+        chat: fight?.chat.slice(-6).map((line) => line.text) ?? [],
+      };
+    },
+    tileCentre: (at) => Viewport.viewport.projectTile(toSdk(at), trainer.getSnapshot().world),
+  });
 }
 
 export function FullFightApp() {
@@ -403,9 +412,9 @@ export function FullFightApp() {
     const style = document.createElement("style");
     style.textContent = FULL_FIGHT_CSS;
     document.head.append(style);
-    if (process.env.NODE_ENV !== "production") exposeProbe(region);
+    if (process.env.NODE_ENV !== "production") exposeProbe(trainer, region);
     return () => style.remove();
-  }, [region]);
+  }, [trainer, region]);
 
   useEffect(() => {
     if (!ready) return;
