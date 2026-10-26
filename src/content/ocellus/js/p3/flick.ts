@@ -35,8 +35,7 @@ export function stepFlick(flick: Flick, meleeOn: boolean): Flick {
   }
 }
 
-/** The tick before a landing: under `off-then-on` any protection prayer still up is knocked off, and the spin will hit. */
-export function dueFlick(rule: FlickRule, flick: Flick, protection: Style | null): Flick {
+export function settleFlick(rule: FlickRule, flick: Flick, protection: Style | null): Flick {
   switch (rule) {
     case "off-then-on":
       return protection === null ? "lowered" : "knocked";

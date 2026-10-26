@@ -70,7 +70,6 @@ const cache = (record: string): Source => ({ kind: "cache", build: 2746, record 
 const owner = (topic: string, date: OwnerDate = "2026-10-21"): Source => ({ kind: "owner", date, topic });
 const guide = (url: string, at: string): Source => ({ kind: "guide", url, at });
 const capture = (url: string, at: string): Source => ({ kind: "capture", url, at });
-/** A value in Alessandro's ocellus-sim at 3efd5bf, by its file and lines there. */
 const ocellusSim = (file: string, lines: string): Source => ({ kind: "sim", url: `https://github.com/alessandrorodi/ocellus-sim/blob/3efd5bf1cc9ecd394c6fe04964f3d17be439fc38/${file}`, at: `${file}:${lines}` });
 const STRATEGIES_P4 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381030);
 const BOSS_INFOBOX = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15380968);
@@ -939,7 +938,6 @@ type P3BossPose = "swing" | "voidShot" | "wave" | "smite";
 type BladeCue = "windUp" | "spin" | "windDown";
 type RubbleCue = "falling" | "idle" | "despawn";
 export type PrayedHit = Readonly<{ style: Style; protectedDamage: DamageRange; unprotectedDamage: DamageRange }>;
-/** The spin whose wind throws the rubble, for each spin count; a smite cannot throw it on a spin it does not have. */
 type RubbleSpin = Readonly<{ 1: 1; 2: 1 | 2; 3: 1 | 2 | 3 }>;
 type VoidPatch = Readonly<{ lasts: Readonly<{ min: TickSpan; max: TickSpan }>; damage: DamageRange; every: TickSpan }>;
 

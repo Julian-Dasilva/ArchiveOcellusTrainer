@@ -8,7 +8,7 @@ import type { FlickRule, P3Beat, P3End, P3Event, P3Hit, Quadrant, Spin } from ".
 import type { PlayerObservation } from "../P4Types";
 import { rollInt } from "../roll";
 import type { Flick } from "./flick";
-import { armFlick, dueFlick, judgeSpin, stepFlick } from "./flick";
+import { armFlick, judgeSpin, settleFlick, stepFlick } from "./flick";
 import type { P3Schedule } from "./schedule";
 import { compileP3Schedule } from "./schedule";
 
@@ -20,7 +20,6 @@ export type Reach = "in-reach" | "out-of-reach";
 export type TurnFacts = Readonly<{ at: Tick; player: PlayerObservation; boss: BossHp & Readonly<{ reach: Reach }> }>;
 
 export type TurnOutput = Logged<P3Event> | HitRequest<P3Hit>;
-/** Changes the Mob applies to the SDK itself, because the binding has no output for them. */
 export type ShellEffect = Readonly<{ kind: "lock-protection-prayers"; through: Tick }>;
 export type TurnStep = Readonly<{ fight: P3Fight; outputs: readonly TurnOutput[]; shell: readonly ShellEffect[]; ending: P3End | null }>;
 type Reaction = Readonly<{ outputs: readonly TurnOutput[]; ending: P3End | null; flick: Flick; hazards: readonly Hazard[]; shell: readonly ShellEffect[] }>;
@@ -67,10 +66,10 @@ function spinWinds(rules: P3Rules, spin: Spin, flick: Flick, { at, player }: Tur
 }
 
 function spinDue(rules: P3Rules, spin: Spin, flick: Flick, { at, player }: TurnFacts): Reaction {
-  const due = dueFlick(rules.flick, flick, player.prayer);
-  if (due !== "knocked") return { outputs: [], ending: null, flick: due, hazards: [], shell: [] };
+  const settled = settleFlick(rules.flick, flick, player.prayer);
+  if (settled !== "knocked") return { outputs: [], ending: null, flick: settled, hazards: [], shell: [] };
   const through = tick(at + OCELLUS_P3.smite.knockedPrayerBackAfter.value - 1);
-  return { outputs: [logged({ kind: "prayer-knocked-off", at, spin, until: through })], ending: null, flick: due, hazards: [], shell: [{ kind: "lock-protection-prayers", through }] };
+  return { outputs: [logged({ kind: "prayer-knocked-off", at, spin, until: through })], ending: null, flick: settled, hazards: [], shell: [{ kind: "lock-protection-prayers", through }] };
 }
 
 function spinLands(rules: P3Rules, spin: Spin, flick: Flick, { at, player }: TurnFacts): Reaction {
