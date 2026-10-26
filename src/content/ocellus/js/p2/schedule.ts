@@ -1,4 +1,4 @@
-import { OCELLUS_P2 } from "../OcellusTimings";
+import { OCELLUS_P2 } from "../OcellusTimingsP2";
 import type { Cycle, Tick } from "../../../../sim/brands";
 import { tick } from "../../../../sim/brands";
 import type { BeatAt, Script, Slot } from "../../../../sim/schedule";

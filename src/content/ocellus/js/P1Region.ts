@@ -1,7 +1,8 @@
 import { CardinalDirection, InvisibleMovementBlocker, Projectile, Region } from "osrs-sdk";
 import type { Player } from "osrs-sdk";
 import type { P1Config } from "./OcellusTimings";
-import { OCELLUS_P1, OCELLUS_P4 } from "./OcellusTimings";
+import { OCELLUS_P4 } from "./OcellusTimings";
+import { OCELLUS_P1 } from "./OcellusTimingsP1";
 import { dress, loadoutSnapshot } from "./OcellusLoadout";
 import { OcellusPlayer } from "./OcellusPlayer";
 import type { Tile } from "../../../sim/brands";

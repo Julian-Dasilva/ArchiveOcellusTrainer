@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { deflateSync } from "node:zlib";
 import config from "../../osrs-assets.config";
-import { ITEM_ICON_DIR, ITEM_ICON_IDS, itemIconFile } from "../assets";
+import { ITEM_ICON_IDS } from "../assets";
+import { ITEM_ICON_DIR, itemIconFile } from "../servedAssets";
 import { TRANSPARENT, hsl, priority, renderItemIcon } from "./ItemIcon";
 import type { Face, IconItem, IconModel, Shading, Sprite } from "./ItemIcon";
 

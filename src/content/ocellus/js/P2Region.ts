@@ -1,7 +1,8 @@
 import { InvisibleMovementBlocker, Region, TileMarker } from "osrs-sdk";
 import type { Player } from "osrs-sdk";
 import type { P2Config } from "./OcellusTimings";
-import { OCELLUS_P2, OCELLUS_P4 } from "./OcellusTimings";
+import { OCELLUS_P4 } from "./OcellusTimings";
+import { OCELLUS_P2 } from "./OcellusTimingsP2";
 import { dress, loadoutSnapshot } from "./OcellusLoadout";
 import { OcellusPlayer } from "./OcellusPlayer";
 import type { Tile } from "../../../sim/brands";

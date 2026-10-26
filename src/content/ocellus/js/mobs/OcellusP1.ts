@@ -1,8 +1,9 @@
 import { CacheRenderModel, CacheRenderReferences, LocationUtils, Mob } from "osrs-sdk";
 import type { Model, Projectile, Region, UnitBonuses } from "osrs-sdk";
-import { spriteFile } from "../../../../assets";
+import { spriteFile } from "../../../../servedAssets";
 import type { P1Config } from "../OcellusTimings";
-import { OCELLUS_P1, OCELLUS_P4 } from "../OcellusTimings";
+import { OCELLUS_P4 } from "../OcellusTimings";
+import { OCELLUS_P1 } from "../OcellusTimingsP1";
 import type { OcellusPlayer } from "../OcellusPlayer";
 import { withDefenceFloor } from "../bossStats";
 import type { Tick, Tile } from "../../../../sim/brands";
