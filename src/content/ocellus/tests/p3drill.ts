@@ -6,7 +6,7 @@ import { clickTile } from "./drill";
 
 export const footprintCentre = ({ location, size }: Mob): At => ({ x: location.x + Math.floor(size / 2), y: location.y - Math.floor(size / 2) });
 
-export type P3DrillOptions = Readonly<{ seed?: number; bossHp?: number; reach?: string; flick?: string; start?: number; firstSpin?: number; invincible?: boolean }>;
+export type P3DrillOptions = Readonly<{ seed?: number; bossHp?: number; reach?: string; flick?: string; start?: number; firstSpin?: number; specials?: string; setup?: string; invincible?: boolean }>;
 type ProtectionPrayer = "Protect from Magic" | "Protect from Range" | "Protect from Melee";
 
 export async function startP3Drill(options: P3DrillOptions = {}) {
@@ -20,6 +20,8 @@ export async function startP3Drill(options: P3DrillOptions = {}) {
   if (options.flick !== undefined) link.searchParams.set("flick", options.flick);
   if (options.start !== undefined) link.searchParams.set("start", String(options.start));
   if (options.firstSpin !== undefined) link.searchParams.set("firstSpin", String(options.firstSpin));
+  if (options.specials !== undefined) link.searchParams.set("specials", options.specials);
+  if (options.setup !== undefined) link.searchParams.set("setup", options.setup);
   const request = parseRequest(link, () => {
     throw new Error(`the drill link has no usable seed: ${link.search}`);
   }, { p3: true });
@@ -66,6 +68,7 @@ export async function startP3Drill(options: P3DrillOptions = {}) {
         .filter((event): event is Extract<P3Event, { kind: K }> => event.kind === kind);
     },
     click: (on: At) => clickTile(region.world, on),
+    walkTo: (to: At) => player().moveTo(to.x, to.y),
     pray: (name: ProtectionPrayer) => player().prayerController.findPrayerByName(name).toggle(player()),
     dispose() {
       trainer.dispose();
