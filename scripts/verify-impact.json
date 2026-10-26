@@ -60,8 +60,8 @@
     "scripts/perf-report.mjs"
   ],
   "rules": [
-    { "paths": ["src/index.html"], "units": ["@shell", "p4_cycle"] },
-    { "paths": ["src/ArchiveOcellusApp.tsx"], "units": ["@shell", "loadouts", "p3_drill"] },
+    { "paths": ["src/index.html"], "units": ["@shell", "p4_cycle", "layered_present"] },
+    { "paths": ["src/ArchiveOcellusApp.tsx"], "units": ["@shell", "loadouts", "p3_drill", "layered_present"] },
     { "paths": ["src/content/ocellus/changelog.ts", "src/releases.ts", "scripts/release-notes.mjs"], "units": ["whats_new", "production"] },
     { "paths": ["src/hoverText.ts"], "units": ["supplies", "keybinds"] },
     { "paths": ["src/telemetry/**", "src/telemetry.json"], "units": ["telemetry", "production"] },
