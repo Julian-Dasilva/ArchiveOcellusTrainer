@@ -28,38 +28,10 @@ export const FULL_FIGHT_CSS = `
   color: #c8b88a;
 }
 
-.fight-chat {
-  position: absolute;
-  left: 6px;
-  bottom: 6px;
-  width: min(500px, 46vw);
-  background: rgba(214, 202, 168, 0.88);
-  border: 2px solid #4a3c26;
-  box-shadow: inset 0 0 0 1px #8a7650;
-  font-family: "OSRS", sans-serif;
-  font-size: 16px;
-  line-height: 17px;
-  text-shadow: none;
-  pointer-events: none;
-}
-
-.fight-chat-lines {
-  height: 136px;
-  overflow: hidden;
-  padding: 4px 8px 2px;
+#full_fight_controls {
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-}
-
-.fight-chat-input {
-  border-top: 1px solid #8a7650;
-  padding: 2px 8px 3px;
-  color: #000;
-}
-
-.fight-chat-caret {
-  color: #0000ff;
+  gap: 4px;
 }
 
 .fight-loading {
@@ -139,113 +111,7 @@ export const FULL_FIGHT_CSS = `
   color: #ff981f;
 }
 
-.fight-sidebar {
-  font-family: "OSRS", sans-serif;
-  font-size: 16px;
-  color: #ff981f;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.fight-sidebar label {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  color: #ffcf8a;
-}
-
-.fight-sidebar label.fight-check {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-}
-
-.fight-sidebar select {
-  font: inherit;
-  font-size: 14px;
-  background: #2b2418;
-  color: #fff;
-  border: 1px solid #6b5b3e;
-  padding: 2px;
-}
-
-.fight-sidebar label.fight-key {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.fight-sidebar label.fight-key select {
-  width: 72px;
-}
-
-.fight-keys-reset {
-  align-self: flex-end;
-  background: none;
-  border: none;
-  padding: 0;
-  color: #c8b88a;
-  font: inherit;
-  font-size: 13px;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.fight-title {
-  margin: 2px 0 0;
-  font-weight: normal;
-  font-size: 26px;
-  color: #ff981f;
-  text-align: center;
-}
-
-.fight-subtitle {
-  text-align: center;
-  color: #c8b88a;
-  font-size: 13px;
-  margin-bottom: 4px;
-}
-
-.fight-tips-title {
-  color: #ff981f;
-}
-
-.fight-tips ul,
-.fight-credits {
-  margin: 4px 0 0;
-  padding-left: 16px;
-  color: #e8dcc0;
-  font-size: 13px;
-  line-height: 15px;
-}
-
-.fight-tips li,
-.fight-credits li {
-  margin-bottom: 5px;
-}
-
-.fight-credits a {
-  color: #ff981f;
-}
-
 @media (max-width: 900px), (max-height: 600px) {
-  .fight-chat {
-    width: min(300px, 55vw);
-    font-size: 10px;
-    line-height: 11px;
-  }
-
-  .fight-chat-lines {
-    height: 56px;
-    padding: 2px 4px 1px;
-  }
-
-  .fight-chat-input {
-    padding: 1px 4px 2px;
-  }
-
   .fight-hud {
     padding: 2px 6px;
     min-width: 0;
