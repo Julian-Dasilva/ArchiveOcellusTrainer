@@ -19,7 +19,7 @@ describe("verify plan", () => {
     const { impact, plan } = await shipped();
     const selected = plan(impact, ["scripts/install-beta-sdk.sh"]);
     expect(selected.tier).toBe("t2");
-    expect(selected.units).toHaveLength(37);
+    expect(selected.units).toHaveLength(39);
     expect(selected.selections).toEqual([{ kind: "everything", path: "scripts/install-beta-sdk.sh", glob: "scripts/install-beta-sdk.sh" }]);
   });
 
