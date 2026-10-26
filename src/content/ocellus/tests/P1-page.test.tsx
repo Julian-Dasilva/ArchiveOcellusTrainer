@@ -14,6 +14,7 @@ async function loadP1Page(url: string) {
   const { P1Region } = await vi.importActual<typeof import("../js/P1Region")>("../js/P1Region");
   const built = vi.spyOn(P1Region.prototype, "initialiseRegion");
   const page = loadPage(url);
+  await act(() => new Promise((resolve) => setTimeout(resolve)));
   const region = built.mock.contexts.at(-1);
   built.mockRestore();
   if (!(region instanceof P1Region)) throw new Error("the page built no P1 region");
