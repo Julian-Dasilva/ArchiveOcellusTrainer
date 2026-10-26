@@ -10,6 +10,8 @@ Read this before you review a change to the trainer, whether you are a person or
 | T1 | the maker's laptop, before handoff | `scripts/verify.sh plan`, then the command it prints | the browser units the change selects, each runnable alone with `--unit` |
 | T2 | GitHub Actions, every push to a pull request | the `test` workflow | every browser unit in eight shards, the production bundle, the perf budgets, the timing pairs when the plan selects them, and the asset diff against the base |
 
+A seeded fight that differs from the base fails T0 unless `scripts/verify-parity-expected.json` names that fight with the sha256 of its head result and a reason. The parity stage prints the fight, its first differing value and that sha256. The reviewer judges each entry as an intended change to the fight. An edit to `scripts/verify-impact.json` plans every unit, and the plan refuses a group or rule that selects no unit.
+
 The lead reads the pull request head's T2 result instead of rerunning the full verify on a laptop. The `summary` job prints it, and its `t2-verdict` artifact holds `verdict.json` with every unit's outcome and every check, the assets the head deletes, adds or changes, the pinned SDK, and the production and perf checks. A failed unit's captures are in its shard's `t2-browser-N` artifact. Reproduce it on a laptop with `scripts/verify.sh browser --unit <id>`.
 
 ## Look for these performance red flags
