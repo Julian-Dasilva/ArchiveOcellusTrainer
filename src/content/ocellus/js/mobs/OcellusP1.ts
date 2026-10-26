@@ -1,4 +1,4 @@
-import { CacheRenderModel, CacheRenderReferences, Mob } from "osrs-sdk";
+import { CacheRenderModel, CacheRenderReferences, LocationUtils, Mob } from "osrs-sdk";
 import type { Model, Projectile, Region, UnitBonuses } from "osrs-sdk";
 import { spriteFile } from "../../../../assets";
 import type { P1Config } from "../OcellusTimings";
@@ -155,6 +155,16 @@ export class OcellusP1 extends Mob {
   override drawHitsplats(context: OffscreenCanvasRenderingContext2D, scale: number, verticalOffset = 0): void {
     super.drawHitsplats(context, scale, verticalOffset);
     drawHealSplats(context, this.healHitsplatImage, this.healSplats.map((splat) => splat.amount), verticalOffset);
+  }
+
+  /** The SDK turns a unit toward its aggro, so he lets the player go to face a tile and takes them back to aim at them. */
+  face(at: Tile): void {
+    this.aggro = undefined;
+    this.lastRotation = -LocationUtils.angle(this.location.x + this.size / 2, this.location.y - this.size / 2, at.x + 0.5, at.y - 0.5);
+  }
+
+  facePlayer(): void {
+    this.setAggro(this.target);
   }
 
   meter(): number {

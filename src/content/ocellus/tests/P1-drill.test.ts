@@ -170,6 +170,18 @@ describe("P1 drill", () => {
     });
   });
 
+  test("each middle beat turns him to the side it charges, east, south, west then north, and the strike turns him back to the player south of him", async () => {
+    const drill = await startP1Drill({ seed: 1, bossHp: 1650, invincible: true });
+    const facing = (at: number) => {
+      drill.tickTo(at);
+      const turn = drill.boss().getPerceivedRotation(1) % (2 * Math.PI);
+      return Math.round(((turn + 2 * Math.PI) % (2 * Math.PI)) * 1000) / 1000;
+    };
+    const observed = { beats: [12, 20, 28, 36].map(facing), strike: facing(46) };
+    drill.dispose();
+    expect(observed).toEqual({ beats: [0, 4.712, 3.142, 1.571], strike: 4.712 });
+  });
+
   test("at or below ⌊2500 × 0.25⌋ = 625 after the first middle's 8 unblocked cracks heal him 16, he goes back to the middle on its walk's first volley tick", async () => {
     const drill = await startP1Drill({ seed: 1, bossHp: 609, invincible: true });
     drill.tickTo(60);

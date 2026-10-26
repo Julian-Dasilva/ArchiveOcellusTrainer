@@ -107,6 +107,7 @@ export class P1Region extends Region {
         return;
       case "volley-cast": {
         const fire = event.element === "fire";
+        boss.facePlayer();
         boss.playAnimation((event.last ? bossPoses.lastVolley : bossPoses.volley).value);
         boss.addSpotAnim({ id: (fire ? spotAnims.fireOnBoss : spotAnims.waterOnBoss).value, channel: "volley" });
         const { startCycle, nearEndCycle, farEndCycle } = shot.value;
@@ -118,6 +119,7 @@ export class P1Region extends Region {
         boss.playAnimation(bossPoses.lastVolley.value);
         return;
       case "boss-charged":
+        boss.face(event.facing);
         boss.playAnimation(bossPoses.charge.value);
         return;
       case "boss-glowed":
@@ -149,6 +151,7 @@ export class P1Region extends Region {
         return;
       case "strike-cast": {
         const target = playerTile(player);
+        boss.facePlayer();
         boss.playAnimation(bossPoses.expend.value);
         const flight = event.landsAt - event.at;
         for (let nth = 0; nth < event.shots; nth++) this.shoot(spotAnims.strikeShot.value, target, flight, nth * STRIKE_SHOT_SPACING, flight * CYCLES_PER_TICK + nth * STRIKE_SHOT_SPACING);
