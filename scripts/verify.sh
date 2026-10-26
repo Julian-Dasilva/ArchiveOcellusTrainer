@@ -976,15 +976,11 @@ open_ticking() {
 
 tile_pixel() {
   local page="$1" tile="$2" after="$3" read
-  read="$(ab --json eval "new Promise((done) => {
-    const probe = window.__archiveOcellusProbe, ready = () => '${after}' === 'now' || (probe.snapshot().fight?.run.tick ?? -1) >= Number('${after}');
-    const read = () => {
-      if (!ready()) return requestAnimationFrame(read);
-      const at = probe.tileCentre(${tile}), box = document.querySelector('#world').getBoundingClientRect();
-      done({ at: at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y) }, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length });
-    };
-    read();
-  })" | json data.result)" || return 1
+  [[ "$after" == now ]] || fight_tick_at_least "$after" 90000 || { log "${page}: the fight never reached P4 tick ${after}"; return 1; }
+  read="$(ab --json eval "(() => {
+    const probe = window.__archiveOcellusProbe, at = probe.tileCentre(${tile}), box = document.querySelector('#world').getBoundingClientRect();
+    return { at: at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y) }, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length };
+  })()" | json data.result)" || { log "${page}: tile ${tile} was not read"; return 1; }
   [[ "$(json at <<<"$read")" != null ]] || { log "${page}: tile ${tile} is not on the canvas"; return 1; }
   CLICK_X="$(json at.x <<<"$read")" CLICK_Y="$(json at.y <<<"$read")" WALK_ORDERS="$(json orders <<<"$read")"
 }
@@ -1942,7 +1938,6 @@ drive_p3_drill() {
 }
 
 click_tile_after_tick() {
-  fight_tick_at_least "$3" 90000 || { log "$1: the fight never reached P4 tick $3"; return 1; }
   tile_pixel "$1" "$2" "$3" || return 1
   canvas_centre || { log "$1: canvas box unreadable"; return 1; }
   click_after_tick "$3" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "$1: the click on $2 after P4 tick $3 was not sent"; return 1; }
