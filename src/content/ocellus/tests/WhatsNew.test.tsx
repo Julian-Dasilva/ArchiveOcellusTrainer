@@ -17,11 +17,11 @@ const NEXT_RELEASE = {
   version: "2026.10.26",
   date: "2026-10-26",
   notes: [
-    "The 3D view draws each frame in about 14 draw calls instead of about 550, which should cut lag on weaker graphics cards.",
-    "The trainer always opens in 3D. The 2D view is gone.",
+    "The 2D view is gone. The 3D view draws each frame in about 14 draw calls instead of about 550, which should cut lag on weaker graphics cards.",
     "The void shards of each explosion now come in high over your head, from the game's own effect, so you can see the cue to step while you move.",
-    "Change your mind before the tick, like in game. Whatever you click last before the tick is what you do.",
-    "A click made right before the tick registers on that tick, instead of a tick late.",
+    "Change your mind before the tick, like in game. Whatever you click last before the tick is what you do, even a click made right before it.",
+    "Ocellus takes damage as soon as he is back on the platform, and standing on your lifeforce orb as it glows gives your HP back that tick.",
+    "A void rift left alive bursts 30 ticks after it appears and hits you once for 28 to 41, and destroying a rift resets your attack timer.",
   ],
 };
 
