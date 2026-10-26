@@ -68,6 +68,7 @@
     { "paths": ["src/hoverText.ts"], "units": ["supplies", "keybinds"] },
     { "paths": ["src/telemetry/**", "src/telemetry.json"], "units": ["telemetry", "production"] },
     { "paths": ["src/flags.ts"], "units": ["p3_drill", "production"] },
+    { "paths": ["src/menu/**"], "units": ["settings_menu", "production"] },
     { "paths": ["src/itemIcons/**"], "units": ["loadouts", "supplies"] },
     { "paths": ["src/cacheHeaders/**", "src/phaseCode/**", "src/_headers", "netlify.toml", "wrangler.jsonc", "scripts/netlify-build.sh"], "units": ["production"] },
     { "paths": ["src/perf/**"], "units": ["perf_timing"] },

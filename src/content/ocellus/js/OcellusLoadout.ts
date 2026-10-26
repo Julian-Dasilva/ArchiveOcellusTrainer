@@ -47,7 +47,7 @@ declare module "osrs-sdk/lib/src/sdk/gear/Ammo" { interface Ammo { readonly bran
 
 type SlotItem<S extends GearSlot> = NonNullable<UnitEquipment[S]>;
 
-const ITEMS: { readonly [S in GearSlot]: { readonly [K in GearKeys[S]]: () => SlotItem<S> } } = {
+export const ITEMS: { readonly [S in GearSlot]: { readonly [K in GearKeys[S]]: () => SlotItem<S> } } = {
   weapon: { twistedBow: () => new OcellusTwistedBow(), scytheOfVitur: () => new OcellusScythe(), tonalzticsOfRalos: () => new TonalzticsOfRalos() },
   helmet: { masoriMaskF: () => new OcellusMasoriMaskF(), inquisitorsGreatHelm: () => new InquisitorsGreatHelm() },
   chest: { masoriBodyF: () => new OcellusMasoriBodyF(), inquisitorsHauberk: () => new InquisitorsHauberk() },
