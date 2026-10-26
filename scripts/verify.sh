@@ -1584,6 +1584,8 @@ menu_state() {
       menu: visible('settings_menu'),
       controls: Object.fromEntries(${MENU_CONTROLS}.map((id) => [id, visible(id)])),
       buttons: { settings: visible('settings'), restart: visible('restart') },
+      controlsBox: box('drill_controls'),
+      footerBox: box('credits'),
       credit: visible('credit_line'),
       menuBox: box('settings_menu'),
       viewport: { width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth },
@@ -1637,8 +1639,10 @@ drive_settings_menu() {
     const closed = (s) => s.expanded === "false" && s.menu === false && controls.every((id) => s.controls[id] === false) && s.buttons.settings && s.buttons.restart && s.credit;
     const noPageScroll = (s) => s.viewport.scrollWidth <= s.viewport.width;
     const inViewport = (s) => s.menuBox.left >= 0 && s.menuBox.top >= 0 && s.menuBox.right <= s.viewport.width && s.menuBox.bottom <= s.viewport.height;
+    const clearOfFooter = (s) => s.controlsBox.bottom <= s.footerBox.top;
     const checks = {
       menuHiddenUntilOpened: views.every((view) => closed(view.closed) && noPageScroll(view.closed)),
+      buttonsClearOfFooter: views.every((view) => clearOfFooter(view.closed)),
       menuOpensWithEveryControl: views.every((view) => view.open.expanded === "true" && view.open.menu && controls.every((id) => view.open.controls[id] === true) && view.open.buttons.restart && view.open.credit),
       menuFitsEveryViewport: views.every((view) => inViewport(view.open) && noPageScroll(view.open)) && menu.small.open.viewport.width === 800 && menu.mobile.open.viewport.width < 500,
       menuClosesOnSecondClick: views.every((view) => closed(view.secondClick)),
@@ -2038,20 +2042,21 @@ p3_tile_samples() {
   })()" | json data.result
 }
 
-p3_arena_page() {
+p3_arena_shot() {
   local samples
-  ab open "${URL}${P3_QUERY}" >/dev/null || return 1
-  fight_tick_at_least "$P3_ARENA_SHOT_TICK" 120000 || { log "the P3 drill never reached P3 tick ${P3_ARENA_SHOT_TICK}"; return 1; }
+  fight_tick_at_least "$P3_ARENA_SHOT_TICK" 30000 || { log "the P3 drill never reached P3 tick ${P3_ARENA_SHOT_TICK}"; return 1; }
   samples="$(p3_tile_samples)" || { log "the P3 tile pixels were not read"; return 1; }
   ab screenshot "$VERIFY_DIR/p3-arena.png" >/dev/null || { log "the P3 arena screenshot failed"; return 1; }
   echo "$samples" >"$VERIFY_DIR/p3-arena-tiles.json"
 }
 
 drive_p3_drill() {
-  p3_arena_page || return 1
-  record_boss_bar || { log "the boss bar probe was not installed"; return 1; }
+  ab open "${URL}${P3_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the P3 drill never started"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick "$P3_PRAY_TICK" "$PROTECT_MELEE_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Melee was not clicked in P3"; return 1; }
+  p3_arena_shot || return 1
+  record_boss_bar || { log "the boss bar probe was not installed"; return 1; }
   fight_tick_at_least "$P3_SWINGS_LAST_TICK" 60000 || { log "the P3 drill never reached P3 tick ${P3_SWINGS_LAST_TICK}"; return 1; }
   probe "snapshot()" >"$VERIFY_DIR/p3-snapshot.json"
   ab --json eval "window.__bossBar" | json data.result >"$VERIFY_DIR/p3-boss-bar.json" || { log "P3 boss bar capture failed"; return 1; }
@@ -2151,7 +2156,7 @@ drive_p3_drill() {
     const checks = {
       p3BossIsNpc16677: swingLog.header.phase === "p3" && snapshot.fight?.boss.npcId === Number(bossNpc) && snapshot.fight.boss.visible && observed.bossBar.includes("5250 / 5250 (100.0%)"),
       p3ArenaDrawn: arenaDrawn(arena),
-      p3SwingsChipUnderMeleePrayer: observed.prayerOrders.length > 0 && observed.prayerOrders[0][0] < 4 && observed.prayerOrders[0][1] === "melee" && same(observed.swings, JSON.parse(swings)),
+      p3SwingsChipUnderMeleePrayer: observed.prayerOrders.length > 0 && observed.prayerOrders[0][0] <= JSON.parse(swings)[0][0] && observed.prayerOrders[0][1] === "melee" && same(observed.swings, JSON.parse(swings)),
       p3PanicOutOfReach: same(observed.panic, JSON.parse(panic)) && observed.escape.length === 1,
       p3ChainAsRecorded: same(observed.chain, JSON.parse(chain)),
       p3AddsAsRecorded: same(observed.adds, JSON.parse(adds)),
@@ -3056,7 +3061,10 @@ drive_production_hidden_p3() {
   })()' >/dev/null || { log "the production boss bar probe was not installed"; return 1; }
   ab wait --fn "window.__bossBars.length > 0" --timeout 90000 >/dev/null || log "the production page never drew a boss bar"
   ab click "#settings" >/dev/null && ab wait 300 >/dev/null || { log "the production Settings button was not clicked"; return 1; }
-  ab --json eval "({ search: location.search, bars: window.__bossBars, menuOpen: document.getElementById('settings_menu')?.checkVisibility() === true, setupBox: document.getElementById('setup') !== null, phaseBox: document.getElementById('phase') !== null })" |
+  ab --json eval "(() => {
+    const box = (id) => { const r = document.getElementById(id)?.getBoundingClientRect(); return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null; };
+    return { search: location.search, bars: window.__bossBars, menuOpen: document.getElementById('settings_menu')?.checkVisibility() === true, setupBox: document.getElementById('setup') !== null, phaseBox: document.getElementById('phase') !== null, comingSoon: document.getElementById('coming_soon')?.textContent ?? null, controlsBox: box('drill_controls'), footerBox: box('credits') };
+  })()" |
     json data.result >"$VERIFY_DIR/production-phase-p3.json" || { log "the production phase=p3 page was not read"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/production-phase-p3-page-errors.json" || { log "page error capture failed"; return 1; }
   node -e '
@@ -3066,6 +3074,7 @@ drive_production_hidden_p3() {
     const checks = {
       phaseP3OpensP4: page.search === "?phase=p3&seed=1" && page.bars[0] === entryBar && errors.length === 0,
       noPhaseBox: page.menuOpen && page.setupBox && !page.phaseBox,
+      comingSoonBelowClearButtons: page.comingSoon === "Phases 1 to 3 coming soon." && page.controlsBox.bottom <= page.footerBox.top,
     };
     console.log(JSON.stringify({ page, errors: errors.length, checks }, null, 2));
     process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
