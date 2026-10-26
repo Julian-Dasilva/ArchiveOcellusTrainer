@@ -173,6 +173,7 @@ class ArenaModel implements Model {
   private readonly cliffMaterial = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
   private readonly stoneMaterial = new THREE.MeshLambertMaterial({ color: 0x8c8a74 });
   private readonly wallMaterial = new THREE.MeshLambertMaterial({ color: 0xb4b49c });
+  private readonly bowlMaterial = new THREE.MeshLambertMaterial({ color: 0x6d5a3a });
   private readonly flames = new Map<string, THREE.Mesh>();
   /** Parapet pieces and torches, with the quadrants they stand over; hidden once all of those have fallen. */
   private readonly rim: { object: THREE.Object3D; quadrants: readonly Quadrant[] }[] = [];
@@ -239,13 +240,24 @@ class ArenaModel implements Model {
     this.group.visible = visible;
   }
 
-  private rebuild(state: FloorState): void {
-    this.built = state.key;
-    this.dynamic.children.forEach((child) => {
-      if (child instanceof THREE.Mesh) child.geometry.dispose();
+  private ownsMaterial(material: THREE.Material): boolean {
+    return material !== this.floorMaterial && material !== this.cliffMaterial && material !== this.stoneMaterial && material !== this.wallMaterial && material !== this.crumbleMaterial && material !== this.bowlMaterial;
+  }
+
+  private clearDynamic(): void {
+    this.dynamic.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      child.geometry.dispose();
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      for (const material of materials) if (this.ownsMaterial(material)) material.dispose();
     });
     this.dynamic.clear();
-    for (const [name] of this.flames) if (name.startsWith("censer")) this.flames.delete(name);
+    for (const name of [...this.flames.keys()]) if (name.startsWith("censer")) this.flames.delete(name);
+  }
+
+  private rebuild(state: FloorState): void {
+    this.built = state.key;
+    this.clearDynamic();
     const fallen = new Set(state.destroyed);
     for (const { object, quadrants } of this.rim) object.visible = quadrants.some((q) => !fallen.has(q));
 
@@ -327,7 +339,7 @@ class ArenaModel implements Model {
       const s = toSdk(censer.tile);
       const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 1.1, 8), this.wallMaterial);
       plinth.position.set(s.x + 0.5, FLOOR_Y + 0.55, s.y - 0.5);
-      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.25, 0.3, 10), new THREE.MeshLambertMaterial({ color: 0x6d5a3a }));
+      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.25, 0.3, 10), this.bowlMaterial);
       bowl.position.set(s.x + 0.5, FLOOR_Y + 1.25, s.y - 0.5);
       this.dynamic.add(plinth, bowl);
       const flame = new THREE.Mesh(
@@ -342,7 +354,18 @@ class ArenaModel implements Model {
 
   destroy(scene: THREE.Scene): void {
     scene.remove(this.group);
+    this.clearDynamic();
     this.texture.dispose();
+    this.floorMaterial.dispose();
+    this.cliffMaterial.dispose();
+    this.stoneMaterial.dispose();
+    this.wallMaterial.dispose();
+    this.crumbleMaterial.dispose();
+    this.bowlMaterial.dispose();
+    for (const flame of this.flames.values()) {
+      flame.geometry.dispose();
+      if (!Array.isArray(flame.material)) flame.material.dispose();
+    }
   }
 
   getWorldPosition(): THREE.Vector3 {
