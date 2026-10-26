@@ -27,11 +27,16 @@ class MemoryStorage implements Storage {
   }
 }
 
-// The SDK reads and writes window.localStorage without a guard, so storage the browser refuses would throw inside it.
+const PROBE_KEY = "archive-ocellus:storage-probe";
+
+// The SDK reads and writes window.localStorage without a guard, so storage the browser refuses or has no room left in would throw inside it.
 export function keepStorageUsable(): void {
   try {
-    void window.localStorage;
-  } catch {
-    Object.defineProperty(window, "localStorage", { configurable: true, value: new MemoryStorage() });
-  }
+    const storage = window.localStorage;
+    storage.setItem(PROBE_KEY, PROBE_KEY);
+    const read = storage.getItem(PROBE_KEY);
+    storage.removeItem(PROBE_KEY);
+    if (read === PROBE_KEY) return;
+  } catch {}
+  Object.defineProperty(window, "localStorage", { configurable: true, value: new MemoryStorage() });
 }

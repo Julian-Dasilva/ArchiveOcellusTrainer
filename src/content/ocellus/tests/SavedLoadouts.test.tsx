@@ -4,6 +4,9 @@ import type { TrainerLoadingState } from "osrs-sdk";
 import { loadPage } from "./page";
 
 const SAVED_LOADOUTS = "archive-ocellus:loadouts";
+const FILLER = "test:filler";
+const JSDOM_STORAGE_QUOTA = 5_000_000;
+const jsdomLocalStorage = Object.getOwnPropertyDescriptor(window, "localStorage");
 const READY: TrainerLoadingState = { assetProgress: 1, assetsLoaded: 0, assetsReady: true, assetsTotal: 0, imagesReady: true, status: "ready", viewportReady: true };
 const RANGED_DEFAULT_INVENTORY = [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, 12695, 22461, 6685, 3024, 12695, 22461, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 3024];
 
@@ -30,6 +33,7 @@ describe("Saved loadouts", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+    if (jsdomLocalStorage) Object.defineProperty(window, "localStorage", jsdomLocalStorage);
   });
 
   async function startingLoadout(url: string, stored: string | null) {
@@ -38,7 +42,7 @@ describe("Saved loadouts", () => {
     await act(() => Promise.resolve());
     const player = probe().snapshot().fight?.player;
     const { header } = probe().log();
-    const result = { phase: "phase" in header ? header.phase : "p4", weapon: player?.equipped.weapon, helmet: player?.equipped.helmet, inventory: player?.inventory, note: shown("loadout_note") };
+    const result = { phase: "phase" in header ? header.phase : "p4", weapon: player?.equipped.weapon, helmet: player?.equipped.helmet, inventory: player?.inventory, note: shown("loadout_note"), start: shown("start") };
     page.close();
     return result;
   }
@@ -54,6 +58,7 @@ describe("Saved loadouts", () => {
       helmet: 24419,
       inventory: [6685, 20997, 3024, ...Array<null>(25).fill(null)],
       note: null,
+      start: "Start",
     });
   });
 
@@ -61,7 +66,7 @@ describe("Saved loadouts", () => {
     { name: "nothing saved", stored: null },
     { name: "only another setup saved", stored: store({ melee: { worn: MELEE_WORN, inventory: BREW_FIRST } }) },
   ])("guard: with $name, a ranged run starts with the wiki loadout and no note", async ({ stored }) => {
-    expect(await startingLoadout("/?seed=1", stored)).toEqual({ phase: "p4", weapon: 20997, helmet: 27235, inventory: RANGED_DEFAULT_INVENTORY, note: null });
+    expect(await startingLoadout("/?seed=1", stored)).toEqual({ phase: "p4", weapon: 20997, helmet: 27235, inventory: RANGED_DEFAULT_INVENTORY, note: null, start: "Start" });
   });
 
   test.each([
@@ -77,6 +82,7 @@ describe("Saved loadouts", () => {
       helmet: 27235,
       inventory: RANGED_DEFAULT_INVENTORY,
       note: "Your saved Ranged loadout could not be read, so this run uses the default loadout.",
+      start: "Start",
     });
   });
 
@@ -87,7 +93,7 @@ describe("Saved loadouts", () => {
       return read.call(this, key);
     });
 
-    expect(await startingLoadout("/?seed=1", store({ ranged: { worn: MELEE_WORN, inventory: BREW_FIRST } }))).toEqual({ phase: "p4", weapon: 20997, helmet: 27235, inventory: RANGED_DEFAULT_INVENTORY, note: null });
+    expect(await startingLoadout("/?seed=1", store({ ranged: { worn: MELEE_WORN, inventory: BREW_FIRST } }))).toEqual({ phase: "p4", weapon: 20997, helmet: 27235, inventory: RANGED_DEFAULT_INVENTORY, note: null, start: "Start" });
   });
 
   test("a page whose browser refuses all storage starts the wiki loadout without a note", async () => {
@@ -96,6 +102,35 @@ describe("Saved loadouts", () => {
       throw new DOMException("storage is disabled", "SecurityError");
     });
 
-    expect(await startingLoadout("/?seed=1", null)).toEqual({ phase: "p4", weapon: 20997, helmet: 27235, inventory: RANGED_DEFAULT_INVENTORY, note: null });
+    expect(await startingLoadout("/?seed=1", null)).toEqual({ phase: "p4", weapon: 20997, helmet: 27235, inventory: RANGED_DEFAULT_INVENTORY, note: null, start: "Start" });
+  });
+
+  test.each([
+    {
+      refusal: "has no storage quota left",
+      refuse: () => {
+        localStorage.clear();
+        localStorage.setItem(FILLER, "x".repeat(JSDOM_STORAGE_QUOTA - FILLER.length));
+      },
+    },
+    {
+      refusal: "refuses every storage read",
+      refuse: () =>
+        vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+          throw new DOMException("storage access is denied", "SecurityError");
+        }),
+    },
+    {
+      refusal: "refuses every storage write",
+      refuse: () =>
+        vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+          throw new DOMException("the quota has been exceeded", "QuotaExceededError");
+        }),
+    },
+  ])("a page whose browser $refusal opens Start with the wiki loadout and no note", async ({ refuse }) => {
+    localStorage.setItem(SAVED_LOADOUTS, store({ ranged: { worn: MELEE_WORN, inventory: BREW_FIRST } }));
+    refuse();
+
+    expect(await startingLoadout("/?seed=1", null)).toEqual({ phase: "p4", weapon: 20997, helmet: 27235, inventory: RANGED_DEFAULT_INVENTORY, note: null, start: "Start" });
   });
 });
