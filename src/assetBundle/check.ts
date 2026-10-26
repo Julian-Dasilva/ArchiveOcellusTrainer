@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { ARCHIVE_OCELLUS_SPRITES, type ConfiguredIds, INDEXED_CATEGORIES, type IndexedCategory, type ManifestIndex, manifestAssetKeys, spriteFile } from "../assets";
 
@@ -53,14 +53,15 @@ function manifestGaps({ cacheId, outDir, assets }: AssetConfig, read: unknown): 
     ...(manifest.source === `openrs2:${cacheId}` ? [] : [`manifest.json is from ${manifest.source}, configured openrs2:${cacheId}`]),
     ...entries.filter(({ keys }) => keys === undefined).map(({ label }) => `manifest.json has no ${label}`),
     ...entries.flatMap(({ label, keys }) => (keys ?? []).filter((key) => !(key in manifest.files)).map((key) => `manifest.json lists no asset ${key} for ${label}`)),
-    ...Object.entries(manifest.files).filter(([, file]) => !existsSync(join(outDir, file))).map(([key, file]) => `missing ${file}, manifest.json's ${key}`),
+    ...Object.entries(manifest.files).flatMap(([key, file]) => fileGaps(outDir, file).map((gap) => `${gap}, manifest.json's ${key}`)),
     ...soundGaps(manifest.soundPack, outDir, assets.sounds),
   ];
 }
 
 function soundGaps(soundPack: string | undefined, outDir: string, sounds: ConfiguredIds): readonly string[] {
   if (soundPack === undefined) return ["manifest.json names no sound pack"];
-  if (!existsSync(join(outDir, soundPack))) return [`missing ${soundPack}, manifest.json's sound pack`];
+  const unusable = fileGaps(outDir, soundPack);
+  if (unusable.length > 0) return unusable.map((gap) => `${gap}, manifest.json's sound pack`);
   const packed = packedSounds(readFileSync(join(outDir, soundPack)));
   if (packed === undefined) return [`${soundPack} is not a sound pack`];
   return Object.entries(sounds)
@@ -98,9 +99,14 @@ function parseManifest(read: unknown): ServedManifest | undefined {
 }
 
 function spriteGaps(outDir: string): readonly string[] {
-  return ARCHIVE_OCELLUS_SPRITES.map(spriteFile)
-    .filter((file) => !existsSync(join(outDir, file)))
-    .map((file) => `missing ${file}`);
+  return ARCHIVE_OCELLUS_SPRITES.flatMap((sprite) => fileGaps(outDir, spriteFile(sprite)));
+}
+
+function fileGaps(outDir: string, file: string): readonly string[] {
+  const found = statSync(join(outDir, file), { throwIfNoEntry: false });
+  if (found === undefined) return [`missing ${file}`];
+  if (!found.isFile()) return [`${file} is not a file`];
+  return found.size === 0 ? [`${file} is empty`] : [];
 }
 
 async function loadAssetConfig(): Promise<AssetConfig> {
