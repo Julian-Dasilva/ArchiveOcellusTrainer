@@ -334,7 +334,9 @@ P3_SMITE_PAGES=(
 P3_SMITE_SPINS='{"flick":[[32,1,1,"blocked",0,0,"melee"]],"held":[[32,1,1,"struck knocked",18,18,null]],"late":[[32,1,1,"struck late",18,18,null]],"two-spins":[[32,1,2,"blocked",0,0,"melee"],[35,2,2,"blocked",0,0,"melee"]],"three-spins":[[32,1,3,"blocked",0,0,"melee"],[35,2,3,"blocked",0,0,"melee"],[38,3,3,"blocked",0,0,"melee"]]}'
 P3_SMITE_CHAT='{"knock":"You'"'"'ve been injured and can'"'"'t use protection prayers!","held":"Spin 1 of 1 hit you for 18. Your protection prayer was still up the tick before the spin, so the blades knocked it off. Turn it off after the blades start, then back on for the spin.","late":"Spin 1 of 1 hit you for 18. Protect from Melee was not back on in time for the spin."}'
 P3_BLADES_CONTROL_TICK=25
+P3_BLADES_CONTROL_AT=0.1
 P3_BLADES_TICK=31
+P3_BLADES_AT=0.5
 P3_BLADES_BOX='{"left":260,"right":120,"up":20,"down":280}'
 P3_BLADES_MIN_SHARE=0.5
 P3_BLADES_MAX_CONTROL_SHARE=0.3
@@ -2152,10 +2154,10 @@ p3_smite_page() {
 
 p3_blades_page() {
   ab open "${URL}${P3_SMITE_QUERY}" >/dev/null || return 1
-  fight_tick_at_least "$P3_BLADES_CONTROL_TICK" 120000 || { log "the blades page never reached P3 tick ${P3_BLADES_CONTROL_TICK}"; return 1; }
-  ab screenshot "$VERIFY_DIR/p3-blades-${P3_BLADES_CONTROL_TICK}.png" >/dev/null || return 1
-  fight_tick_at_least "$P3_BLADES_TICK" 30000 || { log "the blades page never reached P3 tick ${P3_BLADES_TICK}"; return 1; }
-  ab screenshot "$VERIFY_DIR/p3-blades-${P3_BLADES_TICK}.png" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the blades page never started"; return 1; }
+  record_tick_starts || { log "the tick watch was not installed"; return 1; }
+  shot_in_fight_tick "$P3_BLADES_CONTROL_TICK" "$P3_BLADES_CONTROL_AT" "p3-blades-${P3_BLADES_CONTROL_TICK}.png" || { log "the blades page was not shot in P3 tick ${P3_BLADES_CONTROL_TICK}"; return 1; }
+  shot_in_fight_tick "$P3_BLADES_TICK" "$P3_BLADES_AT" "p3-blades-${P3_BLADES_TICK}.png" || { log "the blades page was not shot in P3 tick ${P3_BLADES_TICK}"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/p3-blades-page-errors.json" || { log "page error capture failed"; return 1; }
 }
 
