@@ -91,4 +91,13 @@ describe("Saved loadouts", () => {
 
     expect(await startingLoadout("/?seed=1", store({ ranged: { worn: MELEE_WORN, inventory: BREW_FIRST } }))).toEqual({ phase: "p4", weapon: 20997, helmet: 27235, inventory: RANGED_DEFAULT_INVENTORY, note: null });
   });
+
+  test("a page whose browser refuses all storage starts the wiki loadout without a note", async () => {
+    localStorage.setItem(SAVED_LOADOUTS, store({ ranged: { worn: MELEE_WORN, inventory: BREW_FIRST } }));
+    vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+      throw new DOMException("storage is disabled", "SecurityError");
+    });
+
+    expect(await startingLoadout("/?seed=1", null)).toEqual({ phase: "p4", weapon: 20997, helmet: 27235, inventory: RANGED_DEFAULT_INVENTORY, note: null });
+  });
 });
