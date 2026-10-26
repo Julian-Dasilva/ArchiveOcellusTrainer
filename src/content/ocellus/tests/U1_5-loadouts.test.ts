@@ -1,5 +1,6 @@
 import { AttackStyle, AttackStylesController, TestNpc } from "osrs-sdk";
 import type { AttackBonuses, IncomingAttackRoll, IncomingAttackRollModifiers, Location, Projectile, Region } from "osrs-sdk";
+import type { DrillSelection } from "../js/OcellusTimings";
 import { startDrill, UNDER_BOSS } from "./drill";
 
 type Target = Readonly<{ magic: number; defence: number; size: number }>;
@@ -180,9 +181,9 @@ describe("U1.5 loadouts", () => {
     drill.dispose();
   });
 
-  test("Division drains Ocellus's Defence only for glaives that land damage, so a spec into the invulnerable lead-in drains nothing, nor does a glaive the explosion reduction cuts to 0", () => {
-    const spec = (throwAt: number, landedBy: number) => {
-      const drill = startDrill({ seed: 4 });
+  test("guard: Division drains Ocellus's Defence only for glaives that land damage, so a spec into Deflect Range drains nothing, nor does a glaive the explosion reduction cuts to 0", () => {
+    const spec = (throwAt: number, landedBy: number, selection: DrillSelection = {}) => {
+      const drill = startDrill({ seed: 4, selection });
       drill.walkTo({ x: 5, y: 2 });
       drill.tickTo(throwAt);
       drill.clickInventory(28922);
@@ -194,8 +195,9 @@ describe("U1.5 loadouts", () => {
       drill.dispose();
       return outcome;
     };
-    expect([spec(4, 7), spec(9, 12), spec(16, 20)]).toEqual([
-      [["invulnerable", "invulnerable"], 1312, 250, 50],
+    // Only the rifts act in the first run, so the player standing north of the 5x5 lives to throw into Deflect Range at 40.
+    expect([spec(40, 44, { focus: "rifts", drillStart: "cycle-start" }), spec(9, 12), spec(16, 20)]).toEqual([
+      [["blocked", "blocked"], 1312, 250, 50],
       [["passed", "passed"], 1297, 176, 50],
       [["reduced", "reduced"], 1307, 213, 50],
     ]);

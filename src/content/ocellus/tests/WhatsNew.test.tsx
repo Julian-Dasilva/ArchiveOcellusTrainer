@@ -13,13 +13,16 @@ const FIRST_RELEASE = {
   ],
 };
 
-const INPUT_CORRECTION_RELEASE = {
-  version: "2026.10.25.2",
-  date: "2026-10-25",
-  notes: expect.arrayContaining([
-    "Change your mind before the tick, like in game. Whatever you click last before the tick is what you do.",
-    "A click made right before the tick registers on that tick, instead of a tick late.",
-  ]),
+const NEXT_RELEASE = {
+  version: "2026.10.26",
+  date: "2026-10-26",
+  notes: [
+    "The 2D view is gone, and the 3D view draws each frame in about 14 draw calls instead of about 550. Gear switches after your first hitch far less. A typical switch's slowest frame drops from about 50 ms to one frame at 60 Hz.",
+    "The void shards of each explosion now come in high over your head, from the game's own effect, so you can see the cue to step while you move.",
+    "Change your mind before the tick, like in game. Whatever you click last before the tick is what you do, even a click made right before it.",
+    "Ocellus takes damage as soon as he is back on the platform, and standing on your lifeforce orb as it glows gives your HP back that tick.",
+    "A void rift left alive bursts 30 ticks after it appears and hits you once for 28 to 41, and destroying a rift resets your attack timer.",
+  ],
 };
 
 function whatsNew(page: ReturnType<typeof loadPage>) {
@@ -74,7 +77,7 @@ describe("What's new", () => {
     expect(opened.releases.at(-1)).toEqual(FIRST_RELEASE);
   });
 
-  test("a player who saw the last shipped release sees the dot again, and What's new lists the input correction release", () => {
+  test("a player who saw the last shipped release sees the dot again, and What's new opens on the next release", () => {
     localStorage.setItem(SEEN_RELEASE_KEY, "2026.10.25.1");
     const page = loadPage("/?seed=1");
     const { settingsDot, menuDot } = whatsNew(page);
@@ -82,7 +85,7 @@ describe("What's new", () => {
     page.click("whats_new");
     const { releases } = whatsNew(page);
     page.close();
-    expect({ settingsDot, menuDot, releases }).toEqual({ settingsDot: true, menuDot: true, releases: expect.arrayContaining([INPUT_CORRECTION_RELEASE]) });
+    expect({ settingsDot, menuDot, newest: releases[0] }).toEqual({ settingsDot: true, menuDot: true, newest: NEXT_RELEASE });
   });
 
   test("opening What's new from the keyboard moves focus to the panel's title", () => {

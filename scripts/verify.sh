@@ -143,11 +143,12 @@ INVINCIBLE_LAST_TICK=56
 INVINCIBLE_EXPECTED='{"prevented":[[54,"floor-hit"]],"hp":[[53,1],[54,99]],"chat":"Invincible: the void floor would have killed you on tick 54."}'
 INVINCIBLE_ORB_QUERY="?seed=1&invincible=on"
 INVINCIBLE_ORB_UNDER_BOSS_CLICK_UP_PX=100
-INVINCIBLE_ORB_CLICK_TICK=19
-INVINCIBLE_ORB_CLICK_RIGHT_PX=50
-INVINCIBLE_ORB_CLICK_UP_PX=75
-INVINCIBLE_ORB_LAST_TICK=26
-INVINCIBLE_ORB_EXPECTED='{"revived":[15,"floor-hit",38],"returned":[[25,{"requested":0,"applied":0,"beforeHp":99,"afterHp":99}]],"hp":[25,99],"maxHp":99}'
+INVINCIBLE_ORB_BESIDE_TICK=19
+INVINCIBLE_ORB_BESIDE_TILE='{"x":3,"y":8}'
+INVINCIBLE_ORB_STEP_ON_TICK=24
+INVINCIBLE_ORB_TILE='{"x":4,"y":8}'
+INVINCIBLE_ORB_LAST_TICK=27
+INVINCIBLE_ORB_EXPECTED='{"revived":[15,"floor-hit",38],"returned":[[26,{"requested":0,"applied":0,"beforeHp":99,"afterHp":99}]],"hp":[26,99],"maxHp":99}'
 ORB_DRILL="lifeforce-orb"
 ORB_SEED=75
 ORB_DORMANT_TICK=20
@@ -233,8 +234,8 @@ ICON_BOX='{"minX":-40,"maxX":40,"minY":-290,"maxY":-190}'
 RIFT_CLICK_TICK=68
 NORTH_EAST_RIFT_CLICK_LEFT_PX=270
 NORTH_EAST_RIFT_CLICK_UP_PX=52
-RIFT_BURST_TICK=90
-RIFT_CHARGED_SHOT_TICK=89
+RIFT_BURST_TICK=97
+RIFT_CHARGED_SHOT_TICK=96
 RIFT_TIMER_BOX='{"minX":156,"maxX":185,"minY":-85,"maxY":-81}'
 RIFT_TIMER_MAX_EARLY_SHARE=10
 RIFT_TIMER_MIN_FULL_SHARE=85
@@ -283,14 +284,14 @@ REFLECT_SPLAT_BOX='{"minX":-14,"maxX":14,"minY":-52,"maxY":-24}'
 REFLECT_MIN_SPLAT_SHARE=5
 REFLECT_MAX_CLEAR_SHARE=1
 SOUL_SPLIT_HEAL_TICK=39
-RIFT_EXPECTED='{"spawned":[[67,"rift-67-0",{"x":2,"y":2}],[67,"rift-67-1",{"x":10,"y":2}]],"destroyed":"rift-67-1","bursts":[[90,"rift-67-0",{"requested":14,"applied":14,"beforeHp":99,"afterHp":85,"prayer":null}]]}'
+RIFT_EXPECTED='{"spawned":[[67,"rift-67-0",{"x":2,"y":2}],[67,"rift-67-1",{"x":10,"y":2}]],"destroyed":"rift-67-1","attackDelay":{"before":2,"after":0},"bursts":[[97,["rift-67-0"],{"requested":36,"applied":36,"beforeHp":99,"afterHp":63,"prayer":null}]]}'
 SOUL_SPLIT_EXPECTED='[[39,{"kind":"soul-split","ordinal":0},{"requested":49,"applied":49,"beforeHp":1312,"afterHp":1361}],[67,{"kind":"soul-split","ordinal":1},{"requested":47,"applied":47,"beforeHp":1361,"afterHp":1408}]]'
 KILL_CHAT="Destroying the void rift empowers you!"
 RIFT_SOUND_SAMPLES='{"12640":11025,"12641":14332,"12642":26460,"12643":7717}'
 RIFT_SPAWN_SOUNDS='[[67.2,12643],[67.2,12643]]'
 RIFT_KILL_SOUND='[0.27,12640]'
-RIFT_BURST_SOUNDS='[[90.13,12641],[90.93,12642]]'
-RIFT_SOUND_WINDOW='[66,92]'
+RIFT_BURST_SOUNDS='[[97.13,12641],[97.93,12642]]'
+RIFT_SOUND_WINDOW='[66,99]'
 CUE_QUERY="?seed=${ORB_SEED}&focus=${ORB_DRILL}&drillStart=cycle-start&outerOrbTile=safe-floor"
 CUE_TOGGLE_TICK=6
 CUE_CHAT_BEFORE_TICK=10
@@ -324,6 +325,25 @@ P3_BOSS_TILE='{"x":20,"y":7}'
 P3_BOSS_CLICK_TICK=2
 P3_CLEAR='{"panel":{"lines":["Quadrant 1 cleared (interim end)","P3 time: 5 ticks (0:03.0)"],"buttons":["Repeat P3","Retry seed","Start P4"]},"tick":5,"bossHp":3937}'
 P3_START_P4='{"search":"?phase=p4&setup=ranged","bossHp":1312}'
+# Phase 4 as RuneLite fight logs recorded on 2026-10-23 show it: the lead-in, an orb taken by a player waiting on it, and a rift kill's reset.
+RECORDED_LEAD_IN_QUERY="?seed=100"
+RECORDED_RING_TILE='{"x":5,"y":3}'
+RECORDED_BOSS_TILE='{"x":5,"y":5}'
+RECORDED_LEAD_IN_SHOT_TICK=4
+RECORDED_LEAD_IN_LAST_TICK=9
+RECORDED_LEAD_IN_EXPECTED='{"states":[[0,"hidden"],[4,"present-damageable"],[8,"present-out-of-melee-reach"]],"judged":[[7,"passed",54]],"bossHp":[7,{"atBossStep":1312,"atPostTick":1258}]}'
+RECORDED_ORB_QUERY="?seed=75&focus=lifeforce-orb"
+RECORDED_ORB_TILE='{"x":9,"y":4}'
+RECORDED_ORB_CLICK_TICK=12
+RECORDED_ORB_LAST_TICK=25
+RECORDED_ORB_EXPECTED='{"matured":[[24,{"x":9,"y":4}]],"returned":[[24,{"requested":49,"applied":49,"beforeHp":50,"afterHp":99}]]}'
+RECORDED_RIFT_QUERY="?seed=1&focus=rifts&drillStart=cycle-start"
+RECORDED_NORTH_EAST_RIFT='{"x":10,"y":2}'
+RECORDED_NORTH_WEST_RIFT='{"x":2,"y":2}'
+RECORDED_RIFT_FIRST_TICK=68
+RECORDED_RIFT_SECOND_TICK=72
+RECORDED_RIFT_LAST_TICK=79
+RECORDED_RIFT_EXPECTED='{"hits":[[72,"rift-67-1","ranged",44],[76,"rift-67-0","ranged",44]],"destroyed":[[73,"rift-67-1",{"before":2,"after":0}],[77,"rift-67-0",{"before":2,"after":0}]]}'
 CREDIT_LINE="Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex."
 
 set +a
@@ -413,7 +433,7 @@ serve() {
   fi
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
 
-  ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --host 127.0.0.1 --port "$VERIFY_PORT" \
+  ARCHIVE_P2=on ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --host 127.0.0.1 --port "$VERIFY_PORT" \
     >"$VERIFY_DIR/server.log" 2>&1 &
   local pid=$!
   LAUNCHED_PID=$pid
@@ -1486,7 +1506,11 @@ drive_invincible() {
   fight_tick_at_least 0 120000 || { log "the invincible full fight never took its first P4 step"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_at "$CX" $((CY - INVINCIBLE_ORB_UNDER_BOSS_CLICK_UP_PX)) || { log "the walk under the boss was not clicked"; return 1; }
-  click_after_tick "$INVINCIBLE_ORB_CLICK_TICK" "$INVINCIBLE_ORB_CLICK_RIGHT_PX" "-$INVINCIBLE_ORB_CLICK_UP_PX" || { log "the walk to the orb was not clicked"; return 1; }
+  # Wait beside the orb through the revival at 24, then step on, so the orb is taken after the revival cleared its credit.
+  tile_pixel invincible-orb "$INVINCIBLE_ORB_BESIDE_TILE" "$INVINCIBLE_ORB_BESIDE_TICK" || return 1
+  click_after_tick "$INVINCIBLE_ORB_BESIDE_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the walk beside the orb was not clicked"; return 1; }
+  tile_pixel invincible-orb "$INVINCIBLE_ORB_TILE" "$INVINCIBLE_ORB_STEP_ON_TICK" || return 1
+  click_after_tick "$INVINCIBLE_ORB_STEP_ON_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the step onto the orb was not clicked"; return 1; }
   fight_tick_at_least "$INVINCIBLE_ORB_LAST_TICK" 30000 || { log "the invincible full fight never stepped to P4 tick ${INVINCIBLE_ORB_LAST_TICK}"; return 1; }
   ab screenshot "$VERIFY_DIR/invincible-orb.png" >/dev/null || { log "invincible orb screenshot failed"; return 1; }
   probe "log()" >"$VERIFY_DIR/invincible-orb.json"
@@ -1577,6 +1601,8 @@ menu_state() {
       menu: visible('settings_menu'),
       controls: Object.fromEntries(${MENU_CONTROLS}.map((id) => [id, visible(id)])),
       buttons: { settings: visible('settings'), restart: visible('restart') },
+      controlsBox: box('drill_controls'),
+      footerBox: box('credits'),
       credit: visible('credit_line'),
       menuBox: box('settings_menu'),
       viewport: { width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth },
@@ -1915,6 +1941,37 @@ drive_p3_drill() {
   ab --json errors | json data.errors >"$VERIFY_DIR/p3-start-p4-page-errors.json" || { log "page error capture failed"; return 1; }
 }
 
+click_tile_after_tick() {
+  tile_pixel "$1" "$2" "$3" || return 1
+  canvas_centre || { log "$1: canvas box unreadable"; return 1; }
+  click_after_tick "$3" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "$1: the click on $2 after P4 tick $3 was not sent"; return 1; }
+}
+
+drive_recorded_fights() {
+  ab open "${URL}${RECORDED_LEAD_IN_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the lead-in page never started"; return 1; }
+  click_tile_after_tick recorded-lead-in "$RECORDED_RING_TILE" 0 || return 1
+  click_tile_after_tick recorded-lead-in "$RECORDED_BOSS_TILE" "$RECORDED_LEAD_IN_SHOT_TICK" || return 1
+  fight_tick_at_least "$RECORDED_LEAD_IN_LAST_TICK" 30000 || { log "the lead-in page never reached P4 tick ${RECORDED_LEAD_IN_LAST_TICK}"; return 1; }
+  ab screenshot "$VERIFY_DIR/recorded-lead-in.png" >/dev/null || { log "lead-in hit screenshot failed"; return 1; }
+  p3_page_done recorded-lead-in || return 1
+
+  ab open "${URL}${RECORDED_ORB_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the waiting orb page never started"; return 1; }
+  click_tile_after_tick recorded-orb "$RECORDED_ORB_TILE" "$RECORDED_ORB_CLICK_TICK" || return 1
+  shot_after_tick $((RECORDED_ORB_LAST_TICK - 2)) 0 recorded-orb-waiting.png || { log "waiting orb screenshot failed"; return 1; }
+  fight_tick_at_least "$RECORDED_ORB_LAST_TICK" 30000 || { log "the waiting orb page never reached P4 tick ${RECORDED_ORB_LAST_TICK}"; return 1; }
+  ab screenshot "$VERIFY_DIR/recorded-orb-returned.png" >/dev/null || { log "returned orb screenshot failed"; return 1; }
+  p3_page_done recorded-orb || return 1
+
+  ab open "${URL}${RECORDED_RIFT_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the rift reset page never started"; return 1; }
+  click_tile_after_tick recorded-rift "$RECORDED_NORTH_EAST_RIFT" "$RECORDED_RIFT_FIRST_TICK" || return 1
+  click_tile_after_tick recorded-rift "$RECORDED_NORTH_WEST_RIFT" "$RECORDED_RIFT_SECOND_TICK" || return 1
+  fight_tick_at_least "$RECORDED_RIFT_LAST_TICK" 30000 || { log "the rift reset page never reached P4 tick ${RECORDED_RIFT_LAST_TICK}"; return 1; }
+  p3_page_done recorded-rift || return 1
+}
+
 drive_p4_cycle() {
   ab open "${URL}${DRILL_QUERY}" >/dev/null || return 1
   drive_lead_in || return 1
@@ -2059,7 +2116,10 @@ drive_production_hidden_p3() {
   })()' >/dev/null || { log "the production boss bar probe was not installed"; return 1; }
   ab wait --fn "window.__bossBars.length > 0" --timeout 90000 >/dev/null || log "the production page never drew a boss bar"
   ab click "#settings" >/dev/null && ab wait 300 >/dev/null || { log "the production Settings button was not clicked"; return 1; }
-  ab --json eval "({ search: location.search, bars: window.__bossBars, menuOpen: document.getElementById('settings_menu')?.checkVisibility() === true, setupBox: document.getElementById('setup') !== null, phaseBox: document.getElementById('phase') !== null })" |
+  ab --json eval "(() => {
+    const box = (id) => { const r = document.getElementById(id)?.getBoundingClientRect(); return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null; };
+    return { search: location.search, bars: window.__bossBars, menuOpen: document.getElementById('settings_menu')?.checkVisibility() === true, setupBox: document.getElementById('setup') !== null, phaseBox: document.getElementById('phase') !== null, comingSoon: document.getElementById('coming_soon')?.textContent ?? null, controlsBox: box('drill_controls'), footerBox: box('credits') };
+  })()" |
     json data.result >"$VERIFY_DIR/production-phase-p3.json" || { log "the production phase=p3 page was not read"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/production-phase-p3-page-errors.json" || { log "page error capture failed"; return 1; }
   node -e '
@@ -2069,6 +2129,7 @@ drive_production_hidden_p3() {
     const checks = {
       phaseP3OpensP4: page.search === "?phase=p3&seed=1" && page.bars[0] === entryBar && errors.length === 0,
       noPhaseBox: page.menuOpen && page.setupBox && !page.phaseBox,
+      comingSoonBelowClearButtons: page.comingSoon === "Phases 1 to 3 coming soon." && page.controlsBox.bottom <= page.footerBox.top,
     };
     console.log(JSON.stringify({ page, errors: errors.length, checks }, null, 2));
     process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
@@ -2112,7 +2173,7 @@ serve_static() {
 stage_production() {
   production_port_free || return 1
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
-  ARCHIVE_P3=off node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/production" >"$VERIFY_DIR/production-build.log" 2>&1 || { log "the production build failed"; return 1; }
+  ARCHIVE_P2=off ARCHIVE_P3=off node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/production" >"$VERIFY_DIR/production-build.log" 2>&1 || { log "the production build failed"; return 1; }
 
   local BROWSER_SESSION="archive-ocellus-verify-$(basename "$VERIFY_DIR")-production" PRODUCTION_PID= result=1
   trap 'release_production; exit 130' INT TERM
