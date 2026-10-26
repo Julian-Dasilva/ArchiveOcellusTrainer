@@ -193,6 +193,28 @@
           "mutation": [{ "find": "failedChecks.length === 0 ? 0 : 1", "replace": "true ? 0 : 1" }]
         }
       ]
+    },
+    {
+      "path": "scripts/verify/parity.mjs",
+      "tests": ["scripts/verify/parity.test.sh"],
+      "policies": [
+        {
+          "policy": "a seeded fight that differs fails unless the change touches fight code",
+          "mutation": [{ "find": "const reason = changed.find((file) => fightCode.some((prefix) => file.startsWith(prefix)));", "replace": "const reason = changed[0];" }]
+        },
+        {
+          "policy": "a change to fight code makes its differences expected",
+          "mutation": [{ "find": "if (reason !== undefined) {", "replace": "if (false) {" }]
+        },
+        {
+          "policy": "a seeded fight missing at the head differs",
+          "mutation": [{ "find": "const names = [...new Set([...Object.keys(base), ...Object.keys(head)])];", "replace": "const names = Object.keys(head);" }]
+        },
+        {
+          "policy": "each differing fight is printed with its first differing value",
+          "mutation": [{ "find": "for (const name of differing) console.log(", "replace": "for (const name of []) console.log(" }]
+        }
+      ]
     }
   ]
 }
