@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { CacheRender, ControlPanelController, SETTINGS_STORAGE_KEY, Settings, SoundCache, TrainerInstance, TrainerLoadingState, Viewport } from "osrs-sdk";
 import type { Item, SettingsState } from "osrs-sdk";
@@ -22,6 +22,7 @@ import { releaseDate } from "./releases";
 import { keepHoverTextOnCanvas } from "./hoverText";
 import { loadWebAnalytics, perfDataAllowed, setPerfDataAllowed, startPerfTelemetry } from "./telemetry/perfTelemetry";
 import { reportUnservedAssets } from "./servedAssets";
+import { CONTRIBUTOR, MAKER, MAKER_LINKS } from "./menu/credits";
 
 keepHoverTextOnCanvas();
 // Desktop browsers start the SDK's AudioContext suspended until a user gesture, and the SDK never resumes it.
@@ -33,12 +34,6 @@ window.addEventListener("unhandledrejection", (event) => {
 
 export const CREDIT_LINE =
   "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.";
-const MAKER = "Julian Dasilva / Moarhots";
-const MAKER_LINKS: readonly Readonly<{ label: string; href: string }>[] = [
-  { label: "GitHub", href: "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer" },
-  { label: "@ShadowJdas", href: "https://x.com/ShadowJdas" },
-];
-const CONTRIBUTOR: Readonly<{ name: string; href: string }> = { name: "Alessandro Rodi", href: "https://github.com/alessandrorodi" };
 
 declare global {
   interface Window {
@@ -601,8 +596,13 @@ export function ArchiveOcellusApp() {
   return opening.kind === "open" ? <TrainerPage {...opening.opened} /> : null;
 }
 
+/** The sidebar loads behind a test of the raw build variable, which webpack folds, so a build with ARCHIVE_FULL off contains none of it. */
+const loadSidebar = () => (process.env.ARCHIVE_FULL === "on" ? lazy(() => import("./menu/Sidebar")) : null);
+
 function TrainerPage({ trainer, drill, flags }: Opened) {
   const [loading, setLoading] = useState<TrainerLoadingState>();
+  const [Sidebar] = useState(loadSidebar);
+  const controls = <DrillControls drill={drill} flags={flags} />;
 
   return (
     <TrainerApp trainer={trainer} onLoadingStateChange={setLoading}>
@@ -610,34 +610,41 @@ function TrainerPage({ trainer, drill, flags }: Opened) {
         <TrainerLoadingSplash state={loading} />
         <div id="hud_corner">
           <GameChat region={drill.region} />
-          <DrillControls drill={drill} flags={flags} />
+          {Sidebar === null && controls}
           <footer id="credits">
             {onlyP4Playable(flags) && <p id="coming_soon">Phases 1 to 3 coming soon.</p>}
-            <p id="maker_credit">
-              Made by {MAKER}{" "}
-              <span id="maker_links">
-                {MAKER_LINKS.map((link, i) => (
-                  <React.Fragment key={link.href}>
-                    {i > 0 && " · "}
-                    <a href={link.href} target="_blank" rel="noopener noreferrer">
-                      {link.label}
-                    </a>
-                  </React.Fragment>
-                ))}
-              </span>
-              <span id="contributor_credit">
-                With help from{" "}
-                <a href={CONTRIBUTOR.href} target="_blank" rel="noopener noreferrer">
-                  {CONTRIBUTOR.name}
-                </a>
-              </span>
-            </p>
+            {Sidebar === null && (
+              <p id="maker_credit">
+                Made by {MAKER}{" "}
+                <span id="maker_links">
+                  {MAKER_LINKS.map((link, i) => (
+                    <React.Fragment key={link.href}>
+                      {i > 0 && " · "}
+                      <a href={link.href} target="_blank" rel="noopener noreferrer">
+                        {link.label}
+                      </a>
+                    </React.Fragment>
+                  ))}
+                </span>
+                <span id="contributor_credit">
+                  With help from{" "}
+                  <a href={CONTRIBUTOR.href} target="_blank" rel="noopener noreferrer">
+                    {CONTRIBUTOR.label}
+                  </a>
+                </span>
+              </p>
+            )}
             <p id="credit_line">{CREDIT_LINE}</p>
             <p id="app_version">v{LATEST_RELEASE.version}</p>
           </footer>
         </div>
         <RunResultPanel drill={drill} flags={flags} />
       </GameOverlay>
+      {Sidebar !== null && (
+        <Suspense fallback={null}>
+          <Sidebar>{controls}</Sidebar>
+        </Suspense>
+      )}
     </TrainerApp>
   );
 }
