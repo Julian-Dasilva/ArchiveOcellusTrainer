@@ -50,7 +50,7 @@ async function openRun(url: string) {
 describe("Set-up and pause", () => {
   beforeEach(() => {
     localStorage.clear();
-    localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { use3dView: false, inventory_key: "F4", prayer_key: "F5" } }));
+    localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { inventory_key: "F4", prayer_key: "F5" } }));
     now = 1000;
     vi.spyOn(performance, "now").mockImplementation(() => now);
     // Each test calls the SDK's browserLoop on its own mocked clock, so jsdom's frame timer must not call it too.
@@ -182,7 +182,7 @@ describe("Set-up and pause", () => {
 
   test("a click still waiting out its input delay registers on the same P4 tick across a pause", async () => {
     async function walkOrders(pause: boolean) {
-      localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { use3dView: false, inputDelay: 1000 } }));
+      localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { inputDelay: 1000 } }));
       const run = await openRun("/?seed=1&invincible=on");
       run.page.click("start");
       run.playTo(9);

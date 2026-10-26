@@ -3,7 +3,6 @@ import { TrainerInstance } from "osrs-sdk";
 import type { TrainerLoadingState } from "osrs-sdk";
 import { loadPage } from "./page";
 
-const SAVED_SETTINGS = "osrs-sdk:settings";
 const SAVED_LOADOUTS = "archive-ocellus:loadouts";
 const READY: TrainerLoadingState = { assetProgress: 1, assetsLoaded: 0, assetsReady: true, assetsTotal: 0, imagesReady: true, status: "ready", viewportReady: true };
 const RANGED_DEFAULT_INVENTORY = [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, 12695, 22461, 6685, 3024, 12695, 22461, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 3024];
@@ -22,7 +21,6 @@ describe("Saved loadouts", () => {
 
   beforeEach(() => {
     localStorage.clear();
-    localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { use3dView: false } }));
     // jsdom never fires load on an <img>, so the SDK's image gate would never open.
     vi.spyOn(TrainerInstance.prototype, "load").mockImplementation(async (options) => options?.onStateChange?.(READY));
     // Each test reads the page before its first frame, and a frame left on jsdom's clock would draw after the page closes.
