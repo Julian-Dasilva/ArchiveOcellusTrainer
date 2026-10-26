@@ -284,16 +284,25 @@ export class SpotAnimModel implements Model {
     return this.playing?.model.getWorldPosition() ?? new THREE.Vector3();
   }
 
-  /** The SDK builds a spotanim's meshes on its first draw and starts its animation and frame sounds only after them, so the looks are built here, before the fight. */
+  /** The SDK builds a spotanim's meshes on its first draw and starts its animation and frame sounds only after them. */
   async preload(): Promise<void> {
-    await Promise.all(
-      this.looks.map(async (spotAnim) => {
-        const model = CacheRenderInstancedModel.forRenderable(this.renderable, CacheRenderReferences.spotAnim([{ id: spotAnim }]));
-        await model.preload();
-        model.destroy(new THREE.Scene());
-      }),
-    );
+    await Promise.all(this.looks.map((spotAnim) => buildLook(this.renderable, spotAnim)));
   }
+}
+
+// The SDK keeps one instance pool per look and draws every slot it ever handed out, so two views building a look at once would leave a hidden instance drawn.
+const builtLooks = new Map<number, Promise<void>>();
+
+function buildLook(renderable: Renderable, spotAnim: number): Promise<void> {
+  const built =
+    builtLooks.get(spotAnim) ??
+    (async () => {
+      const model = CacheRenderInstancedModel.forRenderable(renderable, CacheRenderReferences.spotAnim([{ id: spotAnim }]));
+      await model.preload();
+      model.destroy(new THREE.Scene());
+    })();
+  builtLooks.set(spotAnim, built);
+  return built;
 }
 
 export class OrbView extends Entity {
