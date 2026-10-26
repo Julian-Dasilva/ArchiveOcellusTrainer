@@ -11,7 +11,7 @@
   const into = (kind, tick, now) => (now - clock.starts[kind][tick]) / clock.tickMs;
   const at = (kind, tick, now) => ({ tick, into: Math.round(into(kind, tick, now) * 1000) / 1000 });
 
-  // createImageBitmap copies the canvas when called, in a fraction of a millisecond; drawing and encoding a copy took about 100 ms on llvmpipe, so that waits until no other shot is due in the same tick.
+  // createImageBitmap copies the canvas when called, before its promise resolves.
   const frame = (kind, tick, now) => {
     const world = document.querySelector("#world");
     return { at: at(kind, tick, now), bitmap: createImageBitmap(world), box: world.getBoundingClientRect() };
@@ -30,7 +30,7 @@
         reader.readAsDataURL(blob);
       }))
       .then((png) => (clock.done[name] = { ...shot.at, png }));
-  let taken = [];
+  let copied = [];
 
   const click = ({ x, y }) => {
     const world = document.querySelector("#world");
@@ -47,19 +47,18 @@
       const { when, action } = due, t = ticks[when.kind];
       if (t === null || t < when.tick) return true;
       if (t === when.tick && into(when.kind, t, now) < when.fraction) {
-        // A slow frame can end the tick before one reaches the fraction; the last frame drawn before it was still on screen at the fraction.
         if (action.kind === "shot") {
-          release(due.last);
-          due.last = frame(when.kind, t, now);
+          release(due.onScreenAtFraction);
+          due.onScreenAtFraction = frame(when.kind, t, now);
         }
         return true;
       }
       switch (action.kind) {
         case "shot":
-          if (t > when.tick && due.last) taken.push({ name: action.name, when, shot: due.last });
+          if (t > when.tick && due.onScreenAtFraction) copied.push({ name: action.name, when, shot: due.onScreenAtFraction });
           else {
-            release(due.last);
-            taken.push({ name: action.name, when, shot: frame(when.kind, t, now) });
+            release(due.onScreenAtFraction);
+            copied.push({ name: action.name, when, shot: frame(when.kind, t, now) });
           }
           break;
         case "click":
@@ -69,9 +68,9 @@
       }
       return false;
     });
-    const waiting = ({ when }) => clock.due.some((due) => due.action.kind === "shot" && due.when.kind === when.kind && due.when.tick === when.tick);
-    taken.filter((shot) => !waiting(shot)).forEach(encode);
-    taken = taken.filter(waiting);
+    const tickHasShotsDue = ({ when }) => clock.due.some((due) => due.action.kind === "shot" && due.when.kind === when.kind && due.when.tick === when.tick);
+    copied.filter((copy) => !tickHasShotsDue(copy)).forEach(encode);
+    copied = copied.filter(tickHasShotsDue);
   };
   requestAnimationFrame(watch);
 

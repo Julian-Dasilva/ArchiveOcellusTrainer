@@ -562,7 +562,6 @@ start_frame_clock() {
   ab eval "$(<scripts/verify/frame-clock.js)" >/dev/null
 }
 
-# A shot copies #world inside the first animation frame at or past a fraction of a fight or world tick, or the tick's last frame when the tick ends first, so frame rate and CDP latency cannot move it.
 arm_shot() {
   ab eval "window.__frameClock.at({ kind: '$1', tick: $2, fraction: $3 }, { kind: 'shot', name: '$4' })" >/dev/null
 }
@@ -1082,7 +1081,6 @@ drive_control_walk() {
   ab --json errors | json data.errors >"$VERIFY_DIR/control-walk-page-errors.json" || { log "page error capture failed"; return 1; }
 }
 
-# Both clicks are dispatched on #world inside the frames at their times into the next world tick, so CDP latency cannot push the late one past the boundary.
 click_twice_in_one_tick() {
   local first=($1) last=($2)
   ab eval "(() => {
