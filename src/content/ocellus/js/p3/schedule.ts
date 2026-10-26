@@ -33,6 +33,7 @@ function spinTable(): Table {
     lastCut + spin.nextMoveAfterLastCut.value,
     (offset) => [
       ...(offset === 0 ? [{ kind: "spin-starts" } as const] : []),
+      ...(offset === spin.opensAfter.value ? [{ kind: "spin-opens" } as const] : []),
       ...saws.flatMap(({ saw, cut }): P3Beat[] => {
         if (offset === cut - 1) return [{ kind: "saw-tell", saw }];
         if (offset === cut) return [{ kind: "saw-cut", saw, last: cut === lastCut }];

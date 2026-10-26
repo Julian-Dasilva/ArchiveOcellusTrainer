@@ -18,6 +18,7 @@ export type P3Beat =
   | Readonly<{ kind: "panic" }>
   | Readonly<{ kind: "shadow-slash" }>
   | Readonly<{ kind: "spin-starts" }>
+  | Readonly<{ kind: "spin-opens" }>
   | Readonly<{ kind: "saw-tell"; saw: number }>
   | Readonly<{ kind: "saw-cut"; saw: number; last: boolean }>
   | Readonly<{ kind: "untether-starts" }>
@@ -32,6 +33,7 @@ export type P3Hit =
   | Readonly<{ kind: "swing"; at: Tick }>
   | Readonly<{ kind: "panic"; at: Tick }>
   | Readonly<{ kind: "shadow-slash"; at: Tick }>
+  | Readonly<{ kind: "spin-opening"; at: Tick }>
   | Readonly<{ kind: "saw"; at: Tick; saw: number }>
   | Readonly<{ kind: "untether-magic"; at: Tick }>
   | Readonly<{ kind: "untether-slam"; at: Tick }>

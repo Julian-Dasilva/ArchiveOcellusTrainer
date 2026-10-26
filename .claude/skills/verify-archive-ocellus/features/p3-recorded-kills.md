@@ -7,7 +7,7 @@ Quadrant 1 of the hidden P3 drill ([p3-drill.md](./p3-drill.md)) runs as the Run
 - `p3-chain` runs the moves above, to U+37, with no input.
 - `p3-panic` turns a swing into a panic shot with the next move 6 ticks later.
 - `p3-slash` lands the shadow slash the tick after its animation on its band.
-- `p3-spin` severs a prayer left up for the cut, and blocks the cut when flicked.
+- `p3-spin` opens with a melee hit on S+1 that Protect from Melee blocks, severs a prayer left up for the cut, and blocks the cut when flicked.
 - `p3-untether` hovers in the corner, lands the magic, and judges the slam and aftershock on the player's tile the tick before.
 - `p3-insolence` lands three bands and resumes the swings 20 ticks after the shout.
 - `p3-fall` drops the quadrant the tick after the floor, mid-set or mid-spin, and at U+31 through Untether.
@@ -26,7 +26,7 @@ Preconditions:
 
 - **Chain.** Open `?phase=p3&seed=1&invincible=on` and wait until P3 tick 91. The log's `boss-moved` events up to tick 90 are swing 4, swing 7, shadow-slash 10, swing 14, swing 17, shadow-slash 20, spin 24, last-saw 29, swing 33, swing 36, shadow-slash 39, swing 43, swing 46, shadow-slash 49, untether 53, slam 82 and swing 90.
 - **Markers.** On the same page, take a screenshot on tick 10, with the slash's band drawn red, and from tick 54, with his 3x3 drawn purple.
-- **Spin.** Open `?phase=p3&seed=1&invincible=on`, click Protect from Melee after tick 1 and leave it on. The log has `prayer-severed` on 28 and a `saw` hit on 29 with prayer `null`, and the chat shows "Ocellus disrupts your concentration, severing your prayer!" and "You've been injured and can't use protection prayers!".
+- **Spin.** Open `?phase=p3&seed=1&invincible=on`, click Protect from Melee after tick 1 and leave it on. The log has a `spin-opening` hit on 25 with prayer `melee` and 0 damage, `prayer-severed` on 28 and a `saw` hit on 29 with prayer `null`, and the chat shows "Ocellus disrupts your concentration, severing your prayer!" and "You've been injured and can't use protection prayers!".
 - **Scripted.** `scripts/verify.sh browser` runs the chain page in `drive_p3_drill`, writes `p3-chain.json` and checks `p3ChainAsRecorded`.
 
 ## Gotchas

@@ -37,6 +37,7 @@ const { swing, panic, shadowSlash, spin, untether, insolence, fallShouts } = OCE
 const DRAW: Readonly<Record<Exclude<P3Hit["kind"], "swing">, number>> = {
   panic: 0,
   "shadow-slash": 1,
+  "spin-opening": 7,
   saw: 2,
   "untether-magic": 3,
   "untether-slam": 4,
@@ -90,6 +91,8 @@ function react(seed: Seed, beat: P3Beat, facts: TurnFacts): Reaction {
     }
     case "spin-starts":
       return only(moved(at, "spin"));
+    case "spin-opens":
+      return only(prayable(seed, { kind: "spin-opening", at }, "melee", spin.openingDamage.value));
     case "saw-tell":
       return only(...(player.prayer === null ? [] : [logged({ kind: "prayer-severed", at, lockedFor: spin.severedFor.value })]));
     case "saw-cut":

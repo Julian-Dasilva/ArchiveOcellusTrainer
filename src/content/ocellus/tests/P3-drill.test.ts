@@ -168,6 +168,18 @@ describe("P3 drill", () => {
       expect(observed).toEqual({ severed: 0, saw: [[P + 5, 0, "melee"]] });
     });
 
+    test.each([
+      { prayer: "Protect from Melee" as const, opening: [[P + 1, "spin-opening", 0, 0, "melee"]] },
+      { prayer: null, opening: [[P + 1, "spin-opening", 16, 16, null]] },
+    ])("the spin opens with a melee hit on P+1 that Protect from Melee blocks: $prayer", async ({ prayer, opening }) => {
+      const drill = await startP3Drill({ seed: 1, invincible: true });
+      if (prayer !== null) drill.pray(prayer);
+      drill.tickTo(P + 2);
+      const observed = drill.events("player-hit").filter((event) => event.at >= P).map((event) => [event.at, event.hit.kind, event.receipt.requested, event.receipt.applied, event.receipt.prayer]);
+      drill.dispose();
+      expect(observed).toEqual(opening);
+    });
+
     test("he stands through the spin and walks again after its last cut", async () => {
       const drill = await startP3Drill({ seed: 1, invincible: true });
       drill.tickTo(P + 6);

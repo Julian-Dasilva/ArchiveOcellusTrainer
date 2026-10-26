@@ -943,6 +943,8 @@ type P3Recipe = Readonly<{
   shadowSlash: Readonly<{ landsAfter: Selected<TickSpan>; width: Selected<number>; damage: Selected<DamageRange> }>;
   specials: Selected<readonly [P3Special, ...P3Special[]]>;
   spin: Readonly<{
+    opensAfter: Selected<TickSpan>;
+    openingDamage: Selected<DamageRange>;
     saws: Selected<number>;
     firstCut: Selected<TickSpan>;
     cutEvery: Selected<TickSpan>;
@@ -1055,6 +1057,8 @@ const P3: P3Recipe = {
     NO_WIKI_P3_TICKS, ...P3_SPECIAL_LOGS,
   ),
   spin: {
+    opensAfter: selected(span(1), "log-repeated", "unscaled", "a melee hit lands on everyone 1 tick after the spin starts, before its first saw; Protect from Melee blocks it", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: a hit on S+1 of every spin and none on S, 0 on 256 of 257 raiders under Protect from Melee, as at L6:3292")),
+    openingDamage: selected<DamageRange>({ min: 0, max: 18 }, "log-repeated", "unscaled", "without Protect from Melee; the 22 lone splats on S+1 run 0 to 18, as L6:3293's 18", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: the S+1 hits on raiders with no overhead")),
     saws: selected(1, "log-repeated", "unscaled", "one saw in quadrant 1; one more for each quadrant destroyed", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: one cut in quadrant 1, two in quadrant 2 and three in quadrant 3")),
     firstCut: selected(span(5), "log-repeated", "unscaled", "the first saw cuts 5 ticks after the spin starts, on the tick his loop animation, or for the last saw his end animation, plays", NO_WIKI_P3_TICKS, ...P3_CHAIN_LOGS, ...p3Logs(["L2"], "fight 2: per-tick overheads through each spin")),
     cutEvery: selected(span(3), "log-repeated", "unscaled", "each later saw 3 ticks after the one before", NO_WIKI_P3_TICKS, ...p3Logs(["L2"], "fight 2, quadrant 3: loops at P+5 and P+8, the end at P+11")),
