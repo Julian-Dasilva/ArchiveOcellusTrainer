@@ -9,6 +9,8 @@ The trainer is a web page: a three.js canvas (`#world`) with the osrs-sdk HUD ar
 
 ```sh
 source ~/osrs-sims/env.sh            # Node 22 on this machine; elsewhere use any Node 22
+scripts/verify.sh t0                 # bundle build types test parity: the browserless proof for every iteration
+scripts/verify.sh plan               # the browser units a change selects, and the command that runs them
 scripts/verify.sh                    # build types test assets browser production
 scripts/verify.sh test browser       # any subset, in the order given
 scripts/verify.sh browser --unit seed  # one browser unit; repeat --unit for more
@@ -19,6 +21,8 @@ scripts/verify.sh perfbudgets        # the budgets alone, unthrottled, with no b
 ```
 
 Run it from the repository root or a worktree. A passing run prints six `PASS` lines and ends with `verify: stop: PID <n> is gone; evidence kept in <dir>`.
+
+A maker runs T0 on every iteration and the plan's units before handoff. CI runs every unit on each pull request, and the lead reads that run's `t2-verdict` artifact instead of rerunning the full verify on a laptop. `CODE_REVIEW.md` describes the three tiers.
 
 The `browser` stage runs its units in one browser session, one after another. A unit is a module in `scripts/verify/units/`, which lists the unit's captures and judges them, and the `drive_<unit>` function in `scripts/verify.sh` that makes them. Before each unit the stage sets the 1280x800 viewport, lifts every network route, and clears the origin's storage, the console and the page errors; the unit then opens its own page. A unit passes when its drive finishes, every capture it lists is non-empty and every check holds. A failed unit does not stop the units after it, and the stage prints one line per unit. `floodDrawn`, `hoverTextOnCanvas`, `projectedClicksOrderTheirTiles` and `noPageErrors` read more than one unit. The stage judges each once all its units have run, and lists it as not judged when `--unit` leaves one out.
 

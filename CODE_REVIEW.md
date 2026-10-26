@@ -2,6 +2,16 @@
 
 Read this before you review a change to the trainer, whether you are a person or an agent. It lists the performance mistakes to look for and the check that proves them. Players have reported lag, so a review judges performance as well as correctness.
 
+## How the gate runs
+
+| Tier | Where and when | Command | Proves |
+| --- | --- | --- | --- |
+| T0 | the maker's laptop, every iteration | `scripts/verify.sh t0` | the asset bundle, build, types, Vitest with the headless perf budgets, and the seeded fights against the base, in under a minute |
+| T1 | the maker's laptop, before handoff | `scripts/verify.sh plan`, then the command it prints | the browser units the change selects, each runnable alone with `--unit` |
+| T2 | GitHub Actions, every push to a pull request | the `test` workflow | every browser unit in eight shards, the production bundle, the perf budgets, the timing pairs when the plan selects them, and the asset diff against the base |
+
+The lead reads the pull request head's T2 result instead of rerunning the full verify on a laptop. The `summary` job prints it, and its `t2-verdict` artifact holds `verdict.json` with every unit's outcome and every check, the assets the head deletes, adds or changes, the pinned SDK, and the production and perf checks. A failed unit's captures are in its shard's `t2-browser-N` artifact. Reproduce it on a laptop with `scripts/verify.sh browser --unit <id>`.
+
 ## Look for these performance red flags
 
 Each flag below is a pattern that costs frame time or memory on a player's machine. A flag is a finding only when it comes with an executable proof: a measured regression from `scripts/verify.sh perfbudgets` or `scripts/verify.sh perf`, or a test or script that shows the growth or the extra work.
