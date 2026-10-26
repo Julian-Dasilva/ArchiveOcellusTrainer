@@ -70,7 +70,8 @@ export function judge({ read, bytes, env }) {
     rifts: {
       spawned: kindOf(riftLog.rows, "rift-spawned").map((e) => [e.at, e.rift, e.tile]),
       destroyed: kindOf(riftLog.rows, "rift-destroyed").map((e) => [e.at, e.rift]),
-      bursts: kindOf(riftLog.rows, "rift-burst").map((e) => [e.at, e.rift, e.receipt]),
+      destroyedAttackDelay: kindOf(riftLog.rows, "rift-destroyed").map((e) => e.attackDelay),
+      bursts: kindOf(riftLog.rows, "rift-burst").map((e) => [e.at, e.rifts, e.receipt]),
       hits: kindOf(riftLog.rows, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]),
       ralosHits: kindOf(ralosLog.rows, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]),
       meleeHits: kindOf(meleeRiftLog.rows, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]),
@@ -104,6 +105,7 @@ export function judge({ read, bytes, env }) {
     riftsSpawnBesideBoss: sameJson(rifts.spawned, JSON.stringify(expectedRifts.spawned)),
     riftKilledByClick: rifts.destroyed.length === 1 && rifts.destroyed[0][1] === expectedRifts.destroyed && rifts.destroyed[0][0] <= Number(burstTick),
     killChatShown: rifts.chat === killChat,
+    riftKillResetsAttackDelay: sameJson(rifts.destroyedAttackDelay, JSON.stringify([expectedRifts.attackDelay])),
     standingRiftBursts: sameJson(rifts.bursts, JSON.stringify(expectedRifts.bursts)),
     riftsTakeStandardRangedMaxHits: sameJson(rifts.hits, riftOneHit) && sameJson(rifts.ralosHits, riftRalosHits),
     riftsTakeStandardMeleeMaxHits: sameJson(rifts.meleeHits, riftMeleeHits),
