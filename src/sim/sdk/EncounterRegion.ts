@@ -25,7 +25,7 @@ export class EncounterRegion<E extends Entries, Ph extends Phases<E, EncounterHo
 
   constructor(private readonly setup: Setup<E, Ph, Region>) {
     super();
-    this.director = new Director(setup, () => this.worldTickNow());
+    this.director = new Director(setup, () => this.worldTickNow(), "region");
   }
 
   override getName(): string {
@@ -83,7 +83,7 @@ export class EncounterRegion<E extends Entries, Ph extends Phases<E, EncounterHo
     return {
       seed: director.seed,
       room: director.room,
-      next: (to) => director.next(to),
+      next: (to) => director.next(to, "region"),
       region: this,
       player,
       bind: (start, hooks) => {

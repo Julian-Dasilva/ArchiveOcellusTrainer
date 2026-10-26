@@ -1,23 +1,27 @@
 import type { Tick, WorldTick } from "./brands";
 import { tick } from "./brands";
-import type { Entries, Enter, Host, Mounted, PhaseOf, Phases, RoomControl, RowOf, Run, Section, Setup } from "./encounter";
+import type { Entries, Enter, EnterFrom, Host, Mounted, PhaseOf, Phases, RoomControl, RowOf, Run, Section, Setup } from "./encounter";
 
-type Pending<E extends Entries> = Readonly<{ kind: "none" }> | Readonly<{ kind: "enter"; to: Enter<E> }>;
+type Asked<E extends Entries, Ph> = Enter<E> | EnterFrom<Ph>;
+type Pending<E extends Entries, Ph> = Readonly<{ kind: "none" }> | Readonly<{ kind: "enter"; to: Asked<E, Ph> }>;
 
 type MountedPhase = Mounted<unknown>;
 
-export class Director<E extends Entries, Ph extends Phases<E, H>, H extends Host<E> = Host<E>> implements Run<E, Ph>, Host<E> {
+export class Director<E extends Entries, Ph extends Phases<E, H>, H extends Host<E> = Host<E>> implements Run<E, Ph> {
   readonly seed: Setup<E, Ph, unknown>["seed"];
   readonly room: RoomControl;
   private readonly phases: Ph;
   private readonly start: Setup<E, Ph, unknown>["start"];
   private readonly worldNow: () => WorldTick;
   private past: Section<E, Ph>[] = [];
-  private pending: Pending<E> = { kind: "none" };
+  private pending: Pending<E, Ph> = { kind: "none" };
   private encounterTick = 0;
   private running: Readonly<{ host: H; opened: Opened<E, Ph> }> | null = null;
 
-  constructor(setup: Setup<E, Ph, unknown>, worldNow: () => WorldTick) {
+  constructor(setup: Setup<E, Ph, unknown> & Readonly<{ phases: Ph; start: EnterFrom<Ph> }>, worldNow: () => WorldTick);
+  /** A generic `Phases<E>` does not reduce to `EnterFrom`, so the region identifies itself. A call without that marker is checked against the map. */
+  constructor(setup: Setup<E, Ph, unknown>, worldNow: () => WorldTick, fromRegion: "region");
+  constructor(setup: Setup<E, Ph, unknown>, worldNow: () => WorldTick, _fromRegion?: "region") {
     this.seed = setup.seed;
     this.phases = setup.phases;
     this.start = setup.start;
@@ -41,7 +45,9 @@ export class Director<E extends Entries, Ph extends Phases<E, H>, H extends Host
     return this.live().opened.mounted.rules;
   }
 
-  next(to: Enter<E>): void {
+  next(to: EnterFrom<Ph>): void;
+  next(to: Enter<E>, fromRegion: "region"): void;
+  next(to: Asked<E, Ph>, _fromRegion?: "region"): void {
     if (this.pending.kind === "enter") throw new Error(`a phase already asked to enter ${this.pending.to.phase} this tick`);
     this.pending = { kind: "enter", to };
   }
@@ -91,7 +97,7 @@ type Opened<E extends Entries, Ph extends Phases<E>> = Readonly<{
 function openPhase<E extends Entries, Ph extends Phases<E, H>, H extends Host<E>>(
   phases: Ph,
   host: H,
-  to: Enter<E>,
+  to: Asked<E, Ph>,
   enteredAt: Tick,
   enteredAtWorld: WorldTick,
 ): Opened<E, Ph> {

@@ -8,6 +8,11 @@ export type PhaseOf<E extends Entries> = keyof E & string;
 /** A phase to enter and the only value it can be entered with. */
 export type Enter<E extends Entries> = { [P in PhaseOf<E>]: Readonly<{ phase: P; entry: E[P] }> }[PhaseOf<E>];
 
+type EntryOf<D> = D extends { enter(host: unknown, entry: infer Entry): unknown } ? Entry : never;
+
+/** Entries taken from the phase map itself. Inferring them from `Enter` widens a concrete map to every string phase. */
+export type EnterFrom<Ph> = { [P in keyof Ph & string]: Readonly<{ phase: P; entry: EntryOf<Ph[P]> }> }[keyof Ph & string];
+
 /** The boss side of a player's hit, judged as it lands. */
 export type Verdict =
   | Readonly<{ outcome: "passed" }>

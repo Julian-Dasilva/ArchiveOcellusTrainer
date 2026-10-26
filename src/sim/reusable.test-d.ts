@@ -1,6 +1,6 @@
 import type { Tile } from "./brands";
 import type { Director } from "./director";
-import type { Enter, PhaseDef, Phases, Walk } from "./encounter";
+import type { Enter, EnterFrom, PhaseDef, Phases, Walk } from "./encounter";
 import type { RoomTile } from "./frame";
 import type { Scope } from "./timers";
 
@@ -20,6 +20,11 @@ const duelRows: readonly Readonly<{ hp: number }>[] = director.rows("duel");
 type DuelEntryOnWaiting = Readonly<{ phase: "waiting"; entry: Sparring["duel"] }>;
 const waitingRejectsADuelEntry: [DuelEntryOnWaiting] extends [Enter<Sparring>] ? false : true = true;
 
+type MissingPhase = Readonly<{ phase: "missing"; entry: Sparring["waiting"] }>;
+type DuelEntryOnTheWrongPhase = Readonly<{ phase: "duel"; entry: Sparring["waiting"] }>;
+const mapRejectsAMissingPhase: [MissingPhase] extends [EnterFrom<typeof phases>] ? false : true = true;
+const mapRejectsTheWrongEntry: [DuelEntryOnTheWrongPhase] extends [EnterFrom<typeof phases>] ? false : true = true;
+
 const segmentScope: Scope = "segment";
 const handledWalk: Walk = { kind: "handled" };
 
@@ -29,6 +34,8 @@ const aPhaseTileIsNotARoomTile: PhaseTileIsRoom extends false ? true : false = t
 void waitingRows;
 void duelRows;
 void waitingRejectsADuelEntry;
+void mapRejectsAMissingPhase;
+void mapRejectsTheWrongEntry;
 void segmentScope;
 void handledWalk;
 void aPhaseTileIsNotARoomTile;
