@@ -82,6 +82,23 @@ describe("P3 adds and hazards", () => {
     expect(where).toEqual(SPAWN);
   });
 
+  test("a player who walks away from the first vine instead of cutting it stays rooted after cutting the third spin's vine", async () => {
+    const drill = await startP3Drill({ seed: 1, invincible: true });
+    drill.tickTo(37);
+    await drill.click({ x: SPAWN.x - 2, y: SPAWN.y });
+    drill.tickTo(300);
+    await drill.click({ x: SPAWN.x - 1, y: SPAWN.y });
+    drill.tickTo(302);
+    const observed = {
+      rooted: drill.events("vine-rooted").map((event) => event.at),
+      cut: drill.events("vine-cut").map((event) => event.at),
+      vines: unitAt(drill, "Void Vine"),
+      where: { x: drill.player().location.x, y: drill.player().location.y },
+    };
+    drill.dispose();
+    expect(observed).toEqual({ rooted: [36, 191], cut: [218], vines: [SPAWN], where: SPAWN });
+  });
+
   test("rifts: none before the first Untether, then one at U+32 and 48 later, one due in the third spin with his next move; a rift left alive detonates 30 ticks after it appears", async () => {
     const drill = await startP3Drill({ seed: 1, invincible: true });
     drill.tickTo(232);

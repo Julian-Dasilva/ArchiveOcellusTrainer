@@ -28,7 +28,7 @@ export class OcellusP3 extends Mob {
   /** What the last turn's phase has him do on this tick's step. */
   private stance: BossStance = "chasing";
   private readonly rifts = new Map<RiftId, Readonly<{ mob: VoidRift; spawnedAt: Tick }>>();
-  private vine: VoidVine | null = null;
+  private readonly vines = new Set<VoidVine>();
 
   private readonly hooks: Hooks<P3Run> = {
     "tick-opened": () => undefined,
@@ -165,16 +165,15 @@ export class OcellusP3 extends Mob {
     this.stance = step.fight.schedule.at(at).phase.boss;
     step.outputs.forEach((output) => this.enact(output));
     this.rifts.forEach(({ mob, spawnedAt }) => mob.charge(chargeBar(at - spawnedAt)));
-    if (this.vine !== null) this.target.freeze(2);
+    if (this.vines.size > 0) this.target.freeze(2);
     return { outputs: [...cut, ...step.outputs], ending: step.ending };
   }
 
-  /** A vine the player cut lets them go. */
   private vineCut(at: Tick): readonly Logged<P3Event>[] {
-    if (this.vine === null || this.vine.standing()) return [];
-    this.vine = null;
-    this.target.frozen = 0;
-    return [{ kind: "event", event: { kind: "vine-cut", at } }];
+    const cut = [...this.vines].filter((vine) => !vine.standing());
+    cut.forEach((vine) => this.vines.delete(vine));
+    if (cut.length > 0 && this.vines.size === 0) this.target.frozen = 0;
+    return cut.map((): Logged<P3Event> => ({ kind: "event", event: { kind: "vine-cut", at } }));
   }
 
   /** The SDK side of his moves: he rises from his corner for Untether, a severed prayer stays off, and the vine and rifts are units. */
@@ -191,7 +190,7 @@ export class OcellusP3 extends Mob {
       case "vine-rooted": {
         const vine = new VoidVine(this.region, event.tile);
         this.region.addMob(vine);
-        this.vine = vine;
+        this.vines.add(vine);
         this.target.setAggro(vine);
         return;
       }
