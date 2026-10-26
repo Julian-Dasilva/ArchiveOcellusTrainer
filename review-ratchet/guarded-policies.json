@@ -207,12 +207,16 @@
       "tests": ["scripts/verify/parity.test.sh"],
       "policies": [
         {
-          "policy": "a seeded fight that differs fails unless the change touches fight code",
-          "mutation": [{ "find": "const reason = changed.find((file) => fightCode.some((prefix) => file.startsWith(prefix)));", "replace": "const reason = changed[0];" }]
+          "policy": "a seeded fight that differs fails unless the expectations name it",
+          "mutation": [{ "find": "if (expected[name]?.head === sha)", "replace": "if (true)" }]
         },
         {
-          "policy": "a change to fight code makes its differences expected",
-          "mutation": [{ "find": "if (reason !== undefined) {", "replace": "if (false) {" }]
+          "policy": "an expectation accepts only the head sha256 it names",
+          "mutation": [{ "find": "if (expected[name]?.head === sha)", "replace": "if (expected[name] !== undefined)" }]
+        },
+        {
+          "policy": "an expectation without a reason is refused",
+          "mutation": [{ "find": "if (typeof entry.why !== \"string\" || entry.why.trim() === \"\") throw", "replace": "if (false) throw" }]
         },
         {
           "policy": "a seeded fight missing at the head differs",
@@ -220,7 +224,7 @@
         },
         {
           "policy": "each differing fight is printed with its first differing value",
-          "mutation": [{ "find": "for (const name of differing) console.log(", "replace": "for (const name of []) console.log(" }]
+          "mutation": [{ "find": "firstDifference(base[name], head[name], name)}", "replace": "name}" }]
         }
       ]
     }

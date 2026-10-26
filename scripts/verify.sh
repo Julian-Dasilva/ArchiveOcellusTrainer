@@ -11,7 +11,7 @@ VERIFY_PORT="${VERIFY_PORT:-8002}"
 VERIFY_DIR="${VERIFY_DIR:-$ROOT/.verify/$(date -u +%Y%m%dT%H%M%SZ)}"
 STATE_FILE="$ROOT/.verify/current-server"
 MANIFEST="$ROOT/public/osrs-assets/manifest.json"
-PARITY_FIGHT_CODE="src/content/ src/sim/ package.json package-lock.json scripts/install-beta-sdk.sh"
+PARITY_EXPECTED="scripts/verify-parity-expected.json"
 URL="http://127.0.0.1:${VERIFY_PORT}/"
 DRILL_QUERY="?seed=1&specialSelection=replay-v2"
 BOSS_NPC=16677
@@ -399,7 +399,7 @@ parity_fights() {
 }
 
 stage_parity() {
-  local base cache head="$VERIFY_DIR/parity/head.json" src="$VERIFY_DIR/parity/base-src" changed
+  local base cache head="$VERIFY_DIR/parity/head.json" src="$VERIFY_DIR/parity/base-src"
   base="$(git rev-parse --verify "${VERIFY_PARITY_BASE:-$(git merge-base origin/main HEAD)}^{commit}")" || { log "parity: no base revision; set VERIFY_PARITY_BASE"; return 1; }
   cache="$ROOT/.verify/parity/${base}-$(cat test/parity/* | shasum -a 256 | cut -c1-12).json"
   mkdir -p "$VERIFY_DIR/parity" "$ROOT/.verify/parity"
@@ -418,8 +418,7 @@ stage_parity() {
     rm -rf "$src"
   fi
   parity_fights "$head" >"$VERIFY_DIR/parity/head.log" 2>&1 || { log "parity: the head fights did not run; see ${VERIFY_DIR}/parity/head.log"; return 1; }
-  mapfile -t changed < <(git diff --name-only "$base" && git ls-files --others --exclude-standard)
-  node scripts/verify/parity.mjs "$cache" "$head" "${changed[@]}" | tee "$VERIFY_DIR/parity/verdict.txt"
+  node scripts/verify/parity.mjs "$cache" "$head" "$PARITY_EXPECTED" 2>&1 | tee "$VERIFY_DIR/parity/verdict.txt"
   return "${PIPESTATUS[0]}"
 }
 
