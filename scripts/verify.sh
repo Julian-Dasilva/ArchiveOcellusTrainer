@@ -343,6 +343,18 @@ P3_BLADES_TICK=30
 P3_BLADES_BOX='{"left":260,"right":120,"up":20,"down":280}'
 P3_BLADES_MIN_SHARE='{"3d":0.5,"2d":0.4}'
 P3_BLADES_MAX_CONTROL_SHARE='{"3d":0.3,"2d":0}'
+P3_UNTETHER_QUERY="?phase=p3&seed=1&invincible=on"
+P3_UNTETHER_MELEE_QUERY="?phase=p3&seed=1&invincible=on&setup=melee"
+P3_UNTETHER_SPAWN_TILE='{"x":19,"y":9}'
+P3_UNTETHER_UNDER_TILE='{"x":20,"y":8}'
+P3_UNTETHER_OUT_TILE='{"x":20,"y":9}'
+P3_UNTETHER_CENTRE_TILE='{"x":21,"y":7}'
+P3_UNTETHER_BODY_OFFSET='{"x":-60,"y":-180}'
+P3_UNTETHER_FOOTPRINT='{"minX":20,"maxX":22,"minY":6,"maxY":8}'
+P3_UNTETHER_TICKS='{"purpleControl":5,"purple":7,"borderControl":24,"border":26,"walkUnder":20,"stepOut":28,"last":32,"meleeClick":3,"meleeLast":40}'
+P3_UNTETHER_RULES='{"purpleShows":6,"border":25,"eruption":29,"slam":30,"floatsFor":31,"eruptionDamage":[34,41]}'
+P3_UNTETHER_BOXES='{"purple":40,"border":120}'
+P3_UNTETHER_SHARES='{"purpleMin":1,"purpleControlMax":0.1,"borderMin":0.2,"borderControlMax":0.05}'
 CREDIT_LINE="Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex."
 
 log() { echo "verify: $*"; }
@@ -2223,6 +2235,122 @@ drive_p3_smite() {
   return $verdict
 }
 
+untether_start() {
+  ab wait --fn "window.__archiveOcellusProbe.log().rows.some((row) => row.events.some((event) => event.kind === 'untether-started'))" --timeout 120000 >/dev/null || return 1
+  U="$(probe "log().rows.flatMap((row) => row.events).find((event) => event.kind === 'untether-started').at")"
+  [[ "$U" =~ ^[0-9]+$ ]]
+}
+
+untether_tick() {
+  json "$1" <<<"$P3_UNTETHER_TICKS"
+}
+
+p3_untether_stand_page() {
+  ab open "${URL}${P3_UNTETHER_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the Untether stand page never started"; return 1; }
+  record_tick_starts || return 1
+  canvas_centre || { log "canvas box unreadable"; return 1; }
+  click_after_tick "$P3_PRAY_TICK" "$PROTECT_MAGIC_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Magic was not clicked on the Untether stand page"; return 1; }
+  untether_start || { log "the Untether stand page never reached Untether"; return 1; }
+  local shot spawn centre
+  tile_pixel untether-stand "$P3_UNTETHER_SPAWN_TILE" now || return 1
+  spawn="{\"x\":${CLICK_X},\"y\":${CLICK_Y}}"
+  tile_pixel untether-stand "$P3_UNTETHER_CENTRE_TILE" now || return 1
+  centre="{\"x\":${CLICK_X},\"y\":${CLICK_Y}}"
+  echo "{\"untether\":${U},\"spawn\":${spawn},\"centre\":${centre}}" >"$VERIFY_DIR/p3-untether-stand-pixels.json"
+  for shot in purpleControl purple borderControl border; do
+    shot_in_fight_tick $((U + $(untether_tick "$shot"))) 0.5 "p3-untether-${shot}.png" || { log "the Untether ${shot} screenshot failed"; return 1; }
+  done
+  fight_tick_at_least $((U + $(untether_tick last))) 30000 || { log "the Untether stand page never reached P3 tick $((U + $(untether_tick last)))"; return 1; }
+  ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
+  ab --json eval "[...document.querySelectorAll('#game_chat li')].map((line) => line.textContent)" | json data.result >"$VERIFY_DIR/p3-untether-stand-chat.json" || { log "the Untether stand chat was not read"; return 1; }
+  p3_page_done p3-untether-stand
+}
+
+p3_untether_step_out_page() {
+  ab open "${URL}${P3_UNTETHER_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the Untether step-out page never started"; return 1; }
+  canvas_centre || { log "canvas box unreadable"; return 1; }
+  click_after_tick "$P3_PRAY_TICK" "$PROTECT_MAGIC_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Magic was not clicked on the Untether step-out page"; return 1; }
+  untether_start || { log "the Untether step-out page never reached Untether"; return 1; }
+  click_tile untether-step-out "$P3_UNTETHER_UNDER_TILE" $((U + $(untether_tick walkUnder))) || { log "the walk under the boss was not clicked"; return 1; }
+  tile_pixel untether-step-out "$P3_UNTETHER_OUT_TILE" $((U + $(untether_tick walkUnder) + 2)) || return 1
+  click_after_tick $((U + $(untether_tick stepOut))) $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the step out from under the boss was not clicked"; return 1; }
+  fight_tick_at_least $((U + $(untether_tick last))) 30000 || { log "the Untether step-out page never reached P3 tick $((U + $(untether_tick last)))"; return 1; }
+  p3_page_done p3-untether-step-out
+}
+
+p3_untether_melee_page() {
+  ab open "${URL}${P3_UNTETHER_MELEE_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 0 120000 || { log "the Untether melee page never started"; return 1; }
+  canvas_centre || { log "canvas box unreadable"; return 1; }
+  untether_start || { log "the Untether melee page never reached Untether"; return 1; }
+  tile_pixel untether-melee "$P3_UNTETHER_CENTRE_TILE" now || return 1
+  click_after_tick $((U + $(untether_tick meleeClick))) $((CLICK_X - CX + $(json x <<<"$P3_UNTETHER_BODY_OFFSET"))) $((CLICK_Y - CY + $(json y <<<"$P3_UNTETHER_BODY_OFFSET"))) || { log "the floating boss was not clicked with melee"; return 1; }
+  fight_tick_at_least $((U + $(untether_tick meleeLast))) 60000 || { log "the Untether melee page never reached P3 tick $((U + $(untether_tick meleeLast)))"; return 1; }
+  p3_page_done p3-untether-melee
+}
+
+drive_p3_untether() {
+  ab open "${URL}${P3_UNTETHER_QUERY}" >/dev/null || return 1
+  save_settings "{ use3dView: true }" || { log "the 3D view setting was not saved"; return 1; }
+  p3_untether_stand_page && p3_untether_step_out_page && p3_untether_melee_page || return 1
+
+  local capture
+  for capture in p3-untether-{purpleControl,purple,borderControl,border}.png p3-untether-stand-{pixels,chat}.json p3-untether-{stand,step-out,melee}{.json,-page-errors.json}; do
+    [[ -s "$VERIFY_DIR/$capture" ]] || { log "required capture ${capture} is missing or empty"; return 1; }
+  done
+
+  node -e '
+    const fs = require("fs"), { pixelShare } = require("./scripts/png-pixels.cjs"), [dir, ticksJson, rulesJson, boxesJson, sharesJson, spawnJson, underJson, outJson, footprintJson] = process.argv.slice(1);
+    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
+    const [ticks, rules, boxes, shares, spawn, under, out, footprint] = [ticksJson, rulesJson, boxesJson, sharesJson, spawnJson, underJson, outJson, footprintJson].map((text) => JSON.parse(text));
+    const events = (log) => log.rows.flatMap((row) => row.events);
+    const hits = (log, kinds) => events(log).filter((event) => event.kind === "player-hit" && kinds.includes(event.hit.kind)).map(({ at, hit, receipt }) => [at, hit.kind, receipt.requested]);
+    const avoided = (log, hazards) => events(log).filter((event) => event.kind === "hazard-avoided" && hazards.includes(event.hazard)).map(({ at, hazard, tile }) => [at, hazard, tile]);
+    const startOf = (log) => events(log).find((event) => event.kind === "untether-started")?.at ?? null;
+    const underHim = (tile) => tile.x >= footprint.minX && tile.x <= footprint.maxX && tile.y >= footprint.minY && tile.y <= footprint.maxY;
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const [stand, stepOut, melee, pixels, chat] = ["p3-untether-stand.json", "p3-untether-step-out.json", "p3-untether-melee.json", "p3-untether-stand-pixels.json", "p3-untether-stand-chat.json"].map(read);
+    const box = (at, half) => ({ minX: at.x - half, maxX: at.x + half, minY: at.y - half, maxY: at.y + half });
+    const looks = {
+      purple: (r, g, b) => b >= 120 && r >= 80 && g <= 80 && b - g >= 60,
+      border: (r, g, b) => b >= 120 && r >= 80 && g <= 80 && b - g >= 60,
+    };
+    const share = (shot, look, area) => pixelShare(`${dir}/p3-untether-${shot}.png`, looks[look], area);
+    const purpleArea = box(pixels.spawn, boxes.purple), borderArea = box(pixels.centre, boxes.border);
+    const drawn = { purple: share("purple", "purple", purpleArea), purpleControl: share("purpleControl", "purple", purpleArea), border: share("border", "border", borderArea), borderControl: share("borderControl", "border", borderArea) };
+    const U = { stand: startOf(stand), stepOut: startOf(stepOut), melee: startOf(melee) };
+    const shown = events(stand).filter((event) => event.kind === "purple-tiles-shown").map((event) => [event.at - U.stand, event.tiles.some((tile) => same(tile, spawn))]);
+    const borders = events(stand).filter((event) => event.kind === "border-shown").map((event) => event.at - U.stand);
+    const standHits = hits(stand, ["eruption", "slam"]);
+    const eruptionLine = chat.find((line) => line.includes("The void erupted for")) ?? null;
+    const walkOrders = stepOut.rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered").map((input) => [row.tick - U.stepOut, input.destination]));
+    const stepOutAvoided = avoided(stepOut, ["eruption", "slam"]).map(([at, hazard, tile]) => [at - U.stepOut, hazard, underHim(tile)]);
+    const meleeWalks = melee.rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered").map((input) => [row.tick - U.melee, input.destination]));
+    const hpAt = (log, t) => log.rows.find((row) => row.tick === t)?.bossHp.atPostTick ?? null;
+    const floatHp = Array.from({ length: rules.floatsFor }, (_, k) => hpAt(melee, U.melee + k));
+    const landedHp = hpAt(melee, U.melee + ticks.meleeLast);
+    const observed = { U, drawn, shown, borders, standHits, eruptionLine, walkOrders, stepOutAvoided, stepOutHits: hits(stepOut, ["eruption", "slam"]), floatHp: [...new Set(floatHp)], landedHp, meleeSetup: melee.header.choices.setup.key, meleeWalks };
+    const [low, high] = rules.eruptionDamage;
+    const checks = {
+      purpleTilesDrawn: shown.length > 0 && same(shown[0], [rules.purpleShows, true]) && drawn.purple >= shares.purpleMin && drawn.purpleControl <= shares.purpleControlMax,
+      borderDrawnOnB: same(borders, [rules.border]) && drawn.border >= shares.borderMin && drawn.borderControl <= shares.borderControlMax,
+      eruptionHitsOutside: standHits.length === 1 && standHits[0][0] === U.stand + rules.eruption && standHits[0][1] === "eruption" && standHits[0][2] >= low && standHits[0][2] <= high &&
+        same(avoided(stand, ["slam"]).map(([at]) => at - U.stand), [rules.slam]) && eruptionLine !== null,
+      stepUnderThenOutClean: same(walkOrders.map(([, to]) => to), [under, out]) && walkOrders[1][0] === rules.eruption && same(observed.stepOutHits, []) && same(stepOutAvoided, [[rules.eruption, "eruption", true], [rules.slam, "slam", false]]),
+      floatBlocksMelee: observed.meleeSetup === "melee" && same(meleeWalks, []) && observed.floatHp.length === 1 && observed.floatHp[0] !== null && landedHp !== null && landedHp < observed.floatHp[0],
+      noP3UntetherPageErrors: ["p3-untether-stand-page-errors.json", "p3-untether-step-out-page-errors.json", "p3-untether-melee-page-errors.json"].map(read).every((list) => list.length === 0),
+    };
+    console.log(JSON.stringify({ observed, checks }, null, 2));
+    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
+  ' "$VERIFY_DIR" "$P3_UNTETHER_TICKS" "$P3_UNTETHER_RULES" "$P3_UNTETHER_BOXES" "$P3_UNTETHER_SHARES" "$P3_UNTETHER_SPAWN_TILE" "$P3_UNTETHER_UNDER_TILE" "$P3_UNTETHER_OUT_TILE" "$P3_UNTETHER_FOOTPRINT" >"$VERIFY_DIR/p3-untether-checks.json"
+  local verdict=$?
+  cat "$VERIFY_DIR/p3-untether-checks.json"
+  [[ $verdict -eq 0 ]] || log "a P3 Untether check failed"
+  return $verdict
+}
+
 drive() {
   ab set viewport 1280 800 >/dev/null || return 1
   # A new browser's first screenshot takes about 10 s, longer than the hidden lead-in, so it goes to a blank page.
@@ -2920,6 +3048,7 @@ drive() {
   cat "$VERIFY_DIR/observed.json"
   drive_p3_drill || verdict=1
   drive_p3_smite || verdict=1
+  drive_p3_untether || verdict=1
   return $verdict
 }
 
