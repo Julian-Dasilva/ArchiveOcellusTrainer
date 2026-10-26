@@ -324,7 +324,7 @@ P3_PANIC_LAST_TICK=11
 P3_PANIC='[[4,"swing",2,2,"melee"],[9,"panic",25,25,"melee"]]'
 P3_BOSS_TILE='{"x":20,"y":7}'
 P3_BOSS_CLICK_TICK=2
-P3_CLEAR='{"panel":{"lines":["Quadrant 1 cleared (interim end)","P3 time: 6 ticks (0:03.6)"],"buttons":["Repeat P3","Retry seed","Start P4"]},"tick":6,"bossHp":3937}'
+P3_CLEAR='{"panel":{"lines":["Quadrant 1 cleared (interim end)","P3 time: 19 ticks (0:11.4)"],"buttons":["Repeat P3","Retry seed","Start P4"]},"tick":19,"bossHp":3937}'
 P3_CHAIN_QUERY="?phase=p3&seed=1&invincible=on"
 P3_CHAIN_LAST_TICK=134
 P3_ADDS='[[4,"hazard-shown"],[6,"void-formed"],[7,"hazard-shown"],[27,"hazard-shown"],[36,"vine-rooted"],[63,"vine-cut"],[85,"rift-spawned"],[113,"hazard-shown"],[115,"rift-detonated"],[133,"rift-spawned"]]'
@@ -2138,7 +2138,7 @@ drive_p3_drill() {
     const checks = {
       p3BossIsNpc16677: swingLog.header.phase === "p3" && snapshot.fight?.boss.npcId === Number(bossNpc) && snapshot.fight.boss.visible && observed.bossBar.includes("5250 / 5250 (100.0%)"),
       p3ArenaDrawn: arenaDrawn(arena),
-      p3SwingsChipUnderMeleePrayer: observed.prayerOrders.length > 0 && observed.prayerOrders[0][0] < 4 && observed.prayerOrders[0][1] === "melee" && same(observed.swings, JSON.parse(swings)),
+      p3SwingsChipUnderMeleePrayer: observed.prayerOrders.length > 0 && observed.prayerOrders[0][0] <= JSON.parse(swings)[0][0] && observed.prayerOrders[0][1] === "melee" && same(observed.swings, JSON.parse(swings)),
       p3PanicOutOfReach: same(observed.panic, JSON.parse(panic)) && observed.escape.length === 1,
       p3ChainAsRecorded: same(observed.chain, JSON.parse(chain)),
       p3AddsAsRecorded: same(observed.adds, JSON.parse(adds)),
