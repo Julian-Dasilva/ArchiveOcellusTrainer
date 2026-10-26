@@ -37,7 +37,7 @@ The share of runs that send a summary is `sampleRate` in `src/telemetry.json`, s
 
 ## Credit
 
-Made by Julian Dasilva / Moarhots ([@ShadowJdas](https://x.com/ShadowJdas) on X).
+Made by Julian Dasilva / Moarhots ([@ShadowJdas](https://x.com/ShadowJdas) on X), with help from [Alessandro Rodi](https://github.com/alessandrorodi).
 
 Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.
 

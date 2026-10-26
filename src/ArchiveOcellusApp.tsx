@@ -11,7 +11,7 @@ import type { P3End, P3Log, P3Snapshot } from "./content/ocellus/js/P3Types";
 import type { FightLog, FightSnapshot, RunEnd } from "./content/ocellus/js/P4Types";
 import type { Tick } from "./sim/brands";
 import type { BuildFlags } from "./flags";
-import { readBuildFlags } from "./flags";
+import { onlyP4Playable, readBuildFlags } from "./flags";
 import { CHANGELOG } from "./content/ocellus/changelog";
 import type { ReleaseVersion } from "./releases";
 import { releaseDate } from "./releases";
@@ -29,6 +29,7 @@ const MAKER_LINKS: readonly Readonly<{ label: string; href: string }>[] = [
   { label: "GitHub", href: "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer" },
   { label: "@ShadowJdas", href: "https://x.com/ShadowJdas" },
 ];
+const CONTRIBUTOR: Readonly<{ name: string; href: string }> = { name: "Alessandro Rodi", href: "https://github.com/alessandrorodi" };
 
 declare global {
   interface Window {
@@ -453,26 +454,35 @@ export function ArchiveOcellusApp() {
     <TrainerApp trainer={trainer} onLoadingStateChange={setLoading}>
       <GameOverlay>
         <TrainerLoadingSplash state={loading} />
-        <GameChat region={drill.region} />
-        <DrillControls drill={drill} flags={flags} />
+        <div id="hud_corner">
+          <GameChat region={drill.region} />
+          <DrillControls drill={drill} flags={flags} />
+          <footer id="credits">
+            {onlyP4Playable(flags) && <p id="coming_soon">Phases 1 to 3 coming soon.</p>}
+            <p id="maker_credit">
+              Made by {MAKER}{" "}
+              <span id="maker_links">
+                {MAKER_LINKS.map((link, i) => (
+                  <React.Fragment key={link.href}>
+                    {i > 0 && " · "}
+                    <a href={link.href} target="_blank" rel="noopener noreferrer">
+                      {link.label}
+                    </a>
+                  </React.Fragment>
+                ))}
+              </span>
+              <span id="contributor_credit">
+                With help from{" "}
+                <a href={CONTRIBUTOR.href} target="_blank" rel="noopener noreferrer">
+                  {CONTRIBUTOR.name}
+                </a>
+              </span>
+            </p>
+            <p id="credit_line">{CREDIT_LINE}</p>
+            <p id="app_version">v{LATEST_RELEASE.version}</p>
+          </footer>
+        </div>
         <RunResultPanel drill={drill} />
-        <footer id="credits">
-          <p id="maker_credit">
-            Made by {MAKER}{" "}
-            <span id="maker_links">
-              {MAKER_LINKS.map((link, i) => (
-                <React.Fragment key={link.href}>
-                  {i > 0 && " · "}
-                  <a href={link.href} target="_blank" rel="noopener noreferrer">
-                    {link.label}
-                  </a>
-                </React.Fragment>
-              ))}
-            </span>
-          </p>
-          <p id="credit_line">{CREDIT_LINE}</p>
-          <p id="app_version">v{LATEST_RELEASE.version}</p>
-        </footer>
       </GameOverlay>
     </TrainerApp>
   );

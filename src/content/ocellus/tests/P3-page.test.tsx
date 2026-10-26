@@ -52,12 +52,12 @@ describe("P3 behind the ARCHIVE_P3 build flag", () => {
   beforeEach(() => localStorage.removeItem("osrs-sdk:settings"));
   afterEach(() => vi.unstubAllEnvs());
 
-  test("guard: with the flag off, ?phase=p3 opens P4 at its entry HP, lists phase=p3 as rejected and draws no Phase box", () => {
-    const page = loadPage("/?phase=p3&seed=1");
+  test.each(["p1", "p2", "p3"])("guard: with the flag off, ?phase=%s opens P4 at its entry HP, lists it as rejected and draws no Phase box", (phase) => {
+    const page = loadPage(`/?phase=${phase}&seed=1`);
     const { fight, rejected } = probe().snapshot();
     const phaseBox = document.querySelector("#phase");
     page.close();
-    expect({ bossHp: fight?.boss.hp, rejected, phaseBox }).toEqual({ bossHp: 1312, rejected: ["phase=p3"], phaseBox: null });
+    expect({ bossHp: fight?.boss.hp, rejected, phaseBox }).toEqual({ bossHp: 1312, rejected: [`phase=${phase}`], phaseBox: null });
   });
 
   test("with the flag on, the 75% break shows the interim panel with the P3 time, and Repeat P3, Retry seed and Start P4 carry the setup", async () => {

@@ -1556,6 +1556,8 @@ menu_state() {
       menu: visible('settings_menu'),
       controls: Object.fromEntries(${MENU_CONTROLS}.map((id) => [id, visible(id)])),
       buttons: { settings: visible('settings'), restart: visible('restart') },
+      controlsBox: box('drill_controls'),
+      footerBox: box('credits'),
       credit: visible('credit_line'),
       menuBox: box('settings_menu'),
       viewport: { width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth },
@@ -1609,8 +1611,10 @@ drive_settings_menu() {
     const closed = (s) => s.expanded === "false" && s.menu === false && controls.every((id) => s.controls[id] === false) && s.buttons.settings && s.buttons.restart && s.credit;
     const noPageScroll = (s) => s.viewport.scrollWidth <= s.viewport.width;
     const inViewport = (s) => s.menuBox.left >= 0 && s.menuBox.top >= 0 && s.menuBox.right <= s.viewport.width && s.menuBox.bottom <= s.viewport.height;
+    const clearOfFooter = (s) => s.controlsBox.bottom <= s.footerBox.top;
     const checks = {
       menuHiddenUntilOpened: views.every((view) => closed(view.closed) && noPageScroll(view.closed)),
+      buttonsClearOfFooter: views.every((view) => clearOfFooter(view.closed)),
       menuOpensWithEveryControl: views.every((view) => view.open.expanded === "true" && view.open.menu && controls.every((id) => view.open.controls[id] === true) && view.open.buttons.restart && view.open.credit),
       menuFitsEveryViewport: views.every((view) => inViewport(view.open) && noPageScroll(view.open)) && menu.small.open.viewport.width === 800 && menu.mobile.open.viewport.width < 500,
       menuClosesOnSecondClick: views.every((view) => closed(view.secondClick)),
@@ -2949,7 +2953,10 @@ drive_production_hidden_p3() {
   })()' >/dev/null || { log "the production boss bar probe was not installed"; return 1; }
   ab wait --fn "window.__bossBars.length > 0" --timeout 90000 >/dev/null || log "the production page never drew a boss bar"
   ab click "#settings" >/dev/null && ab wait 300 >/dev/null || { log "the production Settings button was not clicked"; return 1; }
-  ab --json eval "({ search: location.search, bars: window.__bossBars, menuOpen: document.getElementById('settings_menu')?.checkVisibility() === true, setupBox: document.getElementById('setup') !== null, phaseBox: document.getElementById('phase') !== null })" |
+  ab --json eval "(() => {
+    const box = (id) => { const r = document.getElementById(id)?.getBoundingClientRect(); return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null; };
+    return { search: location.search, bars: window.__bossBars, menuOpen: document.getElementById('settings_menu')?.checkVisibility() === true, setupBox: document.getElementById('setup') !== null, phaseBox: document.getElementById('phase') !== null, comingSoon: document.getElementById('coming_soon')?.textContent ?? null, controlsBox: box('drill_controls'), footerBox: box('credits') };
+  })()" |
     json data.result >"$VERIFY_DIR/production-phase-p3.json" || { log "the production phase=p3 page was not read"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/production-phase-p3-page-errors.json" || { log "page error capture failed"; return 1; }
   node -e '
@@ -2959,6 +2966,7 @@ drive_production_hidden_p3() {
     const checks = {
       phaseP3OpensP4: page.search === "?phase=p3&seed=1" && page.bars[0] === entryBar && errors.length === 0,
       noPhaseBox: page.menuOpen && page.setupBox && !page.phaseBox,
+      comingSoonBelowClearButtons: page.comingSoon === "Phases 1 to 3 coming soon." && page.controlsBox.bottom <= page.footerBox.top,
     };
     console.log(JSON.stringify({ page, errors: errors.length, checks }, null, 2));
     process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
