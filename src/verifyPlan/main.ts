@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { relative } from "node:path";
 import { explain, parseImpact, plan, runCommand } from "./plan";
 
 const USAGE = "usage: main.ts <impact map> <units directory> [--out <plan.json>] -- [changed path...]";
@@ -11,7 +12,7 @@ function main(args: readonly string[]): void {
   if (mapFile === undefined || unitsDir === undefined || (flag !== undefined && (flag !== "--out" || out === undefined))) throw new Error(USAGE);
   const browserUnits = readdirSync(unitsDir).filter((file) => file.endsWith(".mjs")).map((file) => file.slice(0, -".mjs".length)).sort();
   const json: unknown = JSON.parse(readFileSync(mapFile, "utf8"));
-  const impact = parseImpact(json, browserUnits);
+  const impact = parseImpact(json, browserUnits, relative(process.cwd(), mapFile));
   const selected = plan(impact, paths);
   for (const selection of selected.selections) console.log(`plan: ${explain(selection)}`);
   switch (selected.tier) {
