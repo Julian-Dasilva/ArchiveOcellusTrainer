@@ -116,6 +116,16 @@ describe("Performance beacon Worker", () => {
     }).toEqual({ status, points: point ? [point] : [] });
   });
 
+  test("without the PERF binding, as the release config deploys, a valid summary at /t answers 204 and never reaches the assets, while other paths still serve", async () => {
+    const { env } = bindings();
+    const { PERF: _dropped, ...withoutPerf } = env;
+    const responses = await Promise.all([send(withoutPerf, "/t", { method: "POST", body: JSON.stringify(SUMMARY) }), send(withoutPerf, "/")]);
+    expect(responses).toEqual([
+      { status: 204, body: "" },
+      { status: 200, body: "asset /" },
+    ]);
+  });
+
   test("every other path, including a POST, is served from the static assets", async () => {
     const { env, written } = bindings();
     const responses = await Promise.all([
