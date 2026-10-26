@@ -11,7 +11,9 @@ import type { BossMove, P3Event, P3HitSource, P3Log, P3Snapshot } from "./P3Type
 import { P3Marks } from "./entities/P3Marks";
 import { FloorHole, PlayerLook } from "./entities/P4Views";
 import { OcellusP3 } from "./mobs/OcellusP3";
-import { ARENA_SIZE, FLOOR, QUADRANT_1_FLOOR, RIM, STANDING, footprint } from "./p3/arena";
+import { ARENA_SIZE, BRAZIERS, STANDING, STONES, footprint } from "./p3/arena";
+import { ArenaRoom, Rubble } from "./entities/ArenaRoom";
+import { Brazier } from "./entities/Scenery";
 
 const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   swing: "a swing",
@@ -48,13 +50,10 @@ const MOVE_LOOK: Readonly<Record<BossMove, MoveLook>> = {
   escape: { pose: bossPoses.escapeShout.value, spots: collapse.bossSpotAnims.escape.value },
 };
 
-const OPEN_FLOOR = ["#4a4339", "#3f392f"] as const;
-const CLOSED_FLOOR = ["#2c2822", "#25221d"] as const;
-
-type Views = Readonly<{ region: Region; boss: OcellusP3; marks: P3Marks; player: PlayerLook; chat: string[] }>;
+type Views = Readonly<{ region: Region; boss: OcellusP3; marks: P3Marks; player: PlayerLook; room: ArenaRoom; rubble: Rubble; holes: FloorHole[]; chat: string[] }>;
 type Mounted = Readonly<{ kind: "unmounted" }> | (Readonly<{ kind: "mounted"; unit: OcellusPlayer }> & Views);
 
-function present(event: P3Event, { region, boss, marks, player, chat }: Views): void {
+function present(event: P3Event, { region, boss, marks, player, room, rubble, holes, chat }: Views): void {
   switch (event.kind) {
     case "boss-moved": {
       const { pose, spots } = MOVE_LOOK[event.move];
@@ -63,9 +62,14 @@ function present(event: P3Event, { region, boss, marks, player, chat }: Views): 
       return;
     }
     case "quadrant-collapsing":
+      room.crumble(1, collapse.goneAfter.value);
+      rubble.start(1, event.at);
       chat.push(collapse.chat.value);
       return;
     case "quadrant-gone":
+      room.drop(1);
+      rubble.stop();
+      holes.splice(0).forEach((hole) => region.removeEntity(hole));
       if (event.player === "consumed") chat.push(collapse.consumedChat.value);
       return;
     case "boss-shouted":
@@ -81,9 +85,12 @@ function present(event: P3Event, { region, boss, marks, player, chat }: Views): 
     case "hazard-shown":
       marks.aim(event.hazard, [event.tile], event.landsAt);
       return;
-    case "void-formed":
-      region.addEntity(new FloorHole(region, event.tile));
+    case "void-formed": {
+      const hole = new FloorHole(region, event.tile);
+      holes.push(hole);
+      region.addEntity(hole);
       return;
+    }
     case "rift-destroyed":
       chat.push(OCELLUS_P4.rifts.killChat.value);
       return;
@@ -129,27 +136,20 @@ export class P3Region extends Region {
     return ARENA_SIZE.height;
   }
 
-  override drawWorldBackground(context: OffscreenCanvasRenderingContext2D, scale: number): void {
-    const paint = (at: Tile, colour: string) => {
-      context.fillStyle = colour;
-      context.fillRect(at.x * scale, at.y * scale, scale, scale);
-    };
-    const checker = (at: Tile) => (at.x + at.y) % 2 === 0;
-    FLOOR.tiles().forEach((at) => paint(at, QUADRANT_1_FLOOR.contains(at) ? (checker(at) ? OPEN_FLOOR[0] : OPEN_FLOOR[1]) : checker(at) ? CLOSED_FLOOR[0] : CLOSED_FLOOR[1]));
-    RIM.tiles().forEach((at) => paint(at, OCELLUS_P4.geometry.walkway.value.top));
-  }
-
   initialiseRegion(): { player: Player } {
     const player: OcellusPlayer = new P3Player(this, { ...OCELLUS_P3.arena.playerSpawn.value }, () => boss.binding, (target) => target === boss && boss.levitating());
     const boss: OcellusP3 = new OcellusP3(this, this.config, player, () => this.invincible);
     const marks = new P3Marks(this);
+    const room = new ArenaRoom(this, { kind: "chasm", stones: STONES });
     dress(player, this.config.choices.setup.option.value);
     for (const edge of STANDING.surround().tiles()) this.addEntity(new InvisibleMovementBlocker(this, { ...edge }));
+    this.addEntity(room);
+    BRAZIERS.tiles().forEach((at) => this.addEntity(new Brazier(this, at)));
     this.addEntity(marks);
     this.addPlayer(player);
     this.addMob(boss);
     this.setBoss(boss);
-    this.mounted = { kind: "mounted", region: this, boss, unit: player, marks, player: new PlayerLook(player), chat: [] };
+    this.mounted = { kind: "mounted", region: this, boss, unit: player, marks, player: new PlayerLook(player), room, rubble: new Rubble(this), holes: [], chat: [] };
     return { player };
   }
 
@@ -173,6 +173,7 @@ export class P3Region extends Region {
     const zone: readonly Tile[] = row.phase.boss === "levitating" ? footprint(tile(views.boss.location.x, views.boss.location.y)).tiles() : [];
     views.marks.settle(row.tick, zone);
     row.events.forEach((event) => present(event, views));
+    views.rubble.tick(row.tick);
   }
 
   snapshot(): P3Snapshot | null {
