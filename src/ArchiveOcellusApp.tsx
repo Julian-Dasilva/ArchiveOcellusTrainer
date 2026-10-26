@@ -17,7 +17,7 @@ import { RunClock } from "./sim/sdk/RunClock";
 import { readSavedLoadout } from "./savedLoadouts";
 import { keepStorageUsable } from "./browserStorage";
 import type { BuildFlags } from "./flags";
-import { readBuildFlags } from "./flags";
+import { onlyP4Playable, readBuildFlags } from "./flags";
 import { CHANGELOG } from "./content/ocellus/changelog";
 import type { ReleaseVersion } from "./releases";
 import { releaseDate } from "./releases";
@@ -39,6 +39,7 @@ const MAKER_LINKS: readonly Readonly<{ label: string; href: string }>[] = [
   { label: "GitHub", href: "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer" },
   { label: "@ShadowJdas", href: "https://x.com/ShadowJdas" },
 ];
+const CONTRIBUTOR: Readonly<{ name: string; href: string }> = { name: "Alessandro Rodi", href: "https://github.com/alessandrorodi" };
 
 declare global {
   interface Window {
@@ -611,27 +612,36 @@ export function ArchiveOcellusApp() {
     <TrainerApp trainer={trainer} autoStart={false} onLoadingStateChange={setLoading}>
       <GameOverlay>
         <TrainerLoadingSplash state={loading} />
-        <GameChat region={drill.region} />
-        <DrillControls drill={drill} flags={flags} clock={clock} />
+        <div id="hud_corner">
+          <GameChat region={drill.region} />
+          <DrillControls drill={drill} flags={flags} clock={clock} />
+          <footer id="credits">
+            {onlyP4Playable(flags) && <p id="coming_soon">Phases 1 to 3 coming soon.</p>}
+            <p id="maker_credit">
+              Made by {MAKER}{" "}
+              <span id="maker_links">
+                {MAKER_LINKS.map((link, i) => (
+                  <React.Fragment key={link.href}>
+                    {i > 0 && " · "}
+                    <a href={link.href} target="_blank" rel="noopener noreferrer">
+                      {link.label}
+                    </a>
+                  </React.Fragment>
+                ))}
+              </span>
+              <span id="contributor_credit">
+                With help from{" "}
+                <a href={CONTRIBUTOR.href} target="_blank" rel="noopener noreferrer">
+                  {CONTRIBUTOR.name}
+                </a>
+              </span>
+            </p>
+            <p id="credit_line">{CREDIT_LINE}</p>
+            <p id="app_version">v{LATEST_RELEASE.version}</p>
+          </footer>
+        </div>
         <RunResultPanel drill={drill} clock={clock} flags={flags} />
         <RunGate clock={clock} ready={loading?.status === "ready"} unreadableLoadout={unreadableLoadout ? label(drill.config.choices.setup.key) : null} />
-        <footer id="credits">
-          <p id="maker_credit">
-            Made by {MAKER}{" "}
-            <span id="maker_links">
-              {MAKER_LINKS.map((link, i) => (
-                <React.Fragment key={link.href}>
-                  {i > 0 && " · "}
-                  <a href={link.href} target="_blank" rel="noopener noreferrer">
-                    {link.label}
-                  </a>
-                </React.Fragment>
-              ))}
-            </span>
-          </p>
-          <p id="credit_line">{CREDIT_LINE}</p>
-          <p id="app_version">v{LATEST_RELEASE.version}</p>
-        </footer>
       </GameOverlay>
     </TrainerApp>
   );

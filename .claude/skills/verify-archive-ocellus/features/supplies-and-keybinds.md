@@ -30,7 +30,7 @@ Preconditions:
 - **Brew.** Read `snapshot().fight.run.tick`, then click slot 11 at (1242, 572). Within two ticks a `log()` row reads `playerAtPostTick.hp` 115, and every earlier row reads 99. The Hitpoints orb shows 115. No heal splat appears, because the game shows heal splats mostly in boss encounters and not for food or potions.
 - **Key bindings.** Click `#keybinds`. `snapshot().panel.tab` is `SETTINGS`. Click the inventory button under Key Bindings at (1130, 650), then press F6. `panel.keys.inventory` is `F6`, and the saved `osrs-sdk:settings` has `values.inventory_key` `F6`.
 - **Reload.** Open the same URL again. Press F4: `panel.tab` stays `PRAYER`. Press F6: `panel.tab` is `INVENTORY`. Bind the inventory tab back to F4 the same way.
-- **Scripted.** `scripts/verify.sh browser` runs these steps after the loadout check and records `itemNamedInMenu`, `suppliesCarried`, `brewHealedNextTick`, `keybindsButtonOpensSettings`, `keyBoundAndSaved`, `boundKeyOpensTabAfterReload` and `defaultKeyRestored` in `observed.json`.
+- **Scripted.** `scripts/verify.sh browser` runs these steps in the `supplies` and `keybinds` units and records `itemNamedInMenu`, `suppliesCarried`, `brewHealedNextTick`, `keybindsButtonOpensSettings`, `keyBoundAndSaved`, `boundKeyOpensTabAfterReload` and `defaultKeyRestored` in their units' `verdict.json`.
 
 ## Gotchas
 
