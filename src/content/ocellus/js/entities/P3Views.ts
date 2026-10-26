@@ -20,9 +20,8 @@ export class SmiteBlades extends Entity {
     this.boss.addSpotAnim({ id: blades.windUp.value, channel: BLADE_CHANNEL, recolor: BLADE_CENTRE });
   }
 
-  land(spin: Spin): void {
-    const last = spin.nth === spin.of;
-    this.boss.addSpotAnim({ id: (last ? blades.windDown : blades.spin).value, channel: BLADE_CHANNEL, recolor: BLADE_CENTRE });
+  wind(spin: Spin): void {
+    this.boss.addSpotAnim({ id: (spin.nth === spin.of ? blades.windDown : blades.spin).value, channel: BLADE_CHANNEL, recolor: BLADE_CENTRE });
   }
 
   override get collisionType(): CollisionType {

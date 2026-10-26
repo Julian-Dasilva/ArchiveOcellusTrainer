@@ -10,7 +10,7 @@ import type { FrameOf, Heal, Hooks, Landed, Logged } from "../../../../sim/sdk/E
 import { EncounterBinding } from "../../../../sim/sdk/EncounterBinding";
 import type { P3End, P3Event, P3Hit, P3Row, P3RunState } from "../P3Types";
 import type { InputObservation, PlayerObservation } from "../P4Types";
-import type { P3Fight, P3Rules, Reach, TurnStep } from "../p3/fight";
+import type { P3Fight, P3Rules, Reach, ShellEffect, TurnStep } from "../p3/fight";
 import { startFight, turn } from "../p3/fight";
 
 type BossStep = Readonly<{ player: PlayerObservation; bossHp: number }>;
@@ -148,7 +148,21 @@ export class OcellusP3 extends Mob {
       boss: { hp: this.currentStats.hitpoint, maxHp: this.stats.hitpoint, reach: this.reach() },
     });
     this.fight = step.fight;
+    step.shell.forEach((effect) => this.apply(at, effect));
     return { outputs: step.outputs, ending: step.ending };
+  }
+
+  /** The SDK counts a lock in prayer ticks still to come, and the prayer tick of this world tick has already run. */
+  private apply(at: Tick, effect: ShellEffect): void {
+    switch (effect.kind) {
+      case "lock-protection-prayers":
+        this.target.prayerController.disableProtectionPrayersForTicks(effect.through - at);
+        return;
+      default: {
+        const unhandled: never = effect.kind;
+        return unhandled;
+      }
+    }
   }
 
   private settlePlayerHits(at: Tick, landed: readonly Landed<P3Hit>[], maxHp: number): readonly (Logged<P3Event> | Heal)[] {

@@ -17,6 +17,7 @@ const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   "smite-blow": "the smite's opening blow",
   spin: "a smite spin",
   rubble: "the rubble",
+  "void-patch": "the void the rubble left",
 };
 
 type FlickReference = Readonly<{ happened: string; happens: string }>;
@@ -31,9 +32,10 @@ const MISSED_FLICK: Readonly<Record<FlickMiss, (reference: FlickReference) => st
   held: ({ happens }) => `Protect from Melee stayed on. Turn it off after ${happens}, then back on for the spin.`,
   late: () => "Protect from Melee was not back on in time for the spin.",
   early: ({ happened }) => `Protect from Melee was already off when ${happened}.`,
+  knocked: ({ happens }) => `Your protection prayer was still up the tick before the spin, so the blades knocked it off. Turn it off after ${happens}, then back on for the spin.`,
 };
 
-const { bossPoses } = OCELLUS_P3;
+const { bossPoses, smite } = OCELLUS_P3;
 const OPEN_FLOOR = ["#4a4339", "#3f392f"] as const;
 const CLOSED_FLOOR = ["#2c2822", "#25221d"] as const;
 
@@ -42,22 +44,21 @@ type Mounted =
   | Readonly<{ kind: "mounted"; boss: OcellusP3; player: OcellusPlayer; chat: string[]; blades: SmiteBlades; rubble: Set<RubbleView> }>;
 type Shown = Extract<Mounted, { kind: "mounted" }>;
 
-function presentHit(hit: P3Hit, receipt: HitReceipt, { boss, blades, chat }: Shown): void {
+function presentHit(hit: P3Hit, receipt: HitReceipt, { boss, chat }: Shown): void {
   switch (hit.kind) {
     case "swing":
       boss.playAnimation(bossPoses.swing.value);
       return;
     case "void-shot":
-      boss.playAnimation(bossPoses.voidShot.value);
       return;
     case "smite-blow":
       boss.playAnimation(bossPoses.smite.value);
       return;
     case "spin":
-      blades.land(hit.spin);
       if (hit.verdict.kind === "struck") chat.push(`Spin ${hit.spin.nth} of ${hit.spin.of} hit you for ${receipt.applied}. ${MISSED_FLICK[hit.verdict.why](FLICK_REFERENCE[hit.spin.nth])}`);
       return;
     case "rubble":
+    case "void-patch":
       return;
     default: {
       const unhandled: never = hit;
@@ -161,6 +162,15 @@ export class P3Region extends Region {
         return;
       case "wave-cast":
         shown.boss.playAnimation(bossPoses.wave.value);
+        return;
+      case "void-shot-cast":
+        shown.boss.playAnimation(bossPoses.voidShot.value);
+        return;
+      case "spin-winding":
+        shown.blades.wind(event.spin);
+        return;
+      case "prayer-knocked-off":
+        shown.chat.push(smite.knockChat.value);
         return;
       case "rubble-aimed": {
         const rubble = new RubbleView(this, event.tile, event.landsAt, event.until);

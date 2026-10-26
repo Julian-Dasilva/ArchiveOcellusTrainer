@@ -33,16 +33,24 @@ function autosTable(): readonly Slot<P3Phase, P3Beat>[] {
 }
 
 function smiteTable(count: SpinCount, firstSpin: TickSpan): readonly Slot<P3Phase, P3Beat>[] {
+  const { spinGap, windsBeforeLanding, autosResumeAfterLastSpin, openingBlow } = OCELLUS_P3.smite;
   const stage = SMITE_STAGE[count];
   const first = atLeastOne("the smite's first spin", firstSpin);
-  const gap = atLeastOne("the gap between spins", OCELLUS_P3.smite.spinGap.value);
-  const resume = atLeastOne("the autos after the last spin", OCELLUS_P3.smite.autosResumeAfterLastSpin.value);
-  const landings = new Map(SPINS[count].map((spin, k) => [first + k * gap, spin]));
-  return Array.from({ length: first + (count - 1) * gap + resume }, (_, at) => {
-    const spin = landings.get(at);
-    if (at === 0) return slot(stage, { kind: "smite-opens" });
-    return spin ? slot(stage, { kind: "spin-lands", spin }) : slot(stage);
+  const gap = atLeastOne("the gap between spins", spinGap.value);
+  const resume = atLeastOne("the autos after the last spin", autosResumeAfterLastSpin.value);
+  const winds = windsBeforeLanding.value;
+  if (winds >= first) throw new RangeError(`the blades wind ${winds} ticks before a landing, which is before a first spin ${first} ticks in starts`);
+  const beats = new Map<number, P3Beat[]>();
+  const add = (at: number, beat: P3Beat) => beats.set(at, [...(beats.get(at) ?? []), beat]);
+  add(0, { kind: "smite-opens" });
+  add(atLeastOne("the smite's opening blow", openingBlow.value.afterStart), { kind: "smite-blow" });
+  SPINS[count].forEach((spin, k) => {
+    const landing = first + k * gap;
+    add(landing - winds, { kind: "spin-winds", spin });
+    add(landing - 1, { kind: "spin-due", spin });
+    add(landing, { kind: "spin-lands", spin });
   });
+  return Array.from({ length: first + (count - 1) * gap + resume }, (_, at) => slot(stage, ...(beats.get(at) ?? [])));
 }
 
 export function compileP3Schedule(start: Quadrant, firstSpin: TickSpan): P3Schedule {

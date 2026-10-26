@@ -10,7 +10,7 @@ export type ReachRule = "melee-range" | "within-two";
 export type SpinCount = 1 | 2 | 3;
 export type Spin = Readonly<{ nth: 1; of: SpinCount }> | Readonly<{ nth: 2; of: 2 | 3 }> | Readonly<{ nth: 3; of: 3 }>;
 export type FlickRule = "on-off-on" | "off-then-on" | "held-blocks";
-export type FlickMiss = "held" | "late" | "early";
+export type FlickMiss = "held" | "late" | "early" | "knocked";
 export type SpinVerdict = Readonly<{ kind: "blocked" }> | Readonly<{ kind: "struck"; why: FlickMiss }>;
 
 export type P3Stage = "arrive" | "autos" | "smite-1" | "smite-2" | "smite-3" | "destroy";
@@ -20,6 +20,9 @@ export type P3Beat =
   | Readonly<{ kind: "reach-attack" }>
   | Readonly<{ kind: "wave-cast" }>
   | Readonly<{ kind: "smite-opens" }>
+  | Readonly<{ kind: "smite-blow" }>
+  | Readonly<{ kind: "spin-winds"; spin: Spin }>
+  | Readonly<{ kind: "spin-due"; spin: Spin }>
   | Readonly<{ kind: "spin-lands"; spin: Spin }>
   | Readonly<{ kind: "quadrant-cleared" }>;
 
@@ -28,7 +31,8 @@ export type P3Hit =
   | Readonly<{ kind: "void-shot"; at: Tick }>
   | Readonly<{ kind: "smite-blow"; at: Tick }>
   | Readonly<{ kind: "spin"; at: Tick; spin: Spin; verdict: SpinVerdict }>
-  | Readonly<{ kind: "rubble"; at: Tick; tile: Tile }>;
+  | Readonly<{ kind: "rubble"; at: Tick; tile: Tile }>
+  | Readonly<{ kind: "void-patch"; at: Tick; tile: Tile }>;
 export type P3HitSource = P3Hit["kind"];
 
 export type P3End = Readonly<{ kind: "quadrant-cleared"; quadrant: Quadrant }> | Readonly<{ kind: "death" }>;
@@ -36,6 +40,9 @@ export type P3End = Readonly<{ kind: "quadrant-cleared"; quadrant: Quadrant }> |
 export type P3Event =
   | Readonly<{ kind: "stage-entered"; at: Tick; stage: P3Stage }>
   | Readonly<{ kind: "wave-cast"; at: Tick; toward: Tile }>
+  | Readonly<{ kind: "void-shot-cast"; at: Tick; landsAt: Tick }>
+  | Readonly<{ kind: "spin-winding"; at: Tick; spin: Spin }>
+  | Readonly<{ kind: "prayer-knocked-off"; at: Tick; spin: Spin; until: Tick }>
   | Readonly<{ kind: "rubble-aimed"; at: Tick; tile: Tile; landsAt: Tick; until: Tick }>
   | Readonly<{ kind: "hazard-avoided"; at: Tick; hazard: "rubble"; tile: Tile }>
   | Readonly<{ kind: "player-hit"; at: Tick; hit: P3Hit; receipt: HitReceipt }>

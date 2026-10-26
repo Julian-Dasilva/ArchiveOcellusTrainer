@@ -7,13 +7,13 @@ const loadTimings = () => vi.importActual<typeof import("../js/OcellusTimings")>
 const SPAWN: At = { x: 19, y: 9 };
 const FAR_EAST: At = { x: 27, y: 9 };
 
-const receipt = (requested: number, beforeHp: number, prayer: "melee" | null): HitReceipt => ({ requested, applied: requested, beforeHp, afterHp: beforeHp - requested, prayer });
+const receipt = (requested: number, beforeHp: number, prayer: HitReceipt["prayer"]): HitReceipt => ({ requested, applied: requested, beforeHp, afterHp: beforeHp - requested, prayer });
 
 describe("P3 drill", () => {
   test.each([
-    { bossHp: 3991, expected: { ended: [[3, "quadrant-cleared"]], hpAfterShot: 3937, stageOnShot: "destroy", runAt6: "ended" } },
-    { bossHp: 3992, expected: { ended: [], hpAfterShot: 3938, stageOnShot: "arrive", runAt6: "running" } },
-  ])("the 75% break ends the run on the landing tick at or below ⌊5250 × 0.75⌋ = 3937: bosshp=$bossHp, seed 100's first shot of 54 lands on P3 tick 3", async ({ bossHp, expected }) => {
+    { bossHp: 4044, expected: { ended: [[3, "quadrant-cleared"]], hpAfterShot: 3990, stageOnShot: "destroy", runAt6: "ended" } },
+    { bossHp: 4045, expected: { ended: [], hpAfterShot: 3991, stageOnShot: "arrive", runAt6: "running" } },
+  ])("the 76% break ends the run on the landing tick at or below ⌊5250 × 0.76⌋ = 3990: bosshp=$bossHp, seed 100's first shot of 54 lands on P3 tick 3", async ({ bossHp, expected }) => {
     const drill = await startP3Drill({ seed: 100, bossHp });
     drill.tickTo(0);
     await drill.click(footprintCentre(drill.boss()));
@@ -32,7 +32,7 @@ describe("P3 drill", () => {
   test.each([
     {
       prayer: "Protect from Melee" as const,
-      hits: [[7, "swing", receipt(5, 99, "melee")], [10, "swing", receipt(2, 94, "melee")], [17, "swing", receipt(1, 92, "melee")], [20, "swing", receipt(2, 91, "melee")]],
+      hits: [[7, "swing", receipt(6, 99, "melee")], [10, "swing", receipt(2, 93, "melee")], [17, "swing", receipt(2, 91, "melee")], [20, "swing", receipt(2, 89, "melee")]],
     },
     {
       prayer: null,
@@ -51,15 +51,21 @@ describe("P3 drill", () => {
     expect(observed).toEqual({ stages: [[0, "arrive"], [7, "autos"]], hits, waves: [[14, SPAWN], [24, SPAWN]] });
   });
 
-  test("a player who runs to the far east of the wedge after P3 tick 6 takes the swing at 7 and a typeless void shot of 20 at 10", async () => {
+  test.each([
+    { prayer: "Protect from Melee" as const, hits: [[7, "swing", receipt(6, 99, "melee")], [12, "void-shot", receipt(24, 93, "melee")]] },
+    { prayer: "Protect from Magic" as const, hits: [[7, "swing", receipt(19, 99, "magic")], [12, "void-shot", receipt(0, 80, "magic")]] },
+  ])("a player who runs to the far east of the wedge after P3 tick 6 takes the swing at 7 and a magic void shot cast at 10 that lands at 12, a 0 under Protect from Magic: $prayer", async ({ prayer, hits }) => {
     const drill = await startP3Drill({ seed: 1 });
-    drill.pray("Protect from Melee");
+    drill.pray(prayer);
     drill.tickTo(6);
     await drill.click(FAR_EAST);
-    drill.tickTo(10);
-    const hits = drill.events("player-hit").map((event) => [event.at, event.hit.kind, event.receipt]);
+    drill.tickTo(12);
+    const observed = {
+      casts: drill.events("void-shot-cast").map((event) => [event.at, event.landsAt]),
+      hits: drill.events("player-hit").map((event) => [event.at, event.hit.kind, event.receipt]),
+    };
     drill.dispose();
-    expect(hits).toEqual([[7, "swing", receipt(5, 99, "melee")], [10, "void-shot", receipt(20, 94, "melee")]]);
+    expect(observed).toEqual({ casts: [[10, 12]], hits });
   });
 
   test.each([

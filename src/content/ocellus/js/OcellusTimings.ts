@@ -46,7 +46,8 @@ type Source =
   | Readonly<{ kind: "cache"; build: 2746; record: string }>
   | Readonly<{ kind: "owner"; date: OwnerDate; topic: string }>
   | Readonly<{ kind: "guide"; url: string; at: string }>
-  | Readonly<{ kind: "capture"; url: string; at: string }>;
+  | Readonly<{ kind: "capture"; url: string; at: string }>
+  | Readonly<{ kind: "sim"; url: string; at: string }>;
 
 type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
 
@@ -69,6 +70,8 @@ const cache = (record: string): Source => ({ kind: "cache", build: 2746, record 
 const owner = (topic: string, date: OwnerDate = "2026-10-21"): Source => ({ kind: "owner", date, topic });
 const guide = (url: string, at: string): Source => ({ kind: "guide", url, at });
 const capture = (url: string, at: string): Source => ({ kind: "capture", url, at });
+/** A value in Alessandro's ocellus-sim at 3efd5bf, by its file and lines there. */
+const ocellusSim = (file: string, lines: string): Source => ({ kind: "sim", url: `https://github.com/alessandrorodi/ocellus-sim/blob/3efd5bf1cc9ecd394c6fe04964f3d17be439fc38/${file}`, at: `${file}:${lines}` });
 const STRATEGIES_P4 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381030);
 const BOSS_INFOBOX = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15380968);
 const VOID_RIFT_PAGE = wiki("https://oldschool.runescape.wiki/w/Void_Rift", 15380527);
@@ -928,19 +931,27 @@ const FLICK_CLIP = "https://oldschool.runescape.wiki/w/File:Ocellus_flicking.mp4
 const FLICK_CLIP_PAGE = wiki(FLICK_CLIP, 15379157);
 const RSPROX_P3 = "https://github.com/MRobertEvers/oldschool-clientc/blob/2b3352e2fb64f2288cd42a9522b21d7fcc42f4d4/docs/rsprox-analysis/guthixian_archive/ocellus_plan.md";
 const SMITE_COUNTS = guide(DEFBIGBEAST_GUIDE, "12:53 to 13:00 and 13:29 to 13:37 (quadrant 1), 17:43 to 17:51 (quadrant 2), 21:28 to 21:34 (quadrant 3): hitsplat on count 4, back on for count 4, then counts 2 and 1, then 4, 3 and 2");
+const SIM_DATA = "src/content/ocellus/fight/data.ts";
+const SIM_P3 = "src/content/ocellus/fight/phase3.ts";
 
 type AutoStep = Readonly<{ attack: AutoAttack; next: TickSpan }>;
 type P3BossPose = "swing" | "voidShot" | "wave" | "smite";
 type BladeCue = "windUp" | "spin" | "windDown";
 type RubbleCue = "falling" | "idle" | "despawn";
-type SwingDamage = Readonly<{ protectedDamage: DamageRange; unprotectedDamage: DamageRange }>;
+export type PrayedHit = Readonly<{ style: Style; protectedDamage: DamageRange; unprotectedDamage: DamageRange }>;
+/** The spin whose wind throws the rubble, for each spin count; a smite cannot throw it on a spin it does not have. */
+type RubbleSpin = Readonly<{ 1: 1; 2: 1 | 2; 3: 1 | 2 | 3 }>;
+type VoidPatch = Readonly<{ lasts: Readonly<{ min: TickSpan; max: TickSpan }>; damage: DamageRange; every: TickSpan }>;
 
 type SmiteRecipe = Readonly<{
   spinsByQuadrant: Selected<Readonly<Record<Quadrant, SpinCount>>>;
-  openingBlow: Selected<SwingDamage>;
+  openingBlow: Selected<PrayedHit & Readonly<{ afterStart: TickSpan }>>;
   spinGap: Selected<TickSpan>;
+  windsBeforeLanding: Selected<TickSpan>;
+  knockChat: Selected<string>;
+  knockedPrayerBackAfter: Selected<TickSpan>;
   autosResumeAfterLastSpin: Selected<TickSpan>;
-  rubble: Readonly<{ landsAfterFirstSpin: Selected<TickSpan>; lasts: Selected<TickSpan>; damagePerTick: Selected<DamageRange> }>;
+  rubble: Readonly<{ thrownOnWind: Selected<RubbleSpin>; landsAfterThrow: Selected<TickSpan>; damage: Selected<DamageRange>; patch: Selected<VoidPatch> }>;
   blades: Readonly<Record<BladeCue, Selected<number>>>;
   rubbleLook: Readonly<Record<RubbleCue, Selected<number>>>;
 }>;
@@ -951,7 +962,7 @@ type P3Recipe = Readonly<{
   firstAttackAfterStart: Selected<TickSpan>;
   autos: Selected<readonly [AutoStep, ...AutoStep[]]>;
   swing: Readonly<{ protectedDamage: Selected<DamageRange>; unprotectedDamage: Selected<DamageRange> }>;
-  voidShot: Selected<DamageRange>;
+  voidShot: Selected<PrayedHit & Readonly<{ landsAfterCast: TickSpan }>>;
   smite: SmiteRecipe;
   bossPoses: Readonly<Record<P3BossPose, Selected<number>>>;
 }>;
@@ -997,11 +1008,11 @@ const P3: P3Recipe = {
     bossAnchor: selected(tile(21, 7), "assumption", "unscaled", "south-west tile of the boss's 3x3, which covers x 21 to 23 and y 5 to 7, all on the north-east wedge; no clip pins where the phase starts", NO_WIKI_P3_ARENA),
   },
   thresholds: selected(
-    { 1: hpFraction(0.75), 2: hpFraction(0.5), 3: hpFraction(0.25) },
-    "community-tested",
-    "team-4-and-5",
-    "a quadrant breaks on the first tick the boss is at or below the fraction of his max HP; the wiki says only enough damage",
-    NO_WIKI_P3_TICKS, guide(ROBINHOOD_GUIDE, "0:06:13"), guide(KIRBY_GUIDE, "5:37"),
+    { 1: hpFraction(0.76), 2: hpFraction(0.51), 3: hpFraction(0.26) },
+    "log-repeated",
+    "team-7-and-8",
+    "a quadrant breaks on the first tick the boss is at or below the fraction of his max HP; 9 of 12 falls in 5 fight logs come while his bar still reads 76%, 51% or 26%, with no splat at or below 75%, 50% or 25% before them; the other 3 come later, 31 ticks after an Untether shout",
+    NO_WIKI_P3_TICKS, fightLog("L6", "P3 +162 to +168, +382 to +386, +587 to +590"), fightLog("L7", "P3 +178 to +184"), fightLog("L8", "P3 +356 to +376"), fightLog("L1", "P3 +200 to +203, +317 to +318"),
   ),
   firstAttackAfterStart: selected(span(7), "inferred", "unscaled", "the first swing 7 ticks after the phase's first boss step, so the second wave casts at 24 and a smite would start at 27, 3 ticks after it, as in F2a's quadrant 1; no clip shows the ticks from the phase start to the first attack", NO_WIKI_P3_TICKS, P3_CYCLE_FRAMES),
   autos: selected(
@@ -1019,10 +1030,16 @@ const P3: P3Recipe = {
     STRATEGIES_P3, BOSS_PAGE_P3, P3_CYCLE_FRAMES, P3_CHIP_FRAMES, guide(KIRBY_GUIDE, "4:18"), guide(KIRBY_GUIDE, "11:18"),
   ),
   swing: {
-    protectedDamage: selected<DamageRange>({ min: 0, max: 6 }, "footage-repeated", "solo", "chip through Protect from Melee: red 6, blue 0, red 6, blue 0 in panfleet's solo and red 2 and red 1 on DefBigbeast's tank; 6 is the most seen", NO_WIKI_P3_TICKS, P3_CYCLE_FRAMES, P3_CHIP_FRAMES, guide(ROBINHOOD_GUIDE, "0:02:09")),
+    protectedDamage: selected<DamageRange>({ min: 0, max: 8 }, "log-repeated", "team-7-and-8", "chip through Protect from Melee: 219 swings in 5 fight logs show 0 to 6 in 200, 7 in 18 and 8 once; panfleet's solo shows red 6 and blue 0", NO_WIKI_P3_TICKS, P3_CYCLE_FRAMES, P3_CHIP_FRAMES, guide(ROBINHOOD_GUIDE, "0:02:09"), fightLog("L5", "16472 +1182"), fightLog("L4", "phase 3"), fightLog("L8", "phase 3")),
     unprotectedDamage: selected<DamageRange>({ min: 0, max: 26 }, "inferred", "unscaled", "the monster melee max hit ⌊0.5 + (250 + 9) × (0 + 64) / 640⌋ = 26 at the cache's Strength 250 with no strength bonus (assumption); no clip shows an unprotected swing", noWiki("no wiki page gives the phase 3 swing's max hit (Ocellus rev 15381233)"), cache("npc 16677 stats [325, 250, 250, 5250, 300, 300]")),
   },
-  voidShot: selected<DamageRange>({ min: 20, max: 20 }, "spec-single", "unscaled", "a typeless void shot in place of a swing when the boss cannot reach the player; the wiki's 20+ taken as 20", STRATEGIES_P3, guide(ROBINHOOD_GUIDE, "0:02:26 to 0:02:31")),
+  voidShot: selected<PrayedHit & Readonly<{ landsAfterCast: TickSpan }>>(
+    { style: "magic", protectedDamage: { min: 0, max: 0 }, unprotectedDamage: { min: 12, max: 33 }, landsAfterCast: span(2) },
+    "log-repeated",
+    "team-7-and-8",
+    "a magic void shot in place of a swing when the boss cannot reach the player: seq 14851 sends projectile 4297, which lands 2 ticks later in 15 volleys; every player under Protect from Magic shows a 0 (14 of 14), and the others a lone splat of 12 to 33 (43); Alessandro's sim also lands it 2 ticks after the cast",
+    STRATEGIES_P3, guide(ROBINHOOD_GUIDE, "0:02:26 to 0:02:31"), fightLog("L6", "P3 +128 to +130"), fightLog("L7", "P3 +527 to +529"), fightLog("L3", "phase 3"), ocellusSim(SIM_DATA, "350"),
+  ),
   bossPoses: {
     swing: pose(14842, "npc_ocellus_phase3_melee_basic", "inferred", "the swing, 2 ticks; by its name"),
     voidShot: pose(14851, "npc_ocellus_phase3_basic_projectile_all", "inferred", "the void shot, 3 ticks; by its name"),
@@ -1031,12 +1048,12 @@ const P3: P3Recipe = {
   },
   smite: {
     spinsByQuadrant: selected({ 1: 1, 2: 2, 3: 3 }, "spec-single", "unscaled", "one spin more for each destroyed quadrant", BOSS_PAGE_P3, guide(BUBBA_GUIDE, "7:44 and 9:13"), guide(DEFBIGBEAST_GUIDE, "19:10"), guide(NOAHSCAPE_GUIDE, "16:42")),
-    openingBlow: selected<SwingDamage>(
-      { protectedDamage: { min: 0, max: 6 }, unprotectedDamage: { min: 0, max: 26 } },
-      "inferred",
-      "unscaled",
-      "a swing-like melee hit on the smite's first tick, which Protect from Melee takes down to the swing's chip; it hits wherever the player stands on the wedge (assumption)",
-      STRATEGIES_P3, guide(DEFBIGBEAST_GUIDE, "12:50 'Look for the hit splat on your character. Tick four.'"), guide(PANFLEET_SOLO, "the blade trail at f478 of 5:20 to 5:45"),
+    openingBlow: selected<PrayedHit & Readonly<{ afterStart: TickSpan }>>(
+      { style: "melee", afterStart: span(1), protectedDamage: { min: 0, max: 0 }, unprotectedDamage: { min: 0, max: 18 } },
+      "log-repeated",
+      "team-7-and-8",
+      "a melee hit 1 tick after the smite starts and none on the start itself, wherever the player stands on the wedge: Protect from Melee shows a 0 for 256 of 257 players, and 22 lone splats without it run 0 to 18; Alessandro's notes also put a hit 1 tick into each spin",
+      NO_WIKI_P3_TICKS, fightLog("L6", "P3 +31"), fightLog("L1", "P3 +31"), ocellusSim("docs/SOURCES.md", "143-144"),
     ),
     spinGap: selected(
       span(3),
@@ -1045,16 +1062,50 @@ const P3: P3Recipe = {
       "each later spin lands 3 ticks after the one before; the wiki clip's bursts are 53 and 54 frames apart at 30 fps and panfleet's 54 frames apart at 1x, 18 frames a tick",
       FLICK_CLIP_PAGE, guide(FLICK_CLIP, "bursts at frames 76, 129 and 183"), guide(PANFLEET_SOLO, "7:55 to 8:15 at 1x: bursts at f488 and f542"), guide(ROBINHOOD_GUIDE, "0:03:26 'three ticks apart'"), guide(DEFBIGBEAST_GUIDE, "17:56 to 18:00, 18:50 to 18:56, 21:38 to 21:51"),
     ),
-    autosResumeAfterLastSpin: selected(span(3), "assumption", "unscaled", "the autos table starts again 3 ticks after the last spin lands, keeping the autos' 3-tick rhythm; no clip times it", NO_WIKI_P3_TICKS),
+    windsBeforeLanding: selected(
+      span(2),
+      "log-repeated",
+      "team-7-and-8",
+      "the blades wind 2 ticks before each landing: their loop or wind-down spotanim starts on S+3, S+6 and S+9 in all 7 fight logs that record the boss's spotanims, and the rubble is thrown on that tick",
+      NO_WIKI_P3_TICKS, fightLog("L2", "P3 +30 to +35, +131 to +139"), fightLog("L4", "16472 +1389 to +1397"), fightLog("L6", "P3 +559 to +564"),
+    ),
+    knockChat: selected(
+      "You've been injured and can't use protection prayers!",
+      "log-repeated",
+      "team-7-and-8",
+      "the chat line when a protection prayer still up on the tick before a landing is switched off; a click on the landing tick then gets 'You've been injured and can't use that prayer!' and the spin hits",
+      NO_WIKI_P3_TICKS, fightLog("L6", "P3 +563 to +564"), fightLog("L4", "16472 +1393 to +1397, +1554 to +1555"), fightLog("L7", "P3 +591"),
+    ),
+    knockedPrayerBackAfter: selected(
+      span(3),
+      "footage-once",
+      "unscaled",
+      "a protection prayer switched off on the tick before a landing can be up again 3 ticks later, so the landing finds it off; Alessandro's sim locks it for 3 ticks from a duo video, and the L7 recorder, switched off on S+4, had it up again on S+7",
+      NO_WIKI_P3_TICKS, ocellusSim(SIM_DATA, "348-349"), ocellusSim(SIM_P3, "351-355"), fightLog("L7", "P3 +591 to +594"),
+    ),
+    autosResumeAfterLastSpin: selected(span(4), "log-repeated", "team-7-and-8", "the next auto-attack comes 4 ticks after the last landing in 57 of 59 smites; the other two run into a special", NO_WIKI_P3_TICKS, fightLog("L6", "P3 +35 to +39"), fightLog("L1", "P3 +35 to +39"), ocellusSim(SIM_DATA, "346")),
     rubble: {
-      landsAfterFirstSpin: selected(span(5), "inferred", "unscaled", "rubble aimed at the player's tile on the first spin's landing lands 5 ticks later; spotanim 4346 vfx_ocellus_falling_debris lasts 154 cycles, 5.13 ticks, and RobinHood says it lands before the third spin finishes", NO_WIKI_P3_TICKS, cache("spotanim 4346 seq 14935"), guide(ROBINHOOD_GUIDE, "0:03:37 to 0:03:52"), guide(KIRBY_GUIDE, "7:22 'slow falling'")),
-      lasts: selected(span(10), "assumption", "unscaled", "the landed rubble hits for 10 ticks, its landing tick included; no clip times it", NO_WIKI_P3_TICKS),
-      damagePerTick: selected<DamageRange>({ min: 5, max: 7 }, "assumption", "unscaled", "5 to 7 each tick the player's tile is the rubble's at the boss's turn; Bubba's six and seven, widened by one", NO_WIKI_P3_TICKS, guide(BUBBA_GUIDE, "5:09 'six and seven'")),
+      thrownOnWind: selected<RubbleSpin>(
+        { 1: 1, 2: 2, 3: 2 },
+        "log-repeated",
+        "team-7-and-8",
+        "floor 4346 marks every player's tile as the blades wind for the only spin of a one-spin smite and for the second spin of a two- or three-spin smite, so on S+3 and on S+6",
+        NO_WIKI_P3_TICKS, fightLog("L1", "P3 +33 to +38"), fightLog("L2", "P3 +33, +137"), ocellusSim(SIM_DATA, "362-365"),
+      ),
+      landsAfterThrow: selected(span(5), "log-repeated", "team-7-and-8", "the rubble lands 5 ticks after the mark; spotanim 4346 vfx_ocellus_falling_debris lasts 154 cycles, 5.13 ticks", NO_WIKI_P3_TICKS, fightLog("L1", "P3 +33 to +38"), cache("spotanim 4346 seq 14935"), ocellusSim(SIM_DATA, "366")),
+      damage: selected<DamageRange>({ min: 14, max: 16 }, "log-repeated", "team-7-and-8", "a player still on the marked tile when it lands takes 14 to 16: 48 splats, no zeros", NO_WIKI_P3_TICKS, fightLog("L1", "P3 +38")),
+      patch: selected<VoidPatch>(
+        { lasts: { min: span(21), max: span(51) }, damage: { min: 6, max: 7 }, every: span(2) },
+        "inferred",
+        "unscaled",
+        "the landed rubble leaves a void patch on its tile for a seeded 21 to 51 ticks, from its landing tick, which hits 6 to 7 on every second tick after the landing that the player stands on it; Alessandro's sim, as the fight logs cannot separate the rubble's patch from the pools",
+        NO_WIKI_P3_TICKS, ocellusSim(SIM_DATA, "352-353"), ocellusSim(SIM_P3, "428-431"), ocellusSim(SIM_P3, "769"),
+      ),
     },
     blades: {
-      windUp: spotAnim(4325, "vfx_ocellus_phase3_melee_prayer_in", "inferred", "the blades spinning up on the boss from the smite's start, 120 cycles, 4 ticks, the gap to the first spin; model 62698, whose textured centre takes P4's tellCentre recolour"),
-      spin: spotAnim(4326, "vfx_ocellus_phase3_melee_prayer", "inferred", "the blades' loop, 90 cycles, 3 ticks, the spin gap, played on each spin that has another after it"),
-      windDown: spotAnim(4327, "vfx_ocellus_phase3_melee_prayer_out", "inferred", "the blades leaving, 102 cycles, played on the last spin"),
+      windUp: spotAnim(4325, "vfx_ocellus_phase3_melee_prayer_in", "inferred", "the blades spinning up on the boss from the smite's start until the first spin winds; model 62698, whose textured centre takes P4's tellCentre recolour"),
+      spin: spotAnim(4326, "vfx_ocellus_phase3_melee_prayer", "inferred", "the blades' loop, 90 cycles, 3 ticks, the spin gap, played as each spin that has another after it winds"),
+      windDown: spotAnim(4327, "vfx_ocellus_phase3_melee_prayer_out", "inferred", "the blades leaving, 102 cycles, played as the last spin winds"),
     },
     rubbleLook: {
       falling: spotAnim(4346, "vfx_ocellus_falling_debris", "inferred", "the rubble falling onto its tile, 154 cycles; model 62687"),
@@ -1071,23 +1122,29 @@ export const OCELLUS_P3 = {
       "melee-range": selected<ReachRule>("melee-range", "community-tested", "team-4-and-5", "a swing becomes a void shot when the player is not in the SDK's melee range of the boss's 3x3 after his step; the wiki's unable to reach read as melee range", STRATEGIES_P3, guide(ROBINHOOD_GUIDE, "0:02:26")),
       "within-two": selected<ReachRule>("within-two", "spec-single", "unscaled", "a void shot when the player is more than 2 tiles from the boss's 3x3", BOSS_PAGE_P3),
     }),
-    flick: choice("on-off-on", {
-      "on-off-on": selected<FlickRule>("on-off-on", "spec-single", "unscaled", "a spin is blocked when Protect from Melee is on at its reference tick, off on at least one tick after it, and on at the landing; the reference is the smite's start for the first spin and the previous landing after that", STRATEGIES_P3, BOSS_PAGE_P3, guide(DEFBIGBEAST_GUIDE, "17:53 'Then turn it back off. And then make sure your prayer is back on on tick one'")),
-      "off-then-on": selected<FlickRule>("off-then-on", "assumption", "unscaled", "a spin is blocked when the prayer is off on some tick from its reference and on at the landing, so a flick may start with the prayer already off", STRATEGIES_P3, guide(DEFBIGBEAST_GUIDE, "17:53")),
+    flick: choice("off-then-on", {
+      "off-then-on": selected<FlickRule>(
+        "off-then-on",
+        "log-repeated",
+        "team-7-and-8",
+        "a spin is blocked when every protection prayer is off on the tick before its landing and Protect from Melee is on at the landing; a protection prayer still up on the tick before is switched off and locked, so that spin hits: on at the landing blocks in 300 of 300 and off takes the saw in 202 of 202, no player in the fight shows a protection overhead on the tick before a landing, and off from the reference to that tick then on at the landing blocks in 22 of 22",
+        STRATEGIES_P3, fightLog("L6", "P3 +30 to +35"), fightLog("L4", "16472 +1393"), fightLog("L6", "P3 +563 to +564"), ocellusSim(SIM_DATA, "341-342"), ocellusSim(SIM_P3, "351-355"),
+      ),
+      "on-off-on": selected<FlickRule>("on-off-on", "spec-single", "unscaled", "a spin is blocked when Protect from Melee is on at its reference tick, off on at least one tick after it, and on at the landing; the reference is the smite's start for the first spin and the previous landing after that; the fight logs contradict it, as off at the reference and on at the landing blocks in 22 of 22", STRATEGIES_P3, BOSS_PAGE_P3, guide(DEFBIGBEAST_GUIDE, "17:53 'Then turn it back off. And then make sure your prayer is back on on tick one'"), fightLog("L6", "P3 +30 to +35")),
       "held-blocks": selected<FlickRule>("held-blocks", "assumption", "unscaled", "practice: Protect from Melee on at the landing blocks the spin, flicked or held", NO_WIKI_PRACTICE),
     }),
-    missedFlickDamage: choice("forty-three-to-fifty", {
-      "forty-three-to-fifty": selected<DamageRange>({ min: 43, max: 50 }, "assumption", "unscaled", "a spin that is not flicked hits for 43 to 50; no clip shows a missed flick, so this is P4's wrong-prayer range", NO_WIKI_P3_TICKS),
-      "swing-chip": selected<DamageRange>({ min: 0, max: 6 }, "assumption", "unscaled", "a missed flick hits for the swing's chip, to practise the timing without the damage", NO_WIKI_PRACTICE),
+    missedFlickDamage: choice("ten-to-twenty-nine", {
+      "ten-to-twenty-nine": selected<DamageRange>({ min: 10, max: 29 }, "log-repeated", "team-7-and-8", "a spin that is not blocked hits for 10 to 29: 197 struck players with one splat on the landing, median 19", NO_WIKI_P3_TICKS, fightLog("L6", "P3 +35"), fightLog("L1", "P3 +35"), fightLog("L7", "P3 +592")),
+      "swing-chip": selected<DamageRange>({ min: 0, max: 8 }, "assumption", "unscaled", "a missed flick hits for the swing's chip, to practise the timing without the damage", NO_WIKI_PRACTICE),
     }),
-    firstSpin: choice("4", {
-      "4": selected(span(4), "community-tested", "unscaled", "the first spin lands 4 ticks after the smite starts; counted on a 4-count tick counter, not frame-measured from the start", NO_WIKI_P3_TICKS, SMITE_COUNTS),
-      "5": selected(span(5), "inferred", "unscaled", "the first spin lands 5 ticks after the smite starts, reading the smite's start as the capture's prayer_in tick I; no frame count from the start confirms that reading", NO_WIKI_P3_TICKS, capture(RSPROX_P3, "L328 '_prayer_out 5 + 3 x loops on'"), capture(RSPROX_P3, "L935 'blocked when it was back on the hit tick (175/175 at I+5)'")),
+    firstSpin: choice("5", {
+      "5": selected(span(5), "log-repeated", "team-7-and-8", "the first spin lands 5 ticks after the smite starts: the first saw's splats land on S+5 in 60 of 60 smites in all 8 fight logs and none on S+4, S being the smite's seq 14869 tick, 3 ticks after the second wave", NO_WIKI_P3_TICKS, fightLog("L6", "P3 +30 to +35"), fightLog("L1", "P3 +30 to +35"), fightLog("L2", "P3 +30 to +35"), capture(RSPROX_P3, "L935 'blocked when it was back on the hit tick (175/175 at I+5)'"), ocellusSim(SIM_DATA, "344")),
+      "4": selected(span(4), "community-tested", "unscaled", "the first spin lands 4 ticks after the smite starts; counted on a 4-count tick counter, not frame-measured from the start; the fight logs contradict it", NO_WIKI_P3_TICKS, SMITE_COUNTS),
     }),
     start: choice("1", {
       "1": selected<Quadrant>(1, "inferred", "unscaled", "the run starts on quadrant 1, the north-east wedge, at full HP; the smite spins once", NO_WIKI_P3_ARENA, owner("the quadrants run in a fixed order", "2026-10-24")),
-      "2": selected<Quadrant>(2, "assumption", "unscaled", "practice: the run starts in quadrant 2 at 75% HP and the smite spins twice; it stays on the north-east wedge until the crossings are built", NO_WIKI_PRACTICE),
-      "3": selected<Quadrant>(3, "assumption", "unscaled", "practice: the run starts in quadrant 3 at 50% HP and the smite spins three times; it stays on the north-east wedge until the crossings are built", NO_WIKI_PRACTICE),
+      "2": selected<Quadrant>(2, "assumption", "unscaled", "practice: the run starts in quadrant 2 at 76% HP and the smite spins twice; it stays on the north-east wedge until the crossings are built", NO_WIKI_PRACTICE),
+      "3": selected<Quadrant>(3, "assumption", "unscaled", "practice: the run starts in quadrant 3 at 51% HP and the smite spins three times; it stays on the north-east wedge until the crossings are built", NO_WIKI_PRACTICE),
     }),
   },
 } as const;

@@ -1,6 +1,7 @@
+import type { Style } from "../../../../sim/combat";
 import type { FlickRule, SpinVerdict } from "../P3Types";
 
-export type Flick = "unarmed" | "armed" | "lowered" | "raised";
+export type Flick = "unarmed" | "armed" | "lowered" | "raised" | "knocked";
 
 export function armFlick(rule: FlickRule, meleeOn: boolean): Flick {
   if (meleeOn) return "armed";
@@ -20,7 +21,8 @@ export function armFlick(rule: FlickRule, meleeOn: boolean): Flick {
 export function stepFlick(flick: Flick, meleeOn: boolean): Flick {
   switch (flick) {
     case "unarmed":
-      return "unarmed";
+    case "knocked":
+      return flick;
     case "armed":
     case "raised":
       return meleeOn ? flick : "lowered";
@@ -28,6 +30,21 @@ export function stepFlick(flick: Flick, meleeOn: boolean): Flick {
       return meleeOn ? "raised" : "lowered";
     default: {
       const unhandled: never = flick;
+      return unhandled;
+    }
+  }
+}
+
+/** The tick before a landing: under `off-then-on` any protection prayer still up is knocked off, and the spin will hit. */
+export function dueFlick(rule: FlickRule, flick: Flick, protection: Style | null): Flick {
+  switch (rule) {
+    case "off-then-on":
+      return protection === null ? "lowered" : "knocked";
+    case "on-off-on":
+    case "held-blocks":
+      return flick;
+    default: {
+      const unhandled: never = rule;
       return unhandled;
     }
   }
@@ -43,6 +60,8 @@ export function judgeSpin(rule: FlickRule, flick: Flick): SpinVerdict {
       return { kind: "struck", why: "late" };
     case "unarmed":
       return { kind: "struck", why: "early" };
+    case "knocked":
+      return { kind: "struck", why: "knocked" };
     default: {
       const unhandled: never = flick;
       return unhandled;
