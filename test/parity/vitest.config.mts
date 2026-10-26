@@ -1,7 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { maxWorkers } from "../workerCap.mjs";
-
-const workers = maxWorkers();
+import { testWorkerOption } from "../workerCap.mjs";
 
 export default defineConfig({
   server: { fs: { strict: false } },
@@ -13,6 +11,6 @@ export default defineConfig({
     setupFiles: ["./test/setupFiles.ts"],
     cache: false,
     testTimeout: 600000,
-    ...(workers === undefined ? {} : { maxWorkers: workers }),
+    ...testWorkerOption(),
   },
 });

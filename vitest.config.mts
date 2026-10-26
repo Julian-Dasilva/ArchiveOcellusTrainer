@@ -1,7 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { maxWorkers } from "./test/workerCap.mjs";
-
-const workers = maxWorkers();
+import { testWorkerOption } from "./test/workerCap.mjs";
 
 export default defineConfig({
   server: { fs: { strict: false } },
@@ -13,6 +11,6 @@ export default defineConfig({
     setupFiles: ["./test/setupFiles.ts"],
     taskTitleValueFormatTruncate: Infinity,
     cache: false,
-    ...(workers === undefined ? {} : { maxWorkers: workers }),
+    ...testWorkerOption(),
   },
 });

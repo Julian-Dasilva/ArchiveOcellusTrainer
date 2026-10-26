@@ -25,8 +25,10 @@ the_base_tree_can_import_the_worker_cap() {
   (
     cd "$src/test/parity" && node --input-type=module -e '
       import { maxWorkers } from "../workerCap.mjs";
-      if (maxWorkers({ CI: "1" }) !== undefined) process.exit(1);
-      if (maxWorkers({}) !== 2) process.exit(1);
+      const onCi = maxWorkers({ CI: "1" });
+      if (onCi.kind !== "runner") process.exit(1);
+      const local = maxWorkers({});
+      if (local.kind !== "count" || local.workers !== 2) process.exit(1);
     '
   ) || fail "the head parity config cannot import the worker cap from the base tree"
 }

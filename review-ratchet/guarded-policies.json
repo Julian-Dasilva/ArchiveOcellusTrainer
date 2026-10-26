@@ -336,7 +336,7 @@
       "policies": [
         {
           "policy": "CI uses the runner's default worker count",
-          "mutation": [{ "find": "  if (env.CI) return undefined;\n", "replace": "  if (false) return undefined;\n" }]
+          "mutation": [{ "find": "  if (env.CI) return { kind: \"runner\" };\n", "replace": "  if (false) return { kind: \"runner\" };\n" }]
         },
         {
           "policy": "a local run caps workers at 2",
