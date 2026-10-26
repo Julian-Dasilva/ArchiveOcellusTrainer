@@ -14,6 +14,7 @@ async function loadP3Page(url: string) {
   const { P3Region } = await vi.importActual<typeof import("../js/P3Region")>("../js/P3Region");
   const built = vi.spyOn(P3Region.prototype, "initialiseRegion");
   const page = loadPage(url);
+  await act(() => new Promise((resolve) => setTimeout(resolve)));
   const region = built.mock.contexts.at(-1);
   built.mockRestore();
   if (!(region instanceof P3Region)) throw new Error("the page built no P3 region");

@@ -264,7 +264,7 @@ class Playing {
 export class SpotAnimModel implements Model {
   private playing: Playing | null = null;
 
-  constructor(private readonly renderable: Renderable, private readonly cue: () => Cue | null) {}
+  constructor(private readonly renderable: Renderable, private readonly cue: () => Cue | null, private readonly looks: readonly number[] = []) {}
 
   draw(scene: THREE.Scene, clockDelta: number, tickPercent: number, location: Location3, angleRadians: number, pitchRadians: number, visible: boolean, modelOffsets: Location3[]): void {
     const cue = this.cue();
@@ -284,7 +284,25 @@ export class SpotAnimModel implements Model {
     return this.playing?.model.getWorldPosition() ?? new THREE.Vector3();
   }
 
-  async preload(): Promise<void> {}
+  /** The SDK builds a spotanim's meshes on its first draw and starts its animation and frame sounds only after them. */
+  async preload(): Promise<void> {
+    await Promise.all(this.looks.map((spotAnim) => buildLook(this.renderable, spotAnim)));
+  }
+}
+
+// The SDK keeps one instance pool per look and draws every slot it ever handed out, so two views building a look at once would leave a hidden instance drawn.
+const builtLooks = new Map<number, Promise<void>>();
+
+function buildLook(renderable: Renderable, spotAnim: number): Promise<void> {
+  const built =
+    builtLooks.get(spotAnim) ??
+    (async () => {
+      const model = CacheRenderInstancedModel.forRenderable(renderable, CacheRenderReferences.spotAnim([{ id: spotAnim }]));
+      await model.preload();
+      model.destroy(new THREE.Scene());
+    })();
+  builtLooks.set(spotAnim, built);
+  return built;
 }
 
 export class OrbView extends Entity {
@@ -316,7 +334,7 @@ export class OrbView extends Entity {
   }
 
   protected override create3dModel(): Model {
-    return new SpotAnimModel(this, () => this.cue);
+    return new SpotAnimModel(this, () => this.cue, [...Object.values(SPAWN_LOOK), ORB_LOOK.idle.value, ORB_LOOK.despawn.value]);
   }
 }
 
@@ -369,8 +387,9 @@ export function drawOverheadIcon(context: OffscreenCanvasRenderingContext2D, sca
 const HEAL_SPLAT_SLOTS: readonly Readonly<{ x: number; y: number }>[] = [{ x: 0, y: 30 }, { x: -18, y: 20 }, { x: 18, y: 20 }];
 
 /** Drawn like the SDK's own hitsplats, in the slots its damage splats use last. */
-export function drawHealSplats(context: OffscreenCanvasRenderingContext2D, image: HTMLImageElement, amounts: readonly number[], verticalOffset: number): void {
-  amounts.slice(0, HEAL_SPLAT_SLOTS.length).forEach((amount, slot) => {
+export function drawHealSplats(context: OffscreenCanvasRenderingContext2D, image: HTMLImageElement, splats: readonly Readonly<{ amount: number }>[], verticalOffset: number): void {
+  for (let slot = 0; slot < Math.min(splats.length, HEAL_SPLAT_SLOTS.length); slot++) {
+    const { amount } = splats[slot];
     const { x, y } = HEAL_SPLAT_SLOTS[slot];
     context.drawImage(image, x - 11, verticalOffset - y - 1, 24, 23);
     context.font = "16px Stats_11";
@@ -380,7 +399,7 @@ export function drawHealSplats(context: OffscreenCanvasRenderingContext2D, image
     context.fillStyle = "#FFFFFF";
     context.fillText(String(amount), x, verticalOffset - y + 15);
     context.textAlign = "left";
-  });
+  }
 }
 
 export class PlayerLook {

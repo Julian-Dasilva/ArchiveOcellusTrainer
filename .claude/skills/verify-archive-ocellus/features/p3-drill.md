@@ -31,7 +31,7 @@ Preconditions:
 - **Interim clear.** Open `?phase=p3&seed=100&bosshp=3991` and click `tileCentre({ x: 20, y: 7 })` after tick 2, which attacks the boss. The bow's first shot of 54 lands on tick 5 and the quadrant falls on 6. The row for tick 6 has `bossHp.atPostTick` 3937 and a `run-ended` event, and the panel reads "Quadrant 1 cleared (interim end)", "P3 time: 6 ticks (0:03.6)" with Repeat P3, Retry seed and Start P4.
 - **Start P4.** Click `#result_start_p4`. The new page's `location.search` is `?phase=p4&setup=ranged`, the boss has 1312 HP, the log header has no `phase`, and `#phase` shows `p4`.
 - **Production.** `scripts/verify.sh production` builds with `ARCHIVE_P3=off`, opens `?phase=p3&seed=1`, records every boss bar the canvas draws, and opens Settings. The first bar is `1312 / 5250 (25.0%)`, P4's entry, and the menu has `#setup` but no `#phase`.
-- **Scripted.** `scripts/verify.sh browser` ends with `drive_p3_drill`, writes the `p3-*` files and `p3-checks.json`, and checks `p3BossIsNpc16677`, `p3ArenaDrawn`, `p3SwingsChipUnderMeleePrayer`, `p3PanicOutOfReach`, `p3ChainAsRecorded`, `p3InterimClear`, `p3StartP4OpensP4` and `noP3PageErrors`. The production stage writes `production-phase-p3.json` and checks `phaseP3OpensP4` and `noPhaseBox`.
+- **Scripted.** `scripts/verify.sh browser --unit p3_drill` writes the `p3-*` files to `units/p3_drill/` and checks `p3BossIsNpc16677`, `p3ArenaDrawn`, `p3SwingsChipUnderMeleePrayer`, `p3PanicOutOfReach`, `p3ChainAsRecorded`, `p3InterimClear`, `p3StartP4OpensP4` and `noP3PageErrors`. The production stage writes `production-phase-p3.json` and checks `phaseP3OpensP4` and `noPhaseBox`.
 
 ## Gotchas
 

@@ -20,7 +20,7 @@ export async function startP2Drill(options: P2DrillOptions = {}) {
   if (options.markers !== undefined) link.searchParams.set("markers", options.markers);
   const request = parseRequest(link, () => {
     throw new Error(`the drill link has no usable seed: ${link.search}`);
-  }, { p3: false, p2: true });
+  }, { p3: false, p2: true, p1: false });
   if (request.phase !== "p2") throw new Error(`the drill link opened ${request.phase}: ${link.search}`);
   if (request.rejected.length > 0) throw new Error(`the drill link has options the trainer rejects: ${request.rejected.join(", ")}`);
   const region = new P2Region(request.config);

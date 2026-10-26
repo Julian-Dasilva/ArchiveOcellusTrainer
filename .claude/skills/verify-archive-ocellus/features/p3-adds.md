@@ -26,7 +26,7 @@ Preconditions:
 - **Markers and units.** On the same page, take screenshots on ticks 5 (the bomb's marker over the player), 8 (the void), 28 (the rubble's marker), 37 (the vine on the player's tile) and 87 (the rift).
 - **Step off.** Open `?phase=p3&seed=1&invincible=on`, click the tile west of the player after tick 4 and again after tick 7. The log has no `bomb` hit and two `void-formed` events on the tiles the player left.
 - **Kill a rift.** Open `?phase=p3&seed=1&invincible=on` and click the rift's tile, from the `rift-spawned` event on 85, after tick 86. The log has one `rift-destroyed`, the chat shows the empower line, and no `rift-detonated` follows for it.
-- **Scripted.** `scripts/verify.sh browser` runs the chain page in `drive_p3_drill` to tick 134 and checks `p3AddsAsRecorded`.
+- **Scripted.** `scripts/verify.sh browser --unit p3_drill` runs the chain page to tick 134 and checks `p3AddsAsRecorded`.
 
 ## Gotchas
 

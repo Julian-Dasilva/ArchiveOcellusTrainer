@@ -4,12 +4,14 @@ import { CacheRender, ControlPanelController, SETTINGS_STORAGE_KEY, Settings, So
 import type { Item, SettingsState } from "osrs-sdk";
 import { GameOverlay, TrainerApp, TrainerLoadingSplash, useSettingsSnapshot } from "osrs-sdk-react";
 import { OcellusRegion } from "./content/ocellus/js/OcellusRegion";
-import { P3Region } from "./content/ocellus/js/P3Region";
-import { P2Region } from "./content/ocellus/js/P2Region";
-import type { DrillConfig, DrillRequest, P2Config, P3Config } from "./content/ocellus/js/OcellusTimings";
+import type { P3Region } from "./content/ocellus/js/P3Region";
+import type { P1Region } from "./content/ocellus/js/P1Region";
+import type { P2Region } from "./content/ocellus/js/P2Region";
+import type { DrillConfig, P1Config, P2Config, P3Config } from "./content/ocellus/js/OcellusTimings";
 import { OCELLUS_P4, parseRequest } from "./content/ocellus/js/OcellusTimings";
 import type { P3End, P3Log, P3Snapshot } from "./content/ocellus/js/P3Types";
 import type { P2End, P2Log, P2Snapshot } from "./content/ocellus/js/P2Types";
+import type { P1End, P1Log, P1Snapshot } from "./content/ocellus/js/P1Types";
 import type { FightLog, FightSnapshot, RunEnd } from "./content/ocellus/js/P4Types";
 import type { Tick } from "./sim/brands";
 import type { BuildFlags } from "./flags";
@@ -41,7 +43,7 @@ declare global {
   interface Window {
     __archiveOcellusProbe?: Readonly<{
       snapshot(): VerificationProbeSnapshot;
-      log(): FightLog | P3Log | P2Log;
+      log(): FightLog | P3Log | P2Log | P1Log;
       tileCentre(at: Readonly<{ x: number; y: number }>): Readonly<{ x: number; y: number }> | null;
     }>;
   }
@@ -52,7 +54,7 @@ type VerificationProbeSnapshot = Readonly<{
   tick: number;
   player: Readonly<{ x: number; y: number }> | null;
   destination: Readonly<{ x: number; y: number }> | null;
-  fight: FightSnapshot | P3Snapshot | P2Snapshot | null;
+  fight: FightSnapshot | P3Snapshot | P2Snapshot | P1Snapshot | null;
   rejected: readonly string[];
   panel: Readonly<{ tab: string | null; keys: Readonly<Record<"inventory" | "spellbook" | "prayer" | "equipment" | "combat", string>> }>;
   menu: readonly string[] | null;
@@ -72,24 +74,11 @@ function drawnIcons(items: readonly (Item | null | undefined)[]): VerificationPr
 type Drill =
   | Readonly<{ phase: "p4"; region: OcellusRegion; config: DrillConfig }>
   | Readonly<{ phase: "p3"; region: P3Region; config: P3Config }>
-  | Readonly<{ phase: "p2"; region: P2Region; config: P2Config }>;
+  | Readonly<{ phase: "p2"; region: P2Region; config: P2Config }>
+  | Readonly<{ phase: "p1"; region: P1Region; config: P1Config }>;
 
-function mount(request: DrillRequest): Drill {
-  switch (request.phase) {
-    case "p4":
-      return { phase: "p4", region: new OcellusRegion(request.config), config: request.config };
-    case "p3":
-      return { phase: "p3", region: new P3Region(request.config), config: request.config };
-    case "p2":
-      return { phase: "p2", region: new P2Region(request.config), config: request.config };
-    default: {
-      const unhandled: never = request;
-      return unhandled;
-    }
-  }
-}
 
-function exposeVerificationProbe(trainer: TrainerInstance, region: OcellusRegion | P3Region | P2Region, rejected: readonly string[]) {
+function exposeVerificationProbe(trainer: TrainerInstance, region: Drill["region"], rejected: readonly string[]) {
   window.__archiveOcellusProbe = Object.freeze({
     snapshot(): VerificationProbeSnapshot {
       const { player, world } = trainer.getSnapshot();
@@ -141,18 +130,55 @@ function readSettings() {
   Settings.set({ ...THREE_D_VIEW, playsAudio: saved.playsAudio ?? SOUNDS_START_ON, playsAreaAudio: saved.playsAreaAudio ?? SOUNDS_START_ON });
 }
 
-function createTrainer() {
+type Opened = Readonly<{ trainer: TrainerInstance; drill: Drill; flags: BuildFlags }>;
+type Opening = Readonly<{ kind: "open"; opened: Opened }> | Readonly<{ kind: "loading"; opened: Promise<Opened> }>;
+
+/** P1, P2 and P3 load behind a test of the raw build variable, which webpack folds, so a build with a phase off contains none of its modules. */
+function openTrainer(): Opening {
   CacheRender.configure(new URL("osrs-assets/manifest.json", window.location.href).href);
   readSettings();
   const flags = readBuildFlags();
   const request = parseRequest(new URL(window.location.href), () => crypto.getRandomValues(new Uint32Array(1))[0], flags);
-  const drill = mount(request);
-  drill.region.invincible = request.invincible;
-  const trainer = new TrainerInstance(drill.region);
-  if (process.env.NODE_ENV !== "production") exposeVerificationProbe(trainer, drill.region, request.rejected);
-  loadWebAnalytics();
-  if (drill.phase === "p4") void startPerfTelemetry(drill.region);
-  return { trainer, drill, flags };
+  const start = (drill: Drill): Opened => {
+    drill.region.invincible = request.invincible;
+    const trainer = new TrainerInstance(drill.region);
+    if (process.env.NODE_ENV !== "production") exposeVerificationProbe(trainer, drill.region, request.rejected);
+    loadWebAnalytics();
+    if (drill.phase === "p4") void startPerfTelemetry(drill.region);
+    return { trainer, drill, flags };
+  };
+  switch (request.phase) {
+    case "p4":
+      return { kind: "open", opened: start({ phase: "p4", region: new OcellusRegion(request.config), config: request.config }) };
+    case "p3":
+      return {
+        kind: "loading",
+        opened:
+          process.env.ARCHIVE_P3 === "on"
+            ? import("./content/ocellus/js/P3Region").then(({ P3Region }) => start({ phase: "p3", region: new P3Region(request.config), config: request.config }))
+            : Promise.reject(new Error("this build has ARCHIVE_P3 off")),
+      };
+    case "p2":
+      return {
+        kind: "loading",
+        opened:
+          process.env.ARCHIVE_P2 === "on"
+            ? import("./content/ocellus/js/P2Region").then(({ P2Region }) => start({ phase: "p2", region: new P2Region(request.config), config: request.config }))
+            : Promise.reject(new Error("this build has ARCHIVE_P2 off")),
+      };
+    case "p1":
+      return {
+        kind: "loading",
+        opened:
+          process.env.ARCHIVE_P1 === "on"
+            ? import("./content/ocellus/js/P1Region").then(({ P1Region }) => start({ phase: "p1", region: new P1Region(request.config), config: request.config }))
+            : Promise.reject(new Error("this build has ARCHIVE_P1 off")),
+      };
+    default: {
+      const unhandled: never = request;
+      return unhandled;
+    }
+  }
 }
 
 const SETUP_KEYS = Object.keys(OCELLUS_P4.choices.setup.options);
@@ -163,12 +189,13 @@ const PHASES: readonly Readonly<{ phase: Drill["phase"]; label: string; shown: (
   { phase: "p4", label: "Phase 4", shown: () => true },
   { phase: "p3", label: "Phase 3", shown: (flags) => flags.p3 },
   { phase: "p2", label: "Phase 2", shown: (flags) => flags.p2 },
+  { phase: "p1", label: "Phase 1", shown: (flags) => flags.p1 },
 ];
 
 const phaseOf = (value: string): Drill["phase"] => PHASES.find(({ phase }) => phase === value)?.phase ?? "p4";
 
 type RunRequest = Readonly<{ setup: string; seed: string | null; invincible: boolean }> &
-  (Readonly<{ phase: "p4"; focus: string }> | Readonly<{ phase: "p3" }> | Readonly<{ phase: "p2"; skipTiles: boolean }>);
+  (Readonly<{ phase: "p4"; focus: string }> | Readonly<{ phase: "p3" }> | Readonly<{ phase: "p2"; skipTiles: boolean }> | Readonly<{ phase: "p1" }>);
 
 function startRun(request: RunRequest) {
   const { setup, seed, invincible } = request;
@@ -194,6 +221,8 @@ function rerun(drill: Drill, setup: string, seed: string | null, focus: string |
       return { phase: "p3", setup, seed, invincible };
     case "p2":
       return { phase: "p2", setup, seed, invincible, skipTiles: drill.region.skipTilesShown() };
+    case "p1":
+      return { phase: "p1", setup, seed, invincible };
     default: {
       const unhandled: never = drill;
       return unhandled;
@@ -357,7 +386,8 @@ function gameTime(ticks: number): string {
 type DrillOutcome =
   | Readonly<{ phase: "p4"; at: Tick; reason: RunEnd; invincible: boolean }>
   | Readonly<{ phase: "p3"; at: Tick; reason: P3End; invincible: boolean }>
-  | Readonly<{ phase: "p2"; at: Tick; reason: P2End; invincible: boolean; bossMaxHp: number }>;
+  | Readonly<{ phase: "p2"; at: Tick; reason: P2End; invincible: boolean; bossMaxHp: number }>
+  | Readonly<{ phase: "p1"; at: Tick; reason: P1End; invincible: boolean }>;
 
 type InvincibleRegion = Readonly<{ invincible: boolean; fightLog(): Readonly<{ rows: readonly Readonly<{ events: readonly Readonly<{ kind: string }>[] }>[] }> }>;
 
@@ -380,6 +410,11 @@ function outcome(drill: Drill): DrillOutcome | null {
       if (run?.kind !== "ended") return null;
       return { phase: "p2", at: run.at, reason: run.reason, invincible: invincibleWasOn(drill.region), bossMaxHp: drill.config.choices.bossMaxHp.option.value };
     }
+    case "p1": {
+      const run = drill.region.snapshot()?.run;
+      if (run?.kind !== "ended") return null;
+      return { phase: "p1", at: run.at, reason: run.reason, invincible: invincibleWasOn(drill.region) };
+    }
     default: {
       const unhandled: never = drill;
       return unhandled;
@@ -387,7 +422,7 @@ function outcome(drill: Drill): DrillOutcome | null {
   }
 }
 
-function RunTime({ phase, at, invincible }: Readonly<{ phase: "P2" | "P3" | "P4"; at: Tick; invincible: boolean }>) {
+function RunTime({ phase, at, invincible }: Readonly<{ phase: "P1" | "P2" | "P3" | "P4"; at: Tick; invincible: boolean }>) {
   return (
     <>
       <p id="run_result_time">{phase} time: {at} ticks ({gameTime(at)})</p>
@@ -412,6 +447,28 @@ function RunResultText({ result }: Readonly<{ result: DrillOutcome }>) {
           <>
             <h2 id="run_result_title">You died</h2>
             <p id="run_result_time">on P2 tick {result.at}</p>
+          </>
+        );
+      default: {
+        const unhandled: never = result.reason;
+        return unhandled;
+      }
+    }
+  }
+  if (result.phase === "p1") {
+    switch (result.reason.kind) {
+      case "phase-cleared":
+        return (
+          <>
+            <h2 id="run_result_title">Phase 1 cleared (interim end)</h2>
+            <RunTime phase="P1" at={result.at} invincible={result.invincible} />
+          </>
+        );
+      case "death":
+        return (
+          <>
+            <h2 id="run_result_title">You died</h2>
+            <p id="run_result_time">on P1 tick {result.at}</p>
           </>
         );
       default: {
@@ -478,6 +535,8 @@ function interimEnd(result: DrillOutcome, flags: BuildFlags): InterimEnd | null 
       return result.reason.kind === "quadrant-cleared" ? { repeat: "Repeat P3", next: { phase: "p4", label: "Start P4" } } : null;
     case "p2":
       return result.reason.kind === "phase-cleared" ? { repeat: "Repeat P2", next: flags.p3 ? { phase: "p3", label: "Start P3" } : null } : null;
+    case "p1":
+      return result.reason.kind === "phase-cleared" ? { repeat: "Repeat P1", next: flags.p2 ? { phase: "p2", label: "Start P2" } : null } : null;
     default: {
       const unhandled: never = result;
       return unhandled;
@@ -533,7 +592,14 @@ function GameChat({ region }: Readonly<{ region: Readonly<{ chat(): readonly str
 }
 
 export function ArchiveOcellusApp() {
-  const [{ trainer, drill, flags }] = useState(createTrainer);
+  const [opening, setOpening] = useState(openTrainer);
+  useEffect(() => {
+    if (opening.kind === "loading") void opening.opened.then((opened) => setOpening({ kind: "open", opened }));
+  }, [opening]);
+  return opening.kind === "open" ? <TrainerPage {...opening.opened} /> : null;
+}
+
+function TrainerPage({ trainer, drill, flags }: Opened) {
   const [loading, setLoading] = useState<TrainerLoadingState>();
 
   return (
