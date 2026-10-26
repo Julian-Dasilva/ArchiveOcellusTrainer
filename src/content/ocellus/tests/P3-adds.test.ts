@@ -1,3 +1,4 @@
+import type { Projectile } from "osrs-sdk";
 import type { At } from "./drill";
 import { startP3Drill } from "./p3drill";
 
@@ -116,18 +117,22 @@ describe("P3 adds and hazards", () => {
     drill.tickTo(U + 33);
     const [rift] = drill.events("rift-spawned");
     await drill.click(rift.tile);
+    const mob = drill.region.mobs.find((unit) => unit.mobName() === "Void Rift");
+    if (!mob) throw new Error(`no rift at P3 tick ${U + 33}`);
+    const shots = new Set<Projectile>();
     let delayOnKill: number | null = null;
     for (let t = U + 34; t <= U + 44 && delayOnKill === null; t++) {
       drill.tickTo(t);
+      mob.incomingProjectiles.forEach((projectile) => shots.add(projectile));
       if (drill.events("rift-destroyed").length > 0) delayOnKill = drill.player().attackDelay;
     }
     const observed = {
-      shots: drill.events("player-hit").length >= 0 ? drill.rows().flatMap((row) => row.inputs).length : 0,
+      shots: shots.size,
       destroyed: drill.events("rift-destroyed").length,
       chat: drill.region.chat().filter((line) => line.startsWith("Destroying")),
       reset: delayOnKill !== null && delayOnKill <= 0,
     };
     drill.dispose();
-    expect({ destroyed: observed.destroyed, chat: observed.chat, reset: observed.reset }).toEqual({ destroyed: 1, chat: ["Destroying the void rift empowers you!"], reset: true });
+    expect(observed).toEqual({ shots: 1, destroyed: 1, chat: ["Destroying the void rift empowers you!"], reset: true });
   });
 });
