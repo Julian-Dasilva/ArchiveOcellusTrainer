@@ -499,3 +499,6 @@ export const P4 = {
 } as const;
 
 export type BossOverhead = "protect-melee" | "deflect-melee" | "deflect-range" | "soul-split";
+
+/** [G] His Protect from Melee overhead: sprite 440 (headicons_prayer), frame 0. */
+export const PROTECT_MELEE_ICON = { archive: 440, frame: 0 } as const;

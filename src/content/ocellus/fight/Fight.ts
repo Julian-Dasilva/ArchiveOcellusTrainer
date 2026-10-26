@@ -312,7 +312,7 @@ export class Fight implements BossHooks, PlayerHooks {
   /** Swap Ocellus's body, keeping his facing and, for the shared pool, his HP. */
   swapBoss(form: Form, sw: ATile, hp: number, maxHp: number): BossForm {
     const old = this.boss;
-    const boss = new BossForm(this.region, sw, form, this, () => this.player, maxHp);
+    const boss = new BossForm(this.region, sw, form, this, maxHp);
     boss.currentStats.hitpoint = hp;
     if (old) {
       boss.lastRotation = old.lastRotation;
