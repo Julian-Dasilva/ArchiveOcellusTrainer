@@ -1,0 +1,62 @@
+name: Verify flake experiment
+
+on:
+  push:
+    branches: [exp-verify-flakes]
+
+permissions:
+  contents: read
+
+jobs:
+  units:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        round: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/netlify-cache
+          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+      - env:
+          NETLIFY_CACHE_DIR: ${{ runner.temp }}/netlify-cache
+        run: bash scripts/netlify-build.sh
+      - run: npm install --global agent-browser@0.34.0 && agent-browser install && sudo apt-get install -y fonts-freefont-ttf
+      - run: |
+          sudo apt-get install -y xvfb libgl1-mesa-dri
+          Xvfb :99 -screen 0 1920x1080x24 &
+      - name: In-frame curves
+        env:
+          DISPLAY: ":99"
+          AGENT_BROWSER_HEADED: "1"
+          AGENT_BROWSER_ARGS: --ignore-gpu-blocklist,--use-gl=angle,--use-angle=gl
+          REPO: ${{ github.workspace }}
+          VERIFY_PORT: "8002"
+        run: |
+          mkdir -p "$RUNNER_TEMP/curves"
+          bash .exp/explosions-curve.sh "$RUNNER_TEMP/curves" 2 || true
+          node .exp/summarize.mjs "$RUNNER_TEMP"/curves/*.json || true
+      - name: The five units, twice
+        env:
+          DISPLAY: ":99"
+          AGENT_BROWSER_HEADED: "1"
+          AGENT_BROWSER_ARGS: --ignore-gpu-blocklist,--use-gl=angle,--use-angle=gl
+        run: |
+          for pass in 1 2; do
+            VERIFY_DIR="$RUNNER_TEMP/verify-$pass" scripts/verify.sh browser --unit explosions --unit explosion_run_end --unit cues --unit overheads_rifts --unit click_correction --unit focus --unit transition_attack || true
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: exp-${{ matrix.round }}
+          path: |
+            ${{ runner.temp }}/curves/
+            ${{ runner.temp }}/verify-1/
+            ${{ runner.temp }}/verify-2/
