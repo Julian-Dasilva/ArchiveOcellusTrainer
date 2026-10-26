@@ -32,7 +32,7 @@ describe("U1 cycle skeleton", () => {
       [68, "deflect-melee"], [93, "soul-split"], [98, null], [99, "deflect-range"], [121, "soul-split"], [127, null], [128, "deflect-melee"],
     ]);
     expect(drill.events("boss-state-changed").map((e) => [e.at, e.state])).toEqual([
-      [0, "hidden"], [4, "present-invulnerable"], [8, "present-out-of-melee-reach"], [30, "present-damageable"],
+      [0, "hidden"], [4, "present-damageable"], [8, "present-out-of-melee-reach"], [30, "present-damageable"],
       [68, "present-out-of-melee-reach"], [90, "present-damageable"], [128, "present-out-of-melee-reach"],
     ]);
     expect(drill.events("boss-shouted").map((e) => [e.at, e.text])).toEqual([[5, "End..."]]);
@@ -139,7 +139,7 @@ describe("U1 cycle skeleton", () => {
     drill.dispose();
   });
 
-  test("guard: the boss is hidden through P4 tick 3, drawn and targetable from 4, and takes damage only from 8", async () => {
+  test("guard: the boss is hidden through P4 tick 3, then drawn, targetable and damageable from 4, so a shot from the lead-in lands in full before the first inner void", async () => {
     const drill = startDrill();
     const presence = [0, 1, 2, 3, 4].map((t) => {
       drill.tickTo(t);
@@ -158,7 +158,7 @@ describe("U1 cycle skeleton", () => {
       return landed;
     };
     expect([await shotFromTheRing(4), await shotFromTheRing(5)]).toEqual([
-      [[[7, "invulnerable", 54]], { atBossStep: 1312, atPostTick: 1312 }],
+      [[[7, "passed", 54]], { atBossStep: 1312, atPostTick: 1258 }],
       [[[8, "passed", 54]], { atBossStep: 1312, atPostTick: 1258 }],
     ]);
   });
