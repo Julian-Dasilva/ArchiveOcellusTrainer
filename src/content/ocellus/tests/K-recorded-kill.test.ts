@@ -4,11 +4,11 @@ import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
 import type { Range } from "../fight/data";
 import { P3, SEQ } from "../fight/data";
 import type { SpotOptions } from "../fight/effects";
-import type { FightOptions, HitSpec } from "../fight/Fight";
+import type { Fight, FightOptions, HitSpec } from "../fight/Fight";
 import type { HandOver } from "../fight/handOver";
 import { FightRegion } from "../fight/FightRegion";
 import type { ATile, Body } from "../fight/geometry";
-import { QUADRANTS, at, covers, distanceToBody, quadrantTiles } from "../fight/geometry";
+import { QUADRANTS, at, covers, distanceToBody, quadrantOf, quadrantTiles } from "../fight/geometry";
 import { BossForm } from "../fight/units";
 
 /**
@@ -111,6 +111,16 @@ describe("phase 3 follows the recorded kill [K]", () => {
   /** Phase 3 begins on tick 0 and he lands in his first corner P3.jumpToCornerAfter later: the segment start S. */
   const S = P3.jumpToCornerAfter;
 
+  /** The recorded lines keep going after a fall, so the player has to be off that quadrant before it goes. */
+  function stepOff(fight: Fight): void {
+    const here = quadrantOf(fight.playerTile);
+    const next = QUADRANTS.find((q) => q !== here && !fight.destroyed.has(q));
+    if (!next) throw new Error("no quadrant left to stand on");
+    const tile = quadrantTiles(next).find((t) => fight.isWalkable(t));
+    if (!tile) throw new Error(`no floor in ${next}`);
+    fight.player.hop(tile);
+  }
+
   test("the first quadrant: two sets, the spin, two sets, Untether, and the quadrant falls 31 ticks on", () => {
     const f = recorded(3);
     f.tickTo(S + 52, f.stayInReach);
@@ -167,9 +177,11 @@ describe("phase 3 follows the recorded kill [K]", () => {
     f.tickTo(P + 6, f.stayInReach);
     // The rest of the spin goes with the quadrant.
     expect(f.from(P, [SEQ.p3PrayerOut, SEQ.p3QuadrantDestroyIn])).toEqual([[3, SEQ.p3QuadrantDestroyIn]]);
+    stepOff(f.fight);
     // He lands in the next quadrant 17 ticks after it falls. A spin came last, so the other special opens it, and in a
     // later quadrant that is Insolence first, as kill 2's third quadrant and 21:16's second opened.
     const S2 = P + 3 + P3.untether.nextSegment - P3.untether.obliteration;
+    f.tickTo(S2);
     f.tickTo(S2 + 26, f.stayInReach);
     expect(f.said("Insolence...", S2)).toEqual([24]);
     expect(f.from(S2, [SEQ.p3PrayerIn])).toEqual([]);
@@ -374,8 +386,9 @@ describe("phase 3 follows the recorded kill [K]", () => {
     const P = S + 24;
     f.tickTo(P + 2, f.stayInReach);
     f.bossAt(75);
+    stepOff(f.fight);
     const S2 = P + 3 + P3.untether.nextSegment - P3.untether.obliteration;
-    f.tickTo(S2 + 3 + P3.riftDetonatesAfter + 1, f.stayInReach);
+    f.tickTo(S2 + 3 + P3.riftDetonatesAfter + 1);
     // [K] 20:40: a Void Rift from t4831 detonated on t4861; 21:53: an Augmenter from t12106 on t12136.
     expect(detonations.map((t) => t - S2)).toEqual([3 + P3.riftDetonatesAfter]);
   });
@@ -386,6 +399,8 @@ describe("phase 3 follows the recorded kill [K]", () => {
       for (let guard = 0; f.fight.destroyed.size < count; guard++) {
         if (guard > 100) throw new Error(`quadrant ${count} never fell`);
         f.tick();
+        const crumbling = f.fight.floorState().crumbling;
+        if (crumbling.length > 0 && quadrantOf(f.fight.playerTile) === crumbling[0]) stepOff(f.fight);
       }
     };
     for (const [floor, count] of [[75, 1], [50, 2]] as const) {

@@ -746,7 +746,10 @@ export class Phase3 implements PhaseScript {
       boss.attackable = false;
       if (onIt) {
         fight.message("The void consumes you.", CHAT.red);
-        fight.hit({ amount: () => 255 });
+        fight.player.currentStats.hitpoint = 0;
+        // The next segment is already scheduled. Leaving the phase unfinished lets it start during the death animation.
+        this.finished = true;
+        return;
       }
       this.segment++;
       if (this.segment < P3.hpFloors.length) {
