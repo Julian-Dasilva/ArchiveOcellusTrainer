@@ -1,0 +1,7 @@
+{
+  "name": "archive-ocellus-trainer",
+  "main": "src/worker/worker.ts",
+  "compatibility_date": "2026-10-19",
+  "workers_dev": true,
+  "assets": { "directory": "./dist", "binding": "ASSETS" }
+}
