@@ -33,10 +33,10 @@ describe("phase 3 follows the recorded kill [K]", () => {
   /** A fight that records his animations, shouts, hits on you and chat by tick; `setup` dresses you as the app does. */
   function recorded(startPhase: 3, overrides: Partial<FightOptions> = {}, setup: "ranged" | null = null) {
     Settings.readFromStorage();
-    const handOvers: HandOver[] = [];
+    const handOvers: { tick: number; state: HandOver }[] = [];
     const options: FightOptions = {
       seed: 1, party: 1, startPhase, hazardTiles: true, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true,
-      onHandOver: (state) => handOvers.push(state), ...overrides,
+      onHandOver: (state) => handOvers.push({ tick: region.fight?.tick ?? -1, state }), ...overrides,
     };
     const region = new FightRegion(options, (player) => {
       if (setup) dress(player, OCELLUS_P4.choices.setup.options[setup].value);
@@ -356,27 +356,35 @@ describe("phase 3 follows the recorded kill [K]", () => {
 
   test("the third quadrant's fall hands the player, with each potion's doses, and the boss over in place of his phase 4", () => {
     const f = recorded(3, {}, "ranged");
-    for (const floor of [75, 50, 25]) {
-      const fallen = f.fight.destroyed.size;
-      f.tickTo(f.fight.tick + 2, f.stayInReach);
-      f.bossAt(floor);
-      for (let guard = 0; f.fight.destroyed.size === fallen; guard++) {
-        if (guard > 100) throw new Error(`quadrant ${fallen + 1} never fell`);
+    const fallTo = (count: number) => {
+      for (let guard = 0; f.fight.destroyed.size < count; guard++) {
+        if (guard > 100) throw new Error(`quadrant ${count} never fell`);
         f.tick();
       }
+    };
+    for (const [floor, count] of [[75, 1], [50, 2]] as const) {
+      f.tickTo(f.fight.tick + 2, f.stayInReach);
+      f.bossAt(floor);
+      fallTo(count);
     }
-    expect(f.handOvers).toEqual([]);
-    const left = QUADRANTS.filter((q) => !f.fight.destroyed.has(q));
+    f.tickTo(f.fight.tick + 2, f.stayInReach);
+    f.bossAt(25);
+    while (f.fight.floorState().crumbling.length === 0) f.tick();
+    const crumbleStart = f.fight.tick;
+    const left = QUADRANTS.filter((q) => !f.fight.destroyed.has(q) && !f.fight.floorState().crumbling.includes(q));
     expect(left).toHaveLength(1);
     const standing = quadrantTiles(left[0]).find((t) => f.fight.isWalkable(t));
     if (!standing) throw new Error(`no floor left in ${left[0]}`);
     f.fight.player.hop(standing);
     f.fight.player.prayerController.findPrayerByName("Protect from Range").toggle(f.fight.player);
     f.fight.player.inventory[12].inventoryLeftClick(f.fight.player);
-    f.tickTo(f.fight.tick + P3.untether.nextSegment - P3.untether.gone);
+    expect(f.handOvers).toEqual([]);
+    fallTo(3);
 
+    // The third quadrant crumbles from tick 40 and falls 13 ticks later, at 53. The hand-over is that tick, the phase 4 drill's tick 0, with him hidden.
+    expect([crumbleStart, f.handOvers.map(({ tick }) => tick), f.fight.boss?.hidden]).toEqual([40, [53], true]);
     expect(f.handOvers).toHaveLength(1);
-    const [{ player, boss }] = f.handOvers;
+    const [{ state: { player, boss } }] = f.handOvers;
     // 25% of the 5,250 pool, rounded up, is the third quadrant's floor.
     expect(boss).toEqual({ hp: 1313, defence: 250 });
     expect(player.tile).toEqual(standing);
