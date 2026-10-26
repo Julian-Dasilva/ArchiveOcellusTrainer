@@ -4,3 +4,5 @@ export type BuildFlags = Readonly<{ p3: boolean; p2: boolean; p1: boolean }>;
 export function readBuildFlags(): BuildFlags {
   return { p3: process.env.ARCHIVE_P3 === "on", p2: process.env.ARCHIVE_P2 === "on", p1: process.env.ARCHIVE_P1 === "on" };
 }
+
+export const onlyP4Playable = (flags: BuildFlags): boolean => !Object.values(flags).includes(true);
