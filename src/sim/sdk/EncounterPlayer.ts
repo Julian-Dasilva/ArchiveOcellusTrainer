@@ -50,6 +50,10 @@ export class EncounterPlayer extends Player {
     return protectionOf(this);
   }
 
+  observe(): Readonly<{ tile: Tile; hp: number; prayer: Style | null }> {
+    return { tile: this.tile(), hp: this.currentStats.hitpoint, prayer: this.protection() };
+  }
+
   weaponStyle(): Style {
     return wieldedStyle(this.equipment.weapon);
   }

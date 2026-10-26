@@ -1,13 +1,14 @@
 import { Settings, TestNpc, Viewport, World } from "osrs-sdk";
 import { seed, tile } from "../brands";
 import type { PhaseDef, Rules, Walk } from "../encounter";
+import type { EncounterHost } from "./EncounterRegion";
 import { EncounterPlayer } from "./EncounterPlayer";
 import { EncounterRegion } from "./EncounterRegion";
 import { identity, toRoom } from "../frame";
 
 type Drill = Readonly<{ only: Readonly<{ kind: "fresh" }> }>;
 
-function built(walk: () => Walk, sight: () => "sdk" | "granted", onEnter?: () => void) {
+function built(walk: () => Walk, sight: () => "sdk" | "granted", onEnter?: (host: EncounterHost<Drill>) => void) {
   const log: string[] = [];
   const rules: Rules = {
     judge: () => ({ outcome: "passed" }),
@@ -17,10 +18,10 @@ function built(walk: () => Walk, sight: () => "sdk" | "granted", onEnter?: () =>
     lineOfSight: sight,
   };
   const size = { width: 20, height: 20 };
-  const only: PhaseDef<Drill, "only", Readonly<{ n: number }>> = {
+  const only: PhaseDef<Drill, "only", Readonly<{ n: number }>, EncounterHost<Drill>> = {
     name: "only",
     enter(host, entry) {
-      onEnter?.();
+      onEnter?.(host);
       return {
         frame: identity(size),
         rules,
@@ -64,19 +65,19 @@ function started(walk: () => Walk, sight: () => "sdk" | "granted") {
 
 describe("an encounter region", () => {
   test("each reset enters the start phase once", () => {
-    let entered = 0;
+    const opens: string[] = [];
     const { region } = built(
       () => ({ kind: "sdk" }),
       () => "sdk",
-      () => {
-        entered += 1;
+      (host) => {
+        opens.push(`${host.player.location.x},${host.player.location.y} in ${host.region.width}`);
       },
     );
-    expect(entered).toBe(0);
+    expect(opens).toEqual([]);
     region.reset(false);
-    expect(entered).toBe(1);
+    expect(opens).toEqual(["10,10 in 20"]);
     region.reset(false);
-    expect(entered).toBe(2);
+    expect(opens).toEqual(["10,10 in 20", "10,10 in 20"]);
   });
 
   test("the room sizes the region, and reset readies the start phase", () => {

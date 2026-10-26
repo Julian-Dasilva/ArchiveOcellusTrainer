@@ -58,31 +58,31 @@ export type Mounted<Row> = Readonly<{
   leave(): void;
 }>;
 
-export type PhaseDef<E extends Entries, P extends PhaseOf<E>, Row> = Readonly<{
+export type PhaseDef<E extends Entries, P extends PhaseOf<E>, Row, H extends Host<E> = Host<E>> = Readonly<{
   name: P;
-  enter(host: Host<E>, entry: E[P]): Mounted<Row>;
+  enter(host: H, entry: E[P]): Mounted<Row>;
 }>;
 
 /** Every phase the entries name. A missing phase, or one entered with another phase's entry, does not compile. */
-export type Phases<E extends Entries> = { readonly [P in PhaseOf<E>]: PhaseDef<E, P, unknown> };
+export type Phases<E extends Entries, H extends Host<E> = Host<E>> = { readonly [P in PhaseOf<E>]: PhaseDef<E, P, unknown, H> };
 export type RowOf<D> = D extends Readonly<{ enter(...args: never[]): Mounted<infer Row> }> ? Row : never;
 export type Section<E extends Entries, Ph extends Phases<E>> = {
   [P in PhaseOf<E>]: Readonly<{ phase: P; enteredAt: Tick; enteredAtWorld: WorldTick; rows: readonly RowOf<Ph[P]>[] }>;
 }[PhaseOf<E>];
 
 /** A room is the region's floor plane and scenery. */
-export type Room = Readonly<{
+export type Room<Target = RoomMount> = Readonly<{
   size: Readonly<{ width: number; height: number }>;
   drawFloor(context: OffscreenCanvasRenderingContext2D, scale: number): void;
-  mount(region: RoomMount): Readonly<{ dispose(): void }>;
+  mount(region: Target): Readonly<{ dispose(): void }>;
   spawn: RoomTile;
 }>;
 
 /** The SDK region a room mounts into. Core code names no SDK type. */
 export type RoomMount = Readonly<{ addEntity(entity: unknown): void }>;
 
-export type Setup<E extends Entries, Ph extends Phases<E>> = Readonly<{
-  room: Room;
+export type Setup<E extends Entries, Ph extends Phases<E>, Target = RoomMount> = Readonly<{
+  room: Room<Target>;
   phases: Ph;
   start: Enter<E>;
   seed: Seed;

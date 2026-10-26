@@ -1,17 +1,29 @@
 import { Region } from "osrs-sdk";
 import type { Player } from "osrs-sdk";
+import type { Tick } from "../brands";
 import { worldTick } from "../brands";
-import type { Entries, Phases, Setup } from "../encounter";
+import type { Entries, Host, Phases, Setup } from "../encounter";
 import { Director } from "../director";
-import type { EncounterPlayerHooks } from "./EncounterPlayer";
+import type { Encounter, Hooks } from "./EncounterBinding";
+import { EncounterBinding } from "./EncounterBinding";
+import type { EncounterPlayerHooks, PlayerHost, PlayerInput } from "./EncounterPlayer";
 import { EncounterPlayer } from "./EncounterPlayer";
 
-export class EncounterRegion<E extends Entries, Ph extends Phases<E>> extends Region {
-  private readonly director: Director<E, Ph>;
+/** What a phase gets on the SDK: the region to build its units in, the run's one player, and a binding that reports that player to it. */
+export type EncounterHost<E extends Entries> = Host<E> &
+  Readonly<{
+    region: Region;
+    player: EncounterPlayer;
+    bind<R extends Encounter & Readonly<{ input: PlayerInput }>>(start: Tick, hooks: Hooks<R>): EncounterBinding<R>;
+  }>;
+
+export class EncounterRegion<E extends Entries, Ph extends Phases<E, EncounterHost<E>>> extends Region {
+  private readonly director: Director<E, Ph, EncounterHost<E>>;
   private player: EncounterPlayer | null = null;
+  private bound: PlayerHost | null = null;
   private scenery: Readonly<{ dispose(): void }> | null = null;
 
-  constructor(private readonly setup: Setup<E, Ph>) {
+  constructor(private readonly setup: Setup<E, Ph, Region>) {
     super();
     this.director = new Director(setup, () => this.worldTickNow());
   }
@@ -37,8 +49,10 @@ export class EncounterRegion<E extends Entries, Ph extends Phases<E>> extends Re
     const spawn = this.setup.room.spawn;
     const player = new EncounterPlayer(this, { x: spawn.x, y: spawn.y }, () => this.playerHooks());
     this.player = player;
+    this.bound = null;
     this.scenery = this.setup.room.mount(this);
     this.addPlayer(player);
+    this.director.begin(this.host(player));
     return { player };
   }
 
@@ -58,15 +72,31 @@ export class EncounterRegion<E extends Entries, Ph extends Phases<E>> extends Re
     this.director.postTick();
   }
 
-  /** The director reads this from its constructor, before the caller assigns `world`. */
+  /** `begin` reads this when the region opens the run, which can be before a caller assigns `world`. */
   private worldTickNow() {
     const running = this.world;
     return worldTick(running ? running.globalTickCounter : 0);
   }
 
+  private host(player: EncounterPlayer): EncounterHost<E> {
+    const director = this.director;
+    return {
+      seed: director.seed,
+      room: director.room,
+      next: (to) => director.next(to),
+      region: this,
+      player,
+      bind: (start, hooks) => {
+        const binding = new EncounterBinding(director.seed, start, player, hooks);
+        this.bound = binding;
+        return binding;
+      },
+    };
+  }
+
   private playerHooks(): EncounterPlayerHooks {
     return {
-      host: () => null,
+      host: () => this.bound,
       rules: () => this.director.rules(),
       hop: (to) => {
         const player = this.player;

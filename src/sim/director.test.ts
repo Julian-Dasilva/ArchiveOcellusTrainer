@@ -83,6 +83,7 @@ describe("a director", () => {
     const log: string[] = [];
     let world = 4;
     const director = new Director({ room: room(), phases: phases(log), start: { phase: "calm", entry: { kind: "fresh" } }, seed: seed(1) }, () => worldTick(world));
+    director.begin(director);
     director.ready();
     director.beforeNpcTurns();
     director.next({ phase: "rage", entry: { kind: "carried", hp: 40 } });
@@ -110,6 +111,7 @@ describe("a director", () => {
       },
       () => worldTick(0),
     );
+    director.begin(director);
     director.beforeNpcTurns();
     director.next({ phase: "rage", entry: { kind: "carried", hp: 12 } });
     director.postTick();

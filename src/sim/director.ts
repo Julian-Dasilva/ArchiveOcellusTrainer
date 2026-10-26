@@ -6,35 +6,39 @@ type Pending<E extends Entries> = Readonly<{ kind: "none" }> | Readonly<{ kind: 
 
 type MountedPhase = Mounted<unknown>;
 
-export class Director<E extends Entries, Ph extends Phases<E>> implements Run<E, Ph>, Host<E> {
-  readonly seed: Setup<E, Ph>["seed"];
+export class Director<E extends Entries, Ph extends Phases<E, H>, H extends Host<E> = Host<E>> implements Run<E, Ph>, Host<E> {
+  readonly seed: Setup<E, Ph, unknown>["seed"];
   readonly room: RoomControl;
   private readonly phases: Ph;
+  private readonly start: Setup<E, Ph, unknown>["start"];
   private readonly worldNow: () => WorldTick;
-  private readonly past: Section<E, Ph>[] = [];
+  private past: Section<E, Ph>[] = [];
   private pending: Pending<E> = { kind: "none" };
   private encounterTick = 0;
-  private phaseName: PhaseOf<E>;
-  private read: () => Section<E, Ph>;
-  private mounted: MountedPhase;
+  private running: Readonly<{ host: H; opened: Opened<E, Ph> }> | null = null;
 
-  constructor(setup: Setup<E, Ph>, worldNow: () => WorldTick) {
+  constructor(setup: Setup<E, Ph, unknown>, worldNow: () => WorldTick) {
     this.seed = setup.seed;
     this.phases = setup.phases;
+    this.start = setup.start;
     this.worldNow = worldNow;
     this.room = { size: setup.room.size, walkable() {} };
-    const opened = openPhase(setup.phases, this, setup.start, tick(0), worldNow());
-    this.phaseName = opened.phase;
-    this.mounted = opened.mounted;
-    this.read = opened.read;
+  }
+
+  /** Enters the start phase with a fresh history. The region calls it each time it builds its units, so a reset restarts the run. */
+  begin(host: H): void {
+    this.past = [];
+    this.pending = { kind: "none" };
+    this.encounterTick = 0;
+    this.running = { host, opened: openPhase(this.phases, host, this.start, tick(0), this.worldNow()) };
   }
 
   get current(): PhaseOf<E> {
-    return this.phaseName;
+    return this.live().opened.phase;
   }
 
   rules(): MountedPhase["rules"] {
-    return this.mounted.rules;
+    return this.live().opened.mounted.rules;
   }
 
   next(to: Enter<E>): void {
@@ -43,30 +47,34 @@ export class Director<E extends Entries, Ph extends Phases<E>> implements Run<E,
   }
 
   ready(): void {
-    this.mounted.ready();
+    this.live().opened.mounted.ready();
   }
 
   beforeNpcTurns(): void {
-    this.mounted.openTick();
+    this.live().opened.mounted.openTick();
   }
 
   postTick(): void {
-    this.mounted.finishTick();
+    const { host, opened } = this.live();
+    opened.mounted.finishTick();
     this.encounterTick += 1;
     if (this.pending.kind === "none") return;
     const to = this.pending.to;
     this.pending = { kind: "none" };
-    this.past.push(this.read());
-    this.mounted.leave();
-    const opened = openPhase(this.phases, this, to, tick(this.encounterTick), this.worldNow());
-    this.phaseName = opened.phase;
-    this.mounted = opened.mounted;
-    this.read = opened.read;
-    this.mounted.ready();
+    this.past.push(opened.read());
+    opened.mounted.leave();
+    const entered = openPhase(this.phases, host, to, tick(this.encounterTick), this.worldNow());
+    this.running = { host, opened: entered };
+    entered.mounted.ready();
   }
 
   sections(): readonly Section<E, Ph>[] {
-    return [...this.past, this.read()];
+    return [...this.past, this.live().opened.read()];
+  }
+
+  private live(): Readonly<{ host: H; opened: Opened<E, Ph> }> {
+    if (this.running === null) throw new Error("the director has not begun a run");
+    return this.running;
   }
 
   rows<P extends PhaseOf<E>>(phase: P): readonly RowOf<Ph[P]>[] {
@@ -80,9 +88,9 @@ type Opened<E extends Entries, Ph extends Phases<E>> = Readonly<{
   read: () => Section<E, Ph>;
 }>;
 
-function openPhase<E extends Entries, Ph extends Phases<E>>(
+function openPhase<E extends Entries, Ph extends Phases<E, H>, H extends Host<E>>(
   phases: Ph,
-  host: Host<E>,
+  host: H,
   to: Enter<E>,
   enteredAt: Tick,
   enteredAtWorld: WorldTick,
