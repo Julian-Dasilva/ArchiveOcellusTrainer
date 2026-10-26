@@ -927,17 +927,26 @@ const P3_CHAIN_LOGS = p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "
 const P3_PANIC_LOGS = p3Logs(["L3", "L6", "L8"], "fight 8: panic S+4, swing S+10, slash S+13; fight 3: swing S+33, panic S+36, slash S+42; fight 6: swing S+119, panic S+122, slash S+128");
 const P3_SPECIAL_LOGS = p3Logs(["L4", "L5", "L6", "L7", "L8"], "fights 4 and 8, quadrant 1: spin S+24, Untether S+53 (fight 8: S+59 after two panics), spin, Insolence, spin, Untether, spin, Insolence, spin; fights 5 to 7 the same up to the fall");
 const RSPROX_PLAN = "https://github.com/MRobertEvers/oldschool-clientc/blob/HEAD/docs/rsprox-analysis/guthixian_archive/ocellus_plan.md";
+const OCELLUS_SIM = (file: string, at: string): Source => analysis(`https://github.com/alessandrorodi/ocellus-sim/blob/ac67352/src/content/ocellus/fight/${file}`, at);
+const P3_FALL_LOGS = p3Logs(["L1", "L2", "L6", "L7", "L8"], "every fall F in fights 1, 2 and 6 to 8: seq 14859 with spotanim 4331 at F, seq 14860 with 4332 at F+2, a shout with seq 14862 and spotanims 4333 and 4334 at F+11, and the next quadrant's segment at F+17; L7:3944 to 3959");
 const P3_DAMAGE_AUDIT = analysis(RSPROX_PLAN, "damage audit, p3 rows: packet captures of six recorded fights");
 const P3_UNTETHER_LOGS = p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8: Untether U, the slam U+29, a fall shout U+31 in fights 1 and 2, and with the quadrant standing a swing or panic at U+37 in fights 3 to 8");
 const P3_RIFT_LOGS = p3Logs(["L3", "L4", "L5", "L6", "L7", "L8"], "fights 3 to 8, quadrant 1: no rift before the first Untether, then rifts at U+32 and 48 ticks later after each Untether; fight 4 at S+85 and S+133, at S+188 with his first move after the spin at S+179 instead of S+181, then S+240 and S+288 after Untether at S+208, and at S+343 after the spin at S+334; fight 8 the same around its spins at S+185 and S+343");
 
 type ChainStep = "afterSwing" | "afterSlash" | "afterPanic";
-type P3BossPose = "swing" | "panic" | "shadowSlash" | "spinStarts" | "spinLoops" | "spinEnds" | "untetherStarts" | "untetherLoops" | "slam" | "superiorSlash" | "quadrantFalls";
+type P3BossPose = "swing" | "panic" | "shadowSlash" | "spinStarts" | "spinLoops" | "spinEnds" | "untetherStarts" | "untetherLoops" | "slam" | "superiorSlash" | "quadrantFalls" | "escapeShout";
 
 type VineStats = Readonly<{ attack: number; strength: number; defence: number; range: number; magic: number; hitpoint: number }>;
 
 type P3Recipe = Readonly<{
-  arena: Readonly<{ grid: Selected<readonly string[]>; playerSpawn: Selected<Tile>; bossAnchor: Selected<Tile> }>;
+  arena: Readonly<{
+    grid: Selected<readonly string[]>;
+    playerSpawn: Selected<Tile>;
+    bossAnchor: Selected<Tile>;
+    middle: Selected<Tile>;
+    stones: Selected<readonly number[]>;
+    censers: Selected<readonly Tile[]>;
+  }>;
   thresholds: Selected<Readonly<Record<Quadrant, HpFraction>>>;
   firstAttackAfterStart: Selected<TickSpan>;
   chain: Readonly<Record<ChainStep, Selected<TickSpan>>> & Readonly<{ setsBeforeSpecial: Selected<number> }>;
@@ -976,6 +985,17 @@ type P3Recipe = Readonly<{
     swingsAgain: Selected<TickSpan>;
   }>;
   fallShouts: Selected<readonly string[]>;
+  collapse: Readonly<{
+    loopsAfter: Selected<TickSpan>;
+    escapeAfter: Selected<TickSpan>;
+    escapeShouts: Selected<readonly string[]>;
+    goneAfter: Selected<TickSpan>;
+    damage: Selected<DamageRange>;
+    chat: Selected<string>;
+    consumedChat: Selected<string>;
+    bossSpotAnims: Readonly<Record<"falls" | "loops" | "escape", Selected<readonly number[]>>>;
+    rubble: Selected<Readonly<{ spotAnims: readonly number[]; every: TickSpan; perWave: number }>>;
+  }>;
   bombs: Readonly<{ shows: Selected<readonly TickSpan[]>; dropsAfter: Selected<TickSpan>; damage: Selected<DamageRange> }>;
   voids: Readonly<{ every: Selected<TickSpan>; damage: Selected<DamageRange> }>;
   rubble: Readonly<{ intoSpin: Selected<TickSpan>; fallsAfter: Selected<TickSpan>; damage: Selected<DamageRange> }>;
@@ -1039,6 +1059,21 @@ const P3: P3Recipe = {
     ),
     playerSpawn: selected(tile(19, 9), "assumption", "unscaled", "a floor tile of the north-east wedge two tiles south-west of the boss; no clip pins where the phase starts", NO_WIKI_P3_ARENA),
     bossAnchor: selected(tile(21, 7), "assumption", "unscaled", "south-west tile of the boss's 3x3, which covers x 21 to 23 and y 5 to 7, all on the north-east wedge; no clip pins where the phase starts", NO_WIKI_P3_ARENA),
+    middle: selected(tile(15, 13), "spec-single", "unscaled", "the middle of the 3-wide cross, under The Blade at cache (31, 41)", NO_WIKI_P3_ARENA, cache("map square 16472 plane 1: The Blade's tile (31, 41)")),
+    stones: selected(
+      [4, 7, 10],
+      "assumption",
+      "unscaled",
+      "a stepping stone on each arm of the chasm at 4, 7 and 10 tiles from the middle; a crossing walks to the bank beside the nearest stone, hops one stone a tick and lands beside the farthest on the other wedge; no fight log records the stones' tiles, but players stand on the next wedge by F+17",
+      NO_WIKI_P3_ARENA, OCELLUS_SIM("geometry.ts", "STONE_STEPS"), OCELLUS_SIM("phase3.ts", "interceptWalk and stepCrossing"), ...P3_FALL_LOGS,
+    ),
+    censers: selected(
+      [tile(26, 2), tile(4, 2), tile(4, 24), tile(26, 24)],
+      "log-repeated",
+      "unscaled",
+      "the four god censers, 11 tiles out from the middle on each diagonal, past the rim; this drill draws them unlit",
+      NO_WIKI_P3_ARENA, ...p3Logs(["L4", "L7"], "objects 62693, 62695, 62697 and 62699 at (11, 11), (-11, 11), (-11, -11) and (11, -11) from the middle, L4:6 and L7:3677"),
+    ),
   },
   thresholds: selected(
     { 1: hpFraction(0.76), 2: hpFraction(0.51), 3: hpFraction(0.26) },
@@ -1116,6 +1151,33 @@ const P3: P3Recipe = {
     swingsAgain: selected(span(20), "log-repeated", "unscaled", "his next move 20 ticks after the shout", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L4", "L5", "L7", "L8"], "fights 1, 2, 4, 5, 7 and 8")),
   },
   fallShouts: selected(["Obliteration...", "Run... It matters not..."], "log-repeated", "unscaled", "one of these as the quadrant falls", NO_WIKI_P3_TICKS, ...p3Logs(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"], "fights 1 to 8")),
+  collapse: {
+    loopsAfter: selected(span(2), "log-repeated", "unscaled", "his fall loop 2 ticks after the fall shout", NO_WIKI_P3_TICKS, ...P3_FALL_LOGS),
+    escapeAfter: selected(span(11), "log-repeated", "unscaled", "his second shout and the fall's end animation 11 ticks after the fall shout", NO_WIKI_P3_TICKS, ...P3_FALL_LOGS),
+    escapeShouts: selected(["You can't... escape... the end...", "This end... comes...", "Everything... ends..."], "log-repeated", "unscaled", "one of these at the escape tick", NO_WIKI_P3_TICKS, ...P3_FALL_LOGS),
+    goneAfter: selected(
+      span(13),
+      "assumption",
+      "unscaled",
+      "the quadrant's floor drops 13 ticks after the fall shout and kills whoever still stands on it, judged on the tile they stood on at the end of the tick before; the logs bound it between the escape shout at F+11 and the next segment at F+17",
+      NO_WIKI_P3_TICKS, OCELLUS_SIM("data.ts", "P3.untether: gone 44 less obliteration 31"), ...P3_FALL_LOGS,
+    ),
+    damage: selected<DamageRange>({ min: 255, max: 255 }, "assumption", "unscaled", "the void takes a player left on the falling quadrant; typeless and more than any hitpoints the drill allows", NO_WIKI_P3_TICKS, OCELLUS_SIM("phase3.ts", "obliterate: a 255 hit")),
+    chat: selected("The quadrant begins to collapse! Jump across the stones!", "assumption", "unscaled", "the chat line as the quadrant starts to fall; no fight log records it", NO_WIKI_PRESENTATION, OCELLUS_SIM("phase3.ts", "obliterate")),
+    consumedChat: selected("The void consumes you.", "assumption", "unscaled", "the chat line when the falling quadrant takes the player", NO_WIKI_PRESENTATION, OCELLUS_SIM("phase3.ts", "obliterate")),
+    bossSpotAnims: {
+      falls: selected([4331], "log-repeated", "unscaled", "on him with the fall shout", NO_WIKI_PRESENTATION, cache("spotanim 4331"), ...P3_FALL_LOGS),
+      loops: selected([4332], "log-repeated", "unscaled", "on him with the fall loop; the loop's seq 14860 is not drawn, as its frame sound 12837 is missing from cache 2746 and the asset tool cannot extract it", NO_WIKI_PRESENTATION, cache("spotanim 4332"), cache("seq 14860 npc_ocellus_phase3_quadrant_destroy_loop: frame sound 12837"), ...P3_FALL_LOGS),
+      escape: selected([4333, 4334], "log-repeated", "unscaled", "on him with the escape shout", NO_WIKI_PRESENTATION, cache("spotanims 4333 and 4334"), ...P3_FALL_LOGS),
+    },
+    rubble: selected(
+      { spotAnims: [4390, 4391, 4392, 4393], every: span(2), perWave: 4 },
+      "assumption",
+      "unscaled",
+      "collapsing explosions on random tiles of the falling quadrant, a wave every 2 ticks from the fall shout until it drops; the logs record no floor graphic through a fall",
+      NO_WIKI_PRESENTATION, cache("spotanims 4390 to 4393"), OCELLUS_SIM("phase3.ts", "obliterate"),
+    ),
+  },
   bombs: {
     shows: selected(
       [span(4), span(7)],
@@ -1174,6 +1236,7 @@ const P3: P3Recipe = {
     slam: pose(14861, "npc_ocellus_phase3_unleash_out", "footage-repeated", "the slam, 4 ticks; at U+29 in the logs"),
     superiorSlash: pose(14848, "npc_ocellus_phase3_superior_slash", "footage-repeated", "a superior slash of Insolence; in the logs"),
     quadrantFalls: pose(14859, "npc_ocellus_phase3_quadrant_destroy_in", "footage-repeated", "the fall's start, with its shout; in the logs"),
+    escapeShout: pose(14862, "npc_ocellus_phase3_unleash_out_90", "log-repeated", "the fall's end, with the escape shout 11 ticks after its start; in every logged fall"),
   },
 };
 

@@ -22,6 +22,7 @@ export const ARCHIVE_OCELLUS_ASSETS = {
     ...Object.entries(presentation.transitionTells).map(([variant, spotAnim]) => [`${variant.replace(/-(.)/g, (_, letter: string) => letter.toUpperCase())}Tell`, { id: spotAnim.value }]),
     ["riftFlare", { id: rifts.burstFlare.value }],
     ["explosion", { id: explosion.spotAnim.value }],
+    ...[...Object.values(OCELLUS_P3.collapse.bossSpotAnims).flatMap((ids) => ids.value), ...OCELLUS_P3.collapse.rubble.value.spotAnims].map((id) => [`collapse${id}`, { id }]),
   ]),
   sounds: Object.fromEntries(Object.entries(presentation.sounds).map(([cue, sound]) => [cue, { id: sound.value }])),
 } as const satisfies CacheAssets;
