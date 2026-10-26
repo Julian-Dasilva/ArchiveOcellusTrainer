@@ -23,7 +23,7 @@ Preconditions:
 - **Fresh run.** Run `agent-browser open http://127.0.0.1:8002/` and wait for `(window.__archiveOcellusProbe?.snapshot().fight?.run.tick ?? -1) >= 0`. `agent-browser --json get value "#seed"` returns the same number as `window.__archiveOcellusProbe.log().header.seed`, the number is not 1, and `location.search` has no `seed=`.
 - **Restart.** Read `performance.timeOrigin`, then run `agent-browser click "#restart"` and wait until `performance.timeOrigin` differs and the fight has ticked. The box and the log header show a new seed, and `location.search` still has no `seed=`.
 - **Typed seed.** Run `agent-browser fill "#seed" <the fresh run's seed>` and click **Restart** the same way. The log header and the box show the fresh run's seed, and `location.search` has `seed=` with it.
-- **Scripted.** `scripts/verify.sh browser` runs this recipe, writes `seed.json`, and checks `seedFreshAndShown`, `restartDrawsFreshSeed` and `typedSeedReplays`.
+- **Scripted.** `scripts/verify.sh browser --unit seed` runs this recipe, writes `seed.json`, and checks `seedFreshAndShown`, `restartDrawsFreshSeed` and `typedSeedReplays`.
 
 ## Gotchas
 

@@ -4,12 +4,14 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 
+set -a
 OSRS_CACHE_DIR="${OSRS_CACHE_DIR:-$HOME/osrs-sims/cache/openrs2}"
 OSRS_CACHE_READER="${OSRS_CACHE_READER:-$HOME/osrs-sims/osrscachereader}"
 VERIFY_PORT="${VERIFY_PORT:-8002}"
 VERIFY_DIR="${VERIFY_DIR:-$ROOT/.verify/$(date -u +%Y%m%dT%H%M%SZ)}"
 STATE_FILE="$ROOT/.verify/current-server"
 MANIFEST="$ROOT/public/osrs-assets/manifest.json"
+PARITY_EXPECTED="scripts/verify-parity-expected.json"
 URL="http://127.0.0.1:${VERIFY_PORT}/"
 DRILL_QUERY="?seed=1&specialSelection=replay-v2"
 BOSS_NPC=16677
@@ -190,10 +192,10 @@ EXPLOSION_GLOW_MIN_SHARE=1.5
 EXPLOSION_GLOW_MAX_SHARE=0.1
 EXPLOSION_OVERHEAD_BOX='{"minX":-100,"maxX":99,"minY":-150,"maxY":-41}'
 EXPLOSION_OVERHEAD_MIN_SHARE=0.2
-EXPLOSION_OVERHEAD_SHOT_FRACTION=0.05
+EXPLOSION_OVERHEAD_SHOT_FRACTION=0.25
 EXPLOSION_OUTSIDE_TICKS="15 29"
-EXPLOSION_GLOW_SHOT_FRACTION=0.6
-EXPLOSION_MARKED_SHOT_FRACTIONS="0.6 0.8"
+EXPLOSION_GLOW_SHOT_FRACTION=0.85
+EXPLOSION_MARKED_SHOT_FRACTIONS="0.75 0.85"
 EXPLOSION_RUN_END_QUERY="?seed=38&bosshp=1&focus=explosions"
 EXPLOSION_KILL_CLICK_TICK=14
 EXPLOSION_RUN_END_EXPECTED='{"marked":[[17,{"x":5,"y":1}]],"ended":[[18,"kill"]],"resolved":[]}'
@@ -345,7 +347,12 @@ RECORDED_RIFT_LAST_TICK=79
 RECORDED_RIFT_EXPECTED='{"hits":[[72,"rift-67-1","ranged",44],[76,"rift-67-0","ranged",44]],"destroyed":[[73,"rift-67-1",{"before":2,"after":0}],[77,"rift-67-0",{"before":2,"after":0}]]}'
 CREDIT_LINE="Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex."
 
-log() { echo "verify: $*"; }
+set +a
+
+log() {
+  echo "verify: $*"
+  [[ -z "${UNIT_LOG:-}" ]] || echo "verify: $*" >>"$UNIT_LOG"
+}
 
 json() {
   node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{let v=JSON.parse(s);for(const k of process.argv[1].split(".").filter(Boolean))v=v?.[k];process.stdout.write(typeof v==="string"?v:JSON.stringify(v))})' "$1"
@@ -360,14 +367,18 @@ ensure_deps() {
 manifest_ready() {
   [[ -f "$MANIFEST" ]] && node --input-type=module -e '
     import { loadConfig } from "osrs-sdk-assets";
-    import { existsSync, readFileSync } from "node:fs";
+    import { existsSync, readFileSync, statSync } from "node:fs";
     import { dirname, join } from "node:path";
     const { assets } = await loadConfig();
     const m = JSON.parse(readFileSync(process.argv[1], "utf8"));
-    const npcs = Object.values(assets.npcs).every(({ id }) => m.assets?.[`npc-${id}`]);
-    const items = Object.values(assets.items).every(({ id }) => m.playerItems?.[`item:${id}`]);
-    const spotAnims = Object.values(assets.spotAnims).every(({ id }) => m.spotAnims?.[id]);
-    const models = Object.values(assets.models).every(({ id }) => m.assets?.[`model-${id}`]);
+    const payload = (key) => {
+      const stat = typeof m.assets?.[key]?.file === "string" && statSync(join(dirname(process.argv[1]), m.assets[key].file), { throwIfNoEntry: false });
+      return !!stat && stat.isFile() && stat.size > 0;
+    };
+    const npcs = Object.values(assets.npcs).every(({ id }) => payload(`npc-${id}`));
+    const items = Object.values(assets.items).every(({ id }) => payload(m.playerItems?.[`item:${id}`]));
+    const spotAnims = Object.values(assets.spotAnims).every(({ id }) => payload(m.spotAnims?.[id]));
+    const models = Object.values(assets.models).every(({ id }) => payload(`model-${id}`));
     const pack = m.soundEffects && join(dirname(process.argv[1]), m.soundEffects.file);
     const bytes = pack && existsSync(pack) ? readFileSync(pack) : Buffer.alloc(6);
     const packed = new Set();
@@ -403,6 +414,38 @@ stage_assets() {
   npm run assets -- "${flags[@]}" >"$VERIFY_DIR/assets.log" 2>&1 && manifest_ready
 }
 
+stage_bundle() {
+  manifest_ready >"$VERIFY_DIR/bundle.log" 2>&1 || { log "bundle: public/osrs-assets is stale or incomplete; scripts/verify.sh assets rebuilds it"; return 1; }
+}
+
+parity_fights() {
+  PARITY_OUT="$1" node node_modules/.bin/vitest run --config test/parity/vitest.config.mts
+}
+
+stage_parity() {
+  local base cache head="$VERIFY_DIR/parity/head.json" src="$VERIFY_DIR/parity/base-src"
+  base="$(git rev-parse --verify "${VERIFY_PARITY_BASE:-$(git merge-base origin/main HEAD)}^{commit}")" || { log "parity: no base revision; set VERIFY_PARITY_BASE"; return 1; }
+  cache="$ROOT/.verify/parity/${base}-$(cat test/parity/* | shasum -a 256 | cut -c1-12).json"
+  mkdir -p "$VERIFY_DIR/parity" "$ROOT/.verify/parity"
+  if [[ -f "$cache" ]]; then
+    log "parity: base ${base} recorded in ${cache}"
+  else
+    log "parity: recording the seeded fights at base ${base}"
+    mkdir -p "$src" && git archive "$base" | tar -x -C "$src" && cp -R test/parity "$src/test/" || { log "parity: the base tree could not be exported"; return 1; }
+    if git diff --quiet "$base" -- package.json package-lock.json scripts/install-beta-sdk.sh; then
+      ln -s "$ROOT/node_modules" "$src/node_modules"
+    else
+      log "parity: the base pins other dependencies; installing them"
+      (cd "$src" && npm ci --no-audit --no-fund && scripts/install-beta-sdk.sh) >"$VERIFY_DIR/parity/base-install.log" 2>&1 || { log "parity: the base install failed"; return 1; }
+    fi
+    (cd "$src" && parity_fights "$cache.tmp") >"$VERIFY_DIR/parity/base.log" 2>&1 && mv "$cache.tmp" "$cache" || { log "parity: the base fights did not run; see ${VERIFY_DIR}/parity/base.log"; return 1; }
+    rm -rf "$src"
+  fi
+  parity_fights "$head" >"$VERIFY_DIR/parity/head.log" 2>&1 || { log "parity: the head fights did not run; see ${VERIFY_DIR}/parity/head.log"; return 1; }
+  node scripts/verify/parity.mjs "$cache" "$head" "$PARITY_EXPECTED" 2>&1 | tee "$VERIFY_DIR/parity/verdict.txt"
+  return "${PIPESTATUS[0]}"
+}
+
 port_listener() {
   lsof -nP -iTCP:"$VERIFY_PORT" -sTCP:LISTEN -t 2>/dev/null
 }
@@ -427,7 +470,7 @@ serve() {
   fi
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
 
-  ARCHIVE_P2=on ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --host 127.0.0.1 --port "$VERIFY_PORT" \
+  ARCHIVE_P2=on ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --no-color --host 127.0.0.1 --port "$VERIFY_PORT" \
     >"$VERIFY_DIR/server.log" 2>&1 &
   local pid=$!
   LAUNCHED_PID=$pid
@@ -535,27 +578,20 @@ shot_after_tick() {
     "$1" "$2" "$VERIFY_DIR/$3" | ab batch --bail >/dev/null
 }
 
-shot_in_fight_tick() {
-  printf '[["wait","--fn","((t) => t > %d || (t === %d && (performance.now() - (window.__tickStarts[%d] ?? Infinity)) / 600 >= %s))(((run) => (run?.kind === \\"ended\\" ? run.at : run?.tick) ?? -1)(window.__archiveOcellusProbe?.snapshot().fight?.run))","--timeout","30000"],["screenshot","%s"]]' \
-    "$1" "$1" "$1" "$2" "$VERIFY_DIR/$3" | ab batch --bail >/dev/null
+start_frame_clock() {
+  ab eval "$(<scripts/verify/frame-clock.js)" >/dev/null
 }
 
-shot_in_world_tick() {
-  printf '[["wait","--fn","((t) => t > %d || (t === %d && (performance.now() - (window.__worldTickStarts[%d] ?? Infinity)) / 600 >= %s))(window.__archiveOcellusProbe.snapshot().tick)","--timeout","30000"],["screenshot","%s"]]' \
-    "$1" "$1" "$1" "$2" "$VERIFY_DIR/$3" | ab batch --bail >/dev/null
+arm_shot() {
+  ab eval "window.__frameClock.at({ kind: '$1', tick: $2, fraction: $3 }, { kind: 'shot', name: '$4' })" >/dev/null
 }
 
-record_tick_starts() {
-  ab eval '(() => {
-    const starts = window.__tickStarts = {}, worldStarts = window.__worldTickStarts = {};
-    const watch = () => {
-      const snapshot = window.__archiveOcellusProbe?.snapshot(), run = snapshot?.fight?.run;
-      if (run?.kind === "running" && starts[run.tick] === undefined) starts[run.tick] = performance.now();
-      if (snapshot && worldStarts[snapshot.tick] === undefined) worldStarts[snapshot.tick] = performance.now();
-      requestAnimationFrame(watch);
-    };
-    watch();
-  })()' >/dev/null
+take_shot() {
+  local name=$1 tick=$2 taken
+  ab wait --fn "typeof window.__frameClock.done['${name}']?.png === 'string'" --timeout 30000 >/dev/null || return 1
+  taken="$(ab --json eval "window.__frameClock.done['${name}']" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const { png, ...at } = JSON.parse(s).data.result;require("fs").writeFileSync(process.argv[1],Buffer.from(png.replace(/^data:image\/png;base64,/,""),"base64"));process.stdout.write(JSON.stringify(at))})' "$VERIFY_DIR/$name")" || return 1
+  log "${name} copied at ${taken}"
+  [[ "$(json tick <<<"$taken")" == "$tick" ]] || { log "${name} missed tick ${tick}"; return 1; }
 }
 
 save_settings() {
@@ -567,23 +603,7 @@ save_sound_settings() {
 }
 
 record_audio_starts() {
-  ab eval '(() => {
-    const starts = [], seen = {}, start = AudioBufferSourceNode.prototype.start;
-    const tick = () => {
-      const run = window.__archiveOcellusProbe?.snapshot().fight?.run;
-      const t = run?.kind === "running" ? run.tick : run?.kind === "ended" ? run.at : null;
-      if (t !== null && seen[t] === undefined) seen[t] = Math.min(performance.now(), (seen[t - 1] ?? Infinity) + 600);
-      return t;
-    };
-    const watch = () => { tick(); requestAnimationFrame(watch); };
-    watch();
-    window.__cueAudio = starts;
-    AudioBufferSourceNode.prototype.start = function (...args) {
-      const t = tick();
-      starts.push({ tick: t, phase: t === null ? null : Math.round((performance.now() - seen[t]) / 6) / 100, samples: this.buffer?.length ?? null, rate: this.buffer?.sampleRate ?? null, state: this.context.state });
-      return start.apply(this, args);
-    };
-  })()' >/dev/null
+  start_frame_clock && ab eval "window.__frameClock.recordAudio()" >/dev/null
 }
 
 record_overhead_draws() {
@@ -752,12 +772,13 @@ choose_focus() {
 }
 
 drive_focus() {
+  open_ticking "$DRILL_QUERY" || return 1
   choose_focus "$FOCUS_DRILL" || return 1
   ab wait --fn "window.__archiveOcellusProbe?.snapshot().fight?.run.kind === 'waiting'" --timeout 30000 >/dev/null || { log "the reloaded drill started before the audio probe could listen"; return 1; }
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
   fight_tick_at_least "$FOCUS_LAST_TICK" 120000 || { log "the reloaded boss never stepped to P4 tick ${FOCUS_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/focus.json"
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/focus-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/focus-audio.json" || { log "audio capture failed"; return 1; }
   ab screenshot "$VERIFY_DIR/focus.png" >/dev/null || { log "focus screenshot failed"; return 1; }
   ab console >"$VERIFY_DIR/focus-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/focus-page-errors.json" || { log "page error capture failed"; return 1; }
@@ -868,6 +889,9 @@ drive_defence_floor() {
   ab --json errors | json data.errors >"$VERIFY_DIR/defence-floor-page-errors.json" || { log "page error capture failed"; return 1; }
 }
 
+hover_inventory_slot() {
+  ab mouse move $((LOADOUT_SLOT_X + $1 % 4 * LOADOUT_SLOT_DX)) $((LOADOUT_SLOT_Y + $1 / 4 * LOADOUT_SLOT_DY)) >/dev/null
+}
 right_click_inventory_slot() {
   ab mouse move $((LOADOUT_SLOT_X + $1 % 4 * LOADOUT_SLOT_DX)) $((LOADOUT_SLOT_Y + $1 / 4 * LOADOUT_SLOT_DY)) >/dev/null && ab mouse down right >/dev/null && ab mouse up right >/dev/null
 }
@@ -900,6 +924,10 @@ bind_inventory_key() {
 }
 
 drive_keybinds() {
+  ab open "${URL}${SUPPLY_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 1 120000 || { log "the keybinds drill never stepped to P4 tick 1"; return 1; }
+  click_at "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" && ab wait 600 >/dev/null || return 1
+  hover_inventory_slot "$SUPPLY_BREW_SLOT" && ab wait 200 >/dev/null || return 1
   open_settings && ab click "#keybinds" >/dev/null && ab wait 300 >/dev/null || { log "the Keybinds button did not respond"; return 1; }
   probe "snapshot().panel" >"$VERIFY_DIR/keybinds-open.json"
   ab screenshot "$VERIFY_DIR/keybinds.png" >/dev/null || { log "key bindings screenshot failed"; return 1; }
@@ -956,8 +984,14 @@ wait_until_ticking() {
   ab wait --fn "window.__archiveOcellusProbe?.snapshot().ticking === true && window.__archiveOcellusProbe.snapshot().tick >= 8" --timeout 90000 >/dev/null || { log "the drill never started ticking"; return 1; }
 }
 
+open_ticking() {
+  ab open "${URL}$1" >/dev/null && wait_until_ticking
+}
+
 tile_pixel() {
   local page="$1" tile="$2" after="$3" read
+  # The eval reads the first frame of tick $after so the next click lands in that tick; it stays under agent-browser's 25 s timeout.
+  [[ "$after" == now ]] || fight_tick_at_least $((after - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((after - 1))"; return 1; }
   read="$(ab --json eval "new Promise((done) => {
     const probe = window.__archiveOcellusProbe, ready = () => '${after}' === 'now' || (probe.snapshot().fight?.run.tick ?? -1) >= Number('${after}');
     const read = () => {
@@ -966,7 +1000,7 @@ tile_pixel() {
       done({ at: at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y) }, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length });
     };
     read();
-  })" | json data.result)" || return 1
+  })" | json data.result)" || { log "${page}: tile ${tile} was not read"; return 1; }
   [[ "$(json at <<<"$read")" != null ]] || { log "${page}: tile ${tile} is not on the canvas"; return 1; }
   CLICK_X="$(json at.x <<<"$read")" CLICK_Y="$(json at.y <<<"$read")" WALK_ORDERS="$(json orders <<<"$read")"
 }
@@ -1070,17 +1104,19 @@ drive_control_walk() {
 }
 
 click_twice_in_one_tick() {
-  local from
-  from="$(probe "snapshot().tick")" || return 1
-  printf '[["wait","--fn","((t, s) => t > %d && s !== undefined && performance.now() - s >= %d)(window.__archiveOcellusProbe.snapshot().tick, window.__worldTickStarts[window.__archiveOcellusProbe.snapshot().tick])","--timeout","10000"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["wait","--fn","((d) => window.__archiveOcellusProbe.snapshot().tick > d.tick || performance.now() - window.__worldTickStarts[d.tick] >= %d)(window.__correctionDowns[0])","--timeout","10000"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"]]' \
-    "$from" "$CORRECTION_FIRST_MS" $1 "$CORRECTION_LATE_MS" $2 | ab batch --bail >/dev/null
+  local first=($1) last=($2)
+  ab eval "(() => {
+    const clock = window.__frameClock, tick = window.__archiveOcellusProbe.snapshot().tick + 1;
+    clock.at({ kind: 'world', tick, fraction: ${CORRECTION_FIRST_MS} / clock.tickMs }, { kind: 'click', name: 'correction-first', x: ${first[0]}, y: ${first[1]} });
+    clock.at({ kind: 'world', tick, fraction: ${CORRECTION_LATE_MS} / clock.tickMs }, { kind: 'click', name: 'correction-last', x: ${last[0]}, y: ${last[1]} });
+  })()" >/dev/null && ab wait --fn "window.__frameClock.done['correction-last'] !== undefined" --timeout 10000 >/dev/null
 }
 
 drive_click_correction() {
   local first last attempt downs
   for attempt in $(seq 1 "$CORRECTION_ATTEMPTS"); do
     ab open "${URL}${WALKWAY_QUERY}" >/dev/null && wait_until_ticking || return 1
-    record_tick_starts
+    start_frame_clock || { log "the frame clock was not installed"; return 1; }
     tile_pixel correction "$CORRECTION_FIRST_TILE" now || return 1
     first="$CLICK_X $CLICK_Y"
     tile_pixel correction "$CORRECTION_LAST_TILE" now || return 1
@@ -1089,7 +1125,7 @@ drive_click_correction() {
       const downs = window.__correctionDowns = [];
       document.querySelector("#world").addEventListener("mousedown", () => {
         const tick = window.__archiveOcellusProbe.snapshot().tick;
-        downs.push({ tick, intoTickMs: Math.round(performance.now() - window.__worldTickStarts[tick]) });
+        downs.push({ tick, intoTickMs: Math.round(performance.now() - window.__frameClock.starts.world[tick]) });
       }, true);
     })()' >/dev/null || return 1
     click_twice_in_one_tick "$first" "$last" || { log "the two correction clicks were not sent"; return 1; }
@@ -1233,6 +1269,7 @@ drive_orb_late_and_entry() {
 }
 
 drive_void_floor() {
+  open_ticking "$DRILL_QUERY" || return 1
   choose_focus "$VOID_DRILL" || return 1
   fight_tick_at_least "$VOID_INNER_SHOT_TICK" 120000 || { log "the reloaded boss never stepped to P4 tick ${VOID_INNER_SHOT_TICK}"; return 1; }
   ab screenshot "$VERIFY_DIR/void-inner.png" >/dev/null || { log "inner void screenshot failed"; return 1; }
@@ -1246,6 +1283,7 @@ drive_void_floor() {
 
 drive_lifeforce_orb() {
   local box ox oy frame
+  open_ticking "$DRILL_QUERY" || return 1
   choose_focus "$ORB_DRILL" "$ORB_SEED" || return 1
   fight_tick_at_least 12 120000 || { log "the orb drill never reached the lifeforce hit"; return 1; }
   ab screenshot "$VERIFY_DIR/orb-hit.png" >/dev/null || { log "lifeforce hit screenshot failed"; return 1; }
@@ -1280,23 +1318,26 @@ drive_lifeforce_orb() {
 
 drive_explosions() {
   local inner=($EXPLOSION_INNER_MARKS) outer=($EXPLOSION_OUTER_MARKS) outside=($EXPLOSION_OUTSIDE_TICKS)
+  open_ticking "?seed=${ORB_SEED}&focus=${ORB_DRILL}" || return 1
   save_sound_settings true || { log "the sound settings were not saved"; return 1; }
   choose_focus "$EXPLOSION_DRILL" || return 1
   fight_tick_at_least 0 120000 || { log "the explosions drill never started"; return 1; }
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
-  record_tick_starts || { log "the tick watch was not installed"; return 1; }
+  start_frame_clock || { log "the frame clock was not installed"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
-  shot_in_fight_tick "${outside[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-before.png || { log "pre-series screenshot failed"; return 1; }
+  arm_shot fight "${outside[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-before.png && arm_shot fight "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-left.png &&
+    arm_shot fight "${outside[1]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-after.png && arm_shot fight "${outer[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-standing.png ||
+    { log "the explosion shots were not armed"; return 1; }
+  take_shot explosion-before.png "${outside[0]}" || { log "pre-series shot failed"; return 1; }
   click_after_tick $((inner[0] - 1)) "$DODGE_CLICK_SIDE_PX" "$STEP_CLICK_DOWN_PX" || { log "the first dodge was not clicked"; return 1; }
-  shot_in_fight_tick "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-left.png || { log "left marker screenshot failed"; return 1; }
+  take_shot explosion-left.png "${inner[0]}" || { log "left marker shot failed"; return 1; }
   step_on_marks "-$DODGE_CLICK_SIDE_PX" "${inner[@]:1}" || { log "the other dodges were not clicked"; return 1; }
-  shot_in_fight_tick "${outside[1]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-after.png || { log "post-series screenshot failed"; return 1; }
-  printf '[["wait","--fn","(window.__archiveOcellusProbe?.snapshot().fight?.run.tick ?? -1) >= %d","--timeout","60000"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["wait","--fn","window.__archiveOcellusProbe?.snapshot().fight?.run.tick === %d && (performance.now() - (window.__tickStarts[%d] ?? Infinity)) / 600 >= %s","--timeout","5000"],["screenshot","%s"]]' \
-    "${outer[0]}" $((CX + DODGE_CLICK_SIDE_PX)) $((CY + STEP_CLICK_DOWN_PX)) "${outer[0]}" "${outer[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" "$VERIFY_DIR/explosion-standing.png" | ab batch --bail >/dev/null ||
-    { log "the late step was not clicked or its mark tick passed before the shot"; return 1; }
+  take_shot explosion-after.png "${outside[1]}" || { log "post-series shot failed"; return 1; }
+  click_after_tick "${outer[0]}" "$DODGE_CLICK_SIDE_PX" "$STEP_CLICK_DOWN_PX" || { log "the late step was not clicked"; return 1; }
+  take_shot explosion-standing.png "${outer[0]}" || { log "the late step shot failed"; return 1; }
   fight_tick_at_least "$EXPLOSION_LAST_TICK" 30000 || { log "the explosions drill never stepped to P4 tick ${EXPLOSION_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/explosions.json"
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/explosion-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/explosion-audio.json" || { log "audio capture failed"; return 1; }
   ab console >"$VERIFY_DIR/explosion-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/explosion-page-errors.json" || { log "page error capture failed"; return 1; }
   save_sound_settings false || { log "the sound settings were not restored"; return 1; }
@@ -1304,8 +1345,8 @@ drive_explosions() {
   ab open "${URL}?seed=1&focus=${EXPLOSION_DRILL}&drillStart=cycle-start" >/dev/null || return 1
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick 0 0 "-$UNDER_BOSS_CLICK_UP_PX" || { log "the walk under the hidden boss was not clicked"; return 1; }
-  record_tick_starts || { log "the tick watch was not installed"; return 1; }
-  shot_in_fight_tick "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-under.png || { log "under-boss screenshot failed"; return 1; }
+  start_frame_clock || { log "the frame clock was not installed"; return 1; }
+  arm_shot fight "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-under.png && take_shot explosion-under.png "${inner[0]}" || { log "under-boss shot failed"; return 1; }
   fight_tick_at_least "$EXPLOSION_UNDER_LAST_TICK" 30000 || { log "the camping drill never stepped to P4 tick ${EXPLOSION_UNDER_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/explosions-under.json"
   ab console >"$VERIFY_DIR/explosion-under-console.log" 2>&1 || { log "console capture failed"; return 1; }
@@ -1334,19 +1375,25 @@ drive_explosion_run_end() {
   local inner=($EXPLOSION_INNER_MARKS) frame fraction ended
   ab open "${URL}${EXPLOSION_RUN_END_QUERY}" >/dev/null || return 1
   fight_tick_at_least 0 120000 || { log "the run-end drill never started"; return 1; }
-  record_tick_starts || { log "the tick watch was not installed"; return 1; }
+  start_frame_clock || { log "the frame clock was not installed"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick "$EXPLOSION_KILL_CLICK_TICK" 0 "-$HOVER_BOSS_BODY_UP_PX" || { log "the hovering boss was not clicked"; return 1; }
   click_after_tick $((inner[0] - 1)) "$DODGE_CLICK_SIDE_PX" "$STEP_CLICK_DOWN_PX" || { log "the step off the mark was not clicked"; return 1; }
   frame=0
   for fraction in $EXPLOSION_MARKED_SHOT_FRACTIONS; do
     frame=$((frame + 1))
-    shot_in_fight_tick "${inner[0]}" "$fraction" "explosion-run-end-marked-${frame}.png" || { log "marked screenshot failed"; return 1; }
+    arm_shot fight "${inner[0]}" "$fraction" "explosion-run-end-marked-${frame}.png" || { log "marked shot was not armed"; return 1; }
+  done
+  for frame in $(seq 1 "$frame"); do
+    take_shot "explosion-run-end-marked-${frame}.png" "${inner[0]}" || { log "marked shot failed"; return 1; }
   done
   ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 30000 >/dev/null || { log "the run-end drill never ended"; return 1; }
   ended="$(probe "snapshot().tick")" || return 1
   for frame in $(seq 1 "$EXPLOSION_RUN_END_FRAMES"); do
-    shot_in_world_tick $((ended + frame)) "$EXPLOSION_GLOW_SHOT_FRACTION" "explosion-run-end-${frame}.png" || { log "run-end screenshot failed"; return 1; }
+    arm_shot world $((ended + frame)) "$EXPLOSION_GLOW_SHOT_FRACTION" "explosion-run-end-${frame}.png" || { log "run-end shot was not armed"; return 1; }
+  done
+  for frame in $(seq 1 "$EXPLOSION_RUN_END_FRAMES"); do
+    take_shot "explosion-run-end-${frame}.png" $((ended + frame)) || { log "run-end shot failed"; return 1; }
   done
   probe "log()" >"$VERIFY_DIR/explosion-run-end.json"
   ab console >"$VERIFY_DIR/explosion-run-end-console.log" 2>&1 || { log "console capture failed"; return 1; }
@@ -1377,7 +1424,7 @@ drive_transition_attack() {
   ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 60000 >/dev/null || { log "the player who prayed late never died"; return 1; }
   ab wait 1000 >/dev/null
   probe "log()" >"$VERIFY_DIR/special-late.json"
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/special-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/special-audio.json" || { log "audio capture failed"; return 1; }
   ab console >"$VERIFY_DIR/special-late-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/special-late-page-errors.json" || { log "page error capture failed"; return 1; }
   save_sound_settings false || { log "the sound settings were not restored"; return 1; }
@@ -1407,7 +1454,7 @@ drive_overheads_rifts() {
   shot_after_tick "$RIFT_BURST_TICK" 0 rift-burst.png || { log "rift burst screenshot failed"; return 1; }
   fight_tick_at_least $((RIFT_BURST_TICK + 1)) 30000 || { log "the rifts drill never stepped past the burst at P4 tick ${RIFT_BURST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/rifts.json"
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/rift-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/rift-audio.json" || { log "audio capture failed"; return 1; }
   ab --json eval "window.__overheadDraws" | json data.result >"$VERIFY_DIR/overhead-draws.json" || { log "overhead draw capture failed"; return 1; }
   ab console >"$VERIFY_DIR/rift-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/rift-page-errors.json" || { log "page error capture failed"; return 1; }
@@ -1527,7 +1574,7 @@ drive_cues() {
   audio_resumed || log "the audio context did not resume after the canvas click"
   audio_contexts >"$VERIFY_DIR/cue-contexts-fresh-clicked.json" || { log "audio context capture failed"; return 1; }
   fight_tick_at_least "$CUE_TOGGLE_TICK" 30000 || { log "the fresh cue drill never stepped to P4 tick ${CUE_TOGGLE_TICK}"; return 1; }
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/cue-fresh-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/cue-fresh-audio.json" || { log "audio capture failed"; return 1; }
   open_settings && ab click "#area_sound" >/dev/null && ab click "#sound" >/dev/null || { log "the sound toggles were not unticked"; return 1; }
   ab --json eval "localStorage.getItem('${SOUND_SETTINGS_KEY}')" | json data.result >"$VERIFY_DIR/cue-sound-off-saved.json" || { log "saved settings capture failed"; return 1; }
   ab console >"$VERIFY_DIR/cue-fresh-console.log" 2>&1 || { log "console capture failed"; return 1; }
@@ -1546,7 +1593,7 @@ drive_cues() {
   sound_toggles >"$VERIFY_DIR/cue-toggles-on.json" || { log "sound toggle capture failed"; return 1; }
   ab --json eval "localStorage.getItem('${SOUND_SETTINGS_KEY}')" | json data.result >"$VERIFY_DIR/cue-sound-saved.json" || { log "saved settings capture failed"; return 1; }
   fight_tick_at_least "$CUE_LAST_TICK" 60000 || { log "the cue drill never stepped to P4 tick ${CUE_LAST_TICK}"; return 1; }
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/cue-toggle-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/cue-toggle-audio.json" || { log "audio capture failed"; return 1; }
   ab console >"$VERIFY_DIR/cue-toggle-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/cue-toggle-page-errors.json" || { log "page error capture failed"; return 1; }
 
@@ -1565,7 +1612,7 @@ drive_cues() {
   ab --json get text "#game_chat" >"$VERIFY_DIR/cue-chat.json" || { log "chat text capture failed"; return 1; }
   fight_tick_at_least "$CUE_LAST_TICK" 60000 || { log "the reloaded cue drill never stepped to P4 tick ${CUE_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/cues.json"
-  ab --json eval "window.__cueAudio" | json data.result >"$VERIFY_DIR/cue-audio.json" || { log "audio capture failed"; return 1; }
+  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/cue-audio.json" || { log "audio capture failed"; return 1; }
   ab console >"$VERIFY_DIR/cue-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/cue-page-errors.json" || { log "page error capture failed"; return 1; }
   ab close >/dev/null 2>&1
@@ -1627,33 +1674,6 @@ drive_settings_menu() {
   ab close >/dev/null 2>&1
 
   printf '{"desktop":%s,"small":%s,"mobile":%s,"escape":%s,"inside":%s,"outside":%s}\n' "$desktop" "$small" "$mobile" "$escape" "$inside" "$outside" >"$VERIFY_DIR/menu.json"
-  node -e '
-    const fs = require("fs"), dir = process.argv[1], controls = JSON.parse(process.argv[2]);
-    const menu = JSON.parse(fs.readFileSync(`${dir}/menu.json`, "utf8"));
-    const errors = ["menu-page-errors.json", "menu-small-page-errors.json", "menu-mobile-page-errors.json"].map((file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8")));
-    const views = [menu.desktop, menu.small, menu.mobile];
-    const closed = (s) => s.expanded === "false" && s.menu === false && controls.every((id) => s.controls[id] === false) && s.buttons.settings && s.buttons.restart && s.credit;
-    const noPageScroll = (s) => s.viewport.scrollWidth <= s.viewport.width;
-    const inViewport = (s) => s.menuBox.left >= 0 && s.menuBox.top >= 0 && s.menuBox.right <= s.viewport.width && s.menuBox.bottom <= s.viewport.height;
-    const clearOfFooter = (s) => s.controlsBox.bottom <= s.footerBox.top;
-    const checks = {
-      menuHiddenUntilOpened: views.every((view) => closed(view.closed) && noPageScroll(view.closed)),
-      buttonsClearOfFooter: views.every((view) => clearOfFooter(view.closed)),
-      menuOpensWithEveryControl: views.every((view) => view.open.expanded === "true" && view.open.menu && controls.every((id) => view.open.controls[id] === true) && view.open.buttons.restart && view.open.credit),
-      menuFitsEveryViewport: views.every((view) => inViewport(view.open) && noPageScroll(view.open)) && menu.small.open.viewport.width === 800 && menu.mobile.open.viewport.width < 500,
-      menuClosesOnSecondClick: views.every((view) => closed(view.secondClick)),
-      menuClosesOnEscape: closed(menu.escape),
-      menuStaysOpenOnInsideClick: menu.inside.expanded === "true" && menu.inside.menu === true,
-      menuClosesOnOutsideClick: closed(menu.outside),
-      noMenuPageErrors: errors.every((list) => list.length === 0),
-    };
-    console.log(JSON.stringify(checks, null, 2));
-    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" "$MENU_CONTROLS" >"$VERIFY_DIR/menu-checks.json"
-  local verdict=$?
-  cat "$VERIFY_DIR/menu-checks.json"
-  [[ $verdict -eq 0 ]] || log "a settings menu check failed"
-  return $verdict
 }
 
 result_panel() {
@@ -1704,29 +1724,6 @@ drive_run_results() {
   ab --json errors | json data.errors >"$VERIFY_DIR/kill-result-page-errors.json" || { log "page error capture failed"; return 1; }
   click_result result_retry || return 1
   printf '{"start":%s,"retry":%s}\n' "$start" "$(next_run)" >"$VERIFY_DIR/kill-retry.json" || { log "retried run capture failed"; return 1; }
-
-  node -e '
-    const fs = require("fs"), [dir, deathLines, killLines, buttons, killBossHp] = process.argv.slice(1);
-    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
-    const [death, restart, kill, retry] = ["death-result.json", "death-restart.json", "kill-result.json", "kill-retry.json"].map(read);
-    const params = (search) => Object.fromEntries(new URLSearchParams(search));
-    const same = (a, b) => JSON.stringify(a) === b;
-    const checks = {
-      deathResultShown: death.visible && same(death.lines, deathLines) && same(death.buttons, buttons) && death.run?.kind === "ended" && death.run.reason === "death" && death.run.at === 54,
-      resultRestartDrawsFreshSeed: same(params(restart.search), JSON.stringify({ focus: "void-floor", setup: "ranged" })) && restart.seed !== 1 && restart.panel === false,
-      bossHpLinkStartsLow: retry.start.bossHp === Number(killBossHp) && same(params(retry.start.search), JSON.stringify({ seed: "4", bosshp: killBossHp })),
-      killResultShown: kill.visible && same(kill.lines, killLines) && same(kill.buttons, buttons) && kill.run?.kind === "ended" && kill.run.reason === "kill" && kill.run.at === 16,
-      retryReplaysSeedAndBossHp: same(params(retry.retry.search), JSON.stringify({ seed: "4", bosshp: killBossHp, setup: "ranged", focus: "full-fight" })) &&
-        retry.retry.seed === 4 && retry.retry.bossHp === Number(killBossHp) && retry.retry.panel === false,
-      noResultPageErrors: ["death-result-page-errors.json", "kill-result-page-errors.json"].map(read).every((list) => list.length === 0),
-    };
-    console.log(JSON.stringify(checks, null, 2));
-    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" "$DEATH_RESULT_LINES" "$KILL_RESULT_LINES" "$RESULT_BUTTONS" "$KILL_RESULT_BOSS_HP" >"$VERIFY_DIR/result-checks.json"
-  local verdict=$?
-  cat "$VERIFY_DIR/result-checks.json"
-  [[ $verdict -eq 0 ]] || log "a run result check failed"
-  return $verdict
 }
 
 telemetry_box() {
@@ -1760,34 +1757,6 @@ drive_telemetry() {
   restored="$(telemetry_box)" || return 1
   ab network unroute >/dev/null || { log "the telemetry routes were not lifted"; return 1; }
   printf '{"before":%s,"after":%s,"restored":%s}\n' "$before" "$after" "$restored" >"$VERIFY_DIR/telemetry-box.json"
-
-  node -e '
-    const fs = require("fs"), [dir, fields, query] = process.argv.slice(1);
-    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
-    const [requests, box, errors, optedOutErrors] = ["telemetry-requests.json", "telemetry-box.json", "telemetry-page-errors.json", "telemetry-opted-out-page-errors.json"].map(read);
-    const page = (request) => new URL(request.headers.Referer ?? request.headers.referer ?? "http://unknown/").search;
-    const beacons = requests.filter((request) => request.method === "POST" && new URL(request.url).pathname === "/t").map((request) => ({ page: page(request), summary: JSON.parse(request.postData) }));
-    const configReads = requests.filter((request) => new URL(request.url).pathname === "/telemetry.json").map(page);
-    fs.writeFileSync(`${dir}/telemetry-beacons.json`, JSON.stringify(beacons, null, 2));
-    const [beacon] = beacons, summary = beacon?.summary ?? {};
-    const optedOutPage = box.after.search;
-    const checks = {
-      finishedRunSendsExactlyOneBeacon: beacons.length === 1 && beacon.page === query,
-      beaconHasOnlyTheDocumentedFields: JSON.stringify(Object.keys(summary)) === fields,
-      beaconDescribesTheKill: summary.end === "kill" && summary.runTicks === 16 && summary.view === "3d" && summary.sampleRate === 1 && summary.browser === "chrome" &&
-        `v${summary.version}` === box.before.version && summary.frames > 0 && summary.frameMedianMs > 0 && summary.tickMedianMs > 0 && summary.tickMaxMs >= summary.tickMedianMs,
-      optOutIsSavedAndShownAfterReload: box.before.checked === true && box.before.saved === null && box.after.checked === false && box.after.saved === "off" && optedOutPage !== query,
-      optedOutPageReadsNoConfigAndSendsNothing: !configReads.includes(optedOutPage) && !beacons.some((sent) => sent.page === optedOutPage),
-      tickingTheBoxAgainClearsTheChoice: box.restored.checked === true && box.restored.saved === null,
-      noTelemetryPageErrors: errors.length === 0 && optedOutErrors.length === 0,
-    };
-    console.log(JSON.stringify(checks, null, 2));
-    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" "$TELEMETRY_FIELDS" "$KILL_RESULT_QUERY" >"$VERIFY_DIR/telemetry-checks.json"
-  local verdict=$?
-  cat "$VERIFY_DIR/telemetry-checks.json"
-  [[ $verdict -eq 0 ]] || log "a telemetry check failed"
-  return $verdict
 }
 
 record_get_ready() {
@@ -1826,22 +1795,6 @@ drive_stored_view() {
     json data.result >"$VERIFY_DIR/stored-view.json" || { log "stored view capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/stored-view-page-errors.json" || { log "page error capture failed"; return 1; }
   ab close >/dev/null 2>&1
-
-  node -e '
-    const fs = require("fs"), [dir] = process.argv.slice(1);
-    const read = (name) => JSON.parse(fs.readFileSync(`${dir}/${name}`, "utf8"));
-    const [before, after, errors] = ["stored-view-before.json", "stored-view.json", "stored-view-page-errors.json"].map(read);
-    const checks = {
-      stored2dViewOpensIn3d: before.use3dView === false && after.tick >= 8 && after.viewportRenders > 0 && after.saved.use3dView === true && after.saved.rotated === "north",
-      noStoredViewPageErrors: errors.length === 0,
-    };
-    console.log(JSON.stringify({ before, after, checks }, null, 2));
-    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" >"$VERIFY_DIR/stored-view-checks.json"
-  local verdict=$?
-  cat "$VERIFY_DIR/stored-view-checks.json"
-  [[ $verdict -eq 0 ]] || log "a stored view check failed"
-  return $verdict
 }
 
 drive_get_ready() {
@@ -1855,35 +1808,12 @@ drive_get_ready() {
   ab --json eval "window.__getReady" | json data.result >"$VERIFY_DIR/get-ready.json" || { log "GET READY capture failed"; return 1; }
   probe "log()" >"$VERIFY_DIR/get-ready-log.json"
   ab --json errors | json data.errors >"$VERIFY_DIR/get-ready-page-errors.json" || { log "page error capture failed"; return 1; }
-
-  node -e '
-    const fs = require("fs"), [dir, spawn, readyTicks] = process.argv.slice(1);
-    const read = (name) => JSON.parse(fs.readFileSync(`${dir}/${name}`, "utf8"));
-    const [ready, log, errors] = ["get-ready.json", "get-ready-log.json", "get-ready-page-errors.json"].map(read);
-    const from = JSON.parse(spawn), countdown = Number(readyTicks);
-    const overlay = Object.entries(ready.overlay).map(([tick, counts]) => [Number(tick), counts]).sort(([a], [b]) => a - b);
-    const firstStep = Object.entries(ready.player).map(([tick, at]) => [Number(tick), at]).sort(([a], [b]) => a - b)
-      .find(([, at]) => at.x !== from.x || at.y !== from.y)?.[0] ?? null;
-    const firstBossStep = log.rows[0] ? [log.rows[0].tick, log.rows[0].worldTick] : null;
-    const checks = {
-      getReadyRecordedFromWorldTickZero: ready.installedAt?.tick === 0,
-      getReadyCountsDownOncePerWorldTick: JSON.stringify(overlay) === JSON.stringify(Array.from({ length: countdown }, (_, tick) => [tick, [countdown - tick]])),
-      firstBossStepEndsGetReady: JSON.stringify(firstBossStep) === JSON.stringify([0, countdown]),
-      clickDuringGetReadyWalksBeforeItEnds: ready.clickTick !== null && ready.clickTick < countdown && firstStep !== null && firstStep > ready.clickTick && firstStep < countdown,
-      noGetReadyPageErrors: errors.length === 0,
-    };
-    console.log(JSON.stringify({ overlay, clickTick: ready.clickTick, firstStep, firstBossStep, checks }, null, 2));
-    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" "$SPAWN_TILE" "$GET_READY_TICKS" >"$VERIFY_DIR/get-ready-checks.json"
-  local verdict=$?
-  cat "$VERIFY_DIR/get-ready-checks.json"
-  [[ $verdict -eq 0 ]] || log "a GET READY check failed"
-  return $verdict
 }
 
 drive_load_retry() {
   local file opened deadline
   file="$(node -p 'require(process.argv[1]).assets["npc-" + process.argv[2]].file' "$MANIFEST" "$BOSS_NPC")" || { log "the boss asset is not in the manifest"; return 1; }
+  echo "$file" >"$VERIFY_DIR/load-retry-asset.txt"
   ab open about:blank >/dev/null || return 1
   ab network har start --content none >/dev/null || { log "HAR recording did not start"; return 1; }
   ab network route "**/osrs-assets/${file}" --abort >/dev/null || { log "the boss asset route was not set"; return 1; }
@@ -1902,25 +1832,6 @@ drive_load_retry() {
   ab --json eval "({ text: document.body.innerText, tick: window.__archiveOcellusProbe?.snapshot().tick ?? null })" | json data.result >"$VERIFY_DIR/load-retry.json" || { log "load state capture failed"; return 1; }
   ab screenshot "$VERIFY_DIR/load-retry.png" >/dev/null || { log "load retry screenshot failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/load-retry-page-errors.json" || { log "page error capture failed"; return 1; }
-
-  node -e '
-    const fs = require("fs"), [dir, file] = process.argv.slice(1);
-    const read = (name) => JSON.parse(fs.readFileSync(`${dir}/${name}`, "utf8"));
-    const attempts = read("load-retry.har").log.entries.filter((entry) => entry.request.url.endsWith(`/osrs-assets/${file}`)).map((entry) => entry.response.status);
-    const [page, favicon, errors] = ["load-retry.json", "load-favicon-requests.json", "load-retry-page-errors.json"].map(read);
-    const checks = {
-      droppedBossAssetRetried: attempts.length >= 2 && attempts[0] === 0 && attempts[attempts.length - 1] === 200,
-      trainerLoadsAfterTheDrop: page.tick >= 8 && !page.text.includes("Loading failed"),
-      noFaviconRequest: favicon.length === 0,
-      noLoadRetryPageErrors: errors.length === 0,
-    };
-    console.log(JSON.stringify({ attempts, favicon: favicon.map((request) => request.url), checks }, null, 2));
-    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" "$file" >"$VERIFY_DIR/load-checks.json"
-  local verdict=$?
-  cat "$VERIFY_DIR/load-checks.json"
-  [[ $verdict -eq 0 ]] || log "a load check failed"
-  return $verdict
 }
 
 whats_new_state() {
@@ -1956,6 +1867,7 @@ open_whats_new_page() {
 drive_whats_new() {
   local notes first menu opened small phone closed escape key_menu key_opened key_closed key_escaped reloaded reopened
   notes="$(node scripts/release-notes.mjs)" || { log "release-notes.mjs rejected the changelog"; return 1; }
+  echo "$notes" >"$VERIFY_DIR/whats-new-notes.md"
   open_whats_new_page || return 1
   first="$(whats_new_state)" || return 1
   ab screenshot "$VERIFY_DIR/whats-new-unseen.png" >/dev/null || { log "unseen What's new screenshot failed"; return 1; }
@@ -1994,34 +1906,6 @@ drive_whats_new() {
 
   printf '{"first":%s,"menu":%s,"opened":%s,"small":%s,"phone":%s,"closed":%s,"escape":%s,"keyMenu":%s,"keyOpened":%s,"keyClosed":%s,"keyEscaped":%s,"reloaded":%s,"reopened":%s}\n' \
     "$first" "$menu" "$opened" "$small" "$phone" "$closed" "$escape" "$key_menu" "$key_opened" "$key_closed" "$key_escaped" "$reloaded" "$reopened" >"$VERIFY_DIR/whats-new.json"
-  node -e '
-    const fs = require("fs"), [dir, notes, credit] = process.argv.slice(1);
-    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
-    const w = read("whats-new.json");
-    const [heading, , ...items] = notes.trimEnd().split("\n");
-    const newest = { version: heading.replace(/^## /, ""), notes: items.map((item) => item.replace(/^- /, "")) };
-    const inViewport = (s) => s.panelBox.left >= 0 && s.panelBox.top >= 0 && s.panelBox.right <= s.viewport.width && s.panelBox.bottom <= s.viewport.height;
-    const noPageScroll = (s) => s.viewport.scrollWidth <= s.viewport.width;
-    const beside = (s) => s.versionBox.left >= s.creditBox.right && s.versionBox.top < s.creditBox.bottom && s.versionBox.bottom > s.creditBox.top;
-    const checks = {
-      dotShownBeforeOpening: w.first.seen === null && w.first.settingsDot && !w.first.menu && !w.first.panel && w.menu.menu && w.menu.whatsNewButton && w.menu.menuDot,
-      whatsNewListsNewestRelease: w.opened.panel && !w.opened.menu && w.opened.releases[0]?.version === newest.version && JSON.stringify(w.opened.releases[0].notes) === JSON.stringify(newest.notes),
-      dotClearsOnOpen: !w.opened.settingsDot && w.opened.seen === newest.version,
-      panelFitsEveryViewport: [w.opened, w.small, w.phone].every((s) => s.panel && inViewport(s) && noPageScroll(s)) && w.small.viewport.width === 800 && w.phone.viewport.width < 500,
-      panelClosesOnCloseAndEscape: !w.closed.panel && !w.closed.menu && !w.escape.panel && !w.escape.menu,
-      keyboardOpenFocusesPanelTitle: w.keyMenu.menu && w.keyMenu.focused === "whats_new" && w.keyOpened.panel && w.keyOpened.focused === "whats_new_title" && w.keyOpened.focusedVisible,
-      keyboardCloseAndEscapeFocusSettings: [w.keyClosed, w.keyEscaped].every((s) => !s.panel && !s.menu && s.focused === "settings" && s.focusedVisible),
-      dotStaysClearedAfterReload: w.reloaded.seen === newest.version && !w.reloaded.settingsDot && w.reopened.whatsNewButton && !w.reopened.menuDot,
-      versionBesideCredit: w.first.credit === credit && w.first.version === `v${newest.version}` && beside(w.first) && w.phone.version === `v${newest.version}`,
-      noWhatsNewPageErrors: ["whats-new-page-errors.json", "whats-new-reload-page-errors.json"].map(read).every((list) => list.length === 0),
-    };
-    console.log(JSON.stringify(checks, null, 2));
-    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" "$notes" "$CREDIT_LINE" >"$VERIFY_DIR/whats-new-checks.json"
-  local verdict=$?
-  cat "$VERIFY_DIR/whats-new-checks.json"
-  [[ $verdict -eq 0 ]] || log "a What's new check failed"
-  return $verdict
 }
 
 p3_page_done() {
@@ -2081,84 +1965,6 @@ drive_p3_drill() {
   ab --json eval "(() => { const probe = window.__archiveOcellusProbe, box = document.getElementById('phase'); return { search: location.search, logPhase: probe.log().header.phase ?? null, bossHp: probe.snapshot().fight?.boss.hp ?? null, rejected: probe.snapshot().rejected, phaseBox: box ? box.value : null }; })()" |
     json data.result >"$VERIFY_DIR/p3-start-p4.json" || { log "the P4 page after Start P4 was not read"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/p3-start-p4-page-errors.json" || { log "page error capture failed"; return 1; }
-
-  local capture
-  for capture in p3-arena.png p3-arena-tiles.json p3-snapshot.json p3-boss-bar.json \
-    p3-swings.json p3-swings-console.log p3-swings-page-errors.json p3-void-shot.json p3-void-shot-console.log p3-void-shot-page-errors.json \
-    p3-clear-panel.json p3-clear.png p3-clear.json p3-clear-console.log p3-clear-page-errors.json p3-start-p4.json p3-start-p4-page-errors.json; do
-    [[ -s "$VERIFY_DIR/$capture" ]] || { log "required capture ${capture} is missing or empty"; return 1; }
-  done
-
-  node -e '
-    const fs = require("fs"), zlib = require("zlib"), [dir, bossNpc, swings, voidShot, clear, startP4] = process.argv.slice(1);
-    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
-    function decode(file) {
-      const buf = fs.readFileSync(`${dir}/${file}`);
-      let at = 8, width = 0, channels = 4;
-      const idat = [];
-      while (at < buf.length) {
-        const len = buf.readUInt32BE(at), type = buf.toString("ascii", at + 4, at + 8), data = buf.subarray(at + 8, at + 8 + len);
-        if (type === "IHDR") [width, channels] = [data.readUInt32BE(0), data[9] === 6 ? 4 : 3];
-        if (type === "IDAT") idat.push(data);
-        at += 12 + len;
-      }
-      const raw = zlib.inflateSync(Buffer.concat(idat)), stride = width * channels, height = raw.length / (stride + 1), px = Buffer.alloc(height * stride);
-      for (let y = 0; y < height; y++) {
-        for (let i = 0; i < stride; i++) {
-          const a = i >= channels ? px[y * stride + i - channels] : 0, b = y ? px[(y - 1) * stride + i] : 0, c = y && i >= channels ? px[(y - 1) * stride + i - channels] : 0;
-          const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
-          px[y * stride + i] = (raw[y * (stride + 1) + 1 + i] + [0, a, b, (a + b) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? b : c][raw[y * (stride + 1)]]) & 255;
-        }
-      }
-      return { width, channels, px };
-    }
-    const tileColours = () => {
-      const { width, channels, px } = decode("p3-arena.png");
-      const mean = ({ at }) => {
-        if (!at) return null;
-        const sum = [0, 0, 0];
-        for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) for (let c = 0; c < 3; c++) sum[c] += px[((at.y + dy) * width + at.x + dx) * channels + c];
-        return sum.map((v) => Math.round(v / 49));
-      };
-      return Object.fromEntries(Object.entries(read("p3-arena-tiles.json")).map(([kind, tiles]) => [kind, tiles.map(mean)]));
-    };
-    const lum = (rgb) => (rgb[0] + rgb[1] + rgb[2]) / 3;
-    const grey = (rgb) => rgb !== null && Math.abs(rgb[1] - rgb[2]) < 20;
-    const arena = tileColours();
-    const arenaDrawn = ({ open, closed, rim }) => [...open, ...closed].every(grey) && rim.every((rgb) => rgb !== null && rgb[1] - rgb[2] >= 20) &&
-      Math.min(...open.map(lum)) >= Math.max(...closed.map(lum)) + 12;
-    const hits = (log) => log.rows.flatMap((row) => row.events).filter((event) => event.kind === "player-hit").map(({ at, hit, receipt }) => [at, hit.kind, receipt.requested, receipt.applied, receipt.prayer]);
-    const [snapshot, bar, swingLog, voidLog, clearLog, panel, p4] = ["p3-snapshot.json", "p3-boss-bar.json", "p3-swings.json", "p3-void-shot.json", "p3-clear.json", "p3-clear-panel.json", "p3-start-p4.json"].map(read);
-    const expectedClear = JSON.parse(clear), expectedStart = JSON.parse(startP4);
-    const clearedAt = clearLog.rows.find((row) => row.events.some((event) => event.kind === "run-ended"));
-    const observed = {
-      arena,
-      bossBar: [...new Set(Object.values(bar).flat())],
-      swings: hits(swingLog).filter(([at]) => at <= 20),
-      prayerOrders: swingLog.rows.flatMap((row) => row.inputs.filter((input) => input.kind === "prayer-published").map((input) => [row.tick, input.prayer])),
-      voidShot: hits(voidLog).filter(([at]) => at <= 10),
-      escape: voidLog.rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered").map((input) => [row.tick, input.destination])),
-      clear: { panel: { lines: panel.lines, buttons: panel.buttons }, run: panel.run, row: clearedAt && { tick: clearedAt.tick, bossHp: clearedAt.bossHp, events: clearedAt.events.map((event) => event.kind) } },
-      startP4: p4,
-    };
-    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-    const checks = {
-      p3BossIsNpc16677: swingLog.header.phase === "p3" && snapshot.fight?.boss.npcId === Number(bossNpc) && snapshot.fight.boss.visible && observed.bossBar.includes("5250 / 5250 (100.0%)"),
-      p3ArenaDrawn: arenaDrawn(arena),
-      p3SwingsChipUnderMeleePrayer: observed.prayerOrders.length > 0 && observed.prayerOrders[0][0] < 7 && observed.prayerOrders[0][1] === "melee" && same(observed.swings, JSON.parse(swings)),
-      p3VoidShotOutOfReach: same(observed.voidShot, JSON.parse(voidShot)) && observed.escape.length === 1,
-      p3InterimClear: same(observed.clear.panel, expectedClear.panel) && observed.clear.run?.kind === "ended" && observed.clear.run.reason.kind === "quadrant-cleared" &&
-        observed.clear.row?.tick === expectedClear.tick && observed.clear.run.at === expectedClear.tick && observed.clear.row.bossHp.atPostTick === expectedClear.bossHp && observed.clear.row.events.includes("run-ended"),
-      p3StartP4OpensP4: p4.search === expectedStart.search && p4.bossHp === expectedStart.bossHp && same(p4.rejected, []) && p4.logPhase === null && p4.phaseBox === "p4",
-      noP3PageErrors: ["p3-swings-page-errors.json", "p3-void-shot-page-errors.json", "p3-clear-page-errors.json", "p3-start-p4-page-errors.json"].map(read).every((list) => list.length === 0),
-    };
-    console.log(JSON.stringify({ observed, checks }, null, 2));
-    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" "$BOSS_NPC" "$P3_SWINGS" "$P3_VOID_SHOT" "$P3_CLEAR" "$P3_START_P4" >"$VERIFY_DIR/p3-checks.json"
-  local verdict=$?
-  cat "$VERIFY_DIR/p3-checks.json"
-  [[ $verdict -eq 0 ]] || log "a P3 drill check failed"
-  return $verdict
 }
 
 click_tile_after_tick() {
@@ -2190,754 +1996,42 @@ drive_recorded_fights() {
   click_tile_after_tick recorded-rift "$RECORDED_NORTH_WEST_RIFT" "$RECORDED_RIFT_SECOND_TICK" || return 1
   fight_tick_at_least "$RECORDED_RIFT_LAST_TICK" 30000 || { log "the rift reset page never reached P4 tick ${RECORDED_RIFT_LAST_TICK}"; return 1; }
   p3_page_done recorded-rift || return 1
+}
 
-  local capture
-  for capture in recorded-lead-in.png recorded-lead-in.json recorded-lead-in-page-errors.json recorded-orb-waiting.png recorded-orb-returned.png recorded-orb.json recorded-orb-page-errors.json \
-    recorded-rift.json recorded-rift-page-errors.json; do
-    [[ -s "$VERIFY_DIR/$capture" ]] || { log "required capture ${capture} is missing or empty"; return 1; }
-  done
+drive_p4_cycle() {
+  ab open "${URL}${DRILL_QUERY}" >/dev/null || return 1
+  drive_lead_in || return 1
+  ab wait --fn "window.__archiveOcellusProbe?.snapshot().ticking === true && window.__archiveOcellusProbe.snapshot().tick >= 8" \
+    --timeout 90000 >/dev/null || { log "trainer never started ticking"; return 1; }
+  drive_walk && drive_edge && drive_cycle
+}
 
-  node -e '
-    const fs = require("fs"), [dir, leadIn, orb, rift] = process.argv.slice(1);
-    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
-    const events = (log, kind) => log.rows.flatMap((row) => row.events).filter((event) => event.kind === kind);
-    const [leadInLog, orbLog, riftLog] = ["recorded-lead-in.json", "recorded-orb.json", "recorded-rift.json"].map(read);
-    const hpAt = (log, t) => log.rows.find((row) => row.tick === t)?.bossHp ?? null;
-    const expected = { leadIn: JSON.parse(leadIn), orb: JSON.parse(orb), rift: JSON.parse(rift) };
-    const observed = {
-      leadIn: {
-        states: events(leadInLog, "boss-state-changed").map((e) => [e.at, e.state]),
-        judged: events(leadInLog, "player-hit-judged").map((e) => [e.at, e.outcome, e.requested]),
-        bossHp: [expected.leadIn.bossHp[0], hpAt(leadInLog, expected.leadIn.bossHp[0])],
-      },
-      orb: { matured: events(orbLog, "orb-matured").map((e) => [e.at, e.tile]), returned: events(orbLog, "orb-returned").map((e) => [e.at, e.receipt]) },
-      rift: { hits: events(riftLog, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]), destroyed: events(riftLog, "rift-destroyed").map((e) => [e.at, e.rift, e.attackDelay]) },
-    };
-    const same = require("util").isDeepStrictEqual;
-    const checks = {
-      leadInShotLandsInFull: same(observed.leadIn, expected.leadIn),
-      orbReturnsOnMaturityToWaitingPlayer: same(observed.orb, expected.orb),
-      riftKillResetsTheNextShot: same(observed.rift, expected.rift),
-      noRecordedFightPageErrors: ["recorded-lead-in-page-errors.json", "recorded-orb-page-errors.json", "recorded-rift-page-errors.json"].map(read).every((list) => list.length === 0),
-    };
-    console.log(JSON.stringify({ observed, checks }, null, 2));
-    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" "$RECORDED_LEAD_IN_EXPECTED" "$RECORDED_ORB_EXPECTED" "$RECORDED_RIFT_EXPECTED" >"$VERIFY_DIR/recorded-checks.json"
-  local verdict=$?
-  cat "$VERIFY_DIR/recorded-checks.json"
-  [[ $verdict -eq 0 ]] || log "a recorded-fight check failed"
-  return $verdict
+clear_browser() {
+  ab set viewport 1280 800 >/dev/null && ab network unroute >/dev/null && ab open "${URL}osrs-assets/manifest.json" >/dev/null &&
+    ab eval "localStorage.clear(); sessionStorage.clear()" >/dev/null && ab console --clear >/dev/null && ab errors --clear >/dev/null
+}
+
+run_unit() {
+  local unit=$1 VERIFY_DIR="$VERIFY_DIR/units/$1" UNIT_LOG= CX= CY= CLICK_X= CLICK_Y= WALK_ORDERS= started=$SECONDS status=0
+  mkdir -p "$VERIFY_DIR" || return 1
+  log "unit ${unit}"
+  UNIT_LOG="$VERIFY_DIR/unit.log"
+  clear_browser || { log "the browser was not cleared before ${unit}"; status=1; }
+  [[ $status -ne 0 ]] || "drive_${unit}" || status=$?
+  [[ -n "$CX" ]] || canvas_centre >/dev/null 2>&1
+  [[ -z "$CX" ]] || printf '{"x":%d,"y":%d}\n' "$CX" "$CY" >"$VERIFY_DIR/canvas-centre.json"
+  node scripts/verify/judge.mjs "$unit" "$VERIFY_DIR" "$status" $((SECONDS - started))
 }
 
 drive() {
   ab set viewport 1280 800 >/dev/null || return 1
   # A new browser's first screenshot takes about 10 s, longer than the hidden lead-in, so it goes to a blank page.
   ab open about:blank >/dev/null && ab screenshot "$VERIFY_DIR/warm-up.png" >/dev/null || { log "warm-up screenshot failed"; return 1; }
-  drive_stored_view && drive_load_retry && drive_get_ready && drive_settings_menu && drive_run_results && drive_whats_new && drive_telemetry || return 1
-  ab open "${URL}${DRILL_QUERY}" >/dev/null || return 1
-  drive_lead_in || return 1
-  ab wait --fn "window.__archiveOcellusProbe?.snapshot().ticking === true && window.__archiveOcellusProbe.snapshot().tick >= 8" \
-    --timeout 90000 >/dev/null || { log "trainer never started ticking"; return 1; }
-  drive_walk && drive_edge && drive_cycle && drive_focus && drive_void_floor && drive_lifeforce_orb && drive_orb_late_and_entry && drive_explosions && drive_dodge_speedup && drive_explosion_run_end && drive_void_shot && drive_transition_attack && drive_loadouts && drive_defence_floor && drive_supplies && drive_keybinds && drive_overheads_rifts && drive_seed && drive_floor_holes && drive_orb_off_holes && drive_walkway && drive_control_walk && drive_click_correction && drive_back_wall && drive_corner && drive_boss_pathing && drive_invincible && drive_cues || return 1
-
-  local capture
-  for capture in hidden.json hidden.png before.json before.png after.json after.png edge-click.json edge-arrived.json edge.json edge.png boss.png boss-bar.json cycle-ring-click.json cycle-snapshot.json cycle.json console.log page-errors.json focus.json focus-audio.json focus.png focus-console.log focus-page-errors.json \
-    void-inner.png void-flood.png void-floor.json void-console.log void-page-errors.json \
-    attack-click.json ring-click.json flood-ring.png void-shot.json void-shot-console.log void-shot-page-errors.json \
-    orb-hit.png $(seq -f "orb-dormant-%g.png" 1 "$ORB_FRAMES") $(seq -f "orb-glow-%g.png" 1 "$ORB_FRAMES") orb-click.json orb.json orb-console.log orb-page-errors.json orb-skip.png orb-skip.json orb-skip-console.log orb-skip-page-errors.json \
-    orb-late.png orb-late.json orb-late-page-errors.json orb-entry.png orb-entry.json orb-entry-console.log orb-entry-page-errors.json \
-    explosion-before.png explosion-left.png explosion-after.png explosion-standing.png explosions.json explosion-audio.json explosion-console.log explosion-page-errors.json explosion-under.png explosions-under.json explosion-under-console.log explosion-under-page-errors.json \
-    dodge-speedup.json dodge-speedup-console.log dodge-speedup-page-errors.json \
-    explosion-run-end-marked-1.png explosion-run-end-marked-2.png explosion-run-end.json explosion-run-end-console.log explosion-run-end-page-errors.json $(seq -f "explosion-run-end-%g.png" 1 "$EXPLOSION_RUN_END_FRAMES") \
-    special-before.png special-vortex.png special-spike-disk.png special-semicircle.png special-black-disk.png special.json special-console.log special-page-errors.json special-late.json special-audio.json special-late-console.log special-late-page-errors.json \
-    loadout-before.json loadout-ranged.png icons.json equipment-ranged.png loadout-after.json loadout-melee.png loadout-spec.json loadout-spec-log.json loadout-spec.png equipment-melee.png \
-    loadout-console.log loadout-page-errors.json loadout-selector.json loadout-selector-page-errors.json \
-    defence-floor-start.json defence-floor-first.json defence-floor.json defence-floor-log.json defence-floor.png defence-floor-console.log defence-floor-page-errors.json \
-    supplies-inventory.json item-menu.json item-menu.png item-menu-closed.json brew-click.json brew-hp.json brew-heal.png supplies-console.log supplies-page-errors.json \
-    keybinds-open.json keybinds.png keybinds-bound.json keybinds-saved.json keybinds-old-key.json keybinds-reloaded.json keybinds-reloaded.png keybinds-restored.json keybinds-console.log keybinds-page-errors.json special-heal.png \
-    $(printf 'overhead-%s.png ' $OVERHEAD_SHOT_TICKS) overhead-draws.json rift-spawned.png rift-destroyed.png rift-chat.json rift-burst.png rifts.json rift-audio.json rift-console.log rift-page-errors.json rift-ralos.json rift-ralos-console.log rift-ralos-page-errors.json rift-melee-hit.png rift-melee.json rift-melee-console.log rift-melee-page-errors.json \
-    hover-out-of-reach.png deflect-blocked.png deflect.json deflect-console.log deflect-page-errors.json \
-    rift-charged.png reflect-none.png reflect-hit.png reflect.json reflect-console.log reflect-page-errors.json \
-    seed-fresh.png seed.json seed.png seed-console.log seed-page-errors.json \
-    holes-drawn.png holes-flood.png hole-click.json hole-hit.png holes.json holes-console.log holes-page-errors.json \
-    orb-off-holes.png orb-off-holes.json orb-off-holes-console.log orb-off-holes-page-errors.json \
-    tile-clicks.jsonl walkway-click.json walkway-arrived.json walkway.json walkway-log.json walkway.png walkway-console.log walkway-page-errors.json \
-    walkway-run-end.json walkway-run-end-log.json walkway-run-end.png walkway-run-end-page-errors.json \
-    control-walk.png control-walk-menu.json control-walk-log.json control-walk-right-click.json control-walk-console.log control-walk-page-errors.json \
-    click-correction.json click-correction.png click-correction-page-errors.json \
-    back-wall-log.json back-wall-top-down.png back-wall-flood.png back-wall-console.log back-wall-page-errors.json \
-    corner-hole.json corner-hole-log.json corner-hole.png corner-nub.json corner-nub-log.json corner-console.log corner-page-errors.json corner-view.png corner-view-page-errors.json \
-    pathing-around.png pathing.json pathing-console.log pathing-page-errors.json pathing-reroute.json pathing-reroute-console.log pathing-reroute-page-errors.json pathing-control.json pathing-control-console.log pathing-control-page-errors.json pathing-out.png pathing-out.json pathing-out-console.log pathing-out-page-errors.json \
-    invincible-default.json invincible-linked.json invincible.png invincible-chat.json invincible.json invincible-console.log invincible-page-errors.json invincible-restarted.json \
-    invincible-orb.png invincible-orb.json invincible-orb-console.log invincible-orb-page-errors.json \
-    autoplay-policy.js cue-contexts-fresh.json cue-toggles-fresh.json cue-fresh-click.json cue-contexts-fresh-clicked.json cue-fresh-audio.json cue-sound-off-saved.json cue-fresh-console.log cue-fresh-page-errors.json \
-    cue-recording-from.json cue-contexts-loaded.json cue-toggles-off.json cue-toggle-click.json cue-contexts-toggled.json cue-toggles-on.json cue-sound-saved.json cue-toggle-audio.json cue-toggle-console.log cue-toggle-page-errors.json \
-    cue-contexts-reloaded.json cue-toggles-reloaded.json cue-contexts-clicked.json cue-chat-before.json cue-chat.json cues.json cue-audio.json cue-console.log cue-page-errors.json; do
-    [[ -s "$VERIFY_DIR/$capture" ]] || { log "required capture ${capture} is missing or empty"; return 1; }
+  local unit
+  for unit in "${BROWSER_UNITS[@]}"; do
+    run_unit "$unit"
   done
-
-  node -e '
-    const [dir, spawn, target, edgeOrder, edgeStop, holdTicks, bossNpc, lastHiddenTick, lastTick, stages, overheads, specials, focusKey, focusExpected, square, floodDamage, floodLast, voidHits, voidEnd, voidPixel, rangedWorn, meleeWorn, drain, orbExpected, orbBox, orbFrames,
-      innerMarks, lateMark, explosionPixel, explosionExpected, soundSamples, explosionSounds, centreX, centreY, tellBox, specialExpected,
-      tellCentreBox, transitionSamples, landingSounds, landingWindows, styleSounds, styleWindows, soundTolerance,
-      supplyInventory, namedMenu, hpAfterBrew, defaultKey, newKey, trainerIcons, brewY, hoverNamePixel, overheadShots, iconBox, riftExpected, burstTick, soulSplitExpected, killChat,
-      riftSoundSamples, riftSpawnSounds, riftKillSound, riftBurstSounds, riftSoundWindow, gapDraws, hoverTile, hoverTicks, firstMeleeTick,
-      walkwayOrder, walkwayStop, walkwayPixel, walkwayMinShare, walkwayRunEnd, walkwayRunTiles, controlWalkTiles, cornerHole, cornerNub,
-      holeLayout, holePixels, holeFreePixels, holeBoxHalf, holeMinDark, holeMaxDark, holeTile, holeHits, holeDamage,
-      cueSoundSamples, cueSounds, cueSoundWindow, cueChat, floorSteps, invincibleLastTick, invincibleExpected, invincibleOrbExpected,
-      riftTimerBox, riftTimerMaxEarly, riftTimerMinFull, riftOneHit, riftRalosHits, riftMeleeHits, reflectExpected, reflectSplatBox, reflectMinSplat, reflectMaxClear,
-      dodgeLastTick, dodgeAttacks, explosionGlowBox, explosionGlowMinShare, focusEntryTicks, bossPoseSamples, pathingWest, pathingEast, pathingBack, pathingExpected, pathingRerouteExpected, pathingOutExpected, pathingControlExpected, orbHolesExpected, orbHolesLayout,
-      orbInnerClear, orbInnerExpiry, orbEntryTile, orbOppositeExpected, projectedTileClicks, bossBarAtEntry, explosionReduction, backWallStart, backWallEnd, backWallToward, backWallBack,
-      explosionRunEndExpected, explosionGlowMaxShare, explosionRunEndFrames, correctionExpected,
-      explosionOverheadBox, explosionOverheadMinShare] = process.argv.slice(1);
-    const fs = require("fs");
-    const read = (file) => JSON.parse(fs.readFileSync(`${dir}/${file}`, "utf8"));
-    const tileClicks = fs.readFileSync(`${dir}/tile-clicks.jsonl`, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));
-    const [hidden, before, after, edgeArrived, edge, errors, cycle, snapshot, focus, focusAudio, focusErrors, voidLog, voidErrors, shot, shotErrors] =
-      ["hidden.json", "before.json", "after.json", "edge-arrived.json", "edge.json", "page-errors.json", "cycle.json", "cycle-snapshot.json", "focus.json", "focus-audio.json", "focus-page-errors.json", "void-floor.json", "void-page-errors.json", "void-shot.json", "void-shot-page-errors.json"].map(read);
-    const [dressed, switched, spec, selector, loadoutErrors, selectorErrors] =
-      ["loadout-before.json", "loadout-after.json", "loadout-spec.json", "loadout-selector.json", "loadout-page-errors.json", "loadout-selector-page-errors.json"].map(read);
-    const [orbLog, orbClick, orbErrors, orbSkip, orbSkipErrors] = ["orb.json", "orb-click.json", "orb-page-errors.json", "orb-skip.json", "orb-skip-page-errors.json"].map(read);
-    const [explosionLog, explosionAudio, explosionErrors, underLog, underErrors] = ["explosions.json", "explosion-audio.json", "explosion-page-errors.json", "explosions-under.json", "explosion-under-page-errors.json"].map(read);
-    const [dodgeLog, dodgeErrors] = ["dodge-speedup.json", "dodge-speedup-page-errors.json"].map(read);
-    const [runEndLog, runEndErrors] = ["explosion-run-end.json", "explosion-run-end-page-errors.json"].map(read);
-    const [specialLog, specialErrors, lateLog, lateErrors, transitionAudio] = ["special.json", "special-page-errors.json", "special-late.json", "special-late-page-errors.json", "special-audio.json"].map(read);
-    const [carried, itemMenu, itemMenuClosed, brewClick, brewHp, suppliesErrors] = ["supplies-inventory.json", "item-menu.json", "item-menu-closed.json", "brew-click.json", "brew-hp.json", "supplies-page-errors.json"].map(read);
-    const icons = read("icons.json");
-    const seeds = read("seed.json");
-    const [walkwayArrived, walkwayHeld, walkwayLog, walkwayRunEndHeld, walkwayRunEndLog, cornerAtHole, cornerHoleLog, cornerAtNub, cornerNubLog] =
-      ["walkway-arrived.json", "walkway.json", "walkway-log.json", "walkway-run-end.json", "walkway-run-end-log.json", "corner-hole.json", "corner-hole-log.json", "corner-nub.json", "corner-nub-log.json"].map(read);
-    const [seedErrors, walkwayErrors, walkwayRunEndErrors, cornerErrors, cornerViewErrors] = ["seed-page-errors.json", "walkway-page-errors.json", "walkway-run-end-page-errors.json", "corner-page-errors.json", "corner-view-page-errors.json"].map(read);
-    const [controlWalkMenu, controlWalkLog, controlWalkRightClick, controlWalkErrors] = ["control-walk-menu.json", "control-walk-log.json", "control-walk-right-click.json", "control-walk-page-errors.json"].map(read);
-    const [correction, correctionErrors] = ["click-correction.json", "click-correction-page-errors.json"].map(read);
-    const [backWallLog, backWallErrors] = ["back-wall-log.json", "back-wall-page-errors.json"].map(read);
-    const [holesLog, holesErrors] = ["holes.json", "holes-page-errors.json"].map(read);
-    const [pathingLog, pathingErrors] = ["pathing.json", "pathing-page-errors.json"].map(read);
-    const [rerouteLog, rerouteErrors, outLog, outErrors] = ["pathing-reroute.json", "pathing-reroute-page-errors.json", "pathing-out.json", "pathing-out-page-errors.json"].map(read);
-    const [controlRerouteLog, controlRerouteErrors] = ["pathing-control.json", "pathing-control-page-errors.json"].map(read);
-    const [orbHolesLog, orbHolesErrors] = ["orb-off-holes.json", "orb-off-holes-page-errors.json"].map(read);
-    const [orbLateLog, orbLateErrors, orbEntryLog, orbEntryErrors] = ["orb-late.json", "orb-late-page-errors.json", "orb-entry.json", "orb-entry-page-errors.json"].map(read);
-    const [floorStart, floorFirst, floorLast, floorLog, floorErrors] = ["defence-floor-start.json", "defence-floor-first.json", "defence-floor.json", "defence-floor-log.json", "defence-floor-page-errors.json"].map(read);
-    const floorGlaives = floorLog.rows.flatMap((row) => row.events.filter((event) => event.kind === "player-hit-judged")).slice(0, 4);
-    const [keysOpen, keysBound, keysSaved, keysOldKey, keysReloaded, keysRestored, keybindsErrors] = ["keybinds-open.json", "keybinds-bound.json", "keybinds-saved.json", "keybinds-old-key.json", "keybinds-reloaded.json", "keybinds-restored.json", "keybinds-page-errors.json"].map(read);
-    const [riftLog, riftChat, riftAudio, riftErrors, deflectLog, deflectErrors, overheadDraws] = ["rifts.json", "rift-chat.json", "rift-audio.json", "rift-page-errors.json", "deflect.json", "deflect-page-errors.json", "overhead-draws.json"].map(read);
-    const [reflectLog, reflectErrors] = ["reflect.json", "reflect-page-errors.json"].map(read);
-    const [ralosLog, ralosErrors] = ["rift-ralos.json", "rift-ralos-page-errors.json"].map(read);
-    const [meleeRiftLog, meleeRiftErrors] = ["rift-melee.json", "rift-melee-page-errors.json"].map(read);
-    const [cueLog, cueToggleAudio, cueAudio, cueToggleErrors, cueErrors, cueSaved, cueChatBefore, cueChatAfter] =
-      ["cues.json", "cue-toggle-audio.json", "cue-audio.json", "cue-toggle-page-errors.json", "cue-page-errors.json", "cue-sound-saved.json", "cue-chat-before.json", "cue-chat.json"].map(read);
-    const [recordingFrom, toggledAt, freshClickedAt, freshAudio, freshErrors, savedOff] =
-      ["cue-recording-from.json", "cue-toggle-click.json", "cue-fresh-click.json", "cue-fresh-audio.json", "cue-fresh-page-errors.json", "cue-sound-off-saved.json"].map(read);
-    const [invincibleDefault, invincibleLinked, invincibleChat, invincibleLog, invincibleErrors, invincibleRestarted, invincibleOrbLog, invincibleOrbErrors] =
-      ["invincible-default.json", "invincible-linked.json", "invincible-chat.json", "invincible.json", "invincible-page-errors.json", "invincible-restarted.json", "invincible-orb.json", "invincible-orb-page-errors.json"].map(read);
-    const contexts = Object.fromEntries(["fresh", "fresh-clicked", "loaded", "toggled", "reloaded", "clicked"].map((when) => [when, read(`cue-contexts-${when}.json`)]));
-    const toggles = Object.fromEntries(["fresh", "off", "on", "reloaded"].map((when) => [when, read(`cue-toggles-${when}.json`)]));
-    const [spawnTile, targetTile, edgeOrderTile, edgeStopTile, nearSquare] = [spawn, target, edgeOrder, edgeStop, square].map((tile) => JSON.parse(tile));
-    const same = (a, b) => a?.x === b.x && a?.y === b.y;
-    const inSquare = (t) => t.x >= nearSquare.minX && t.x <= nearSquare.maxX && t.y >= nearSquare.minY && t.y <= nearSquare.maxY;
-    const upTo = (rows, last) => rows.filter((row) => row.tick <= last);
-    const between = (rows, from, to) => rows.filter((row) => row.tick >= Number(from) && row.tick <= Number(to));
-    const events = (rows, kind, pick) => upTo(rows, Number(lastTick)).flatMap((row) => row.events.filter((e) => e.kind === kind).map(pick));
-    const rowAt = (rows, t) => rows.find((row) => row.tick === Number(t));
-    function decode(file) {
-      const zlib = require("zlib");
-      const buf = fs.readFileSync(`${dir}/${file}`);
-      let pos = 8, width = 0, height = 0, channels = 0;
-      const idat = [];
-      while (pos < buf.length) {
-        const len = buf.readUInt32BE(pos), type = buf.toString("ascii", pos + 4, pos + 8), data = buf.subarray(pos + 8, pos + 8 + len);
-        if (type === "IHDR") [width, height, channels] = [data.readUInt32BE(0), data.readUInt32BE(4), { 2: 3, 6: 4 }[data[9]]];
-        if (type === "IDAT") idat.push(data);
-        pos += 12 + len;
-      }
-      const raw = zlib.inflateSync(Buffer.concat(idat)), stride = width * channels, px = Buffer.alloc(height * stride);
-      for (let y = 0; y < height; y++) {
-        for (let i = 0; i < stride; i++) {
-          const a = i >= channels ? px[y * stride + i - channels] : 0, b = y ? px[(y - 1) * stride + i] : 0, c = y && i >= channels ? px[(y - 1) * stride + i - channels] : 0;
-          const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
-          px[y * stride + i] = (raw[y * (stride + 1) + 1 + i] + [0, a, b, (a + b) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? b : c][raw[y * (stride + 1)]]) & 255;
-        }
-      }
-      return { width, height, channels, px };
-    }
-    function pixelShare(file, matches, area) {
-      const { width, height, channels, px } = decode(file);
-      const { minX, maxX, minY, maxY } = area ?? { minX: 0, maxX: width - 1, minY: 0, maxY: height - 1 };
-      let hits = 0;
-      for (let y = minY; y <= maxY; y++) {
-        for (let x = minX; x <= maxX; x++) {
-          const i = (y * width + x) * channels;
-          if (matches(px[i], px[i + 1], px[i + 2])) hits++;
-        }
-      }
-      return Math.round((100000 * hits) / ((maxX - minX + 1) * (maxY - minY + 1))) / 1000;
-    }
-    const shardRgb = [1, 3, 5].map((i) => parseInt(explosionPixel.slice(i, i + 2), 16));
-    function spot(file, matches, area) {
-      const { width, height, channels, px } = decode(file);
-      const { minX, maxX, minY, maxY } = area ?? { minX: Math.floor(width * 0.4), maxX: Math.ceil(width * 0.6) - 1, minY: Math.floor(height * 0.45), maxY: Math.ceil(height * 0.6) - 1 };
-      let hits = 0, sumX = 0;
-      for (let y = minY; y <= maxY; y++) {
-        for (let x = minX; x <= maxX; x++) {
-          const i = (y * width + x) * channels;
-          if (matches(px[i], px[i + 1], px[i + 2])) [hits, sumX] = [hits + 1, sumX + x];
-        }
-      }
-      return { share: Math.round((100000 * hits) / ((maxX - minX + 1) * (maxY - minY + 1))) / 1000, dx: hits ? Math.round((1000 * (sumX / hits - (width - 1) / 2)) / width) / 1000 : null };
-    }
-    const isShardColour = (...rgb) => shardRgb.every((v, c) => Math.abs(rgb[c] - v) <= 12);
-    const nameRgb = [1, 3, 5].map((i) => parseInt(hoverNamePixel.slice(i, i + 2), 16));
-    function hoverText(file) {
-      const { width, channels, px } = decode(file);
-      const columns = (rgb) => {
-        const xs = [];
-        for (let y = Number(brewY) + 19; y <= Number(brewY) + 40; y++) {
-          for (let x = 0; x < width; x++) if (rgb.every((v, c) => px[(y * width + x) * channels + c] === v)) xs.push(x);
-        }
-        return xs.length ? [Math.min(...xs), Math.max(...xs)] : null;
-      };
-      return { width, action: columns([255, 255, 255]), name: columns(nameRgb) };
-    }
-    const readsInFull = (text) => text.action !== null && text.name !== null && text.action[1] < text.name[0] && text.name[1] <= text.width - 5;
-    const want = [1, 3, 5].map((i) => parseInt(voidPixel.slice(i, i + 2), 16));
-    const voidShare = (file) => pixelShare(file, (...rgb) => want.every((v, c) => Math.abs(rgb[c] - v) <= 10));
-    const walkwayRgb = [1, 3, 5].map((i) => parseInt(walkwayPixel.slice(i, i + 2), 16));
-    const walkOrders = (log) => log.rows.flatMap((row) => row.inputs.filter((i) => i.kind === "walk-ordered").map((i) => i.destination));
-    const orderTicks = (log) => log.rows.filter((row) => row.inputs.some((i) => i.kind === "walk-ordered")).map((row) => row.tick);
-    const walks = (log) => {
-      const starts = log.rows.flatMap((row, i) => (row.inputs.some((input) => input.kind === "walk-ordered") ? [i] : []));
-      return starts.map((start, n) => {
-        const tiles = log.rows.slice(start, starts[n + 1]).map((row) => row.playerAtPostTick.tile);
-        return [log.rows[start].phase.stage, tiles.filter((at, i) => i === 0 || !same(at, tiles[i - 1]))];
-      });
-    };
-    const walkPaces = (log) => log.rows.flatMap((row) => row.inputs.filter((i) => i.kind === "walk-ordered").map((i) => i.pace));
-    const tilesUntilStop = (log, stop, order = 0) => {
-      const ordered = log.rows.flatMap((row, at) => (row.inputs.some((i) => i.kind === "walk-ordered") ? [at] : []));
-      const tiles = log.rows.slice(ordered[order]).map((row) => row.playerAtPostTick.tile);
-      return tiles.slice(0, tiles.findIndex((tile) => same(tile, stop)) + 1);
-    };
-    const seedInUrl = (run) => new URLSearchParams(run.search).get("seed");
-    const offset = JSON.parse(orbBox);
-    const around = { minX: orbClick.x + offset.minX, maxX: orbClick.x + offset.maxX, minY: orbClick.y + offset.minY, maxY: orbClick.y + offset.maxY };
-    const orbTeal = (look) => Array.from({ length: Number(orbFrames) }, (_, i) => pixelShare(`orb-${look}-${i + 1}.png`, (r, g, b) => g >= 120 && g - r >= 60 && b - r >= 30, around));
-    const expectedOrb = JSON.parse(orbExpected);
-    const kindOf = (rows, kind) => rows.flatMap((row) => row.events.filter((e) => e.kind === kind));
-    const orbTile = expectedOrb.spawned[0][1];
-    const flood = between(shot.rows, floodDamage, floodLast);
-    const floorHit = (row) => row.events.some((e) => e.kind === "floor-hit" && same(e.tile, row.playerAtBossStep.tile));
-    const launch = flood.find((row) => row.combatDraws > 0);
-    const landing = flood.flatMap((row) => row.events.filter((e) => e.kind === "player-hit-judged" && e.style === "ranged").map((e) => ({ ...e, bossHp: row.bossHp })))[0];
-    const expectedExplosions = JSON.parse(explosionExpected);
-    const stepped = (rows, t) => rowAt(rows, t)?.inputs.some((input) => input.kind === "walk-ordered") ?? false;
-    const markedAt = (rows, t) => kindOf(rows, "explosion-marked").find((e) => e.at === t);
-    const resolvedAt = (rows, t) => kindOf(rows, "explosion-resolved").find((e) => e.at === t);
-    const late = Number(lateMark);
-    const fromCentre = (box) => { const o = JSON.parse(box); return { minX: Number(centreX) + o.minX, maxX: Number(centreX) + o.maxX, minY: Number(centreY) + o.minY, maxY: Number(centreY) + o.maxY }; };
-    const [tellArea, centreArea] = [fromCentre(tellBox), fromCentre(tellCentreBox)];
-    const tellShare = (file) => pixelShare(file, (r, g, b) => b >= 150 && r >= 90 && g <= 90 && b - g >= 100, tellArea);
-    const centreShares = (file) => ({ white: pixelShare(file, (r, g, b) => r >= 235 && g >= 235 && b >= 235, centreArea), black: pixelShare(file, (r, g, b) => Math.max(r, g, b) <= 40, centreArea) });
-    const samplesOf = JSON.parse(transitionSamples);
-    const timed = (list) => JSON.parse(list).map(([at, id]) => [at, samplesOf[id]]);
-    const heardIn = (windows, expected) => {
-      const lengths = new Set(expected.map(([, samples]) => samples));
-      return transitionAudio
-        .filter((s) => s.rate === 22050 && s.tick !== null && lengths.has(s.samples) && JSON.parse(windows).some(([from, to]) => s.tick + s.phase >= from && s.tick + s.phase < to))
-        .map((s) => [Math.round((s.tick + s.phase) * 100) / 100, s.samples]);
-    };
-    const onSchedule = (heard, expected) => heard.length === expected.length && heard.every(([at, samples], i) => samples === expected[i][1] && Math.abs(at - expected[i][0]) <= Number(soundTolerance));
-    const [landingExpected, styleExpected] = [timed(landingSounds), timed(styleSounds)];
-    const prayedAt = (rows) => rows.find((row) => row.inputs.some((input) => input.kind === "prayer-published" && input.prayer === "magic"))?.tick ?? null;
-    const hitsOf = (rows) => kindOf(rows, "special-hit").map((e) => [e.at, e.style, e.receipt]);
-    const expectedSpecial = JSON.parse(specialExpected);
-    const soundBySamples = Object.fromEntries(Object.entries(JSON.parse(soundSamples)).map(([id, samples]) => [samples, Number(id)]));
-    const iconArea = fromCentre(iconBox);
-    const iconColours = {
-      blue: (r, g, b) => r <= 80 && g <= 190 && b >= 200,
-      red: (r, g, b) => r >= 150 && r <= 240 && g <= 80 && b <= 80,
-      orange: (r, g, b) => r >= 170 && g >= 100 && g <= 165 && b <= 100,
-    };
-    function iconIn(file) {
-      const share = Object.fromEntries(Object.entries(iconColours).map(([name, matches]) => [name, pixelShare(file, matches, iconArea)]));
-      const icon = share.blue >= 0.2 ? (share.red >= 0.2 ? "deflect-melee" : share.orange >= 0.06 ? "deflect-range" : "unknown") : share.red >= 0.2 ? "soul-split" : null;
-      return { ...share, icon };
-    }
-    const overheadAt = (rows, t) => rowAt(rows, t)?.phase.overhead;
-    const expectedRifts = JSON.parse(riftExpected);
-    const riftSamplesOf = JSON.parse(riftSoundSamples);
-    const [riftFrom, riftTo] = JSON.parse(riftSoundWindow);
-    const riftTimed = (list) => list.map(([at, id]) => [at, riftSamplesOf[id]]);
-    const riftHeard = (ids) => {
-      const lengths = new Set(ids.map((id) => riftSamplesOf[id]));
-      return riftAudio
-        .filter((s) => s.rate === 22050 && s.tick !== null && lengths.has(s.samples) && s.tick + s.phase >= riftFrom && s.tick + s.phase < riftTo)
-        .map((s) => [Math.round((s.tick + s.phase) * 100) / 100, s.samples]);
-    };
-    const [killOffset, killId] = JSON.parse(riftKillSound);
-    const destroyedAt = kindOf(riftLog.rows, "rift-destroyed")[0]?.at ?? null;
-    const riftExpectedSounds = {
-      spawn: riftTimed(JSON.parse(riftSpawnSounds)),
-      kill: destroyedAt === null ? [] : riftTimed([[destroyedAt + killOffset, killId]]),
-      burst: riftTimed(JSON.parse(riftBurstSounds)),
-    };
-    const timerShare = (file) => pixelShare(file, (r, g, b) => r >= 180 && g >= 140 && b <= 90 && r - b >= 120, fromCentre(riftTimerBox));
-    const splatShare = (file) => pixelShare(file, (r, g, b) => r >= 120 && g <= 40 && b <= 40, fromCentre(reflectSplatBox));
-    const isGlow = (r, g, b) => b >= 120 && b - g >= 80 && r - g >= 50;
-    const isSpotAnimGlow = (r, g, b) => b >= 110 && b - g >= 35 && r - g >= 25;
-    const isSpotAnimShard = (r, g, b) => g <= 35 && b >= 100 && b - r >= 40;
-    const glow = (file, box = explosionGlowBox, isLit = isSpotAnimGlow) => spot(file, isLit, fromCentre(box));
-    const markDrawn = (file) => spot(file, (...rgb) => isGlow(...rgb) || isShardColour(...rgb) || isSpotAnimGlow(...rgb) || isSpotAnimShard(...rgb), fromCentre(explosionGlowBox)).share;
-    const overhead = (file) => spot(file, isSpotAnimShard, fromCentre(explosionOverheadBox));
-    const holeTiles = JSON.parse(holeLayout).tiles;
-    const onHole = (tile) => holeTiles.some((hole) => same(tile, hole));
-    const darkAround = (file, [, dx, dy]) => {
-      const half = Number(holeBoxHalf), x = Number(centreX) + dx, y = Number(centreY) + dy;
-      return pixelShare(file, (r, g, b) => Math.max(r, g, b) <= 30, { minX: x - half, maxX: x + half, minY: y - half, maxY: y + half });
-    };
-    const cueSamplesOf = JSON.parse(cueSoundSamples);
-    const cueLengths = new Set(Object.values(cueSamplesOf));
-    const [cueFrom, cueTo] = JSON.parse(cueSoundWindow);
-    const cueHeard = (audio) => audio
-      .filter((s) => s.rate === 22050 && s.tick !== null && cueLengths.has(s.samples) && s.tick + s.phase >= cueFrom && s.tick + s.phase < cueTo)
-      .map((s) => [Math.round((s.tick + s.phase) * 100) / 100, s.samples, s.state]);
-    const cueExpected = JSON.parse(cueSounds).map(([at, id]) => [at, cueSamplesOf[id]]);
-    const savedSound = cueSaved?.values ?? {};
-    const savedSoundOff = savedOff?.values ?? {};
-    const bossBar = Object.entries(read("boss-bar.json")).map(([t, texts]) => [Number(t), texts]).sort(([a], [b]) => a - b);
-    const observed = {
-      bossBar,
-      firstWalkOrders: cycle.rows.flatMap((row) => row.inputs.filter((i) => i.kind === "walk-ordered").map((i) => i.destination)).slice(0, 2),
-      edge: { arrived: [edgeArrived.tick, edgeArrived.player], held: [edge.tick, edge.player] },
-      stageEntries: events(cycle.rows, "stage-entered", (e) => [e.at, e.stage]),
-      overheadSwitches: events(cycle.rows, "overhead-switched", (e) => [e.at, e.overhead]),
-      specialHits: upTo(cycle.rows, Number(lastTick)).flatMap((row) => row.beats.filter((b) => b.kind === "special-hit").map((b) => [row.tick, b.variant])),
-      focus: { start: focus.rows[0]?.tick ?? null, beats: [...new Set(focus.rows.flatMap((row) => row.beats.map((b) => b.kind)))].sort() },
-      focusEntrySounds: focusAudio.filter((s) => s.tick !== null && s.tick >= JSON.parse(focusEntryTicks)[0] && s.tick < JSON.parse(focusEntryTicks)[1]).map((s) => [s.tick, s.phase, s.samples, s.state]),
-      floodShot: {
-        launch: launch && { at: launch.tick, startedOn: launch.playerAtBossStep.tile, firedFrom: launch.playerAtPostTick.tile, floorHitOnStart: floorHit(launch) },
-        landing: landing && { at: landing.at, style: landing.style, outcome: landing.outcome, damage: landing.requested, bossHp: [landing.bossHp.atBossStep, landing.bossHp.atPostTick] },
-        walk: flood.flatMap((row) => row.inputs.filter((i) => i.kind === "walk-ordered").map((i) => [row.tick, i.destination])),
-      },
-      floodRows: flood.map((row) => [row.tick, row.playerAtBossStep.tile, floorHit(row)]),
-      voidHits: voidLog.rows.flatMap((row) => row.events.filter((e) => e.kind === "floor-hit").map((e) => [e.at, e.receipt.applied])),
-      voidHitTiles: [...new Set(voidLog.rows.flatMap((row) => row.events.filter((e) => e.kind === "floor-hit").map((e) => JSON.stringify(e.tile))))],
-      voidRunEnd: voidLog.rows.flatMap((row) => row.events.filter((e) => e.kind === "run-ended").map((e) => [e.at, e.reason])),
-      voidPixelShare: { "before.png": voidShare("before.png"), "void-inner.png": voidShare("void-inner.png"), "void-flood.png": voidShare("void-flood.png"), "flood-ring.png": voidShare("flood-ring.png") },
-      loadout: {
-        worn: [dressed.player.equipped, switched.player.equipped, selector.player.equipped],
-        specialEnergy: [switched.player.specialEnergy, spec.player.specialEnergy],
-        bossDefence: [switched.boss.defence, spec.boss.defence],
-      },
-      defenceFloor: {
-        bossDefence: [floorStart.boss.defence, floorFirst.boss.defence, floorLast.boss.defence],
-        glaives: floorGlaives.map((event) => [event.at, event.outcome, event.requested]),
-      },
-      orb: {
-        told: kindOf(orbLog.rows, "lifeforce-told").map((e) => [e.at, e.void]),
-        drained: kindOf(orbLog.rows, "lifeforce-drained").map((e) => [e.at, e.receipt.applied, e.receipt.afterHp]),
-        spawned: kindOf(orbLog.rows, "orb-spawned").map((e) => [e.at, e.tile, e.credit]),
-        clicked: orbClick.snapshot?.destination ?? null,
-        arrivedAt: orbLog.rows.find((row) => same(row.playerAtPostTick.tile, orbTile))?.tick ?? null,
-        matured: kindOf(orbLog.rows, "orb-matured").map((e) => [e.at, e.tile]),
-        returned: kindOf(orbLog.rows, "orb-returned").map((e) => [e.at, e.receipt]),
-        skipExpired: kindOf(orbSkip.rows, "orb-expired").map((e) => [e.at, e.void]),
-        skipHeal: kindOf(orbSkip.rows, "boss-healed").map((e) => [e.at, e.cause, e.receipt]),
-        skipReturned: kindOf(orbSkip.rows, "orb-returned").length,
-        tealShare: { box: around, dormant: orbTeal("dormant"), glow: orbTeal("glow") },
-      },
-      explosions: {
-        dodges: JSON.parse(innerMarks).map((t) => ({ mark: t, stepped: stepped(explosionLog.rows, t), tile: markedAt(explosionLog.rows, t)?.tile ?? null, outcome: resolvedAt(explosionLog.rows, t + 1)?.outcome.kind ?? null })),
-        late: {
-          standing: rowAt(explosionLog.rows, late)?.playerAtBossStep.tile ?? null,
-          marked: markedAt(explosionLog.rows, late)?.tile ?? null,
-          steppedOnMark: stepped(explosionLog.rows, late),
-          steppedOnImpact: stepped(explosionLog.rows, late + 1),
-          resolved: resolvedAt(explosionLog.rows, late + 1) ?? null,
-          endTile: rowAt(explosionLog.rows, late + 1)?.playerAtPostTick.tile ?? null,
-        },
-        under: kindOf(underLog.rows, "explosion-resolved").map((e) => [e.at, e.tile, e.underBoss, e.outcome.kind, e.outcome.receipt?.afterHp ?? null]),
-        speedup: {
-          attacks: dodgeLog.rows.filter((row) => row.tick <= Number(dodgeLastTick) && row.combatDraws > 0).map((row) => row.tick),
-          dodges: kindOf(dodgeLog.rows, "explosion-resolved").map((e) => [e.at, e.tile, e.outcome.kind, e.outcome.attackDelay ?? null]),
-          steps: dodgeLog.rows.filter((row) => row.inputs.length > 0).map((row) => [row.tick, row.inputs.map((input) => input.destination ?? input.prayer)]),
-          bossHits: dodgeLog.rows.flatMap((row) => row.events.filter((e) => e.kind === "player-hit-judged").map((e) => [e.at, e.outcome, e.requested, row.bossHp.atBossStep - row.bossHp.atPostTick])),
-        },
-        overhead: Object.fromEntries(["explosion-before.png", "explosion-standing.png", "explosion-after.png"].map((file) => [file, overhead(file)])),
-        glow: { "explosion-left.png": glow("explosion-left.png"), "explosion-under.png": glow("explosion-under.png") },
-        runEnd: {
-          marked: kindOf(runEndLog.rows, "explosion-marked").map((e) => [e.at, e.tile]),
-          ended: kindOf(runEndLog.rows, "run-ended").map((e) => [e.at, e.reason]),
-          resolved: kindOf(runEndLog.rows, "explosion-resolved").map((e) => e.at),
-          drawnWhileMarked: Math.max(...[1, 2].map((frame) => markDrawn(`explosion-run-end-marked-${frame}.png`))),
-          drawnAfterTheEnd: Array.from({ length: Number(explosionRunEndFrames) }, (_, frame) => markDrawn(`explosion-run-end-${frame + 1}.png`)),
-        },
-        sounds: {
-          heard: explosionAudio.filter((s) => s.rate === 22050 && soundBySamples[s.samples] !== undefined).map((s) => [s.tick, soundBySamples[s.samples]]),
-          contexts: [...new Set(explosionAudio.map((s) => s.state))],
-          starts: explosionAudio.length,
-        },
-      },
-      special: {
-        prayedAt: prayedAt(specialLog.rows),
-        hits: hitsOf(specialLog.rows),
-        latePrayedAt: prayedAt(lateLog.rows),
-        lateHits: hitsOf(lateLog.rows),
-        lateRunEnd: kindOf(lateLog.rows, "run-ended").map((e) => [e.at, e.reason]),
-        told: kindOf(lateLog.rows, "special-told").map((e) => [e.at, e.variant, e.style]),
-        tellShare: { box: tellArea, ...Object.fromEntries(["special-before.png", "special-vortex.png", "special-spike-disk.png", "special-semicircle.png"].map((file) => [file, tellShare(file)])) },
-        centreShares: { box: centreArea, ...Object.fromEntries(["special-vortex.png", "special-spike-disk.png", "special-black-disk.png"].map((file) => [file, centreShares(file)])) },
-        landingSounds: heardIn(landingWindows, landingExpected),
-        styleSounds: heardIn(styleWindows, styleExpected),
-        contexts: [...new Set(transitionAudio.map((s) => s.state))],
-      },
-      supplies: {
-        carried,
-        itemMenu: [itemMenu, itemMenuClosed],
-        brew: { clickedAt: brewClick, hp: brewHp.filter(([tick]) => tick >= brewClick - 1 && tick <= brewClick + 3) },
-      },
-      icons: Object.fromEntries(Object.keys(JSON.parse(trainerIcons)).map((id) => [id, icons[id] ?? null])),
-      hoverText: { "brew-heal.png": hoverText("brew-heal.png"), "keybinds.png": hoverText("keybinds.png") },
-      seeds,
-      walkway: {
-        orders: walkOrders(walkwayLog),
-        arrived: [walkwayArrived.tick, walkwayArrived.player],
-        held: [walkwayHeld.tick, walkwayHeld.player],
-        share: pixelShare("walkway.png", (...rgb) => walkwayRgb.every((v, c) => Math.abs(rgb[c] - v) <= 4)),
-        runEnd: { orders: walkOrders(walkwayRunEndLog), held: [walkwayRunEndHeld.tick, walkwayRunEndHeld.player] },
-        paces: walkPaces(walkwayLog),
-        tiles: tilesUntilStop(walkwayLog, JSON.parse(walkwayStop)),
-      },
-      controlWalk: {
-        orders: walkOrders(controlWalkLog),
-        paces: walkPaces(controlWalkLog),
-        tiles: tilesUntilStop(controlWalkLog, JSON.parse(walkwayStop)),
-        ...controlWalkMenu,
-        rightClickMenu: controlWalkRightClick,
-      },
-      backWall: {
-        orders: walkOrders(backWallLog),
-        paces: walkPaces(backWallLog),
-        toward: tilesUntilStop(backWallLog, JSON.parse(backWallEnd), 1),
-        back: tilesUntilStop(backWallLog, JSON.parse(backWallStart), 2),
-      },
-      corner: { orders: [...walkOrders(cornerHoleLog), ...walkOrders(cornerNubLog)], stood: [cornerAtHole.player, cornerAtNub.player] },
-      pathing: { orders: walkOrders(pathingLog), walks: walks(pathingLog) },
-      pathingReroute: { orders: walkOrders(rerouteLog), orderTicks: orderTicks(rerouteLog), walks: walks(rerouteLog) },
-      pathingOut: { orders: walkOrders(outLog), orderTicks: orderTicks(outLog), walks: walks(outLog) },
-      pathingControl: { orders: walkOrders(controlRerouteLog), paces: walkPaces(controlRerouteLog), orderTicks: orderTicks(controlRerouteLog), walks: walks(controlRerouteLog) },
-      holes: {
-        layout: { key: holesLog.header.choices.floorHoleLayout.key, tiles: holesLog.header.choices.floorHoleLayout.option.value.tiles },
-        darkShare: JSON.parse(holePixels).map((box) => ({ tile: box[0], drawn: darkAround("holes-drawn.png", box), flood: darkAround("holes-flood.png", box) })),
-        freeDarkShare: JSON.parse(holeFreePixels).map((box) => ({ tile: box[0], drawn: darkAround("holes-drawn.png", box) })),
-        rows: holesLog.rows.map((row) => ({
-          tick: row.tick,
-          stage: row.phase.stage,
-          startedOn: row.playerAtBossStep.tile,
-          hits: row.events.filter((e) => e.kind === "hole-hit").map((e) => ({ at: e.at, tile: e.tile, requested: e.receipt.requested })),
-        })),
-      },
-      orbLate: {
-        returned: kindOf(orbLateLog.rows, "orb-returned").map((e) => [e.at, e.void, e.receipt]),
-        innerExpired: kindOf(orbLateLog.rows, "orb-expired").filter((e) => e.void === "inner-void").map((e) => e.at),
-      },
-      orbEntry: {
-        walks: orbEntryLog.rows.flatMap((row) => row.inputs.filter((i) => i.kind === "walk-ordered").map((i) => i.destination)),
-        outer: kindOf(orbEntryLog.rows, "orb-spawned").filter((e) => e.void === "outer-void").map((e) => [e.at, e.tile]),
-      },
-      orbOffHoles: {
-        layout: { key: orbHolesLog.header.choices.floorHoleLayout.key, tiles: orbHolesLog.header.choices.floorHoleLayout.option.value.tiles },
-        spawned: orbHolesLog.rows.flatMap((row) => row.events.filter((e) => e.kind === "orb-spawned").map((e) => [e.at, e.void, e.tile])),
-      },
-      keybinds: {
-        tabs: [keysOpen.tab, keysBound.tab, keysOldKey.tab, keysReloaded.tab],
-        inventoryKey: [keysOpen.keys.inventory, keysBound.keys.inventory, keysSaved.values?.inventory_key ?? null, keysReloaded.keys.inventory, keysRestored.keys.inventory],
-      },
-      overheads: {
-        box: iconArea,
-        shots: overheadShots.split(" ").map(Number).map((t) => ({ tick: t, logged: [overheadAt(riftLog.rows, t), overheadAt(riftLog.rows, t + 1)], ...iconIn(`overhead-${t}.png`) })),
-        gapDraws: Object.keys(JSON.parse(gapDraws)).map((t) => ({ tick: Number(t), logged: overheadAt(riftLog.rows, t) ?? null, frames: overheadDraws[t]?.frames ?? 0, sprites: [...(overheadDraws[t]?.sprites ?? [])].sort() })),
-        hover: {
-          standsOn: [...new Set(between(deflectLog.rows, ...JSON.parse(hoverTicks)).map((row) => JSON.stringify(row.playerAtPostTick.tile)))].map((tile) => JSON.parse(tile)),
-          bossHp: [rowAt(deflectLog.rows, JSON.parse(hoverTicks)[0])?.bossHp.atBossStep, rowAt(deflectLog.rows, Number(firstMeleeTick) - 1)?.bossHp.atPostTick],
-        },
-        meleeJudged: kindOf(deflectLog.rows, "player-hit-judged").filter((e) => e.style === "melee").map((e) => {
-          const hp = rowAt(deflectLog.rows, e.at)?.bossHp;
-          return { at: e.at, overhead: overheadAt(deflectLog.rows, e.at), outcome: e.outcome, taken: hp ? hp.atBossStep - hp.atPostTick : null };
-        }),
-      },
-      soulSplit: {
-        protectedRunReached: rowAt(specialLog.rows, expectedSpecial.protected[0] + 2) !== undefined,
-        protectedHeals: kindOf(specialLog.rows, "boss-healed").map((e) => [e.at, e.cause, e.receipt]),
-        lateHeals: kindOf(lateLog.rows, "boss-healed").map((e) => [e.at, e.cause, e.receipt]),
-      },
-      rifts: {
-        spawned: kindOf(riftLog.rows, "rift-spawned").map((e) => [e.at, e.rift, e.tile]),
-        destroyed: kindOf(riftLog.rows, "rift-destroyed").map((e) => [e.at, e.rift]),
-        destroyedAttackDelay: kindOf(riftLog.rows, "rift-destroyed").map((e) => e.attackDelay),
-        bursts: kindOf(riftLog.rows, "rift-burst").map((e) => [e.at, e.rifts, e.receipt]),
-        hits: kindOf(riftLog.rows, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]),
-        ralosHits: kindOf(ralosLog.rows, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]),
-        meleeHits: kindOf(meleeRiftLog.rows, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]),
-        timerShares: { beforeSpawn: timerShare("overhead-45.png"), spawned: timerShare("rift-spawned.png"), charged: timerShare("rift-charged.png") },
-        chat: riftChat.data?.text ?? null,
-        sounds: {
-          spawn: riftHeard(JSON.parse(riftSpawnSounds).map(([, id]) => id)),
-          kill: riftHeard([killId]),
-          burst: riftHeard(JSON.parse(riftBurstSounds).map(([, id]) => id)),
-          contexts: [...new Set(riftAudio.map((s) => s.state))],
-        },
-      },
-      reflect: {
-        judged: kindOf(reflectLog.rows, "player-hit-judged").map((e) => [e.at, e.style, e.outcome, e.requested]),
-        reflected: kindOf(reflectLog.rows, "deflect-reflected").map((e) => [e.at, e.style, e.receipt.applied]),
-        hpAfter: rowAt(reflectLog.rows, JSON.parse(reflectExpected).judged.at(-1)[0])?.playerAtPostTick.hp ?? null,
-        splatShares: { unreflected: splatShare("reflect-none.png"), reflected: splatShare("reflect-hit.png") },
-      },
-      cues: {
-        toggles,
-        saved: { playsAudio: savedSound.playsAudio ?? null, playsAreaAudio: savedSound.playsAreaAudio ?? null },
-        savedOff: { playsAudio: savedSoundOff.playsAudio ?? null, playsAreaAudio: savedSoundOff.playsAreaAudio ?? null },
-        freshClickedAt,
-        freshHeard: cueHeard(freshAudio),
-        contexts,
-        recordingFrom,
-        toggledAt,
-        beforeToggle: cueHeard(cueToggleAudio).filter(([at]) => at < toggledAt),
-        afterToggle: cueHeard(cueToggleAudio).filter(([at]) => at >= toggledAt),
-        heard: cueHeard(cueAudio),
-        chat: [cueChatBefore.data?.text ?? null, cueChatAfter.data?.text ?? null],
-        told: kindOf(cueLog.rows, "lifeforce-told").map((e) => e.at),
-        spawned: kindOf(cueLog.rows, "orb-spawned").map((e) => [e.at, e.void, e.tile]),
-      },
-      invincible: {
-        defaultToggle: invincibleDefault,
-        linkedToggle: invincibleLinked,
-        floorHits: kindOf(invincibleLog.rows, "floor-hit").map((e) => [e.at, e.receipt.applied]),
-        prevented: kindOf(invincibleLog.rows, "death-prevented").map((e) => [e.at, e.source]),
-        hp: invincibleLog.rows.filter((row) => row.tick === 53 || row.tick === 54).map((row) => [row.tick, row.playerAtPostTick.hp]),
-        ended: kindOf(invincibleLog.rows, "run-ended").map((e) => [e.at, e.reason]),
-        lastTick: invincibleLog.rows[invincibleLog.rows.length - 1]?.tick ?? -1,
-        chat: invincibleChat.data?.text ?? null,
-        preventedWithoutTheParameter: kindOf(voidLog.rows, "death-prevented").map((e) => [e.at, e.source]),
-        restarted: invincibleRestarted,
-        orb: {
-          walks: invincibleOrbLog.rows.flatMap((row) => row.inputs.filter((i) => i.kind === "walk-ordered").map((i) => [row.tick, i.destination])),
-          prevented: kindOf(invincibleOrbLog.rows, "death-prevented").map((e) => [e.at, e.source, e.clearedOrbCredit]),
-          returned: kindOf(invincibleOrbLog.rows, "orb-returned").map((e) => [e.at, e.receipt]),
-          hp: invincibleOrbLog.rows.map((row) => [row.tick, row.playerAtPostTick.hp]),
-        },
-      },
-    };
-    const sameJson = (a, b) => require("util").isDeepStrictEqual(a, JSON.parse(b));
-    const share = observed.voidPixelShare;
-    const orb = observed.orb;
-    const { dodges, late: lateStep, under, overhead: overheadSpots, sounds, speedup } = observed.explosions;
-    const [leftGlow, standing] = [observed.explosions.glow["explosion-left.png"], overheadSpots["explosion-standing.png"]];
-    const special = observed.special;
-    const { shots: iconShots, gapDraws: drawnAroundGaps, hover, meleeJudged } = observed.overheads;
-    const { soulSplit, rifts, cues, invincible } = observed;
-    const expectedInvincible = JSON.parse(invincibleExpected);
-    const expectedRevival = JSON.parse(invincibleOrbExpected);
-    const allIn = (states, state) => states.length > 0 && states.every((s) => s === state);
-    const timedOnly = (heard) => heard.map(([at, samples]) => [at, samples]);
-    const readyAt = Math.max(orb.arrivedAt ?? Infinity, orb.matured[0]?.[0] ?? Infinity);
-    const checks = {
-      spawnedOnSpawnTile: same(before.player, spawnTile),
-      clickTargetedExpectedTile: same(after.destination, targetTile),
-      arrivedAtExpectedTile: same(after.player, targetTile),
-      worldTicked: after.tick > before.tick,
-      edgeClickOrderedOffThePlatform: require("util").isDeepStrictEqual(observed.firstWalkOrders, [targetTile, edgeOrderTile]),
-      stoppedAtTheEdge: same(edgeArrived.player, edgeStopTile) && same(edge.player, edgeStopTile) && edge.tick - edgeArrived.tick >= Number(holdTicks),
-      bossIsExpectedNpc: snapshot.fight?.boss.npcId === Number(bossNpc),
-      bossHiddenInLeadIn: hidden.fight?.run.kind === "running" && hidden.fight.run.tick <= Number(lastHiddenTick) && hidden.fight.boss.visible === false,
-      bossDrawnOncePresent: snapshot.fight?.boss.visible === true,
-      bossBarReadsEntryHpOncePresent: bossBar.some(([t]) => t === 12) && bossBar.filter(([t]) => t <= 12).every(([, texts]) => sameJson(texts, JSON.stringify([bossBarAtEntry]))),
-      logHasEveryTick: cycle.rows.every((row, index) => row.tick === index) && cycle.rows.length > Number(lastTick),
-      stagesOnSchedule: sameJson(observed.stageEntries, stages),
-      overheadsOnSchedule: sameJson(observed.overheadSwitches, overheads),
-      transitionAttacksReplayed: sameJson(observed.specialHits, specials),
-      focusApplied: focus.header.choices.focus.key === focusKey && sameJson(observed.focus, focusExpected),
-      focusBossHoversAtEntry: observed.focusEntrySounds.some(([, , samples, state]) => samples === JSON.parse(bossPoseSamples).hover && state === "running") &&
-        !observed.focusEntrySounds.some(([, , samples]) => samples === JSON.parse(bossPoseSamples).rise),
-      rangedShotFromTheFlood: launch !== undefined && !inSquare(edgeStopTile) && same(launch.playerAtBossStep.tile, edgeStopTile) && same(launch.playerAtPostTick.tile, edgeStopTile) && floorHit(launch),
-      rangedShotLanded: launch !== undefined && landing !== undefined && landing.at > launch.tick && landing.outcome === "passed" && landing.requested > 0 &&
-        landing.bossHp.atBossStep - landing.bossHp.atPostTick === landing.requested,
-      ringSparedInFlood: flood.length === Number(floodLast) - Number(floodDamage) + 1 && flood.every((row) => floorHit(row) === !inSquare(row.playerAtBossStep.tile)) &&
-        flood.some(floorHit) && inSquare(flood[flood.length - 1].playerAtBossStep.tile),
-      floodHitsStandingStill: sameJson(observed.voidHits, voidHits) && sameJson(observed.voidHitTiles, JSON.stringify([JSON.stringify(spawnTile)])) && sameJson(observed.voidRunEnd, voidEnd),
-      noVoidBeforeTheFight: share["before.png"] < 0.3,
-      innerVoidDrawn: share["void-inner.png"] > 0.6 && share["void-inner.png"] < 3,
-      floodDrawn: share["void-flood.png"] > 3 && share["flood-ring.png"] > 3,
-      rangedSetupWorn: sameJson(dressed.player.equipped, rangedWorn),
-      switchesWornByClick: sameJson(switched.player.equipped, meleeWorn),
-      divisionSpentHalfTheBar: switched.player.specialEnergy === 100 && spec.player.specialEnergy === 50,
-      divisionDrainedBossDefence: (() => {
-        const kept = (e) => (e.outcome === "passed" ? e.requested : e.outcome === "reduced" ? Math.floor((e.requested * (100 - Number(explosionReduction))) / 100) : 0);
-        const glaives = read("loadout-spec-log.json").rows.flatMap((row) => row.events.filter((e) => e.kind === "player-hit-judged")).slice(0, 2);
-        return glaives.length === 2 && switched.boss.defence - spec.boss.defence === Number(drain) * glaives.filter((e) => kept(e) > 0).length;
-      })(),
-      setupSelectorApplied: sameJson(selector.player.equipped, meleeWorn),
-      divisionStopsAtDefenceFloor: sameJson(observed.defenceFloor.bossDefence, floorSteps) && floorGlaives.length === 4 && floorGlaives.every((event) => (event.outcome === "passed" || event.outcome === "reduced") && event.requested > 0),
-      orbToldAndDrained: sameJson(orb.told, JSON.stringify(expectedOrb.told)) && sameJson(orb.drained, JSON.stringify(expectedOrb.drained)),
-      orbSpawnedDormant: sameJson(orb.spawned, JSON.stringify(expectedOrb.spawned)),
-      orbClickTargetedOrb: same(orb.clicked, orbTile),
-      orbGlowsOnSchedule: sameJson(orb.matured, JSON.stringify(expectedOrb.matured)),
-      orbReturnedTickAfterArrival: orb.returned.length === 1 && orb.returned[0][0] === readyAt + 1 && sameJson(orb.returned[0][1], JSON.stringify(expectedOrb.returned)),
-      orbGlowDrawn: Math.max(...orb.tealShare.glow) - Math.max(...orb.tealShare.dormant) >= 3,
-      skippedOrbHealsBoss: sameJson(orb.skipExpired, JSON.stringify(expectedOrb.skipExpired)) && sameJson(orb.skipHeal, JSON.stringify(expectedOrb.skipHeal)) && orb.skipReturned === 0,
-      explosionsDodgedOnMarkTicks: dodges.every((d) => d.stepped && d.outcome === "avoided") && same(dodges[0].tile, spawnTile),
-      lateStepHitOnMarkedTile: lateStep.standing !== null && lateStep.resolved?.outcome.kind === "hit" && sameJson(lateStep.resolved.outcome.receipt, JSON.stringify(expectedExplosions.lateHit)) &&
-        same(lateStep.marked, lateStep.standing) && same(lateStep.resolved.tile, lateStep.standing) && !lateStep.steppedOnMark && lateStep.steppedOnImpact && !same(lateStep.endTile, lateStep.standing),
-      campingUnderBossHit: sameJson(under, JSON.stringify(expectedExplosions.under)),
-      hitsDuringTheExplosionsLoseTheReduction: (() => {
-        const marks = JSON.parse(innerMarks);
-        const during = (at) => at >= marks[0] && at <= marks[marks.length - 1] + 1;
-        const kept = (requested) => Math.floor((requested * (100 - Number(explosionReduction))) / 100);
-        return speedup.bossHits.some(([at, , requested]) => during(at) && requested > 0 && kept(requested) < requested) &&
-          speedup.bossHits.every(([at, outcome, requested, lost]) => (during(at) ? outcome === "reduced" && lost === kept(requested) : outcome === "passed" && lost === requested));
-      })(),
-      bowTwoTicksOnOneTileDodges: sameJson(speedup.attacks, dodgeAttacks) && speedup.dodges.length === JSON.parse(innerMarks).length && speedup.dodges.every(([, , kind]) => kind === "dodged"),
-      explosionSoundsOnSchedule: sameJson(sounds.heard, explosionSounds) && sameJson(sounds.contexts, JSON.stringify(["running"])),
-      markGlowsBrightPurple: Object.values(observed.explosions.glow).every((g) => g.share >= Number(explosionGlowMinShare)),
-      markGoneWhenTheRunEnds: (({ marked, ended, resolved, drawnWhileMarked, drawnAfterTheEnd }) =>
-        sameJson({ marked, ended, resolved }, explosionRunEndExpected) && drawnWhileMarked >= Number(explosionGlowMinShare) && drawnAfterTheEnd.every((share) => share <= Number(explosionGlowMaxShare)))(observed.explosions.runEnd),
-      markerStaysOnCapturedTile: leftGlow.dx !== null && leftGlow.dx <= -0.01 && standing.share >= Number(explosionOverheadMinShare) && standing.dx !== null && Math.abs(standing.dx) <= 0.016,
-      shardsOverTheHeadOnlyOnMarkTicks: standing.share >= Number(explosionOverheadMinShare) &&
-        ["explosion-before.png", "explosion-after.png"].every((file) => overheadSpots[file].share <= Number(explosionGlowMaxShare)),
-      prayerBeforeLandingProtects: special.prayedAt !== null && special.prayedAt < expectedSpecial.protected[0] && sameJson(special.hits, JSON.stringify([expectedSpecial.protected])),
-      lateClickTakesFullHit: special.latePrayedAt !== null && special.latePrayedAt > expectedSpecial.late[0] && sameJson(special.lateHits[0], JSON.stringify(expectedSpecial.late)),
-      tellsToldOnSchedule: sameJson(special.told, JSON.stringify(expectedSpecial.told)),
-      tellsDrawn: special.tellShare["special-before.png"] < 0.3 && ["special-vortex.png", "special-spike-disk.png", "special-semicircle.png"].every((file) => special.tellShare[file] >= 1),
-      tellCentresDark: ["special-vortex.png", "special-spike-disk.png", "special-black-disk.png"].every((file) => special.centreShares[file].white < 1),
-      landingSoundsOnSchedule: onSchedule(special.landingSounds, landingExpected) && sameJson(special.contexts, JSON.stringify(["running"])),
-      styleSoundsOnSchedule: onSchedule(special.styleSounds, styleExpected) && sameJson(special.contexts, JSON.stringify(["running"])),
-      itemNamedInMenu: sameJson(itemMenu, namedMenu) && itemMenuClosed === null,
-      suppliesCarried: sameJson(carried, supplyInventory),
-      brewHealedNextTick: (() => {
-        const healed = brewHp.find(([, hp]) => hp !== 99);
-        return healed !== undefined && healed[1] === Number(hpAfterBrew) && healed[0] > brewClick && healed[0] <= brewClick + 2;
-      })(),
-      keybindsButtonOpensSettings: keysOpen.tab === "SETTINGS" && keysOpen.keys.inventory === defaultKey,
-      keyBoundAndSaved: keysBound.keys.inventory === newKey && keysSaved.values?.inventory_key === newKey,
-      boundKeyOpensTabAfterReload: keysOldKey.tab === "PRAYER" && keysReloaded.tab === "INVENTORY" && keysReloaded.keys.inventory === newKey,
-      defaultKeyRestored: keysRestored.keys.inventory === defaultKey,
-      trainerItemsShowCacheIcons: Object.entries(JSON.parse(trainerIcons)).every(([id, size]) => icons[id]?.path === `/osrs-assets/item-icons/${id}.png` && icons[id].size === size),
-      hoverTextOnCanvas: readsInFull(observed.hoverText["brew-heal.png"]) &&
-        (readsInFull(observed.hoverText["keybinds.png"]) || (observed.hoverText["keybinds.png"].action === null && observed.hoverText["keybinds.png"].name === null)),
-      overheadIconsDrawn: iconShots.every((shot) => shot.logged[0] !== undefined && shot.logged[0] === shot.logged[1] && shot.icon === shot.logged[0]),
-      overheadDroppedBeforeEachVoid: drawnAroundGaps.every(({ tick, frames, sprites }) => frames > 0 && sameJson(sprites, JSON.stringify(JSON.parse(gapDraws)[tick]))) &&
-        drawnAroundGaps.filter(({ sprites }) => sprites.length === 0).every(({ logged }) => logged === null),
-      meleeCannotReachHoveringBoss: sameJson(hover.standsOn, `[${hoverTile}]`) && hover.bossHp[0] !== undefined && hover.bossHp[0] === hover.bossHp[1] &&
-        meleeJudged.length > 0 && meleeJudged[0].at === Number(firstMeleeTick) && meleeJudged.every((e) => e.at >= Number(firstMeleeTick)),
-      deflectBlocksMeleeUntilSoulSplit: meleeJudged.filter((e) => e.outcome === "blocked").length >= 2 && meleeJudged.filter((e) => e.outcome === "passed").length >= 2 &&
-        meleeJudged.every((e) => e.outcome === (e.overhead === "deflect-melee" ? "blocked" : "passed") && (e.outcome === "passed" || e.taken === 0)) &&
-        meleeJudged.reduce((sum, e) => sum + (e.outcome === "passed" ? e.taken : 0), 0) > 0,
-      soulSplitHealsUnprotected: soulSplit.protectedRunReached && soulSplit.protectedHeals.length === 0 && sameJson(soulSplit.lateHeals, soulSplitExpected),
-      riftsSpawnBesideBoss: sameJson(rifts.spawned, JSON.stringify(expectedRifts.spawned)),
-      riftKilledByClick: rifts.destroyed.length === 1 && rifts.destroyed[0][1] === expectedRifts.destroyed && rifts.destroyed[0][0] <= Number(burstTick),
-      killChatShown: rifts.chat === killChat,
-      riftKillResetsAttackDelay: sameJson(rifts.destroyedAttackDelay, JSON.stringify([expectedRifts.attackDelay])),
-      standingRiftBursts: sameJson(rifts.bursts, JSON.stringify(expectedRifts.bursts)),
-      riftsTakeStandardRangedMaxHits: sameJson(rifts.hits, riftOneHit) && sameJson(rifts.ralosHits, riftRalosHits),
-      riftsTakeStandardMeleeMaxHits: sameJson(rifts.meleeHits, riftMeleeHits),
-      riftTimerBarFills: rifts.timerShares.beforeSpawn === 0 && rifts.timerShares.spawned > 0 && rifts.timerShares.spawned <= Number(riftTimerMaxEarly) && rifts.timerShares.charged >= Number(riftTimerMinFull),
-      deflectReflectsATenth: sameJson({ judged: observed.reflect.judged, reflected: observed.reflect.reflected, hpAfter: observed.reflect.hpAfter }, reflectExpected) &&
-        observed.reflect.judged.every(([at, style, outcome, requested]) => observed.reflect.reflected.filter((r) => r[0] === at).length === (outcome === "blocked" && Math.floor(requested / 10) > 0 ? 1 : 0)),
-      reflectHitsplatOnPlayer: observed.reflect.splatShares.reflected >= Number(reflectMinSplat) && observed.reflect.splatShares.unreflected <= Number(reflectMaxClear),
-      riftSpawnSoundsOnFrame: onSchedule(rifts.sounds.spawn, riftExpectedSounds.spawn) && sameJson(rifts.sounds.contexts, JSON.stringify(["running"])),
-      riftKillSoundOnFrame: riftExpectedSounds.kill.length === 1 && onSchedule(rifts.sounds.kill, riftExpectedSounds.kill) && sameJson(rifts.sounds.contexts, JSON.stringify(["running"])),
-      riftBurstSoundsOnFrames: onSchedule(rifts.sounds.burst, riftExpectedSounds.burst) && sameJson(rifts.sounds.contexts, JSON.stringify(["running"])),
-      seedFreshAndShown: /^\d+$/.test(seeds.fresh.box) && Number(seeds.fresh.box) === seeds.fresh.seed && seeds.fresh.seed !== 1 && seedInUrl(seeds.fresh) === null,
-      restartDrawsFreshSeed: seedInUrl(seeds.restarted) === null && seeds.restarted.seed !== seeds.fresh.seed && Number(seeds.restarted.box) === seeds.restarted.seed,
-      typedSeedReplays: seedInUrl(seeds.typed) === seeds.fresh.box && seeds.typed.seed === seeds.fresh.seed && seeds.typed.box === seeds.fresh.box,
-      walkwayClickStaysOnFloor: sameJson(observed.walkway.orders, `[${walkwayOrder}]`) && same(walkwayArrived.player, JSON.parse(walkwayStop)) && same(walkwayHeld.player, JSON.parse(walkwayStop)) &&
-        walkwayHeld.tick - walkwayArrived.tick >= Number(holdTicks),
-      walkwayDrawn: observed.walkway.share >= Number(walkwayMinShare),
-      eastEdgeRunsStraight: sameJson(observed.walkway.runEnd.orders, `[${walkwayRunEnd}]`) && same(walkwayRunEndHeld.player, JSON.parse(walkwayRunEnd)),
-      bossBlocksOnlyInOuterVoid: sameJson(observed.pathing.orders, `[${pathingWest},${pathingEast},${pathingBack}]`) && sameJson(observed.pathing.walks.slice(1), pathingExpected),
-      walkOntoBossReroutesAsTheFloodStarts: sameJson([observed.pathingReroute.orders, observed.pathingReroute.orderTicks, observed.pathingReroute.walks], pathingRerouteExpected),
-      walkOutFromUnderBossInTheFlood: sameJson([observed.pathingOut.orders, observed.pathingOut.orderTicks.slice(1), observed.pathingOut.walks], pathingOutExpected),
-      controlClickOntoBossReroutesAtWalkPace: sameJson([observed.pathingControl.orders, observed.pathingControl.paces, observed.pathingControl.orderTicks, observed.pathingControl.walks], pathingControlExpected),
-      plainClickRunsTwoTilesATick: sameJson(observed.walkway.paces, JSON.stringify(["run-setting"])) && sameJson(observed.walkway.tiles, walkwayRunTiles),
-      controlClickWalksOneTileATick: sameJson(observed.controlWalk.orders, `[${walkwayOrder}]`) && sameJson(observed.controlWalk.paces, JSON.stringify(["walk"])) &&
-        sameJson(observed.controlWalk.tiles, controlWalkTiles),
-      lastClickInATickWins: correction.downs.length === 2 && correction.downs[0].tick === correction.downs[1].tick &&
-        sameJson(correction.orderRows, JSON.stringify([{ worldTick: correction.downs[0].tick + 1, orders: JSON.parse(correctionExpected).orders }])) &&
-        sameJson(correction.tiles, JSON.stringify(JSON.parse(correctionExpected).tiles)),
-      controlClickOpensNoMenu: observed.controlWalk.menu === null && (!observed.controlWalk.platform.startsWith("Mac") || observed.controlWalk.contextMenus > 0),
-      rightClickStillOpensMenu: Array.isArray(observed.controlWalk.rightClickMenu) && observed.controlWalk.rightClickMenu.includes("Walk Here"),
-      backWallWalksDiagonally: sameJson(observed.backWall.orders, `[${backWallStart},${backWallEnd},${backWallStart}]`) &&
-        sameJson(observed.backWall.paces, JSON.stringify(["run-setting", "walk", "walk"])) && sameJson(observed.backWall.toward, backWallToward) && sameJson(observed.backWall.back, backWallBack),
-      cornerFilled: sameJson(observed.corner.orders, `[${cornerHole},${cornerNub}]`) && sameJson(observed.corner.stood, `[${cornerHole},${cornerNub}]`),
-      holesDrawnOnLayout: sameJson(observed.holes.layout, holeLayout) && observed.holes.darkShare.every((box) => onHole(box.tile) && box.drawn >= Number(holeMinDark)) &&
-        observed.holes.freeDarkShare.every((box) => !onHole(box.tile) && box.drawn <= Number(holeMaxDark)),
-      orbPickedUpAfterTheClear: observed.orbLate.returned.length === 1 && observed.orbLate.returned[0][0] > Number(orbInnerClear) &&
-        observed.orbLate.returned[0][0] <= Number(orbInnerExpiry) && observed.orbLate.returned[0][1] === "inner-void" &&
-        sameJson(observed.orbLate.returned[0][2], JSON.stringify(expectedOrb.returned)) && observed.orbLate.innerExpired.length === 0,
-      outerOrbOppositeEntry: sameJson(observed.orbEntry.walks, `[${orbEntryTile}]`) && sameJson(observed.orbEntry.outer, orbOppositeExpected),
-      orbFormsOffTheHoles: sameJson(observed.orbOffHoles.layout, orbHolesLayout) && sameJson(observed.orbOffHoles.spawned, orbHolesExpected) &&
-        observed.orbOffHoles.spawned.every(([, , tile]) => !JSON.parse(orbHolesLayout).tiles.some((hole) => same(tile, hole))),
-      holesHiddenUnderFlood: observed.holes.darkShare.every((box) => box.flood <= Number(holeMaxDark)),
-      holeHitsStandingOnIt: (() => {
-        const { rows } = observed.holes, hits = rows.flatMap((row) => row.hits), damage = JSON.parse(holeDamage);
-        return rows.every((row) => row.hits.length === (onHole(row.startedOn) ? 1 : 0) && row.hits.every((hit) => hit.at === row.tick)) && rows.some((row) => !onHole(row.startedOn)) &&
-          hits.length >= Number(holeHits) && hits.every((hit) => same(hit.tile, JSON.parse(holeTile)) && hit.requested >= damage.min && hit.requested <= damage.max);
-      })(),
-      soundTogglesShownOnWhenFresh: cues.toggles.fresh.sound.visible && cues.toggles.fresh.areaSound.visible && cues.toggles.fresh.sound.checked && cues.toggles.fresh.areaSound.checked,
-      defaultSoundPlaysCueAfterFirstClick: cues.freshClickedAt < 5 && allIn(cues.contexts.fresh, "suspended") && allIn(cues.contexts["fresh-clicked"], "running") &&
-        onSchedule(timedOnly(cues.freshHeard), cueExpected.filter(([at]) => at < toggledAt)) && cues.freshHeard.every(([, , state]) => state === "running"),
-      soundOffChoiceSaved: cues.savedOff.playsAudio === false && cues.savedOff.playsAreaAudio === false,
-      soundTogglesShownOff: cues.toggles.off.sound.visible && cues.toggles.off.areaSound.visible && !cues.toggles.off.sound.checked && !cues.toggles.off.areaSound.checked,
-      soundTogglesTurnOnCues: recordingFrom < 5 && cues.beforeToggle.length === 0 && cues.toggles.on.sound.checked && cues.toggles.on.areaSound.checked &&
-        onSchedule(timedOnly(cues.afterToggle), cueExpected.filter(([at]) => at >= toggledAt)) && cues.afterToggle.every(([, , state]) => state === "running"),
-      soundChoiceSaved: cues.saved.playsAudio === true && cues.saved.playsAreaAudio === true && cues.toggles.reloaded.sound.checked && cues.toggles.reloaded.areaSound.checked,
-      audioResumesOnFirstPointerdown: allIn(cues.contexts.loaded, "suspended") && allIn(cues.contexts.toggled, "running") && allIn(cues.contexts.reloaded, "suspended") && allIn(cues.contexts.clicked, "running"),
-      cueSoundsOnSchedule: onSchedule(timedOnly(cues.heard), cueExpected) && cues.heard.every(([, , state]) => state === "running"),
-      lifeforceChatOnTell: cues.chat[0] === "" && cues.chat[1] === cueChat && sameJson(cues.told, "[11,42]"),
-      invincibleStartsUnchecked: invincible.defaultToggle.visible === true && invincible.defaultToggle.checked === false,
-      invincibleLinkSurvivesTheLethalHit: invincible.linkedToggle.checked === true && sameJson(invincible.floorHits.filter(([at]) => at <= 54), voidHits) &&
-        sameJson(invincible.prevented, JSON.stringify(expectedInvincible.prevented)) && sameJson(invincible.hp, JSON.stringify(expectedInvincible.hp)) &&
-        invincible.ended.length === 0 && invincible.lastTick >= Number(invincibleLastTick),
-      invincibleChatShown: invincible.chat === expectedInvincible.chat,
-      mortalWithoutTheParameter: invincible.preventedWithoutTheParameter.length === 0 && sameJson(observed.voidRunEnd, voidEnd),
-      restartKeepsInvincible: new URLSearchParams(invincible.restarted.search).get("invincible") === "on" && invincible.restarted.toggle.checked === true,
-      invincibleOrbReturnsNothingAfterRevival: sameJson(invincible.orb.prevented[0], JSON.stringify(expectedRevival.revived)) &&
-        sameJson(invincible.orb.returned, JSON.stringify(expectedRevival.returned)) &&
-        sameJson(invincible.orb.hp.find(([t]) => t === expectedRevival.hp[0]), JSON.stringify(expectedRevival.hp)) &&
-        invincible.orb.hp.every(([, hp]) => hp <= expectedRevival.maxHp),
-      projectedClicksOrderTheirTiles: tileClicks.length === Number(projectedTileClicks) && tileClicks.every(({ tile, ordered }) => same(ordered, tile)),
-      noPageErrors: [errors, focusErrors, voidErrors, shotErrors, orbErrors, orbSkipErrors, explosionErrors, underErrors, dodgeErrors, runEndErrors, specialErrors, lateErrors, loadoutErrors, selectorErrors, floorErrors, suppliesErrors, keybindsErrors, riftErrors, ralosErrors, meleeRiftErrors, deflectErrors, reflectErrors, seedErrors, holesErrors, orbHolesErrors, orbLateErrors, orbEntryErrors, walkwayErrors, walkwayRunEndErrors, controlWalkErrors, correctionErrors, backWallErrors, cornerErrors, cornerViewErrors, pathingErrors, rerouteErrors, controlRerouteErrors, outErrors, invincibleErrors, invincibleOrbErrors, freshErrors, cueToggleErrors, cueErrors].every((list) => list.length === 0),
-    };
-    if (!checks.clickTargetedExpectedTile) {
-      console.error(`verify: the click resolved to ${JSON.stringify(after.destination)}, not ${JSON.stringify(targetTile)}; the click-to-tile mapping for this viewport and camera changed`);
-    }
-    console.log(JSON.stringify({ hidden, before, after, target: targetTile, edge: { order: edgeOrderTile, stop: edgeStopTile }, observed, tileClicks, checks }, null, 2));
-    process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" "$SPAWN_TILE" "$WALK_TARGET_TILE" "$EDGE_ORDER_TILE" "$EDGE_STOP_TILE" "$EDGE_HOLD_TICKS" "$BOSS_NPC" "$CYCLE_LAST_HIDDEN_TICK" "$CYCLE_LAST_TICK" "$CYCLE_STAGE_ENTRIES" "$CYCLE_OVERHEAD_SWITCHES" "$CYCLE_SPECIAL_HITS" "$FOCUS_DRILL" "$FOCUS_EXPECTED" \
-    "$NEAR_SQUARE" "$FLOOD_DAMAGE_TICK" "$FLOOD_LAST_TICK" "$VOID_FLOOR_HITS" "$VOID_RUN_END" "$VOID_PIXEL" \
-    "$LOADOUT_RANGED_WORN" "$LOADOUT_MELEE_WORN" "$LOADOUT_DIVISION_DRAIN" "$ORB_EXPECTED" "$ORB_BOX" "$ORB_FRAMES" \
-    "[${EXPLOSION_INNER_MARKS// /,}]" "${EXPLOSION_OUTER_MARKS%% *}" "$EXPLOSION_PIXEL" "$EXPLOSION_EXPECTED" "$SOUND_SAMPLES" "$EXPLOSION_SOUNDS" "$CX" "$CY" "$TELL_BOX" "$SPECIAL_EXPECTED" \
-    "$TELL_CENTRE_BOX" "$TRANSITION_SOUND_SAMPLES" "$LANDING_SOUNDS" "$LANDING_WINDOWS" "$STYLE_SOUNDS" "$STYLE_WINDOWS" "$SOUND_TOLERANCE_TICKS" \
-    "$SUPPLY_INVENTORY" "$SUPPLY_NAMED_MENU" "$SUPPLY_HP_AFTER_BREW" "$KEYBIND_DEFAULT_KEY" "$KEYBIND_NEW_KEY" \
-    "$LOADOUT_TRAINER_ICONS" "$((LOADOUT_SLOT_Y + SUPPLY_BREW_SLOT / 4 * LOADOUT_SLOT_DY))" "$SUPPLY_HOVER_NAME_PIXEL" \
-    "$OVERHEAD_SHOT_TICKS" "$ICON_BOX" "$RIFT_EXPECTED" "$RIFT_BURST_TICK" "$SOUL_SPLIT_EXPECTED" "$KILL_CHAT" \
-    "$RIFT_SOUND_SAMPLES" "$RIFT_SPAWN_SOUNDS" "$RIFT_KILL_SOUND" "$RIFT_BURST_SOUNDS" "$RIFT_SOUND_WINDOW" "$OVERHEAD_GAP_DRAWS" \
-    "$DEFLECT_HOVER_TILE" "$DEFLECT_HOVER_TICKS" "$DEFLECT_FIRST_MELEE_TICK" \
-    "$WALKWAY_ORDER_TILE" "$WALKWAY_STOP_TILE" "$WALKWAY_PIXEL" "$WALKWAY_MIN_SHARE" "$WALKWAY_RUN_END_TILE" "$WALKWAY_RUN_TILES" "$CONTROL_WALK_TILES" "$CORNER_HOLE_TILE" "$CORNER_NUB_TILE" \
-    "$HOLE_LAYOUT" "$HOLE_PIXELS" "$HOLE_FREE_PIXELS" "$HOLE_BOX_HALF_PX" "$HOLE_MIN_DARK_SHARE" "$HOLE_MAX_DARK_SHARE" "$HOLE_TILE" "$HOLE_HITS" "$HOLE_DAMAGE" \
-    "$CUE_SOUND_SAMPLES" "$CUE_SOUNDS" "$CUE_SOUND_WINDOW" "$CUE_CHAT" "$DEFENCE_FLOOR_STEPS" "$INVINCIBLE_LAST_TICK" "$INVINCIBLE_EXPECTED" "$INVINCIBLE_ORB_EXPECTED" \
-    "$RIFT_TIMER_BOX" "$RIFT_TIMER_MAX_EARLY_SHARE" "$RIFT_TIMER_MIN_FULL_SHARE" "$RIFT_ONE_HIT" "$RIFT_RALOS_HITS" "$RIFT_MELEE_HITS" "$REFLECT_EXPECTED" "$REFLECT_SPLAT_BOX" "$REFLECT_MIN_SPLAT_SHARE" "$REFLECT_MAX_CLEAR_SHARE" \
-    "$DODGE_SPEEDUP_LAST_TICK" "$DODGE_SPEEDUP_ATTACKS" "$EXPLOSION_GLOW_BOX" "$EXPLOSION_GLOW_MIN_SHARE" "$FOCUS_ENTRY_TICKS" "$BOSS_POSE_SOUND_SAMPLES" \
-    "$PATHING_WEST_TILE" "$PATHING_EAST_TILE" "$PATHING_BACK_TILE" "$PATHING_EXPECTED" "$PATHING_REROUTE_EXPECTED" "$PATHING_OUT_EXPECTED" "$PATHING_CONTROL_EXPECTED" "$ORB_HOLES_EXPECTED" "$ORB_HOLES_LAYOUT" \
-    "$ORB_INNER_CLEAR_TICK" "$ORB_INNER_EXPIRY_TICK" "$ORB_ENTRY_TILE" "$ORB_OPPOSITE_EXPECTED" "$PROJECTED_TILE_CLICKS" "$BOSS_BAR_AT_ENTRY" "$EXPLOSION_DAMAGE_REDUCTION_PERCENT" \
-    "$BACK_WALL_START_TILE" "$BACK_WALL_END_TILE" "$BACK_WALL_TOWARD_TILES" "$BACK_WALL_BACK_TILES" \
-    "$EXPLOSION_RUN_END_EXPECTED" "$EXPLOSION_GLOW_MAX_SHARE" "$EXPLOSION_RUN_END_FRAMES" "$CORRECTION_EXPECTED" \
-    "$EXPLOSION_OVERHEAD_BOX" "$EXPLOSION_OVERHEAD_MIN_SHARE" >"$VERIFY_DIR/observed.json"
-  local verdict=$?
-  cat "$VERIFY_DIR/observed.json"
-  drive_p3_drill || verdict=1
-  drive_recorded_fights || verdict=1
-  return $verdict
+  node scripts/verify/report.mjs "$VERIFY_DIR" "${BROWSER_UNITS[@]}"
 }
 
 release_browser() {
@@ -3122,11 +2216,16 @@ perf_gate() {
   json "$1" <"$PERF_GATE"
 }
 
-build_perf_base() {
-  local base src="$VERIFY_DIR/perf/base-src"
+perf_base_revision() {
+  local base
   base="$(git rev-parse --verify "${VERIFY_PERF_BASE:-$(git merge-base origin/main HEAD)}^{commit}")" || { log "perf: no base revision; set VERIFY_PERF_BASE"; return 1; }
   log "perf: comparing against base ${base}"
   echo "$base" >"$VERIFY_DIR/perf/base-revision"
+}
+
+build_perf_base() {
+  local base src="$VERIFY_DIR/perf/base-src"
+  base="$(cat "$VERIFY_DIR/perf/base-revision")"
   mkdir -p "$src/public" && git archive "$base" | tar -x -C "$src" || { log "perf: the base tree could not be exported"; return 1; }
   ln -s "$ROOT/public/osrs-assets" "$src/public/osrs-assets"
   if git diff --quiet "$base" -- package.json package-lock.json scripts/install-beta-sdk.sh; then
@@ -3178,32 +2277,44 @@ perf_capture() {
 }
 
 drive_perf() {
-  local pair side order
+  local mode=$1 pair side order
   ab --init-script "$ROOT/src/perf/observer.js" set viewport 1280 800 >/dev/null || { log "the perf session did not start"; return 1; }
-  throttle_perf || return 1
-  for pair in $(seq 1 "$(perf_gate timing.pairs)"); do
-    order=(base head)
-    ((pair % 2 == 0)) && order=(head base)
-    for side in "${order[@]}"; do
-      perf_capture "${side}-${pair}" "$side" "$(perf_gate workload.window.to)" || return 1
+  if [[ $mode == pairs ]]; then
+    throttle_perf || return 1
+    for pair in $(seq 1 "$(perf_gate timing.pairs)"); do
+      order=(base head)
+      ((pair % 2 == 0)) && order=(head base)
+      for side in "${order[@]}"; do
+        perf_capture "${side}-${pair}" "$side" "$(perf_gate workload.window.to)" || return 1
+      done
     done
-  done
-  release_throttle
+    release_throttle
+  fi
   perf_capture long head "$(perf_gate workload.resources.to)" "$(perf_gate workload.resources.from)" || return 1
-  VERIFY_PERF_BASE="$(cat "$VERIFY_DIR/perf/base-revision")" node node_modules/.bin/tsx src/perf/check.ts "$PERF_GATE" "$VERIFY_DIR/perf/captures" >"$VERIFY_DIR/perf-checks.json"
+  VERIFY_PERF_BASE="$(cat "$VERIFY_DIR/perf/base-revision")" node node_modules/.bin/tsx src/perf/check.ts "$PERF_GATE" "$VERIFY_DIR/perf/captures" "$VERIFY_DIR/perf/www/head" "$mode" >"$VERIFY_DIR/perf-checks.json"
 }
 
 stage_perf() {
+  perf_stage pairs
+}
+
+stage_perfbudgets() {
+  perf_stage no-pairs
+}
+
+perf_stage() {
+  local mode=$1
   production_port_free || return 1
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
   mkdir -p "$VERIFY_DIR/perf/captures"
   node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/perf/www/head" >"$VERIFY_DIR/perf/head-build.log" 2>&1 || { log "perf: the head build failed"; return 1; }
-  build_perf_base || return 1
+  perf_base_revision || return 1
+  [[ $mode == no-pairs ]] || build_perf_base || return 1
 
   local BROWSER_SESSION="archive-ocellus-verify-$(basename "$VERIFY_DIR")-perf" PRODUCTION_PID= THROTTLE_PID= result=1
   trap 'release_throttle; release_production; exit 130' INT TERM
   if serve_static "$VERIFY_DIR/perf/www" "$VERIFY_DIR/perf/server.log"; then
-    drive_perf
+    drive_perf "$mode"
     result=$?
   fi
   release_throttle
@@ -3212,19 +2323,64 @@ stage_perf() {
   return $result
 }
 
+all_units() {
+  local module
+  for module in scripts/verify/units/*.mjs; do basename "$module" .mjs; done
+}
+
+plan() {
+  local base changed
+  base="$(git rev-parse --verify "${VERIFY_PLAN_BASE:-$(git merge-base origin/main HEAD)}^{commit}")" || { log "plan: no base revision; set VERIFY_PLAN_BASE"; return 1; }
+  mapfile -t changed < <(git diff --name-only --no-renames "$base" && git ls-files --others --exclude-standard)
+  log "plan: ${#changed[@]} paths changed since ${base}"
+  node node_modules/.bin/tsx src/verifyPlan/main.ts scripts/verify-impact.json scripts/verify/units "$@" -- "${changed[@]}"
+}
+
+judge_evidence() {
+  local dir=$1 unit units=("${@:2}")
+  [[ ${#units[@]} -gt 0 ]] || mapfile -t units < <(ls "$dir/units")
+  for unit in "${units[@]}"; do
+    node scripts/verify/judge.mjs "$unit" "$dir/units/$unit" 0 "$(json seconds <"$dir/units/$unit/verdict.json" 2>/dev/null || echo 0)"
+  done
+  node scripts/verify/report.mjs "$dir" "${units[@]}"
+}
+
 case "${1:-}" in
-  serve) mkdir -p "$VERIFY_DIR" && ensure_deps && serve && doctor && log "drive ${URL}; evidence in ${VERIFY_DIR}; stop with scripts/verify.sh stop"; exit $? ;;
+  serve) mkdir -p "$VERIFY_DIR" "$ROOT/.verify" && ensure_deps && serve && doctor && log "drive ${URL}; evidence in ${VERIFY_DIR}; stop with scripts/verify.sh stop"; exit $? ;;
   doctor) doctor; exit $? ;;
   stop) stop; exit $? ;;
+  units) all_units; exit 0 ;;
+  plan) plan "${@:2}"; exit $? ;;
+  judge) [[ -d "${2:-}/units" ]] || { log "usage: scripts/verify.sh judge <evidence dir> [unit...]"; exit 2; }; judge_evidence "${@:2}"; exit $? ;;
+  report) [[ -d "${2:-}/units" ]] || { log "usage: scripts/verify.sh report <evidence dir>"; exit 2; }; node scripts/verify/report.mjs "$2" $(all_units); exit $? ;;
 esac
 
-stages=("$@")
+stages=() BROWSER_UNITS=() BROWSER_SHARD=
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --unit) [[ -n "${2:-}" ]] || { log "--unit needs a unit name"; exit 2; }; BROWSER_UNITS+=("$2"); shift 2 ;;
+    --shard) [[ "${2:-}" =~ ^[1-9][0-9]*/[1-9][0-9]*$ ]] || { log "--shard needs INDEX/COUNT, such as 3/8"; exit 2; }; BROWSER_SHARD=$2; shift 2 ;;
+    t0) stages+=(bundle build types test parity); shift ;;
+    *) stages+=("$1"); shift ;;
+  esac
+done
 [[ ${#stages[@]} -gt 0 ]] || stages=(build types test assets browser production)
 for stage in "${stages[@]}"; do
-  case "$stage" in build | types | test | assets | browser | production | perf) ;; *) log "unknown stage: ${stage}"; exit 2 ;; esac
+  case "$stage" in bundle | build | types | test | parity | assets | browser | production | perf | perfbudgets) ;; *) log "unknown stage: ${stage}"; exit 2 ;; esac
 done
+if [[ " ${stages[*]} " == *" browser "* ]]; then
+  [[ ${#BROWSER_UNITS[@]} -gt 0 ]] || mapfile -t BROWSER_UNITS < <(all_units)
+  [[ -z "$BROWSER_SHARD" ]] || mapfile -t BROWSER_UNITS < <(node scripts/verify/shard.mjs scripts/verify/unit-seconds.json "${BROWSER_SHARD%/*}" "${BROWSER_SHARD#*/}" "${BROWSER_UNITS[@]}")
+  [[ ${#BROWSER_UNITS[@]} -gt 0 ]] || { log "browser shard ${BROWSER_SHARD} has no units"; exit 2; }
+  for unit in "${BROWSER_UNITS[@]}"; do
+    [[ -f "scripts/verify/units/${unit}.mjs" ]] && declare -F "drive_${unit}" >/dev/null || { log "unknown browser unit ${unit}; scripts/verify.sh units lists them"; exit 2; }
+  done
+elif [[ ${#BROWSER_UNITS[@]} -gt 0 || -n "$BROWSER_SHARD" ]]; then
+  log "--unit and --shard select browser units; add the browser stage"
+  exit 2
+fi
 
-mkdir -p "$VERIFY_DIR"
+mkdir -p "$VERIFY_DIR" "$ROOT/.verify"
 ensure_deps || { echo "FAIL deps" | tee "$VERIFY_DIR/summary.txt"; exit 1; }
 log "evidence: ${VERIFY_DIR}"
 failed=0

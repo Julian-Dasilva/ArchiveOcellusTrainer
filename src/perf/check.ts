@@ -1,10 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import type { BaseLimits, Capture, Line, Pair } from "./gate";
-import { SIDES, budgetRaises, judge, parseBaseLimits, parseCapture, parseConfig, passes, runMetrics } from "./gate";
+import type { BaseLimits, Capture, Line, Pair, Timing } from "./gate";
+import { PAIRS_ONLY, SIDES, budgetRaises, judge, parseBaseLimits, parseCapture, parseConfig, passes, runMetrics } from "./gate";
 
-const USAGE = "usage: VERIFY_PERF_BASE=<rev> check.ts <perfGate.json> <captures directory>";
+const USAGE = "usage: VERIFY_PERF_BASE=<rev> check.ts <perfGate.json> <captures directory> <head build directory> <pairs|no-pairs>";
 const GATE_PATH = "src/perf/perfGate.json";
 
 function read(file: string): unknown {
@@ -16,6 +16,12 @@ function baseLimits(rev: string): BaseLimits | null {
   const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" });
   if (git("ls-tree", "--name-only", `${rev}^{commit}`, "--", GATE_PATH).trim() === "") return null;
   return parseBaseLimits(JSON.parse(git("show", `${rev}^{commit}:${GATE_PATH}`)));
+}
+
+function scriptBytes(dir: string): number {
+  return readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".js"))
+    .reduce((sum, entry) => sum + statSync(join(entry.parentPath, entry.name)).size, 0);
 }
 
 function describe(line: Line): string {
@@ -38,14 +44,15 @@ function describe(line: Line): string {
 }
 
 function main(args: readonly string[]): void {
-  const [configFile, dir] = args;
+  const [configFile, dir, build, mode] = args;
   const base = process.env.VERIFY_PERF_BASE;
-  if (configFile === undefined || dir === undefined || args.length !== 2 || base === undefined || base === "") throw new Error(USAGE);
+  if (configFile === undefined || dir === undefined || build === undefined || (mode !== "pairs" && mode !== "no-pairs") || args.length !== 4 || base === undefined || base === "") throw new Error(USAGE);
   const config = parseConfig(read(configFile));
   const capture = (name: string): Capture => parseCapture(read(join(dir, `${name}.json`)));
-  const pairs = Array.from({ length: config.timing.pairs }, (_, i): Pair => ({ base: capture(`base-${i + 1}`), head: capture(`head-${i + 1}`) }));
+  const pairs = mode === "pairs" ? Array.from({ length: config.timing.pairs }, (_, i): Pair => ({ base: capture(`base-${i + 1}`), head: capture(`head-${i + 1}`) })) : [];
+  const timing: Timing = mode === "pairs" ? { kind: "pairs", pairs } : { kind: "not-run" };
   const long = capture("long");
-  const lines = [...budgetRaises(baseLimits(base), config), ...judge(config, { pairs, long })];
+  const lines = [...budgetRaises(baseLimits(base), config), ...judge(config, { long, bundleBytes: scriptBytes(build), timing })];
   const measured = lines.every(({ kind }) => kind !== "measurement");
   const runs = measured
     ? Object.fromEntries([
@@ -54,6 +61,7 @@ function main(args: readonly string[]): void {
       ])
     : {};
   for (const line of lines) console.error(`perf: ${passes(line) ? "PASS" : "FAIL"} ${describe(line)}`);
+  if (timing.kind === "not-run") console.error(`perf: NOT RUN ${PAIRS_ONLY.join(", ")}, which only the throttled base and head pairs measure (scripts/verify.sh perf)`);
   console.log(JSON.stringify({ lines: lines.map((line) => ({ ...line, pass: passes(line) })), runs }, null, 2));
   if (!lines.every(passes)) process.exitCode = 1;
 }
