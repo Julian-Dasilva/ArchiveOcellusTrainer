@@ -35,7 +35,7 @@ Each run uses `?seed=1&invincible=on`, stands still, and runs from P4 tick 8 to 
 
 `src/perf/perfGate.json` holds every budget and the timing rule. The stage fails when any line fails.
 
-The draw-call, resource and growth budgets do not depend on machine speed. The draw-call maximum, texture, mob, entity, projectile and scene object budgets are set to the value measured on `main` when the gate landed, which was the same on an M3 Max and on a GitHub Actions runner, so the stage passes on `main` and fails on any regression. The draw-call median, geometry and heap budgets have allowances, described below. The tick-gap budget compares the head with the base.
+The draw-call, resource and growth budgets do not depend on machine speed. The draw-call median and maximum, texture, mob, entity, projectile and scene object budgets are set to the measured value, which was the same on an M3 Max and on a GitHub Actions runner, so the stage passes on `main` and fails on any regression. The geometry and heap budgets have allowances, described below. The tick-gap budget compares the head with the base.
 
 | Budget | What the stage measures |
 | --- | --- |
@@ -52,7 +52,7 @@ The resource count starts at P4 tick 220 because the page loads models during it
 
 From tick 220 the geometry count on `main` grows by 4 every cycle, 12 over the 6 rifts the window retires, which is 2 per rift. On a GitHub Actions runner the count also gains a lasting geometry at a random tick about once every 150 ticks, so a runner usually measures 13 or 14. The budget of 2.67 allows 16, which is 4 of those extra geometries. A rift that leaks one geometry adds 6 over the window and fails. A smaller leak, such as one geometry every third rift, stays under the budget.
 
-The renders in the fight window draw between 547 and 550 calls each, and their median on `main` is 548 on every machine. The median sits on the edge between 548 and 549, so a 1500 ms stall that changes no draw call moved it to 549. The median budget is 550, the top of that band. `drawCallsMax3d` still fails a head that adds one call to every render.
+The renders in the fight window draw between 9 and 27 calls each, and their median is 14. The renders that draw 14 calls straddle the middle. On an M3 Max and on GitHub Actions runners, 42 to 44% of renders draw 13 calls or fewer, and 52 to 54% draw 14 or fewer. Removing the renders of any one 1500 ms span leaves the median at 14. The median budget is 14 with no allowance, so a head that adds calls only to the lighter renders fails it. If a run's median reaches 15 with no draw-call change, raise the budget to 15 with an exception that cites that run.
 
 `src/perf/devtools.ts heap` reads the heap with the DevTools protocol's `Runtime.getHeapUsage`, after `HeapProfiler.collectGarbage`. It sums `usedSize` and `backingStorageSize` to the byte, because a retained `ArrayBuffer` or typed array lives in the backing storage and not in the JS heap's used size. On `main` the heap gained between -0.49 and +0.81 MiB over the window in 7 runs. The budget of 4 MiB is nearly 5 times the largest change. A leak of 1 MiB every 600 ms gains 180 MiB and fails. The mob, entity, projectile and scene object counts gained nothing on `main`, so their budgets are 0.
 
@@ -72,7 +72,7 @@ A raised budget hides the next regression of the same size, so the stage refuses
 
 ```json
 "exceptions": [
-  { "budget": "drawCallsMax3d", "from": 1234, "to": 1258, "reason": "the new floor glow draws one mesh per lit tile", "evidence": "https://github.com/<owner>/<repo>/actions/runs/<id>" }
+  { "budget": "drawCallsMax3d", "from": 27, "to": 51, "reason": "the new floor glow draws one mesh per lit tile", "evidence": "https://github.com/<owner>/<repo>/actions/runs/<id>" }
 ]
 ```
 
