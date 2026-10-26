@@ -23,7 +23,7 @@ Preconditions:
 - `public/osrs-assets/manifest.json` contains `npc-16681`, the vine, from `npm run assets`.
 
 - **Adds as recorded.** Open `?phase=p3&seed=1&invincible=on` and wait until P3 tick 134 with no input. The log has `hazard-shown` on 4, 7, 27 and 113, `void-formed` on 6, `vine-rooted` on 36, `vine-cut` on 63, `rift-spawned` on 85 and 133 and `rift-detonated` on 115.
-- **Markers and units.** On the same page, take screenshots on ticks 5 (the bomb's marker over the player), 8 (the void), 28 (the rubble's marker), 37 (the vine on the player's tile) and 87 (the rift). Repeat in 2D.
+- **Markers and units.** On the same page, take screenshots on ticks 5 (the bomb's marker over the player), 8 (the void), 28 (the rubble's marker), 37 (the vine on the player's tile) and 87 (the rift).
 - **Step off.** Open `?phase=p3&seed=1&invincible=on`, click the tile west of the player after tick 4 and again after tick 7. The log has no `bomb` hit and two `void-formed` events on the tiles the player left.
 - **Kill a rift.** Open `?phase=p3&seed=1&invincible=on` and click the rift's tile, from the `rift-spawned` event on 85, after tick 86. The log has one `rift-destroyed`, the chat shows the empower line, and no `rift-detonated` follows for it.
 - **Scripted.** `scripts/verify.sh browser` runs the chain page in `drive_p3_drill` to tick 134 and checks `p3AddsAsRecorded`.
