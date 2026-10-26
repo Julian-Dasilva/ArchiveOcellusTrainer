@@ -1,5 +1,5 @@
 import { act } from "react";
-import { TrainerInstance, Viewport } from "osrs-sdk";
+import { TrainerInstance } from "osrs-sdk";
 import type { TrainerLoadingState } from "osrs-sdk";
 import { loadPage } from "./page";
 
@@ -25,7 +25,8 @@ describe("Saved loadouts", () => {
     localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { use3dView: false } }));
     // jsdom never fires load on an <img>, so the SDK's image gate would never open.
     vi.spyOn(TrainerInstance.prototype, "load").mockImplementation(async (options) => options?.onStateChange?.(READY));
-    vi.spyOn(Viewport.prototype, "draw").mockReturnValue(undefined);
+    // Each test reads the page before its first frame, and a frame left on jsdom's clock would draw after the page closes.
+    vi.spyOn(window, "requestAnimationFrame").mockReturnValue(0);
   });
 
   afterEach(() => {
