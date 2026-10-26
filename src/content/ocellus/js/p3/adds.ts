@@ -23,6 +23,7 @@ export const DRAW: Readonly<Record<Exclude<P3Hit["kind"], "swing">, number>> = {
   void: 8,
   rubble: 9,
   "rift-detonation": 10,
+  "spin-opening": 11,
 };
 
 type FormedVoid = Readonly<{ tile: Tile; formed: Tick }>;

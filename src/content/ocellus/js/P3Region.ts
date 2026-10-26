@@ -17,6 +17,7 @@ const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   swing: "a swing",
   panic: "a panic shot",
   "shadow-slash": "a shadow slash",
+  "spin-opening": "the spin's opening hit",
   saw: "a saw of the spin",
   "untether-magic": "Untether's magic",
   "untether-slam": "Untether's slam",

@@ -1,3 +1,4 @@
+import * as THREE from "three";
 import type { At } from "./drill";
 import { footprintCentre, startP3Drill } from "./p3drill";
 
@@ -14,7 +15,7 @@ const P = 24;
 const I = 139;
 
 type Drill = Awaited<ReturnType<typeof startP3Drill>>;
-const hitsOf = (drill: Drill, kind: string) => drill.events("player-hit").filter((event) => event.hit.kind === kind).map((event) => [event.at, event.receipt.prayer] as const);
+const hitsOf = (drill: Drill, kind: string) => drill.events("player-hit").filter((event) => event.hit.kind === kind).map((event) => [event.at, event.receipt.applied, event.receipt.prayer] as const);
 /** The band he aimed on `at`, each tile as [east, south] of his middle tile. */
 function bandFrom(drill: Drill, at: number): (readonly [number, number])[] {
   const aimed = drill.events("band-aimed").find((event) => event.at === at);
@@ -26,9 +27,9 @@ const has = (tiles: readonly (readonly [number, number])[], east: number, south:
 
 describe("P3 drill", () => {
   test.each([
-    { bossHp: 3991, expected: { ended: [[4, "quadrant-cleared"]], hpAfterShot: 3937, stageOnShot: "arrive", runAt6: "ended" } },
-    { bossHp: 3992, expected: { ended: [], hpAfterShot: 3938, stageOnShot: "arrive", runAt6: "running" } },
-  ])("the quadrant falls the tick after his HP reaches ⌊5250 × 0.75⌋ = 3937, which ends the run: bosshp=$bossHp, seed 100's first shot of 54 lands on P3 tick 3", async ({ bossHp, expected }) => {
+    { name: "the quadrant falls the tick after his HP reaches ⌊5250 × 0.76⌋ = 3990, which ends the run", bossHp: 4044, expected: { ended: [[4, "quadrant-cleared"]], hpAfterShot: 3990, stageOnShot: "arrive", runAt6: "ended" } },
+    { name: "guard: one HP above ⌊5250 × 0.76⌋ = 3990 the quadrant stands", bossHp: 4045, expected: { ended: [], hpAfterShot: 3991, stageOnShot: "arrive", runAt6: "running" } },
+  ])("$name: bosshp=$bossHp, seed 100's first shot of 54 lands on P3 tick 3", async ({ bossHp, expected }) => {
     const drill = await startP3Drill({ seed: 100, bossHp });
     drill.tickTo(0);
     await drill.click(footprintCentre(drill.boss()));
@@ -104,7 +105,7 @@ describe("P3 drill", () => {
     const slashes = hitsOf(drill, "shadow-slash");
     const aimed = drill.events("band-aimed").map((event) => [event.at, event.attack, event.landsAt]);
     drill.dispose();
-    expect({ slashes, aimed }).toEqual({ slashes: [[11, "melee"]], aimed: [[10, "shadow-slash", 11]] });
+    expect({ slashes, aimed }).toEqual({ slashes: [[11, 28, "melee"]], aimed: [[10, "shadow-slash", 11]] });
   });
 
   describe("the shadow slash is 3 wide from the ring around his body, snapped to the nearest of 8 directions from his middle tile", () => {
@@ -135,20 +136,23 @@ describe("P3 drill", () => {
   });
 
   describe("the spin: its saw cuts 5 ticks in, and an overhead up the tick before is severed", () => {
-    test("Protect from Melee kept up: severed on P+4 with the game's chat, so the cut on P+5 hits", async () => {
+    test("guard, already held: Protect from Melee kept up: severed on P+4 with the game's chat and locked off for 3 ticks, so the cut on P+5 hits and a click turns it on again only for P+8", async () => {
       const drill = await startP3Drill({ seed: 1, invincible: true });
       drill.pray("Protect from Melee");
-      drill.tickTo(P + 6);
-      const observed = {
-        severed: drill.events("prayer-severed").map((event) => [event.at, event.lockedFor]),
-        saw: hitsOf(drill, "saw"),
-        chat: drill.region.chat().filter((line) => !line.startsWith("Invincible")),
-      };
+      drill.tickTo(P + 5);
+      const chat = drill.region.chat().filter((line) => !line.startsWith("Invincible"));
+      const prayerAfterClick = [P + 6, P + 7, P + 8].map((t) => {
+        drill.pray("Protect from Melee");
+        drill.tickTo(t);
+        return [t, drill.row(t).playerAtBossStep.prayer];
+      });
+      const observed = { severed: drill.events("prayer-severed").map((event) => [event.at, event.lockedFor]), saw: hitsOf(drill, "saw"), chat, prayerAfterClick };
       drill.dispose();
       expect(observed).toEqual({
         severed: [[P + 4, 3]],
-        saw: [[P + 5, null]],
+        saw: [[P + 5, 17, null]],
         chat: ["Ocellus disrupts your concentration, severing your prayer!", "You've been injured and can't use protection prayers!"],
+        prayerAfterClick: [[P + 6, null], [P + 7, null], [P + 8, "melee"]],
       });
     });
 
@@ -163,6 +167,38 @@ describe("P3 drill", () => {
       const observed = { severed: drill.events("prayer-severed").length, saw: drill.events("player-hit").filter((event) => event.hit.kind === "saw").map((event) => [event.at, event.receipt.applied, event.receipt.prayer]) };
       drill.dispose();
       expect(observed).toEqual({ severed: 0, saw: [[P + 5, 0, "melee"]] });
+    });
+
+    test.each([
+      { name: "off after P+1, on after P+4", toggles: [P + 1, P + 4], severed: [], saw: [[P + 5, 0, "melee"]] },
+      { name: "off after P+3, on after P+4", toggles: [P + 3, P + 4], severed: [], saw: [[P + 5, 0, "melee"]] },
+      { name: "off after P+1, on after P+5, a tick late", toggles: [P + 1, P + 5], severed: [], saw: [[P + 5, 17, null]] },
+      { name: "off after P+4, during the tell", toggles: [P + 4], severed: [P + 4], saw: [[P + 5, 17, null]] },
+      { name: "held through", toggles: [], severed: [P + 4], saw: [[P + 5, 17, null]] },
+      { name: "off and on both after P+2", toggles: [P + 2, P + 2], severed: [P + 4], saw: [[P + 5, 17, null]] },
+    ])("guard, PR 75's quadrant 1 flick rows moved to the S+5 landing: Protect from Melee on, then $name", async ({ toggles, severed, saw }) => {
+      const drill = await startP3Drill({ seed: 1, invincible: true });
+      drill.pray("Protect from Melee");
+      for (const after of toggles) {
+        drill.tickTo(after);
+        drill.pray("Protect from Melee");
+      }
+      drill.tickTo(P + 6);
+      const observed = { severed: drill.events("prayer-severed").map((event) => event.at), saw: hitsOf(drill, "saw") };
+      drill.dispose();
+      expect(observed).toEqual({ severed, saw });
+    });
+
+    test.each([
+      { prayer: "Protect from Melee" as const, opening: [[P + 1, "spin-opening", 0, 0, "melee"]] },
+      { prayer: null, opening: [[P + 1, "spin-opening", 1, 1, null]] },
+    ])("the spin opens with a melee hit on P+1 that Protect from Melee blocks: $prayer", async ({ prayer, opening }) => {
+      const drill = await startP3Drill({ seed: 1, invincible: true });
+      if (prayer !== null) drill.pray(prayer);
+      drill.tickTo(P + 2);
+      const observed = drill.events("player-hit").filter((event) => event.hit.kind === "spin-opening").map((event) => [event.at, event.hit.kind, event.receipt.requested, event.receipt.applied, event.receipt.prayer]);
+      drill.dispose();
+      expect(observed).toEqual(opening);
     });
 
     test("he stands through the spin and walks again after its last cut", async () => {
@@ -187,15 +223,16 @@ describe("P3 drill", () => {
       }
       drill.tickTo(U + 31);
       const typeless = drill.events("player-hit").filter((event) => event.hit.kind === "untether-slam" || event.hit.kind === "untether-aftershock").map((event) => [event.at - U, event.hit.kind]);
-      const magic = hitsOf(drill, "untether-magic").map(([at, prayer]) => [at - U, prayer]);
+      const magic = hitsOf(drill, "untether-magic").map(([at, applied, prayer]) => [at - U, applied, prayer]);
+      const slam = drill.moves().flatMap(([at, move]) => (move === "slam" ? [at - U] : []));
       const corner = { x: drill.boss().location.x, y: drill.boss().location.y };
       drill.dispose();
-      return { typeless, magic, corner };
+      return { typeless, magic, slam, corner };
     }
 
-    test("the magic lands 10, 14, 18 and 22 ticks in, blocked by Protect from Magic, and he hovers in the corner the logs put him in", async () => {
+    test("guard, already held: the magic lands 10, 14, 18 and 22 ticks in, blocked by Protect from Magic, and he hovers in the corner the logs put him in", async () => {
       const { magic, corner } = await untether({ 27: "under", 28: "under", 29: "out" });
-      expect({ magic, corner }).toEqual({ magic: [[10, "magic"], [14, "magic"], [18, "magic"], [22, "magic"]], corner: CORNER });
+      expect({ magic, corner }).toEqual({ magic: [[10, 0, "magic"], [14, 0, "magic"], [18, 0, "magic"], [22, 0, "magic"]], corner: CORNER });
     });
 
     test.each([
@@ -203,8 +240,27 @@ describe("P3 drill", () => {
       { plan: { 27: "under", 28: "out", 29: "out" } as const, typeless: [[29, "untether-slam"]] },
       { plan: { 27: "under", 28: "under", 29: "under" } as const, typeless: [[30, "untether-aftershock"]] },
       { plan: { 27: "out", 28: "out", 29: "out" } as const, typeless: [[29, "untether-slam"]] },
-    ])("ending U+27, U+28 and U+29 $plan.27, $plan.28 and $plan.29 takes $typeless", async ({ plan, typeless }) => {
-      expect((await untether(plan)).typeless).toEqual(typeless);
+    ])("guard, already held: ending U+27, U+28 and U+29 $plan.27, $plan.28 and $plan.29, the slam on U+29 takes $typeless", async ({ plan, typeless }) => {
+      const { slam, ...hits } = await untether(plan);
+      expect({ slam, typeless: hits.typeless }).toEqual({ slam: [29], typeless });
+    });
+
+    test("the purple marker on his 3x3 keeps its 9 meshes from one tick to the next while he hovers in place", async () => {
+      const drill = await startP3Drill({ seed: 1, invincible: true });
+      const scene = new THREE.Scene();
+      const models = drill.region.entities.map((entity) => ({ entity, model: entity.get3dModel() }));
+      const purpleTilesAt = (t: number) => {
+        drill.tickTo(t);
+        models.forEach(({ entity, model }) => model?.draw(scene, 0, 0, entity.getPerceivedLocation(0), 0, 0, entity.visible(0), []));
+        const tiles: THREE.Object3D[] = [];
+        scene.traverse((object) => {
+          if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshBasicMaterial && object.material.color.getHexString() === "9f48bd") tiles.push(object);
+        });
+        return tiles;
+      };
+      const [first, second] = [purpleTilesAt(U + 1), purpleTilesAt(U + 2)];
+      drill.dispose();
+      expect({ first: first.length, kept: second.filter((mesh) => first.includes(mesh)).length }).toEqual({ first: 9, kept: 9 });
     });
   });
 
@@ -224,7 +280,7 @@ describe("P3 drill", () => {
     async function fallAfter(floorAt: number, until: number) {
       const drill = await startP3Drill({ seed: 1, invincible: true });
       drill.tickTo(floorAt);
-      drill.bossHp(3937);
+      drill.bossHp(3990);
       drill.tickTo(until);
       const observed = { moves: drill.moves().filter(([at]) => at > floorAt - 4), ended: drill.events("run-ended").map((event) => [event.at, event.reason.kind]) };
       drill.dispose();
@@ -246,7 +302,7 @@ describe("P3 drill", () => {
     test("an attack already under way still lands", async () => {
       const drill = await startP3Drill({ seed: 1, invincible: true });
       drill.tickTo(10);
-      drill.bossHp(3937);
+      drill.bossHp(3990);
       drill.tickTo(12);
       const observed = { slash: hitsOf(drill, "shadow-slash").map(([at]) => at), ended: drill.events("run-ended").map((event) => event.at) };
       drill.dispose();

@@ -95,6 +95,8 @@ function react(seed: Seed, beat: P3Beat, facts: TurnFacts): Reaction {
     }
     case "spin-starts":
       return only(moved(at, "spin"));
+    case "spin-opens":
+      return only(prayable(seed, { kind: "spin-opening", at }, "melee", spin.openingDamage.value));
     case "saw-tell":
       return only(...(player.prayer === null ? [] : [logged({ kind: "prayer-severed", at, lockedFor: spin.severedFor.value })]));
     case "saw-cut":
