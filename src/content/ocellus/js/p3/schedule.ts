@@ -1,5 +1,5 @@
 import { OCELLUS_P3 } from "../OcellusTimings";
-import { tick } from "../../../../sim/brands";
+import { span, tick } from "../../../../sim/brands";
 import type { TickSpan } from "../../../../sim/brands";
 import type { Script, Slot } from "../../../../sim/schedule";
 import { Schedule, slotTable } from "../../../../sim/schedule";
@@ -26,10 +26,25 @@ function atLeastOne(name: string, gap: TickSpan): TickSpan {
 }
 
 function autosTable(): readonly Slot<P3Phase, P3Beat>[] {
-  return OCELLUS_P3.autos.value.flatMap(({ attack, next }) => {
-    const beat: P3Beat = attack === "melee" ? { kind: "reach-attack" } : { kind: "wave-cast" };
-    return [slot("autos", beat), ...Array.from({ length: atLeastOne("the gap after an auto-attack", next) - 1 }, () => slot("autos"))];
+  const { autos, wave } = OCELLUS_P3;
+  const starts = autos.value.map((_, k) => autos.value.slice(0, k).reduce((at, { next }) => at + atLeastOne("the gap after an auto-attack", next), 0));
+  const length = starts[starts.length - 1] + atLeastOne("the gap after the last auto-attack", autos.value[autos.value.length - 1].next);
+  const aimLead = wave.aimedBeforeCast.value;
+  const landsIn = span(aimLead + wave.landsAfterCast.value);
+  const beats: readonly (readonly [at: number, beat: P3Beat])[] = autos.value.flatMap(({ attack }, k): readonly (readonly [number, P3Beat])[] => {
+    switch (attack) {
+      case "melee":
+        return [[starts[k], { kind: "reach-attack" }]];
+      case "wave":
+        if (starts[k] < aimLead) throw new RangeError(`the wave at ${starts[k]} would be aimed before the autos table starts`);
+        return [[starts[k] - aimLead, { kind: "wave-aimed", landsIn }], [starts[k], { kind: "wave-cast" }]];
+      default: {
+        const unhandled: never = attack;
+        return unhandled;
+      }
+    }
   });
+  return Array.from({ length }, (_, at) => slot("autos", ...beats.filter(([when]) => when === at).map(([, beat]) => beat)));
 }
 
 function smiteTable(count: SpinCount, firstSpin: TickSpan): readonly Slot<P3Phase, P3Beat>[] {

@@ -11,13 +11,15 @@ import type { Flick } from "./flick";
 import { armFlick, judgeSpin, stepFlick } from "./flick";
 import type { P3Schedule } from "./schedule";
 import { compileP3Schedule } from "./schedule";
+import { QUADRANT_1_FLOOR } from "./arena";
+import { waveLine } from "./wave";
 
 export type P3Rules = Readonly<{ seed: Seed; start: Quadrant; flick: FlickRule; missedFlickDamage: DamageRange; firstSpin: TickSpan }>;
-export type Hazard = Readonly<{ kind: "rubble"; tile: Tile; landsAt: Tick; until: Tick }>;
+export type Hazard = Readonly<{ kind: "rubble"; tile: Tile; landsAt: Tick; until: Tick }> | Readonly<{ kind: "wave"; line: readonly Tile[]; landsAt: Tick }>;
 export type P3Fight = Readonly<{ schedule: P3Schedule; flick: Flick; hazards: readonly Hazard[] }>;
 export type Reach = "in-reach" | "out-of-reach";
 
-export type TurnFacts = Readonly<{ at: Tick; player: PlayerObservation; boss: BossHp & Readonly<{ reach: Reach }> }>;
+export type TurnFacts = Readonly<{ at: Tick; player: PlayerObservation; boss: BossHp & Readonly<{ reach: Reach; centre: Tile }> }>;
 
 export type TurnOutput = Logged<P3Event> | HitRequest<P3Hit>;
 export type TurnStep = Readonly<{ fight: P3Fight; outputs: readonly TurnOutput[]; ending: P3End | null }>;
@@ -70,8 +72,13 @@ function react(rules: P3Rules, beat: P3Beat, flick: Flick, facts: TurnFacts): Re
   switch (beat.kind) {
     case "reach-attack":
       return quiet([autoAttack(rules.seed, at, facts.boss.reach)]);
+    case "wave-aimed": {
+      const toward = facts.player.tile;
+      const wave: Hazard = { kind: "wave", line: waveLine(QUADRANT_1_FLOOR, facts.boss.centre, toward), landsAt: after(at, beat.landsIn) };
+      return { outputs: [logged({ kind: "wave-aimed", at, toward, line: wave.line, landsAt: wave.landsAt })], ending: null, flick, hazards: [wave] };
+    }
     case "wave-cast":
-      return quiet([logged({ kind: "wave-cast", at, toward: facts.player.tile })]);
+      return quiet([logged({ kind: "wave-cast", at })]);
     case "smite-opens":
       return { outputs: [meleeHit(rules.seed, at, OCELLUS_P3.smite.openingBlow.value, { kind: "smite-blow", at })], ending: null, flick: armFlick(rules.flick, facts.player.prayer === "melee"), hazards: [] };
     case "spin-lands":
@@ -97,8 +104,28 @@ function resolveHazard(seed: Seed, hazard: Hazard, facts: TurnFacts): readonly T
       }
       return at === hazard.landsAt ? [logged({ kind: "hazard-avoided", at, hazard: "rubble", tile: hazard.tile })] : [];
     }
+    case "wave": {
+      if (at !== hazard.landsAt) return [];
+      if (hazard.line.some((tile) => sameTile(tile, player.tile))) {
+        return [{ kind: "hit", damage: { kind: "fixed", amount: rollInt(seed, "waveDamage", at, OCELLUS_P3.wave.damage.value, 0) }, cause: { kind: "wave", at, tile: player.tile } }];
+      }
+      return [logged({ kind: "hazard-avoided", at, hazard: "wave", tile: player.tile })];
+    }
     default: {
-      const unhandled: never = hazard.kind;
+      const unhandled: never = hazard;
+      return unhandled;
+    }
+  }
+}
+
+function lastTick(hazard: Hazard): Tick {
+  switch (hazard.kind) {
+    case "rubble":
+      return hazard.until;
+    case "wave":
+      return hazard.landsAt;
+    default: {
+      const unhandled: never = hazard;
       return unhandled;
     }
   }
@@ -115,7 +142,7 @@ export function turn(rules: P3Rules, fight: P3Fight, facts: TurnFacts): TurnStep
     return { outputs: [...so.outputs, ...next.outputs], ending: so.ending ?? next.ending, flick: next.flick, hazards: [...so.hazards, ...next.hazards] };
   }, stepped);
   return {
-    fight: { schedule, flick: reacted.flick, hazards: [...fight.hazards.filter((hazard) => hazard.until > facts.at), ...reacted.hazards] },
+    fight: { schedule, flick: reacted.flick, hazards: [...fight.hazards.filter((hazard) => lastTick(hazard) > facts.at), ...reacted.hazards] },
     outputs: [...entered, ...reacted.outputs, ...fromHazards],
     ending: reacted.ending,
   };

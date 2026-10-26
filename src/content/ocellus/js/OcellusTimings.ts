@@ -46,7 +46,8 @@ type Source =
   | Readonly<{ kind: "cache"; build: 2746; record: string }>
   | Readonly<{ kind: "owner"; date: OwnerDate; topic: string }>
   | Readonly<{ kind: "guide"; url: string; at: string }>
-  | Readonly<{ kind: "capture"; url: string; at: string }>;
+  | Readonly<{ kind: "capture"; url: string; at: string }>
+  | Readonly<{ kind: "ported"; url: string; at: string }>;
 
 type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
 
@@ -69,6 +70,8 @@ const cache = (record: string): Source => ({ kind: "cache", build: 2746, record 
 const owner = (topic: string, date: OwnerDate = "2026-10-21"): Source => ({ kind: "owner", date, topic });
 const guide = (url: string, at: string): Source => ({ kind: "guide", url, at });
 const capture = (url: string, at: string): Source => ({ kind: "capture", url, at });
+const OCELLUS_SIM_FIGHT = "https://github.com/alessandrorodi/ocellus-sim/blob/3efd5bf1cc9ecd394c6fe04964f3d17be439fc38/src/content/ocellus/fight";
+const ported = (file: string, lines: string): Source => ({ kind: "ported", url: `${OCELLUS_SIM_FIGHT}/${file}`, at: lines });
 const STRATEGIES_P4 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381030);
 const BOSS_INFOBOX = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15380968);
 const VOID_RIFT_PAGE = wiki("https://oldschool.runescape.wiki/w/Void_Rift", 15380527);
@@ -966,6 +969,11 @@ const NOAHSCAPE_GUIDE = "https://www.youtube.com/watch?v=-bXHKfzS1V4";
 const FLICK_CLIP = "https://oldschool.runescape.wiki/w/File:Ocellus_flicking.mp4";
 const FLICK_CLIP_PAGE = wiki(FLICK_CLIP, 15379157);
 const RSPROX_P3 = "https://github.com/MRobertEvers/oldschool-clientc/blob/2b3352e2fb64f2288cd42a9522b21d7fcc42f4d4/docs/rsprox-analysis/guthixian_archive/ocellus_plan.md";
+const P3_WAVE_LOGS = [
+  fightLog("L6", "P3 +16 slash, +17 band lands on (8, 3), (9, 3), (9, 4), (10, 3), (9, 2), (10, 2) and (11, 2), and every slash after"),
+  fightLog("L7", "P3 +16 slash, +17 band lands, and every slash after"),
+  fightLog("L8", "P3 +19 slash, +20 band lands, and every slash after"),
+] as const;
 const SMITE_COUNTS = guide(DEFBIGBEAST_GUIDE, "12:53 to 13:00 and 13:29 to 13:37 (quadrant 1), 17:43 to 17:51 (quadrant 2), 21:28 to 21:34 (quadrant 3): hitsplat on count 4, back on for count 4, then counts 2 and 1, then 4, 3 and 2");
 
 type AutoStep = Readonly<{ attack: AutoAttack; next: TickSpan }>;
@@ -986,6 +994,17 @@ type SmiteRecipe = Readonly<{
   rubble2d: Selected<Readonly<{ falling: string; landed: string }>>;
 }>;
 
+type TileMark = Readonly<{ colour: string; opacity: number; inset: number }>;
+type WaveRecipe = Readonly<{
+  aimedBeforeCast: Selected<TickSpan>;
+  landsAfterCast: Selected<TickSpan>;
+  clearance: Selected<number>;
+  damage: Selected<DamageRange>;
+  band: Selected<number>;
+  bandRings: Selected<Readonly<{ tiles: number; delayCycles: number }>>;
+  telegraph: Selected<TileMark>;
+}>;
+
 type P3Recipe = Readonly<{
   arena: Readonly<{ grid: Selected<readonly string[]>; playerSpawn: Selected<Tile>; bossAnchor: Selected<Tile> }>;
   thresholds: Selected<Readonly<Record<Quadrant, HpFraction>>>;
@@ -993,6 +1012,7 @@ type P3Recipe = Readonly<{
   autos: Selected<readonly [AutoStep, ...AutoStep[]]>;
   swing: Readonly<{ protectedDamage: Selected<DamageRange>; unprotectedDamage: Selected<DamageRange> }>;
   voidShot: Selected<DamageRange>;
+  wave: WaveRecipe;
   smite: SmiteRecipe;
   bossPoses: Readonly<Record<P3BossPose, Selected<number>>>;
 }>;
@@ -1048,22 +1068,61 @@ const P3: P3Recipe = {
   autos: selected(
     [
       { attack: "melee", next: span(3) },
-      { attack: "melee", next: span(4) },
-      { attack: "wave", next: span(3) },
       { attack: "melee", next: span(3) },
-      { attack: "melee", next: span(4) },
-      { attack: "wave", next: span(3) },
+      { attack: "wave", next: span(4) },
+      { attack: "melee", next: span(3) },
+      { attack: "melee", next: span(3) },
+      { attack: "wave", next: span(4) },
     ],
-    "footage-repeated",
-    "solo",
-    "swing, swing, wave twice, 20 ticks: the swings 3 ticks apart, the wave 4 after the second swing, the next swing 3 after the wave; the last gap leads into the special; panfleet's solo and DefBigbeast's quadrant 3 agree on every gap; the wiki infobox's attack speed of 6 is not the swing interval",
-    STRATEGIES_P3, BOSS_PAGE_P3, P3_CYCLE_FRAMES, P3_CHIP_FRAMES, guide(KIRBY_GUIDE, "4:18"), guide(KIRBY_GUIDE, "11:18"),
+    "log-repeated",
+    "unscaled",
+    "swing, swing, wave twice, 20 ticks, each attack on its animation: the swings 3 ticks apart, the wave's slash 3 after the second swing, the next swing 4 after the slash; the last gap leads into the special; the clips' waves are the band landing a tick after the slash (wave.landsAfterCast); the wiki infobox's attack speed of 6 is not the swing interval",
+    STRATEGIES_P3, BOSS_PAGE_P3, fightLog("L6", "P3 +10 and +13 swings, +16 slash, +20 and +23 swings, +26 slash"), fightLog("L7", "P3 +10 and +13 swings, +16 slash, +20 and +23 swings, +26 slash"), fightLog("L8", "P3 +16 swing, +19 slash, +23 and +26 swings, +29 slash"), P3_CYCLE_FRAMES, P3_CHIP_FRAMES, guide(KIRBY_GUIDE, "4:18"), guide(KIRBY_GUIDE, "11:18"),
   ),
   swing: {
     protectedDamage: selected<DamageRange>({ min: 0, max: 6 }, "footage-repeated", "solo", "chip through Protect from Melee: red 6, blue 0, red 6, blue 0 in panfleet's solo and red 2 and red 1 on DefBigbeast's tank; 6 is the most seen", NO_WIKI_P3_TICKS, P3_CYCLE_FRAMES, P3_CHIP_FRAMES, guide(ROBINHOOD_GUIDE, "0:02:09")),
     unprotectedDamage: selected<DamageRange>({ min: 0, max: 26 }, "inferred", "unscaled", "the monster melee max hit ⌊0.5 + (250 + 9) × (0 + 64) / 640⌋ = 26 at the cache's Strength 250 with no strength bonus (assumption); no clip shows an unprotected swing", noWiki("no wiki page gives the phase 3 swing's max hit (Ocellus rev 15381233)"), cache("npc 16677 stats [325, 250, 250, 5250, 300, 300]")),
   },
   voidShot: selected<DamageRange>({ min: 20, max: 20 }, "spec-single", "unscaled", "a typeless void shot in place of a swing when the boss cannot reach the player; the wiki's 20+ taken as 20", STRATEGIES_P3, guide(ROBINHOOD_GUIDE, "0:02:26 to 0:02:31")),
+  wave: {
+    aimedBeforeCast: selected(
+      span(1),
+      "inferred",
+      "unscaled",
+      "the band is fixed a tick before the slash, toward the tile the player stands on before moving that tick, and stays where it is when they move; so the last click out of it comes the tick before the slash; no log shows when the aim is taken",
+      NO_WIKI_P3_TICKS, ported("phase3.ts", "L250-L256, L264-L265"),
+    ),
+    landsAfterCast: selected(span(1), "log-repeated", "unscaled", "the band lands the tick after the slash (seq 14846) in all 111 logged slashes", NO_WIKI_P3_TICKS, ...P3_WAVE_LOGS, ported("data.ts", "L332-L336")),
+    clearance: selected(
+      2,
+      "log-repeated",
+      "unscaled",
+      "the band is 3 tiles wide: its middle line runs from the boss's centre tile along the nearest of 8 directions toward the aimed tile, north when the player stands on that tile, and it covers each tile of his wedge outside his 3x3 that is less than 2 lines across it, so 2 tiles to the side clears it; 100 of 111 logged bands are exactly that, and the other 11 lack only the wedge's inner corner tile, where no band is ever drawn",
+      STRATEGIES_P3, ...P3_WAVE_LOGS, ported("phase3.ts", "L282-L299"), owner("2 tiles to step right, not just 1, and well timed", "2026-10-24"), guide(ROBINHOOD_GUIDE, "0:02:23 'completely avoided by stepping to the side at the right time'"),
+    ),
+    damage: selected<DamageRange>(
+      { min: 19, max: 32 },
+      "log-repeated",
+      "team-7",
+      "a hit on a player whose tile is on the band when it lands; Protect from Melee does not block it: 31 players on a band tile took 19 to 32 through the prayer, 27 the most often, and 30 twice, above ocellus-sim's 25 to 28; no log shows a player without the prayer, so the trainer takes the same range for any prayer (assumption)",
+      STRATEGIES_P3, fightLog("L6", "P3 +135, +228, +300, +414 and +499"), fightLog("L7", "P3 +46, +113 and +316"), fightLog("L8", "P3 +30"), ported("data.ts", "L337"), guide(ROBINHOOD_GUIDE, "0:02:23 'deals around 25 damage'"),
+    ),
+    band: spotAnim(4335, "vfx_ocellus_p3_shadow_slash_spotanim01", "log-repeated", "the band's floor graphic on each tile it covers, on its landing tick; 92 cycles, model 62681"),
+    bandRings: selected(
+      { tiles: 3, delayCycles: 2 },
+      "log-repeated",
+      "unscaled",
+      "the floor graphic starts 2 client cycles into the landing tick on the band's 3 tiles nearest the boss, and 2 cycles later on each next 3 out; ocellus-sim starts its nearest 3 at once",
+      NO_WIKI_PRESENTATION, ...P3_WAVE_LOGS, ported("phase3.ts", "L269"),
+    ),
+    telegraph: selected(
+      { colour: "#b01030", opacity: 0.35, inset: 0.06 },
+      "assumption",
+      "unscaled",
+      "practice: the band's tiles drawn on the floor from its aim to its landing; the game draws none",
+      NO_WIKI_PRESENTATION, ported("phase3.ts", "L41-L42, L951"),
+    ),
+  },
   bossPoses: {
     swing: pose(14842, "npc_ocellus_phase3_melee_basic", "inferred", "the swing, 2 ticks; by its name"),
     voidShot: pose(14851, "npc_ocellus_phase3_basic_projectile_all", "inferred", "the void shot, 3 ticks; by its name"),

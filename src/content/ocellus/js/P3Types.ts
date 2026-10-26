@@ -1,4 +1,4 @@
-import type { Seed, Tick, Tile, WorldTick } from "../../../sim/brands";
+import type { Seed, Tick, TickSpan, Tile, WorldTick } from "../../../sim/brands";
 import type { HitReceipt } from "../../../sim/combat";
 import type { P3Choices } from "./OcellusTimings";
 import type { InputObservation, LoadoutSnapshot, PlayerObservation } from "./P4Types";
@@ -18,6 +18,7 @@ export type P3Phase = Readonly<{ stage: P3Stage }>;
 
 export type P3Beat =
   | Readonly<{ kind: "reach-attack" }>
+  | Readonly<{ kind: "wave-aimed"; landsIn: TickSpan }>
   | Readonly<{ kind: "wave-cast" }>
   | Readonly<{ kind: "smite-opens" }>
   | Readonly<{ kind: "spin-lands"; spin: Spin }>
@@ -26,6 +27,7 @@ export type P3Beat =
 export type P3Hit =
   | Readonly<{ kind: "swing"; at: Tick }>
   | Readonly<{ kind: "void-shot"; at: Tick }>
+  | Readonly<{ kind: "wave"; at: Tick; tile: Tile }>
   | Readonly<{ kind: "smite-blow"; at: Tick }>
   | Readonly<{ kind: "spin"; at: Tick; spin: Spin; verdict: SpinVerdict }>
   | Readonly<{ kind: "rubble"; at: Tick; tile: Tile }>;
@@ -35,9 +37,10 @@ export type P3End = Readonly<{ kind: "quadrant-cleared"; quadrant: Quadrant }> |
 
 export type P3Event =
   | Readonly<{ kind: "stage-entered"; at: Tick; stage: P3Stage }>
-  | Readonly<{ kind: "wave-cast"; at: Tick; toward: Tile }>
+  | Readonly<{ kind: "wave-aimed"; at: Tick; toward: Tile; line: readonly Tile[]; landsAt: Tick }>
+  | Readonly<{ kind: "wave-cast"; at: Tick }>
   | Readonly<{ kind: "rubble-aimed"; at: Tick; tile: Tile; landsAt: Tick; until: Tick }>
-  | Readonly<{ kind: "hazard-avoided"; at: Tick; hazard: "rubble"; tile: Tile }>
+  | Readonly<{ kind: "hazard-avoided"; at: Tick; hazard: "rubble" | "wave"; tile: Tile }>
   | Readonly<{ kind: "player-hit"; at: Tick; hit: P3Hit; receipt: HitReceipt }>
   | Readonly<{ kind: "death-prevented"; at: Tick; source: P3HitSource }>
   | Readonly<{ kind: "run-ended"; at: Tick; reason: P3End }>;

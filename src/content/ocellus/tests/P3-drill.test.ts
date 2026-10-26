@@ -32,23 +32,38 @@ describe("P3 drill", () => {
   test.each([
     {
       prayer: "Protect from Melee" as const,
-      hits: [[7, "swing", receipt(5, 99, "melee")], [10, "swing", receipt(2, 94, "melee")], [17, "swing", receipt(1, 92, "melee")], [20, "swing", receipt(2, 91, "melee")]],
+      hits: [
+        [7, "swing", receipt(5, 99, "melee")],
+        [10, "swing", receipt(2, 94, "melee")],
+        [14, "wave", receipt(32, 92, "melee")],
+        [17, "swing", receipt(1, 60, "melee")],
+        [20, "swing", receipt(2, 59, "melee")],
+        [24, "wave", receipt(25, 57, "melee")],
+      ],
     },
     {
       prayer: null,
-      hits: [[7, "swing", receipt(19, 99, null)], [10, "swing", receipt(8, 80, null)], [17, "swing", receipt(7, 72, null)], [20, "swing", receipt(7, 65, null)]],
+      hits: [
+        [7, "swing", receipt(19, 99, null)],
+        [10, "swing", receipt(8, 80, null)],
+        [14, "wave", receipt(32, 72, null)],
+        [17, "swing", receipt(7, 40, null)],
+        [20, "swing", receipt(7, 33, null)],
+        [24, "wave", receipt(25, 26, null)],
+      ],
     },
-  ])("the autos swing at 7, 10, 17 and 20 and cast a wave that does nothing yet at 14 and 24, with prayer $prayer", async ({ prayer, hits }) => {
+  ])("the autos swing at 7, 10, 17 and 20 and slash at 13 and 23, and each wave, aimed the tick before, lands through any prayer on a player who stays put: prayer $prayer", async ({ prayer, hits }) => {
     const drill = await startP3Drill({ seed: 1 });
     if (prayer !== null) drill.pray(prayer);
     drill.tickTo(26);
     const observed = {
       stages: drill.events("stage-entered").map((event) => [event.at, event.stage]),
       hits: drill.events("player-hit").map((event) => [event.at, event.hit.kind, event.receipt]),
-      waves: drill.events("wave-cast").map((event) => [event.at, event.toward]),
+      aimed: drill.events("wave-aimed").map((event) => [event.at, event.toward, event.landsAt]),
+      slashes: drill.events("wave-cast").map((event) => event.at),
     };
     drill.dispose();
-    expect(observed).toEqual({ stages: [[0, "arrive"], [7, "autos"]], hits, waves: [[14, SPAWN], [24, SPAWN]] });
+    expect(observed).toEqual({ stages: [[0, "arrive"], [7, "autos"]], hits, aimed: [[12, SPAWN, 14], [22, SPAWN, 24]], slashes: [13, 23] });
   });
 
   test("a player who runs to the far east of the wedge after P3 tick 6 takes the swing at 7 and a typeless void shot of 20 at 10", async () => {

@@ -65,7 +65,7 @@ export async function startP3Drill(options: P3DrillOptions = {}) {
         .flatMap((row) => row.events)
         .filter((event): event is Extract<P3Event, { kind: K }> => event.kind === kind);
     },
-    click: (on: At) => clickTile(region.world, on),
+    click: (on: At, modifiers: Readonly<{ ctrlKey?: boolean }> = {}) => clickTile(region.world, on, modifiers),
     pray: (name: ProtectionPrayer) => player().prayerController.findPrayerByName(name).toggle(player()),
     dispose() {
       trainer.dispose();

@@ -14,6 +14,7 @@ import { RubbleView, SmiteBlades } from "./entities/P3Views";
 const LETHAL_HIT: Readonly<Record<P3HitSource, string>> = {
   swing: "a swing",
   "void-shot": "a void shot",
+  wave: "the wave",
   "smite-blow": "the smite's opening blow",
   spin: "a smite spin",
   rubble: "the rubble",
@@ -49,6 +50,8 @@ function presentHit(hit: P3Hit, receipt: HitReceipt, { boss, blades, chat }: Sho
       return;
     case "void-shot":
       boss.playAnimation(bossPoses.voidShot.value);
+      return;
+    case "wave":
       return;
     case "smite-blow":
       boss.playAnimation(bossPoses.smite.value);
@@ -171,6 +174,7 @@ export class P3Region extends Region {
       case "death-prevented":
         shown.chat.push(`Invincible: ${LETHAL_HIT[event.source]} would have killed you on tick ${event.at}.`);
         return;
+      case "wave-aimed":
       case "hazard-avoided":
       case "run-ended":
         return;

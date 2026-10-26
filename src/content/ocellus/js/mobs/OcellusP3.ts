@@ -4,8 +4,8 @@ import type { P3Config } from "../OcellusTimings";
 import { OCELLUS_P3, OCELLUS_P4 } from "../OcellusTimings";
 import type { OcellusPlayer } from "../OcellusPlayer";
 import { bossBonuses, withDefenceFloor } from "../bossStats";
-import type { Tick } from "../../../../sim/brands";
-import { tick } from "../../../../sim/brands";
+import type { Tick, Tile } from "../../../../sim/brands";
+import { tick, tile } from "../../../../sim/brands";
 import type { FrameOf, Heal, Hooks, Landed, Logged } from "../../../../sim/sdk/EncounterBinding";
 import { EncounterBinding } from "../../../../sim/sdk/EncounterBinding";
 import type { P3End, P3Event, P3Hit, P3Row, P3RunState } from "../P3Types";
@@ -141,11 +141,16 @@ export class OcellusP3 extends Mob {
     }
   }
 
+  private centre(): Tile {
+    const half = Math.floor(this.size / 2);
+    return tile(this.location.x + half, this.location.y - half);
+  }
+
   private turn(at: Tick): Pick<TurnStep, "outputs" | "ending"> {
     const step = turn(this.rules, this.fight, {
       at,
       player: this.target.observe(),
-      boss: { hp: this.currentStats.hitpoint, maxHp: this.stats.hitpoint, reach: this.reach() },
+      boss: { hp: this.currentStats.hitpoint, maxHp: this.stats.hitpoint, reach: this.reach(), centre: this.centre() },
     });
     this.fight = step.fight;
     return { outputs: step.outputs, ending: step.ending };
