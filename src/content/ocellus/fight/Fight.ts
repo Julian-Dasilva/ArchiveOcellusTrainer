@@ -5,13 +5,16 @@ import type { BossOverhead, Range } from "./data";
 import { P1, P2, SOUND, scaledHp } from "./data";
 import type { SpotOptions, TileMark } from "./effects";
 import { GroundSpot } from "./effects";
+import type { HandOver } from "./handOver";
 import type { ATile, Quadrant } from "./geometry";
 import { CENSERS, GRID, QUADRANTS, QUADRANT_SIGN, TileSet, at, fromSdk, inRoom, key, quadrantOf, toSdk } from "./geometry";
 import { Rng } from "./rng";
 import type { BossHooks, Form, PlayerHooks, Style } from "./units";
 import { BossForm, FightPlayer } from "./units";
 
-export type StartPhase = 1 | 2 | 3 | 4;
+/** Phase 3's third fall hands the fight to our phase 4 drill, so his phase 4 is not a start phase. */
+export const START_PHASES = [3] as const;
+export type StartPhase = (typeof START_PHASES)[number];
 
 export type FightOptions = Readonly<{
   seed: number;
@@ -23,6 +26,7 @@ export type FightOptions = Readonly<{
   skipMarkers: boolean;
   soloVine: boolean;
   invincible: boolean;
+  onHandOver: (state: HandOver) => void;
 }>;
 
 export type ChatLine = Readonly<{ text: string; colour: string; tick: number }>;

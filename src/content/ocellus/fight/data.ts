@@ -6,7 +6,7 @@
  *      docs/rsprox-analysis/guthixian_archive/ocellus_plan.md (2026-10-21)
  *  [W] OSRS Wiki, Ocellus and The Fractured Archive/Strategies (2026-10-21)
  *  [G] RuneLite gameval AnimationID / SpotanimID / NpcID (cache 241)
- *  [V] ShadowStalkerTM, "Duo The Fractured Archive | OSRS Raid 4", youtube.com/watch?v=HAgq_qg0OIY (12:17 kill)
+ *  [V] ShadowStalkerTM, "Duo The Fractured Archive", youtube.com/watch?v=HAgq_qg0OIY (12:17 kill)
  *  [K] a RuneLite fight log of a spectated 8-raider kill, 2026-10-23: every anim, floor
  *      spotanim and projectile, every raider's hitsplats with their overhead, and positions around Untether, by tick
  * Ticks are 600 ms game ticks unless marked cc (20 ms client cycles).

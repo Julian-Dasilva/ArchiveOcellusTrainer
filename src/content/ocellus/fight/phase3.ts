@@ -31,6 +31,7 @@ import {
 } from "./geometry";
 import type { AddKind, Style } from "./units";
 import { VoidAdd } from "./units";
+import { handOverOf } from "./handOver";
 
 type Special = "spin" | "insolence" | "untether";
 type Patch = { tile: ATile; until: number; placed: number; kind: VoidLocKind };
@@ -742,7 +743,7 @@ export class Phase3 implements PhaseScript {
       if (this.segment >= 3) {
         this.finished = true;
         fight.lingeringVoids = this.patches.filter((p) => p.until === Infinity).map(({ tile, placed }) => ({ tile, placed }));
-        fight.enterPhase(4);
+        fight.options.onHandOver(handOverOf(fight.player, boss));
         return;
       }
       const here = quadrantOf(fight.playerTile);

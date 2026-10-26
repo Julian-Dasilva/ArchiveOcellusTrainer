@@ -26,6 +26,22 @@ export const PHASE_ONLY_MODULES: ReadonlyMap<string, readonly [Phase, ...Phase[]
   ["src/content/ocellus/js/p1/schedule.ts", ["p1"]],
   ["src/content/ocellus/js/p3/arena.ts", ["p1", "p2", "p3"]],
   ["src/content/ocellus/js/OcellusTimingsP3.ts", ["p1", "p2", "p3"]],
+  ["src/content/ocellus/fight/Fight.ts", ["full"]],
+  ["src/content/ocellus/fight/FightRegion.ts", ["full"]],
+  ["src/content/ocellus/fight/arena.ts", ["full"]],
+  ["src/content/ocellus/fight/assets.ts", ["full"]],
+  ["src/content/ocellus/fight/bossBar.ts", ["full"]],
+  ["src/content/ocellus/fight/data.ts", ["full"]],
+  ["src/content/ocellus/fight/effects.ts", ["full"]],
+  ["src/content/ocellus/fight/geometry.ts", ["full"]],
+  ["src/content/ocellus/fight/handOver.ts", ["full"]],
+  ["src/content/ocellus/fight/locs.ts", ["full"]],
+  ["src/content/ocellus/fight/phase3.ts", ["full"]],
+  ["src/content/ocellus/fight/rng.ts", ["full"]],
+  ["src/content/ocellus/fight/units.ts", ["full"]],
+  ["src/content/ocellus/fight/warmup.ts", ["full"]],
+  ["src/FullFightApp.tsx", ["full"]],
+  ["src/fullFightStyles.ts", ["full"]],
 ]);
 
 export type StrayModule = Readonly<{ module: string; phases: readonly Phase[] }>;

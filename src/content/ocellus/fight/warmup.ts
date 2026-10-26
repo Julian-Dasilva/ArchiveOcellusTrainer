@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { CacheRenderInstancedModel, CacheRenderReferences, SoundCache, cacheSound } from "osrs-sdk";
 import type { Renderable } from "osrs-sdk";
 import type { StartPhase } from "./Fight";
+import { START_PHASES } from "./Fight";
 import { SOUND, SPOT } from "./data";
 
 /**
@@ -9,17 +10,10 @@ import { SOUND, SPOT } from "./data";
  * used, which mid-fight cost a visible stall (phase 3's first bombs and shadow slash), so they are built ahead.
  */
 const FLOOR_SPOTS: Readonly<Record<StartPhase, readonly number[]>> = {
-  1: [
-    ...SPOT.crackStraightStart, ...SPOT.crackStraight, ...SPOT.crackStraightEnd,
-    ...SPOT.crackDiagonalStart, ...SPOT.crackDiagonal, ...SPOT.crackDiagonalEnd,
-    ...SPOT.p1ExplodeFloor,
-  ],
-  2: [SPOT.swordDrop, SPOT.swordDropExplosion, SPOT.swordRepair, SPOT.p2Pool, SPOT.safePortalSpawn, SPOT.safePortalIdle, SPOT.safePortalDespawn],
   3: [
     ...SPOT.collapsingExplosion, SPOT.bombIdle, SPOT.bombDrop, SPOT.bombImpact, SPOT.shadowSlash,
     SPOT.fallingDebris, SPOT.superiorSlash, SPOT.p2Pool, ...SPOT.unleashArena,
   ],
-  4: [SPOT.voidChainExplosion, SPOT.soulFragmentSpawn12, SPOT.soulFragmentSpawn6, SPOT.soulFragmentIdle, SPOT.soulFragmentDespawn],
 };
 
 type Job = () => Promise<unknown>;
@@ -57,7 +51,7 @@ export function warmStartPhase(anchor: Renderable, start: StartPhase): Promise<u
  * sounds (a cold sound only synthesizes on its first play). Anything still cold builds on first use, as before.
  */
 export function warmLaterPhases(anchor: Renderable, start: StartPhase): void {
-  const later = ([1, 2, 3, 4] as const).filter((phase) => phase > start);
+  const later = START_PHASES.filter((phase) => phase > start);
   const done = new Set(FLOOR_SPOTS[start]);
   const spots = [...new Set(later.flatMap((phase) => FLOOR_SPOTS[phase]))].filter((id) => !done.has(id));
   const sounds: Job[] = [...new Set(Object.values(SOUND).flat())].map((id) => () => SoundCache.preload(cacheSound(id)));

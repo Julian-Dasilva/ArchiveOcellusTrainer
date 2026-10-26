@@ -1,27 +1,23 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { CacheRender, ControlPanelController, Settings, SoundCache, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
+import { CacheRender, ControlPanelController, Settings, SoundCache, Trainer, TrainerInstance } from "osrs-sdk";
 import type { Player, Region, SettingsSnapshot, TrainerLoadingState } from "osrs-sdk";
 import { DefaultSidebar, GameOverlay, RuneScapeButton, TrainerApp, useSettingsSnapshot } from "osrs-sdk-react";
+import { CREDIT_LINE, readSettings } from "./ArchiveOcellusApp";
 import { dress } from "./content/ocellus/js/OcellusLoadout";
-import { resolveDrill } from "./content/ocellus/js/OcellusTimings";
-import { seed as brandSeed } from "./content/ocellus/js/P4Types";
+import { OCELLUS_P4 } from "./content/ocellus/js/OcellusTimings";
 import { installBossBar } from "./content/ocellus/fight/bossBar";
 import type { ChatLine, Fight, FightOptions, StartPhase } from "./content/ocellus/fight/Fight";
 import { formatTicks } from "./content/ocellus/fight/Fight";
 import { FightRegion, START_NPC } from "./content/ocellus/fight/FightRegion";
-import { fromSdk } from "./content/ocellus/fight/geometry";
+import type { ATile, Quadrant } from "./content/ocellus/fight/geometry";
 import { warmLaterPhases } from "./content/ocellus/fight/warmup";
-import { keepHoverTextOnCanvas } from "./hoverText";
+import { FULL_FIGHT_CSS } from "./fullFightStyles";
 
-keepHoverTextOnCanvas();
-
-// A few of Ocellus's animations reference sounds that cache 2746 does not ship; the SDK's preload rejects for each.
-window.addEventListener("unhandledrejection", (event) => {
-  if (/Sound effect \d+ is not present/.test(String(event.reason))) event.preventDefault();
-});
-
-export const CREDIT_LINE =
-  "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.";
+declare global {
+  interface Window {
+    __fullFightProbe?: () => FullFightSnapshot;
+  }
+}
 
 const FOLLOW_URL = "https://x.com/alrodi";
 
@@ -35,14 +31,11 @@ const CREDITS: readonly Readonly<{ who: string; what: string; href: string }>[] 
 ];
 
 type Setup = "ranged" | "melee";
-type Params = FightOptions & Readonly<{ setup: Setup }>;
-
-const PHASES: readonly StartPhase[] = [1, 2, 3, 4];
+type Params = Omit<FightOptions, "onHandOver"> & Readonly<{ setup: Setup }>;
 
 function readParams(): Params {
   const url = new URL(window.location.href);
   const get = (name: string) => url.searchParams.get(name);
-  const phase = Number(get("phase") ?? "1");
   const rawSeed = get("seed");
   const seed = rawSeed !== null && /^\d{1,10}$/.test(rawSeed) ? Number(rawSeed) % 4294967296 : crypto.getRandomValues(new Uint32Array(1))[0];
   const flag = (name: string, fallback: boolean) => {
@@ -52,7 +45,7 @@ function readParams(): Params {
   return {
     seed,
     party: 1,
-    startPhase: phase === 2 || phase === 3 || phase === 4 ? phase : 1,
+    startPhase: 3,
     hazardTiles: flag("tiles", true),
     videoMarkers: flag("markers", false),
     skipMarkers: flag("skip", false),
@@ -71,7 +64,6 @@ function rememberFlag(name: string, on: boolean): void {
 
 function writeParams(params: Params, fresh = true): void {
   const url = new URL(window.location.href);
-  url.searchParams.set("phase", String(params.startPhase));
   url.searchParams.delete("party");
   url.searchParams.set("setup", params.setup);
   url.searchParams.set("tiles", params.hazardTiles ? "1" : "0");
@@ -84,59 +76,16 @@ function writeParams(params: Params, fresh = true): void {
   window.location.assign(url.href);
 }
 
-const DEFAULTS_KEY = "ocellus-sim:defaults-v1";
-
-/** The SDK starts muted; this simulator is meant to be heard, so sound starts on for a first visit. */
-function applyFirstVisitDefaults(): void {
-  try {
-    if (localStorage.getItem(DEFAULTS_KEY)) return;
-    Settings.playsAudio = true;
-    Settings.playsAreaAudio = true;
-    Settings.persistToStorage();
-    localStorage.setItem(DEFAULTS_KEY, "1");
-  } catch {
-    // Storage blocked: keep the session's settings as they are.
-  }
-}
-
-// Browsers keep audio suspended until the page is interacted with.
-const resumeAudio = () => {
-  void SoundCache.context?.resume();
-  window.removeEventListener("pointerdown", resumeAudio);
-  window.removeEventListener("keydown", resumeAudio);
-};
-window.addEventListener("pointerdown", resumeAudio);
-window.addEventListener("keydown", resumeAudio);
-
 function createTrainer() {
   CacheRender.configure(new URL("osrs-assets/manifest.json", window.location.href).href);
-  Settings.readFromStorage();
-  applyFirstVisitDefaults();
+  readSettings();
   const params = readParams();
-  const choices = resolveDrill({ seed: brandSeed(params.seed), selection: { setup: params.setup } }).choices;
-  const region = new FightRegion(params, (player: Player) => dress(player, choices.setup));
+  const setup = OCELLUS_P4.choices.setup.options[params.setup].value;
+  const options: FightOptions = { ...params, onHandOver: (state) => console.info("full-fight: hand over", JSON.stringify(state)) };
+  const region = new FightRegion(options, (player: Player) => dress(player, setup));
   installBossBar((r: Region) => (r instanceof FightRegion ? r.fight : null));
   const trainer = new TrainerInstance(region, { readyTimer: 5 });
   return { trainer, region, params };
-}
-
-/**
- * Ocellus's later bodies are big (each animation is baked as vertex frames: 12 MB for phase 2, 34 MB for phase 3).
- * Fetch them one at a time once the fight has loaded (his first body loads behind the splash), so the transformations
- * do not stall; the hashed files are cached as immutable.
- */
-function prefetchLaterPhases(start: StartPhase): void {
-  const later = PHASES.filter((phase) => phase > start).map((phase) => START_NPC[phase]);
-  const ids = [...new Set(later)].filter((npc) => npc !== START_NPC[start]).map((npc) => `npc-${npc}`);
-  void CacheRender.bundle().then(async (bundle) => {
-    for (const id of ids) {
-      try {
-        await bundle.fetchAsset(id);
-      } catch {
-        // The model loader fetches it again when the phase begins.
-      }
-    }
-  });
 }
 
 type Download = Readonly<{ done: number; total: number }>;
@@ -280,17 +229,6 @@ function Result({ fight, params }: Readonly<{ fight: Fight; params: Params }>) {
 }
 
 const TIPS: Readonly<Record<StartPhase, readonly string[]>> = {
-  1: [
-    "Pray Missiles for the orange fire volleys, Magic for the blue water ones. Prayer is checked when the shot lands.",
-    "At each corner 7 cracks grow toward him. Stand on a closing crack to block it: it heals you instead of him. Unblocked, it feeds his yellow meter and heals him.",
-    "Be 3+ tiles from his 3x3 when he explodes (28-30).",
-    "At 66% and 25% he teleports to the middle: block the diagonal cracks from the marked squares, dodge the blasts. A full meter makes the strike lethal.",
-  ],
-  2: [
-    "Attack The Blade. Purple portals fire across their rows 4 ticks after lighting; stand where the two orange gaps cross (green tiles).",
-    "When pools appear, step on the orange floor portal before all twelve fire.",
-    "The skip (\"Phase 2 skip tiles\"): wait on the outer pink tile, 6 out diagonally, and click the inner one, 4 out, one tick before each volley. Running through the wave dodges it.",
-  ],
   3: [
     "Pray Melee for his two swings, then step out of the shadow slash: 3 wide, straight or diagonal toward you.",
     "When he starts to spin, turn your overhead OFF (or be injured), then Protect from Melee for the saw blades.",
@@ -298,12 +236,6 @@ const TIPS: Readonly<Record<StartPhase, readonly string[]>> = {
     "Void bombs drop where you stand and on the same tile of every quadrant, and stay. Stand at the edge when they come or they'll be under you in phase 4.",
     "The void vine holds you until it dies: cut it (solo, your attack switches to it when it roots you). Kill rifts within 30 ticks or they detonate on you. Untether: pray Magic, get under his 3x3 (purple) by the eruption, and step one tile out when it glows brightest. The slam hits anyone not under him; the aftershock a tick later hits anyone still under.",
     "After Obliteration, cross the stones (click a stone or the next quadrant) before the quadrant falls. Right-click a censer to light it.",
-  ],
-  4: [
-    "Inner void + Deflect Melee: range from outside the 5x5. Outer void + Deflect Range: melee inside the 5x5.",
-    "Take your orb back after each wind; in the melee phase it forms across from where you stepped in.",
-    "Move a tile every time an explosion marks you. A dodge resets your attack: move, attack, move for 2-tick attacks.",
-    "Match your prayer to the hybrid tell: purple ring = Magic, spikes = Missiles, black disk = Melee.",
   ],
 };
 
@@ -360,77 +292,17 @@ function TileIndicators() {
   );
 }
 
-type TabKey = "combat_key" | "spellbook_key" | "prayer_key" | "inventory_key" | "equipment_key";
-
-/** The side-panel tabs the SDK lets you bind, in the game's tab order, with its defaults. */
-const TAB_KEYS: readonly Readonly<{ setting: TabKey; label: string; fallback: string }>[] = [
-  { setting: "combat_key", label: "Combat", fallback: "F5" },
-  { setting: "inventory_key", label: "Inventory", fallback: "F4" },
-  { setting: "equipment_key", label: "Equipment", fallback: "F1" },
-  { setting: "prayer_key", label: "Prayer", fallback: "F3" },
-  { setting: "spellbook_key", label: "Spellbook", fallback: "F2" },
-];
-const KEY_CHOICES = ["", ...Array.from({ length: 12 }, (_, i) => `F${i + 1}`), "Escape"];
-
-/** OSRS-style F-key bindings for the side-panel tabs. A key goes to one tab: taking it unbinds the other. */
-function TabKeys() {
-  const settings = useSettingsSnapshot();
-  const bind = (setting: TabKey, key: string) => {
-    const patch: Partial<Record<TabKey, string>> = { [setting]: key };
-    if (key) for (const other of TAB_KEYS) if (other.setting !== setting && settings[other.setting] === key) patch[other.setting] = "";
-    Settings.set(patch);
-    Settings.notifyChanged();
-  };
-  return (
-    <div className="fight-indicators">
-      <div className="fight-tips-title">Tab keys</div>
-      {TAB_KEYS.map(({ setting, label }) => (
-        <label key={setting} className="fight-key">
-          {label}
-          <select value={settings[setting] ?? ""} onChange={(event) => bind(setting, event.target.value)}>
-            {KEY_CHOICES.map((key) => (
-              <option key={key || "none"} value={key}>
-                {key === "" ? "None" : key === "Escape" ? "Esc" : key}
-              </option>
-            ))}
-          </select>
-        </label>
-      ))}
-      <button
-        type="button"
-        className="fight-keys-reset"
-        onClick={() => {
-          Settings.set(Object.fromEntries(TAB_KEYS.map(({ setting, fallback }) => [setting, fallback])));
-          Settings.notifyChanged();
-        }}
-      >
-        Reset keys
-      </button>
-    </div>
-  );
-}
-
 function Sidebar({ params, fight, region }: Readonly<{ params: Params; fight: Fight | null; region: FightRegion }>) {
   const [draft, setDraft] = useState<Params>(params);
   const [credits, setCredits] = useState(false);
   const set = (patch: Partial<Params>) => setDraft((current) => ({ ...current, ...patch }));
-  const phaseNow: StartPhase = fight?.label() === "Phase 2" ? 2 : fight?.label() === "Phase 3" ? 3 : fight?.label() === "Phase 4" ? 4 : 1;
   // Restart replays the current fight; if a setting that only applies at load changed, it relaunches with it instead.
-  const changedAtLoad = (["startPhase", "setup", "hazardTiles", "videoMarkers", "soloVine"] as const).some((key) => draft[key] !== params[key]);
+  const changedAtLoad = (["setup", "hazardTiles", "videoMarkers", "soloVine"] as const).some((key) => draft[key] !== params[key]);
   useFightVersion(fight);
   return (
     <div className="fight-sidebar">
       <h3 className="fight-title">Ocellus</h3>
       <div className="fight-subtitle">The Fractured Archive · full fight</div>
-      <label>
-        Start at
-        <select value={draft.startPhase} onChange={(event) => set({ startPhase: (PHASES.find((p) => String(p) === event.target.value) ?? 1) })}>
-          <option value={1}>Phase 1 · Corners</option>
-          <option value={2}>Phase 2 · The Blade</option>
-          <option value={3}>Phase 3 · Quadrants</option>
-          <option value={4}>Phase 4 · Last quadrant</option>
-        </select>
-      </label>
       <label>
         Setup
         <select value={draft.setup} onChange={(event) => set({ setup: event.target.value === "melee" ? "melee" : "ranged" })}>
@@ -445,19 +317,6 @@ function Sidebar({ params, fight, region }: Readonly<{ params: Params; fight: Fi
       <label className="fight-check">
         <input type="checkbox" checked={draft.videoMarkers} onChange={(event) => set({ videoMarkers: event.target.checked })} />
         Community tile markers
-      </label>
-      <label className="fight-check">
-        <input
-          type="checkbox"
-          checked={draft.skipMarkers}
-          onChange={(event) => {
-            const on = event.target.checked;
-            set({ skipMarkers: on });
-            region.setSkipMarkers(on);
-            rememberFlag("skip", on);
-          }}
-        />
-        Phase 2 skip tiles
       </label>
       <label className="fight-check">
         <input type="checkbox" checked={draft.soloVine} onChange={(event) => set({ soloVine: event.target.checked })} />
@@ -482,15 +341,13 @@ function Sidebar({ params, fight, region }: Readonly<{ params: Params; fight: Fi
       <hr />
       <TileIndicators />
       <hr />
-      <TabKeys />
-      <hr />
       <div className="fight-tips">
-        <div className="fight-tips-title">{`Phase ${phaseNow}`}</div>
-        <ul>{TIPS[phaseNow].map((tip) => <li key={tip}>{tip}</li>)}</ul>
+        <div className="fight-tips-title">Phase 3</div>
+        <ul>{TIPS[3].map((tip) => <li key={tip}>{tip}</li>)}</ul>
       </div>
       <hr />
       <RuneScapeButton type="button" style={{ width: "100%" }} onClick={() => ControlPanelController.controller.setActiveControl("SETTINGS")}>Game settings</RuneScapeButton>
-      <RuneScapeButton type="button" style={{ width: "100%" }} onClick={() => window.location.assign(`${window.location.pathname}?mode=p4drill`)}>Phase 4 drills</RuneScapeButton>
+      <RuneScapeButton type="button" style={{ width: "100%" }} onClick={() => window.location.assign(window.location.pathname)}>Phase 4 drill</RuneScapeButton>
       <RuneScapeButton type="button" style={{ width: "100%" }} onClick={() => setCredits((open) => !open)}>Credits & sources</RuneScapeButton>
       <RuneScapeButton type="button" style={{ width: "100%" }} onClick={() => window.open(FOLLOW_URL, "_blank", "noopener")}>Follow @alrodi on X</RuneScapeButton>
       {credits && (
@@ -508,7 +365,34 @@ function Sidebar({ params, fight, region }: Readonly<{ params: Params; fight: Fi
   );
 }
 
-export function FightApp() {
+type FullFightSnapshot = Readonly<{
+  tick: number;
+  phase: string;
+  outcome: Fight["outcome"]["kind"];
+  player: ATile | null;
+  hp: number;
+  boss: Readonly<{ tile: ATile; hp: number; hidden: boolean }> | null;
+  fallen: readonly Quadrant[];
+  chat: readonly string[];
+}>;
+
+function exposeProbe(region: FightRegion): void {
+  window.__fullFightProbe = () => {
+    const fight = region.fight;
+    return {
+      tick: fight?.tick ?? 0,
+      phase: fight?.label() ?? "",
+      outcome: fight?.outcome.kind ?? "running",
+      player: fight ? fight.playerTile : null,
+      hp: fight?.player.currentStats.hitpoint ?? 0,
+      boss: fight?.boss ? { tile: fight.boss.tile, hp: fight.boss.currentStats.hitpoint, hidden: fight.boss.hidden } : null,
+      fallen: fight ? [...fight.destroyed] : [],
+      chat: fight?.chat.slice(-6).map((line) => line.text) ?? [],
+    };
+  };
+}
+
+export function FullFightApp() {
   const [{ trainer, region, params }] = useState(createTrainer);
   const [loading, setLoading] = useState<TrainerLoadingState>();
   const fight = useFight(region);
@@ -516,68 +400,18 @@ export function FightApp() {
   const download = useFirstDownload(params.startPhase, !ready);
 
   useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = FULL_FIGHT_CSS;
+    document.head.append(style);
+    if (process.env.NODE_ENV !== "production") exposeProbe(region);
+    return () => style.remove();
+  }, [region]);
+
+  useEffect(() => {
     if (!ready) return;
-    prefetchLaterPhases(params.startPhase);
     const anchor = region.entities[0];
     if (anchor) warmLaterPhases(anchor, params.startPhase);
   }, [ready, params.startPhase, region]);
-
-  useEffect(() => {
-    const probe = () => {
-      const player = region.fight?.player;
-      return {
-        tick: region.fight?.tick ?? 0,
-        phase: region.fight?.label() ?? "",
-        player: player ? fromSdk(player.location) : null,
-        hp: player?.currentStats.hitpoint ?? 0,
-        boss: region.primaryBoss ? { name: region.primaryBoss.mobName(), hp: region.primaryBoss.currentStats.hitpoint, max: region.primaryBoss.stats.hitpoint } : null,
-        outcome: region.fight?.outcome.kind ?? "running",
-        chat: region.fight?.chat.slice(-6).map((line) => line.text) ?? [],
-        menu: Viewport.viewport?.contextMenu.isActive ?? false,
-        menuOptions: Viewport.viewport?.contextMenu.menuOptions.map((option) => option.text.map((block) => block.text).join("")) ?? [],
-      };
-    };
-    // A small console API for testing and for the curious: __ocellus.pray("magic"), __ocellus.walk(3, -5), ...
-    const prayerName = { melee: "Protect from Melee", ranged: "Protect from Range", magic: "Protect from Magic" } as const;
-    const debug = {
-      fight: () => region.fight,
-      pray(style: "melee" | "ranged" | "magic" | null) {
-        const player = region.fight?.player;
-        if (!player) return;
-        for (const [key, name] of Object.entries(prayerName)) {
-          const prayer = player.prayerController.findPrayerByName(name);
-          const wanted = key === style;
-          if (prayer && prayer.isActive !== wanted) prayer.toggle(player);
-        }
-      },
-      walk(x: number, z: number) {
-        region.fight?.player.walkDirect({ x, z });
-      },
-      /** A floor click on arena tile (x, z), through the same path a mouse click takes (stones, censers). */
-      click(x: number, z: number) {
-        region.fight?.player.moveTo(x + 14, 14 - z);
-      },
-      attack() {
-        const fight = region.fight;
-        if (fight?.boss) fight.player.setAggro(fight.boss);
-      },
-      /** Testing helper: game tick length in ms (600 is the game's). */
-      speed(ms: number) {
-        Settings.tickMs = Math.max(50, Math.min(1200, ms));
-      },
-      /** Practice helper: set Ocellus's HP to a fraction of his current pool. */
-      bossHp(fraction: number) {
-        const boss = region.fight?.boss;
-        if (boss) boss.currentStats.hitpoint = Math.max(0, Math.round(boss.stats.hitpoint * fraction));
-      },
-      state() {
-        const fight = region.fight;
-        if (!fight) return null;
-        return { tick: fight.tick, phase: fight.label(), boss: fight.boss && { form: fight.boss.form, tile: fight.boss.tile, hp: fight.boss.currentStats.hitpoint, overhead: fight.boss.overhead, hidden: fight.boss.hidden }, player: fight.playerTile, hp: fight.player.currentStats.hitpoint, meter: fight.meter() };
-      },
-    };
-    Object.assign(window, { __ocellusProbe: probe, __ocellusRegion: region, __ocellus: debug });
-  }, [region]);
 
   return (
     <TrainerApp trainer={trainer} onLoadingStateChange={setLoading}>
