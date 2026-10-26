@@ -15,6 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         round: [1, 2, 3]
+        warm: [off, on]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,6 +33,8 @@ jobs:
       - run: |
           sudo apt-get install -y xvfb libgl1-mesa-dri
           Xvfb :99 -screen 0 1920x1080x24 &
+      - if: matrix.warm == 'on'
+        run: git apply .exp/warm-orbs.patch && git diff --stat
       - name: In-frame curves
         env:
           DISPLAY: ":99"
@@ -50,12 +53,12 @@ jobs:
           AGENT_BROWSER_ARGS: --ignore-gpu-blocklist,--use-gl=angle,--use-angle=gl
         run: |
           for pass in 1 2 3; do
-            VERIFY_DIR="$RUNNER_TEMP/verify-$pass" scripts/verify.sh browser --unit explosions --unit explosion_run_end --unit cues --unit overheads_rifts --unit click_correction --unit focus --unit transition_attack || true
+            VERIFY_DIR="$RUNNER_TEMP/verify-$pass" scripts/verify.sh browser --unit explosion_run_end --unit cues --unit lifeforce_orb --unit orb_late_and_entry || true
           done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: exp-${{ matrix.round }}
+          name: exp-${{ matrix.round }}-${{ matrix.warm }}
           path: |
             ${{ runner.temp }}/curves/
             ${{ runner.temp }}/verify-1/

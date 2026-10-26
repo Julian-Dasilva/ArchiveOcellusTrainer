@@ -40,7 +40,10 @@
       const t = ticks[when.kind];
       if (t === null || t < when.tick || (t === when.tick && into(when.kind, t, now) < when.fraction)) return true;
       const done = (clock.done[action.name] = { tick: t, into: Math.round(into(when.kind, t, now) * 1000) / 1000 });
+      const began = performance.now();
       perform[action.kind](action, done);
+      done.costMs = Math.round(performance.now() - began);
+      requestAnimationFrame((next) => (done.nextFrameMs = Math.round(next - now)));
       return false;
     });
   };
