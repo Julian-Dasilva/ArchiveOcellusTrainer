@@ -24,6 +24,7 @@ jobs:
       - run: npm run typecheck
       - run: scripts/check-types.test.sh
       - run: scripts/release-notes.test.sh
+      - run: scripts/verify/verdicts.test.sh
       - run: scripts/install-beta-sdk.test.sh
       - run: review-ratchet/checks/shell-test-runs-entry.test.sh
       - run: node review-ratchet/checks/shell-test-runs-entry.mjs .

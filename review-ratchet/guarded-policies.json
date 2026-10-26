@@ -151,6 +151,48 @@
           "mutation": [{ "find": "if (invalid !== null) throw new Error(invalid);", "replace": "" }]
         }
       ]
+    },
+    {
+      "path": "scripts/verify/judge.mjs",
+      "tests": ["scripts/verify/verdicts.test.sh"],
+      "policies": [
+        {
+          "policy": "a drive that exited non-zero aborts its unit",
+          "mutation": [{ "find": "  if (driveStatus !== \"0\") return { outcome: \"aborted\", cause: \"drive\", detail: logged() };\n", "replace": "" }]
+        },
+        {
+          "policy": "a unit missing a capture aborts before its checks run",
+          "mutation": [{ "find": "  if (missing.length > 0) return { outcome: \"aborted\", cause: \"captures\", detail: missing };\n", "replace": "" }]
+        },
+        {
+          "policy": "a unit with a failing check fails and names it",
+          "mutation": [{ "find": "return failed.length === 0 ?", "replace": "return true ?" }]
+        },
+        {
+          "policy": "judge exits non-zero unless the unit passed",
+          "mutation": [{ "find": "process.exit(verdict.outcome === \"passed\" ? 0 : 1);", "replace": "process.exit(0);" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify/report.mjs",
+      "tests": ["scripts/verify/verdicts.test.sh"],
+      "policies": [
+        {
+          "policy": "a selected unit without a verdict fails the browser stage",
+          "mutation": [
+            { "find": "const verdicts = selected.map(verdictOf);", "replace": "const verdicts = selected.map(verdictOf).filter(({ outcome }) => outcome !== \"missing\");" }
+          ]
+        },
+        {
+          "policy": "a cross-unit check is judged only once every unit it reads completed",
+          "mutation": [{ "find": "const absent = units.filter((unit) => !completed.has(unit));", "replace": "const absent = [];" }]
+        },
+        {
+          "policy": "a failing cross-unit check fails the browser stage",
+          "mutation": [{ "find": "failedChecks.length === 0 ? 0 : 1", "replace": "true ? 0 : 1" }]
+        }
+      ]
     }
   ]
 }
