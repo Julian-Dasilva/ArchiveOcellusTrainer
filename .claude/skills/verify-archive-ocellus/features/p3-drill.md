@@ -1,6 +1,6 @@
 # P3 drill (hidden)
 
-A second drill, phase 3, sits behind the build flag `ARCHIVE_P3`. Production builds leave it off, so `?phase=p3` opens P4 and lists `phase=p3` as rejected, and Settings has no Phase box. With the flag on, `?phase=p3` opens the cache arena with the player and Ocellus (NPC 16677) on its north-east wedge. The rest of the floor is drawn darker and is closed. P3 tick 0 is the tick he lands in his corner. The boss chases the player and runs quadrant 1's chain of moves, swings at P3 ticks 4, 7, 14 and 17 among them ([p3-recorded-kills.md](./p3-recorded-kills.md)). A swing in melee reach deals chip of 0 to 6 through Protect from Melee, or 0 to 26 without it. When the player is out of reach after the boss's step, a panic shot takes the swing's place: magic that lands 2 ticks later, blocked by Protect from Magic. The quadrant falls on the tick after the boss's HP reaches 75% of his max, ⌊5250 × 0.75⌋ = 3937, which ends the run with "Quadrant 1 cleared (interim end)", the P3 time, and Repeat P3, Retry seed and Start P4. A death shows "You died" with the P3 tick. `seed`, `setup`, `invincible=on`, `bosshp=N` and `reach` work on a P3 link. Any other key, a P4 focus among them, is rejected.
+A second drill, phase 3, sits behind the build flag `ARCHIVE_P3`. Production builds leave it off, so `?phase=p3` opens P4 and lists `phase=p3` as rejected, and Settings has no Phase box. With the flag on, `?phase=p3` opens the cache arena with the player and Ocellus (NPC 16677) on its north-east wedge. The rest of the floor is drawn darker and is closed. P3 tick 0 is the tick he lands in his corner. The boss chases the player and runs quadrant 1's chain of moves, swings at P3 ticks 4, 7, 14 and 17 among them ([p3-recorded-kills.md](./p3-recorded-kills.md)). A swing in melee reach deals chip of 0 to 6 through Protect from Melee, or 0 to 26 without it. When the player is out of reach after the boss's step, a panic shot takes the swing's place: magic that lands 2 ticks later, blocked by Protect from Magic. The quadrant falls on the tick after the boss's HP reaches 76% of his max, ⌊5250 × 0.76⌋ = 3990, which ends the run with "Quadrant 1 cleared (interim end)", the P3 time, and Repeat P3, Retry seed and Start P4. A death shows "You died" with the P3 tick. `seed`, `setup`, `invincible=on`, `bosshp=N` and `reach` work on a P3 link. Any other key, a P4 focus among them, is rejected.
 
 ## Sub-features
 
@@ -9,7 +9,7 @@ A second drill, phase 3, sits behind the build flag `ARCHIVE_P3`. Production bui
 - `p3-arena` draws the open wedge lighter than the closed floor, with the olive rim.
 - `p3-swings` swings at 4, 7, 14 and 17 with chip under Protect from Melee.
 - `p3-panic` turns a swing into a panic shot when the player is out of reach after the boss steps.
-- `p3-interim` ends the run the tick after the boss reaches 3937 HP or below, with the interim panel and its three buttons.
+- `p3-interim` ends the run the tick after the boss reaches 3990 HP or below, with the interim panel and its three buttons.
 - `p3-start-p4` opens a fresh P4 run that keeps the setup and Invincible.
 - `p3-phase-box` shows the current phase in Settings and reloads the other one with its defaults.
 

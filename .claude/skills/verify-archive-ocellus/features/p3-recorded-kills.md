@@ -34,4 +34,4 @@ Preconditions:
 - A panic counts as one of the set's two swings, so after a panic in place of the second swing the slash comes 6 ticks later.
 - The spin severs Protect from Magic too. A prayer severed at 28 stays off until the player turns it on again, so pray Protect from Magic again before Untether's magic.
 - Untether's slam and aftershock are judged on where the player stood at the end of the tick before, so the click out from under him goes in on U+28 to land on U+29.
-- The quadrant's fall reads his HP before the tick's hits land, so a shot that brings him to 3937 ends the run on the next tick.
+- The quadrant's fall reads his HP before the tick's hits land, so a shot that brings him to 3990 or below ends the run on the next tick.

@@ -29,9 +29,9 @@ const has = (tiles: readonly (readonly [number, number])[], east: number, south:
 
 describe("P3 drill", () => {
   test.each([
-    { bossHp: 3991, expected: { ended: [[4, "quadrant-cleared"]], hpAfterShot: 3937, stageOnShot: "arrive", runAt6: "ended" } },
-    { bossHp: 3992, expected: { ended: [], hpAfterShot: 3938, stageOnShot: "arrive", runAt6: "running" } },
-  ])("the quadrant falls the tick after his HP reaches ⌊5250 × 0.75⌋ = 3937, which ends the run: bosshp=$bossHp, seed 100's first shot of 54 lands on P3 tick 3", async ({ bossHp, expected }) => {
+    { bossHp: 4044, expected: { ended: [[4, "quadrant-cleared"]], hpAfterShot: 3990, stageOnShot: "arrive", runAt6: "ended" } },
+    { bossHp: 4045, expected: { ended: [], hpAfterShot: 3991, stageOnShot: "arrive", runAt6: "running" } },
+  ])("the quadrant falls the tick after his HP reaches ⌊5250 × 0.76⌋ = 3990, which ends the run: bosshp=$bossHp, seed 100's first shot of 54 lands on P3 tick 3", async ({ bossHp, expected }) => {
     const drill = await startP3Drill({ seed: 100, bossHp });
     drill.tickTo(0);
     await drill.click(footprintCentre(drill.boss()));
@@ -227,7 +227,7 @@ describe("P3 drill", () => {
     async function fallAfter(floorAt: number, until: number) {
       const drill = await startP3Drill({ seed: 1, invincible: true });
       drill.tickTo(floorAt);
-      drill.bossHp(3937);
+      drill.bossHp(3990);
       drill.tickTo(until);
       const observed = { moves: drill.moves().filter(([at]) => at > floorAt - 4), ended: drill.events("run-ended").map((event) => [event.at, event.reason.kind]) };
       drill.dispose();
@@ -249,7 +249,7 @@ describe("P3 drill", () => {
     test("an attack already under way still lands", async () => {
       const drill = await startP3Drill({ seed: 1, invincible: true });
       drill.tickTo(10);
-      drill.bossHp(3937);
+      drill.bossHp(3990);
       drill.tickTo(12);
       const observed = { slash: hitsOf(drill, "shadow-slash").map(([at]) => at), ended: drill.events("run-ended").map((event) => event.at) };
       drill.dispose();

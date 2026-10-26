@@ -2051,7 +2051,7 @@ drive_p3_drill() {
   tile_pixel p3-clear "$P3_BOSS_TILE" "$P3_BOSS_CLICK_TICK" || return 1
   canvas_centre || { log "canvas box unreadable"; return 1; }
   click_after_tick "$P3_BOSS_CLICK_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the P3 boss was not clicked"; return 1; }
-  ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 30000 >/dev/null || log "the P3 run never reached the 75% break"
+  ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 30000 >/dev/null || log "the P3 run never reached the 76% break"
   ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
   result_panel >"$VERIFY_DIR/p3-clear-panel.json" || { log "P3 result panel capture failed"; return 1; }
   ab screenshot "$VERIFY_DIR/p3-clear.png" >/dev/null || { log "P3 result screenshot failed"; return 1; }
