@@ -7,7 +7,7 @@ import { identity, toRoom } from "../frame";
 
 type Drill = Readonly<{ only: Readonly<{ kind: "fresh" }> }>;
 
-function started(walk: () => Walk, sight: () => "sdk" | "granted") {
+function built(walk: () => Walk, sight: () => "sdk" | "granted", onEnter?: () => void) {
   const log: string[] = [];
   const rules: Rules = {
     judge: () => ({ outcome: "passed" }),
@@ -20,6 +20,7 @@ function started(walk: () => Walk, sight: () => "sdk" | "granted") {
   const only: PhaseDef<Drill, "only", Readonly<{ n: number }>> = {
     name: "only",
     enter(host, entry) {
+      onEnter?.();
       return {
         frame: identity(size),
         rules,
@@ -51,12 +52,33 @@ function started(walk: () => Walk, sight: () => "sdk" | "granted") {
   region.world = world;
   world.addRegion(region);
   Viewport.setupViewport(region, document.createElement("canvas"), document.createElement("div"), true);
-  const { player } = region.reset(false);
+  return { region, log };
+}
+
+function started(walk: () => Walk, sight: () => "sdk" | "granted") {
+  const deal = built(walk, sight);
+  const { player } = deal.region.reset(false);
   if (!(player instanceof EncounterPlayer)) throw new Error("the region built a different player");
-  return { region, player, log };
+  return { region: deal.region, player, log: deal.log };
 }
 
 describe("an encounter region", () => {
+  test("each reset enters the start phase once", () => {
+    let entered = 0;
+    const { region } = built(
+      () => ({ kind: "sdk" }),
+      () => "sdk",
+      () => {
+        entered += 1;
+      },
+    );
+    expect(entered).toBe(0);
+    region.reset(false);
+    expect(entered).toBe(1);
+    region.reset(false);
+    expect(entered).toBe(2);
+  });
+
   test("the room sizes the region, and reset readies the start phase", () => {
     const { region, player, log } = started(
       () => ({ kind: "sdk" }),
