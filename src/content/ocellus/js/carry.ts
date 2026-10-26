@@ -238,3 +238,102 @@ export class CarriedRegion extends OcellusRegion {
     return result;
   }
 }
+
+/** The full fight's `HandOver` at phase 3's last fall, by shape: `tile` is in ocellus-sim's arena frame, x east and z north of the room's middle. */
+export type HandOver = Readonly<{
+  player: Readonly<{
+    tile: Readonly<{ x: number; z: number }>;
+    hp: number;
+    prayerPoints: number;
+    prayers: readonly string[];
+    equipment: Readonly<Record<keyof UnitEquipment, string | null>>;
+    inventory: readonly (Readonly<{ name: string; doses: number | null }> | null)[];
+    specialEnergy: number;
+    runEnergy: number;
+    levels: Levels;
+    attackDelay: number;
+  }>;
+  boss: Readonly<{ hp: number; defence: number }>;
+}>;
+
+/** Each quarter turn moves a tile one quadrant clockwise; P4's platform is the south-east one. */
+function onPlatform({ x, z }: HandOver["player"]["tile"]): Tile {
+  const turns = x >= 0 ? (z >= 0 ? 1 : 0) : z >= 0 ? 2 : 3;
+  let turned = { x, z };
+  for (let i = 0; i < turns; i++) turned = { x: turned.z, z: -turned.x };
+  // Fight log L6 puts the boss's south-west tile at (5, -7) in this frame and on P4's anchor (4, 6).
+  const at = tile(turned.x - 1, -turned.z - 1);
+  return PLATFORM.contains(at) ? at : OCELLUS_P4.geometry.playerSpawn.value;
+}
+
+let named: ReadonlyMap<string, ItemId> | null = null;
+
+function idNamed(name: string): ItemId | undefined {
+  if (named === null) {
+    const byName = new Map<string, ItemId>();
+    for (const [id, entry] of items()) {
+      if (!isItemId(id)) continue;
+      const item = entry.kind === "gear" ? entry.make() : entry.make(4);
+      if (byName.has(item.itemName)) throw new Error(`P4's items need one distinct name each, and ${item.itemName} is not`);
+      byName.set(item.itemName, id);
+    }
+    named = byName;
+  }
+  return named.get(name);
+}
+
+type Held = Readonly<{ kind: "held"; item: CarriedItem | null }> | Readonly<{ kind: "unfit"; reason: string }>;
+
+function held(slot: HandOver["player"]["inventory"][number] | undefined): Held {
+  if (slot === null || slot === undefined) return { kind: "held", item: null };
+  const { name, doses } = slot;
+  const id = idNamed(name);
+  if (id === undefined) return { kind: "unfit", reason: `P4 does not stock ${name}` };
+  if (items().get(id)?.kind === "gear") return { kind: "held", item: { kind: "gear", id } };
+  return doses === 1 || doses === 2 || doses === 3 || doses === 4 ? { kind: "held", item: { kind: "supply", id, doses } } : { kind: "unfit", reason: `the hand-over gives ${name} no doses` };
+}
+
+function isPrayerName(name: string): name is PrayerName {
+  return PRAYERS.some((known) => known === name);
+}
+
+type Fit = Readonly<{ kind: "carried"; carried: Carried }> | Readonly<{ kind: "unfit"; reason: string }>;
+
+function carriedFrom({ player, boss }: HandOver): Fit {
+  const equipment = bySlot((slot) => (player.equipment[slot] === null ? null : idNamed(player.equipment[slot] ?? "")));
+  const inventory = Array.from({ length: INVENTORY_SIZE }, (_, index) => held(player.inventory[index]));
+  const unfit = inventory.find((slot) => slot.kind === "unfit");
+  if (unfit?.kind === "unfit") return unfit;
+  if (player.equipment.offhand !== null || Object.values(equipment).includes(undefined)) return { kind: "unfit", reason: "P4 does not stock a worn item" };
+  const carried: Carried = {
+    player: {
+      at: onPlatform(player.tile),
+      hp: player.hp,
+      prayer: player.prayerPoints,
+      prayers: player.prayers.filter(isPrayerName),
+      equipment: bySlot((slot) => equipment[slot] ?? null),
+      inventory: inventory.map((slot) => (slot.kind === "held" ? slot.item : null)),
+      special: player.specialEnergy,
+      run: player.runEnergy,
+      levels: player.levels,
+      attackDelay: span(Math.max(0, player.attackDelay)),
+    },
+    boss,
+  };
+  return decodeCarried(encodeCarried(carried)) === null ? { kind: "unfit", reason: "a value is out of a P4 link's range" } : { kind: "carried", carried };
+}
+
+/** Reloads into P4 with the player's state, or into the plain drill when that state does not fit a link. Keeps the seed, the setup and practice. */
+export function handOverToP4(state: HandOver, practice: boolean): void {
+  const from = new URL(window.location.href);
+  const link = new URL(from.pathname, from.origin);
+  for (const kept of ["seed", "setup"]) {
+    const value = from.searchParams.get(kept);
+    if (value !== null) link.searchParams.set(kept, value);
+  }
+  if (practice) link.searchParams.set("invincible", "on");
+  const fit = carriedFrom(state);
+  if (fit.kind === "unfit") console.error(`full fight: P4 starts as the drill, because ${fit.reason}`);
+  else link.searchParams.set("carry", encodeCarried(fit.carried));
+  window.location.assign(link.href);
+}

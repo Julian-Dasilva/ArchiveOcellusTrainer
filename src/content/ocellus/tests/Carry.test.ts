@@ -1,7 +1,8 @@
 import { act } from "react";
 import { OcellusRegion } from "../js/OcellusRegion";
-import { decodeCarried } from "../js/carry";
-import { loadPage } from "./page";
+import type { HandOver } from "../js/carry";
+import { decodeCarried, handOverToP4 } from "../js/carry";
+import { captureNavigation, loadPage } from "./page";
 
 const WORN = "20997.27235.27238.27241.26235.28951.33639.31097.28310.11212";
 const SWITCHES = "28922.22325.24419.24420.24421.22981.21295.29801.25485";
@@ -103,5 +104,48 @@ describe("P4 entered from a carried fight, behind ARCHIVE_FULL", () => {
     ["boss HP above the largest max", CARRIED.replace("3937.200", "5421.200")],
   ])("decodeCarried rejects %s", (_, link) => {
     expect(decodeCarried(link)).toBeNull();
+  });
+
+  const gear = (name: string) => ({ name, doses: null });
+  const potion = (name: string, doses: number | null = 4) => ({ name, doses });
+  const SWITCH_NAMES = ["Tonalztics of Ralos", "Scythe of Vitur", "Inquisitor's great helm", "Inquisitor's hauberk", "Inquisitor's plateskirt", "Ferocious gloves", "Infernal cape", "Amulet of rancour", "Ultor ring"];
+  const SUPPLY_NAMES = ["Super combat potion", "Bastion Potion", "Saradomin Brew", "Super Restore", "Super combat potion", "Bastion Potion", "Saradomin Brew", "Super Restore", "Saradomin Brew", "Saradomin Brew", "Saradomin Brew", "Super Restore", "Saradomin Brew", "Saradomin Brew", "Saradomin Brew", "Super Restore", "Saradomin Brew", "Saradomin Brew", "Super Restore"];
+  const TWO_BREW_DOSES_USED = [...SWITCH_NAMES.map(gear), ...SUPPLY_NAMES.map((name, index) => potion(name, index === 2 ? 2 : 4))];
+  const NO_DOSES = [...SWITCH_NAMES.map(gear), ...SUPPLY_NAMES.map((name) => potion(name, null))];
+  const handOver = (tile: Readonly<{ x: number; z: number }>, inventory: HandOver["player"]["inventory"] = TWO_BREW_DOSES_USED, weapon = "Twisted Bow"): HandOver => ({
+    player: {
+      tile,
+      hp: 37,
+      prayerPoints: 12,
+      prayers: ["Protect from Range", "Rigour"],
+      equipment: { weapon, offhand: null, helmet: "Masori mask (f)", chest: "Masori body (f)", legs: "Masori chaps (f)", gloves: "Zaryte Vambraces", cape: "Dizana's Quiver", necklace: "Necklace of rupture", feet: "Avernic treads (max)", ring: "Venator ring", ammo: "Dragon arrow" },
+      inventory,
+      specialEnergy: 50,
+      runEnergy: 6400,
+      levels: { attack: 92, strength: 92, defence: 118, range: 104, magic: 92 },
+      attackDelay: 3,
+    },
+    boss: { hp: 3937, defence: 200 },
+  });
+  const carriedAt = (tile: string) => `&carry=${CARRIED.replace("1_2.2_", `1_${tile}_`)}`;
+
+  test.each([
+    ["the north-east quadrant", handOver({ x: 3, z: 3 }), carriedAt("2.2"), []],
+    ["the south-east quadrant", handOver({ x: 3, z: -3 }), carriedAt("2.2"), []],
+    ["the south-west quadrant", handOver({ x: -3, z: -3 }), carriedAt("2.2"), []],
+    ["the north-west quadrant", handOver({ x: -3, z: 3 }), carriedAt("2.2"), []],
+    ["an arm off P4's platform", handOver({ x: 0, z: -10 }), carriedAt("5.1"), []],
+    ["potions without their doses", handOver({ x: 3, z: -3 }, NO_DOSES), "", ["full fight: P4 starts as the drill, because the hand-over gives Super combat potion no doses"]],
+    ["a weapon the trainer does not stock", handOver({ x: 3, z: -3 }, TWO_BREW_DOSES_USED, "Abyssal whip"), "", ["full fight: P4 starts as the drill, because P4 does not stock a worn item"]],
+  ])("handOverToP4 from %s reloads P4 with the seed, setup and practice, and a carry link with the tile turned onto P4's platform and each potion's doses, or no link and a logged reason when the state does not fit", (_, state, carry, logged) => {
+    window.history.replaceState(null, "", "/?mode=full&phase=3&seed=77&setup=ranged&practice=1&tiles=1");
+    const navigation = captureNavigation();
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    handOverToP4(state, true);
+    const reasons = errors.mock.calls.map(([reason]) => reason);
+    errors.mockRestore();
+    navigation.restore();
+
+    expect({ navigation: navigation.assigned, reasons }).toEqual({ navigation: [`http://localhost/?seed=77&setup=ranged&invincible=on${carry}`], reasons: logged });
   });
 });
