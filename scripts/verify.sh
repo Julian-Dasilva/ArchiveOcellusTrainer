@@ -1979,6 +1979,7 @@ drive_p3_drill() {
 }
 
 click_tile_after_tick() {
+  fight_tick_at_least "$3" 90000 || { log "$1: the fight never reached P4 tick $3"; return 1; }
   tile_pixel "$1" "$2" "$3" || return 1
   canvas_centre || { log "$1: canvas box unreadable"; return 1; }
   click_after_tick "$3" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "$1: the click on $2 after P4 tick $3 was not sent"; return 1; }
