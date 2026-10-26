@@ -1927,12 +1927,19 @@ drive_saved_loadouts() {
     done
   done
 
-  local BROWSER_SESSION="${BROWSER_SESSION}-refused"
+  local BROWSER_SESSION="${BROWSER_SESSION}-refused" result=0
   echo "$REFUSED_STORAGE_JS" >"$VERIFY_DIR/refused-storage.js"
-  ab --init-script "$VERIFY_DIR/refused-storage.js" set viewport 1280 800 >/dev/null || { log "the refused-storage session did not start"; return 1; }
-  for phase in p4 p3; do
-    saved_loadout_page "$phase" refused >"$VERIFY_DIR/saved-loadout-${phase}-refused.json" || { log "the ${phase} page with refused storage was not captured"; return 1; }
-  done
+  if ab --init-script "$VERIFY_DIR/refused-storage.js" set viewport 1280 800 >/dev/null; then
+    for phase in p4 p3; do
+      saved_loadout_page "$phase" refused >"$VERIFY_DIR/saved-loadout-${phase}-refused.json" || { log "the ${phase} page with refused storage was not captured"; result=1; break; }
+    done
+  else
+    log "the refused-storage session did not start"
+    result=1
+  fi
+  # A set-up page redraws every frame, so a session left open slows the units after this one.
+  ab close >/dev/null 2>&1
+  return "$result"
 }
 
 record_get_ready() {
