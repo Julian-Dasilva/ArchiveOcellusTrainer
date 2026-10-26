@@ -62,19 +62,18 @@ payload() {
   printf '%s' "${files[0]}"
 }
 
-without_payload() {
-  complete_bundle
-  rm "$(payload "$1")"
-  ready
-  if bundle; then cat "$WORK/out.txt"; fail "a bundle without a $1 payload passed"; fi
-  grep -qx "FAIL bundle" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "no FAIL bundle line"; }
+complete_bundle_passes() {
+  bundle || { cat "$WORK/out.txt"; fail "the complete bundle failed"; }
+  grep -qx "PASS bundle" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "no PASS bundle line"; }
 }
 
-complete_bundle_passes() {
+without_payload() {
   complete_bundle
   ready
-  bundle || { cat "$WORK/out.txt"; fail "a complete bundle failed"; }
-  grep -qx "PASS bundle" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "no PASS bundle line"; }
+  complete_bundle_passes
+  rm "$(payload "$1")"
+  if bundle; then cat "$WORK/out.txt"; fail "a bundle without a $1 payload passed"; fi
+  grep -qx "FAIL bundle" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "no FAIL bundle line"; }
 }
 
 missing_npc_payload_fails() { without_payload npc; }
@@ -84,15 +83,15 @@ missing_spotanim_payload_fails() { without_payload spotanim; }
 
 empty_payload_fails() {
   complete_bundle
-  : >"$(payload spotanim)"
   ready
+  complete_bundle_passes
+  : >"$(payload spotanim)"
   if bundle; then cat "$WORK/out.txt"; fail "a bundle with an empty payload passed"; fi
   grep -qx "FAIL bundle" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "no FAIL bundle line"; }
 }
 
 failed=0
 for t in \
-  complete_bundle_passes \
   missing_npc_payload_fails \
   missing_model_payload_fails \
   missing_item_payload_fails \
