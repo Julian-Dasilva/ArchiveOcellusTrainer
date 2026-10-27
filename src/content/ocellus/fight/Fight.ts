@@ -1,8 +1,10 @@
 import { InvisibleMovementBlocker, Projectile, Sound, SoundCache, TileMarker, cacheSound } from "osrs-sdk";
 import type { Entity, Location3, ProjectileVisuals, Region, Unit } from "osrs-sdk";
 import type { CenserLook, FloorState } from "./arena";
-import type { BossOverhead, Range } from "./data";
-import { P1, P2, SOUND, scaledHp } from "./data";
+import type { BossOverhead, Range } from "../full/data/looks";
+import { SOUND, scaledHp } from "../full/data/looks";
+import { P1 } from "../full/data/p1";
+import { P2 } from "../full/data/p2";
 import type { SpotOptions, TileMark } from "./effects";
 import { GroundSpot } from "./effects";
 import type { ATile, Quadrant } from "./geometry";
