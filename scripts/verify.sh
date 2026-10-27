@@ -569,14 +569,36 @@ START_ON_LOAD=1
 
 BROWSER_SESSIONS_BEGUN=
 
+session_listed() {
+  local list status=0
+  list="$(agent-browser session list 2>&1)" || status=$?
+  [[ $status -eq 0 ]] || { printf '%s\n' "$list" >&2; return 2; }
+  grep -qxF "  $1" <<<"$list"
+}
+
 begin_browser_session() {
-  local begun
+  local begun waited listed
   [[ -n "${BROWSER_SESSION:-}" ]] || return 1
   while IFS= read -r begun; do
     [[ "$begun" == "$BROWSER_SESSION" ]] && return 0
   done <<<"${BROWSER_SESSIONS_BEGUN}"
   # A daemon already bound to this name ignores a later --init-script and keeps the previous page errors.
-  agent-browser --session "$BROWSER_SESSION" close >/dev/null 2>&1 || true
+  session_listed "$BROWSER_SESSION"
+  listed=$?
+  [[ $listed -ne 2 ]] || return 1
+  if [[ $listed -eq 0 ]]; then
+    agent-browser --session "$BROWSER_SESSION" close || return 1
+    waited=0
+    while true; do
+      session_listed "$BROWSER_SESSION"
+      listed=$?
+      [[ $listed -ne 2 ]] || return 1
+      [[ $listed -ne 0 ]] && break
+      (( waited >= 100 )) && { log "browser session ${BROWSER_SESSION} stayed listed after close"; return 1; }
+      sleep 0.1
+      waited=$((waited + 1))
+    done
+  fi
   BROWSER_SESSIONS_BEGUN="${BROWSER_SESSIONS_BEGUN}"$'\n'"${BROWSER_SESSION}"
 }
 
