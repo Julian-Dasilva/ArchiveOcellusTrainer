@@ -13,7 +13,7 @@ This directory is the maintained source for verifying what a user of the trainer
 ## Driving conventions
 
 - Start every recipe from a fresh page load unless its preconditions say otherwise.
-- Use real input: `agent-browser open`, `mouse move/down/up`, and CSS ids of visible elements.
+- Use real input for page loads, canvas offset clicks, and visible elements: `agent-browser open`, `mouse move/down/up`, and CSS ids. A click timed to a P4 tick is `click_after_tick`: a `MouseEvent` on `#world` in the first frame of that tick, sent only when `document.elementFromPoint` is `#world`.
 - Read world state only through `window.__archiveOcellusProbe.snapshot()` and `window.__archiveOcellusProbe.log()`. Both are read-only and exist only in development builds.
 - Never change state through `eval`, the snapshot handle or SDK globals.
 - Pixel positions are relative to `agent-browser get box "#world"`.
