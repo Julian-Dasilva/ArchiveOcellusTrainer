@@ -5,12 +5,10 @@ import type { HandOver } from "../fight/handOver";
 import { fullFightStaged } from "../full/prefix";
 
 /** Standing on a quadrant when it falls kills the player and skips the hand-over. */
-function leaveTheFall(fight: Fight): void {
+function stepOff(fight: Fight): void {
   const here = quadrantOf(fight.playerTile);
-  const crumbling = fight.floorState().crumbling;
-  if (here === null || !crumbling.includes(here)) return;
-  const next = QUADRANTS.find((q) => !fight.destroyed.has(q) && !crumbling.includes(q));
-  if (!next) throw new Error(`still on ${here} as it falls, with nowhere else to stand`);
+  const next = QUADRANTS.find((q) => q !== here && !fight.destroyed.has(q));
+  if (!next) throw new Error("no quadrant left to stand on");
   const tile = quadrantTiles(next).find((t) => fight.isWalkable(t));
   if (!tile) throw new Error(`no floor in ${next}`);
   fight.player.hop(tile);
@@ -47,7 +45,8 @@ describe("the hosted prefix", () => {
       if (!boss) continue;
       if (label === "Phase 1" && boss.form === "p1" && boss.currentStats.hitpoint > 0) boss.currentStats.hitpoint = 0;
       if (label === "Phase 3" && boss.currentStats.hitpoint > 0) boss.currentStats.hitpoint = 0;
-      leaveTheFall(fight);
+      const crumbling = fight.floorState().crumbling;
+      if (crumbling.length > 0 && quadrantOf(fight.playerTile) === crumbling[0]) stepOff(fight);
     }
     const handed = handOvers[0];
     trainer.dispose();
