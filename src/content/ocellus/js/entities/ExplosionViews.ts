@@ -1,13 +1,73 @@
-import { CollisionType, Entity, LineOfSightMask } from "osrs-sdk";
-import type { Model, Region } from "osrs-sdk";
+import * as THREE from "three";
+import { CollisionType, Entity, GROUND_OVERLAY_Y, LineOfSightMask } from "osrs-sdk";
+import type { Location3, Model, Region, Renderable } from "osrs-sdk";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import type { RoomTile } from "../../../../sim/frame";
 import type { VoidKind } from "../P4Types";
 import { SpotAnimModel } from "./P4Views";
 
 const CUE = { spotAnim: OCELLUS_P4.explosion.spotAnim.value, loops: false } as const;
+const RING = OCELLUS_P4.explosion.spin.value;
 
 type Blast = "marked" | "detonated";
+
+function ringGeometry(): THREE.BufferGeometry {
+  const positions: number[] = [];
+  for (let shard = 0; shard < RING.count; shard++) {
+    const angle = (2 * Math.PI * shard) / RING.count;
+    const ox = Math.cos(angle);
+    const oz = Math.sin(angle);
+    const tip = RING.radius + RING.lean;
+    positions.push(
+      ox * RING.radius - oz * RING.halfWidth, 0, oz * RING.radius + ox * RING.halfWidth,
+      ox * RING.radius + oz * RING.halfWidth, 0, oz * RING.radius - ox * RING.halfWidth,
+      ox * tip, RING.height, oz * tip,
+    );
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  return geometry;
+}
+
+// One buffer for every mark. Disposing it when a mark leaves would blank the next mark.
+const RING_GEOMETRY = ringGeometry();
+
+class MarkedTileModel implements Model {
+  private readonly spot: SpotAnimModel;
+  // A transparent double-sided material is two draw calls unless this is set.
+  private readonly material = new THREE.MeshBasicMaterial({ color: RING.colour, side: THREE.DoubleSide, transparent: true, forceSinglePass: true });
+  private readonly mesh = new THREE.Mesh(RING_GEOMETRY, this.material);
+  private flare = 0;
+
+  constructor(renderable: Renderable, private readonly blast: () => Blast) {
+    this.spot = new SpotAnimModel(renderable, () => CUE);
+  }
+
+  draw(scene: THREE.Scene, clockDelta: number, tickPercent: number, location: Location3, angleRadians: number, pitchRadians: number, visible: boolean, modelOffsets: Location3[]): void {
+    this.spot.draw(scene, clockDelta, tickPercent, location, angleRadians, pitchRadians, visible, modelOffsets);
+    if (this.mesh.parent !== scene) scene.add(this.mesh);
+    this.flare = this.blast() === "detonated" ? Math.min(1, this.flare + clockDelta / RING.flareSeconds) : 0;
+    this.mesh.visible = visible && this.flare < 1;
+    this.mesh.position.set(location.x + 0.5, GROUND_OVERLAY_Y, location.y - 0.5);
+    this.mesh.rotation.y += clockDelta * RING.radiansPerSecond;
+    this.mesh.scale.setScalar(1 + this.flare);
+    this.material.opacity = 1 - this.flare;
+  }
+
+  destroy(scene: THREE.Scene): void {
+    this.spot.destroy(scene);
+    scene.remove(this.mesh);
+    this.material.dispose();
+  }
+
+  getWorldPosition(): THREE.Vector3 {
+    return this.mesh.getWorldPosition(new THREE.Vector3());
+  }
+
+  async preload(): Promise<void> {
+    await this.spot.preload();
+  }
+}
 
 class ExplosionView extends Entity {
   private blast: Blast = "marked";
@@ -33,7 +93,7 @@ class ExplosionView extends Entity {
   }
 
   protected override create3dModel(): Model {
-    return new SpotAnimModel(this, () => CUE);
+    return new MarkedTileModel(this, () => this.blast);
   }
 }
 
