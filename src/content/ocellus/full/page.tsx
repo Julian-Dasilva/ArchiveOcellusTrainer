@@ -33,6 +33,8 @@ declare global {
       die(): void;
       /** Sets his HP to a whole-number percentage of the pool, so a check reaches each quadrant's fall without the damage. */
       bossTo(percent: number): void;
+      /** Puts the player on a tile. A click does not move them once a quadrant is collapsing. */
+      place(at: ATile): void;
       /** Where this frame draws him and the player, for a capture that times their movement frame by frame. */
       drawn(): Drawn;
     }>;
@@ -579,6 +581,10 @@ function exposeProbe(trainer: TrainerInstance, region: FightRegion): void {
     bossTo: (percent) => {
       const boss = bossOf(stageOf(region));
       if (boss) boss.unit.currentStats.hitpoint = Math.ceil((boss.pool * percent) / 100);
+    },
+    place: (at) => {
+      const you = player();
+      if (you) you.hop(at);
     },
     drawn: () => {
       const tickPercent = trainer.getSnapshot().world.tickPercent;
