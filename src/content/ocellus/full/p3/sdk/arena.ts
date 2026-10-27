@@ -71,6 +71,18 @@ class PlayerPort implements Fighter {
     this.player.walkTo(to);
   }
 
+  step(to: ATile): void {
+    const player = this.player;
+    const from = player.location;
+    const target = toSdk(to);
+    player.perceivedLocation = { x: from.x, y: from.y };
+    player.location = { x: target.x, y: target.y };
+    player.destinationLocation = undefined;
+    // A second step left in the path draws a tile behind the true tile.
+    player.visualPath = [{ x: target.x, y: target.y, run: false }];
+    player.region.refreshUnitChunk(player);
+  }
+
   freeze(ticks: number): void {
     this.player.freeze(ticks);
   }

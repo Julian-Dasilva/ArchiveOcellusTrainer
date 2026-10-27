@@ -498,8 +498,11 @@ export const P3 = {
   slashShowsBefore: 1,
   /** The vine's hold, renewed on every tick it lives. ocellus-sim phase3.ts:469, 772 */
   vineHolds: 2,
-  /** Each stepping-stone hop holds you a tick. ocellus-sim phase3.ts:867 */
-  hopHolds: 1,
+  /**
+   * You walk the stones, one tile a tick, and you do not hold on a stone.
+   * Julian, 2026-10-27: in p3 you dont really "hop" on thes tones you kinda "walk" on them.
+   */
+  stoneWalk: 1,
   /** The vine's grip and the over-head bomb each turn to their idle look a tick after they start. ocellus-sim phase3.ts:471; [K] 4302 then 4299 a tick later */
   idleAfter: 1,
   /** "It's flying too high to hit using melee." shows at most once in this many ticks. ocellus-sim phase3.ts:935 */

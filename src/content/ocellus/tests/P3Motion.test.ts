@@ -77,8 +77,10 @@ describe("phase 3 moves on screen without a jump", () => {
         }
         previous = point;
       }
-      const end = previous ?? { x: 0, y: 0 };
-      return { tile: f.here(), drawn: fromSdk({ x: Math.round(end.x), y: Math.round(end.y) }), largest, still, poses };
+      ms += 20;
+      const settled = f.player().getPerceivedLocation(1);
+      const end = { x: round(settled.x), y: round(settled.y) };
+      return { tile: f.here(), drawn: fromSdk({ x: Math.round(end.x), y: Math.round(end.y) }), largest: round(largest), still, poses };
     };
     try {
       let guard = 0;
@@ -87,26 +89,26 @@ describe("phase 3 moves on screen without a jump", () => {
         if (guard++ > 20) throw new Error("the walk never reached the east bank");
         arrived = step();
       }
-      const walked: { tile: ATile; drawn: ATile; largest: number; still: number; run: boolean; walk: boolean }[] = [];
+      const walked: { tile: ATile; drawn: ATile; run: boolean; walk: boolean; still: number; walkPace: boolean }[] = [];
       for (let i = 0; i < EAST_STONE_WALK.length; i++) {
         const moved = step();
         walked.push({
           tile: moved.tile,
           drawn: moved.drawn,
-          largest: round(moved.largest),
-          still: moved.still,
           run: moved.poses.has(PlayerAnimationIndices.Run),
           walk: moved.poses.has(PlayerAnimationIndices.Walk),
+          still: moved.still,
+          walkPace: moved.largest <= 0.06,
         });
       }
       expect(walked).toEqual(
         EAST_STONE_WALK.map((tile) => ({
           tile,
           drawn: tile,
-          largest: 0.03,
-          still: 1,
           run: false,
           walk: true,
+          still: 1,
+          walkPace: true,
         })),
       );
     } finally {

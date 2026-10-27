@@ -19,6 +19,8 @@ export interface Fighter {
   readonly stats: Readonly<{ hp: number; maxHp: number; prayer: number; maxPrayer: number; special: number }>;
   hop(to: ATile): void;
   walkTo(to: ATile): void;
+  /** One tile of a walk. The player is on `to` this tick, and the walk animation draws the step. */
+  step(to: ATile): void;
   freeze(ticks: number): void;
   unfreeze(): void;
   sever(ticks: number): void;
