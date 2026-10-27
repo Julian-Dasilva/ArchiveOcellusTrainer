@@ -2525,7 +2525,14 @@ production_port_free() {
 }
 
 serve_static() {
-  python3 -m http.server "$PRODUCTION_PORT" --bind 127.0.0.1 --directory "$1" >"$2" 2>&1 &
+  # `python3 -m http.server` listens with a queue of 5, and macOS resets the connections past it when the page fetches
+  # its payloads in one burst. 128 is the most macOS grants.
+  python3 -c '
+import functools, http.server, sys
+class Server(http.server.ThreadingHTTPServer):
+    request_queue_size = 128
+Server(("127.0.0.1", int(sys.argv[1])), functools.partial(http.server.SimpleHTTPRequestHandler, directory=sys.argv[2])).serve_forever()
+' "$PRODUCTION_PORT" "$1" >"$2" 2>&1 &
   PRODUCTION_PID=$!
   log "started static server PID ${PRODUCTION_PID} on http://127.0.0.1:${PRODUCTION_PORT}/"
   for _ in $(seq 1 30); do
