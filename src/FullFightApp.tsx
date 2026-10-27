@@ -2,8 +2,7 @@ import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { CacheRender, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
 import type { Player, Region, TrainerLoadingState } from "osrs-sdk";
 import { GameOverlay, RuneScapeButton, TrainerApp } from "osrs-sdk-react";
-import { CREDIT_LINE, readSettings } from "./ArchiveOcellusApp";
-import { CHANGELOG } from "./content/ocellus/changelog";
+import { readSettings } from "./ArchiveOcellusApp";
 import type { CreditLink } from "./menu/credits";
 import { CONTRIBUTOR, MAKER_LINKS } from "./menu/credits";
 import Sidebar from "./menu/Sidebar";
@@ -38,7 +37,6 @@ const UPDATE_LINKS: readonly CreditLink[] = [
   ...MAKER_LINKS.filter((link) => new URL(link.href).host === "x.com").map(xHandle),
   xHandle(CONTRIBUTOR),
 ];
-const [LATEST_RELEASE] = CHANGELOG;
 
 type Setup = "ranged" | "melee";
 type Params = Omit<FightOptions, "onHandOver"> & Readonly<{ setup: Setup }>;
@@ -427,10 +425,6 @@ export function FullFightApp() {
         {fight && <Hud fight={fight} />}
         <div id="hud_corner">
           <Chatbox fight={fight} />
-          <footer id="credits">
-            <p id="credit_line">{CREDIT_LINE}</p>
-            <p id="app_version">v{LATEST_RELEASE.version}</p>
-          </footer>
         </div>
         {fight && <Result fight={fight} params={params} />}
       </GameOverlay>

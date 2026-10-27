@@ -65,7 +65,7 @@ describe("the full fight page", () => {
       corner: [...corner.children].map((child) => child.id),
       chat: corner.querySelector(".fight-chat"),
       hisMenu: document.querySelector(".fight-sidebar"),
-      footer: [...page.element("credits").children].map((child) => child.id),
+      footer: [...page.element("policy_footer").children].map((child) => child.id),
       policy: page.element("credit_line").textContent,
       version: page.element("app_version").textContent,
       footerMaker: document.querySelector("#credits #maker_credit"),
@@ -87,7 +87,7 @@ describe("the full fight page", () => {
     page.close();
 
     expect(shown).toEqual({
-      corner: ["game_chat", "credits"],
+      corner: ["game_chat"],
       chat: null,
       hisMenu: null,
       footer: ["credit_line", "app_version"],

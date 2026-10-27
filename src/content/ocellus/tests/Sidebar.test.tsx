@@ -40,12 +40,32 @@ function sidebarLayout() {
     const style = getComputedStyle(element);
     return [style.overflowX, style.overflowY].some((overflow) => overflow === "auto" || overflow === "scroll");
   };
+  const game = document.querySelector("#world")?.parentElement ?? null;
+  const trainer = game?.parentElement ?? null;
+  const policy = document.querySelector("#credit_line");
   return {
     scrollContainers: [panel, ...panel.querySelectorAll("*")].filter(scrolls).map((element) => element.id),
     panelOverflowX: getComputedStyle(panel).overflowX,
     sections: [...panel.querySelectorAll(".sidebar_title")].map((title) => title.textContent),
+    policy: {
+      text: policy?.textContent ?? null,
+      overGame: game === null || game.contains(policy),
+      trainerLayout: trainer ? getComputedStyle(trainer).display : null,
+      trainerRows: trainer ? getComputedStyle(trainer).gridTemplateRows : null,
+      stripRow: policy?.parentElement ? getComputedStyle(policy.parentElement).gridColumn : null,
+      stripIsLastTrainerItem: trainer?.lastElementChild?.contains(policy) ?? false,
+    },
   };
 }
+
+const POLICY_BELOW_GAME = {
+  text: "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.",
+  overGame: false,
+  trainerLayout: "grid",
+  trainerRows: "minmax(0, 1fr) auto",
+  stripRow: "1 / -1",
+  stripIsLastTrainerItem: true,
+};
 
 const openTab = () => Object.entries(ControlPanelController.controls).find(([, control]) => control === ControlPanelController.controller.selectedControl)?.[0] ?? null;
 
@@ -123,7 +143,7 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
     });
   });
 
-  test("on the drill and the full fight, the side panel is the only scroll container, never scrolls sideways, and lists the same sections", async () => {
+  test("on the drill and the full fight, the side panel is the only scroll container, never scrolls sideways, and lists the same sections, and the policy line sits below the game canvas", async () => {
     vi.stubEnv("ARCHIVE_FULL", "on");
     const drillPage = await loadSidebarPage("/?seed=1");
     const drill = sidebarLayout();
@@ -133,8 +153,8 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
     fullPage.close();
 
     expect({ drill, full }).toEqual({
-      drill: { scrollContainers: ["right_panel"], panelOverflowX: "hidden", sections: ["Fight", "Learning aids", "Sound", "Controls", "About"] },
-      full: { scrollContainers: ["right_panel"], panelOverflowX: "hidden", sections: ["Fight", "Learning aids", "Sound", "Controls", "About", "Phase 1"] },
+      drill: { scrollContainers: ["right_panel"], panelOverflowX: "hidden", sections: ["Fight", "Learning aids", "Sound", "Controls", "About"], policy: POLICY_BELOW_GAME },
+      full: { scrollContainers: ["right_panel"], panelOverflowX: "hidden", sections: ["Fight", "Learning aids", "Sound", "Controls", "About", "Phase 1"], policy: POLICY_BELOW_GAME },
     });
   });
 });

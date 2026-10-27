@@ -3,7 +3,10 @@ import type { ReactNode } from "react";
 import { ControlPanelController, Settings, SoundCache } from "osrs-sdk";
 import type { SettingsState } from "osrs-sdk";
 import { DefaultSidebar, RuneScapeButton, useSettingsSnapshot } from "osrs-sdk-react";
-import { CONTRIBUTOR, MAKER, MAKER_LINKS } from "./credits";
+import { CHANGELOG } from "../content/ocellus/changelog";
+import { CONTRIBUTOR, CREDIT_LINE, MAKER, MAKER_LINKS } from "./credits";
+
+const [LATEST_RELEASE] = CHANGELOG;
 
 type SettingToggle = "targetTileEnabled" | "trueTileEnabled" | "hoveredTileEnabled" | "entityIndicatorEnabled" | "playsAudio" | "playsAreaAudio";
 
@@ -94,7 +97,12 @@ function Section({ id, title, children }: Readonly<{ id: string; title: string; 
 
 // #right_panel is the SDK's only scroll container; nothing inside may scroll, or its scrollbar narrows the panel and clips the rows.
 // The drill's What's new panel keeps its popup id, so the sidebar resets that popup styling in place.
+// The SDK draws its tabs and inventory on the canvas, so the policy strip takes a grid row under the canvas and the panel; TrainerApp sets display inline, hence !important.
 const SIDEBAR_CSS = `
+div:has(> #right_panel) { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto; }
+#policy_footer { grid-column: 1 / -1; display: flex; align-items: flex-end; gap: 8px; padding: 3px 6px; background: #1b160f; border-top: 1px solid #3e3529; color: #c8b88a; font-size: 11px; }
+#policy_footer #credit_line { flex: 1 1 0; max-width: none; margin: 0; }
+#policy_footer #app_version { margin: 0; white-space: nowrap; opacity: 0.8; }
 #right_panel { overflow-x: hidden; }
 #sidebar { display: flex; flex-direction: column; gap: 10px; min-width: 0; font-size: 14px; color: #ff981f; overflow-wrap: anywhere; }
 #sidebar h3 { margin: 2px 0 0; font-weight: normal; font-size: 24px; text-align: center; }
@@ -118,29 +126,35 @@ export type SidebarSlots = Readonly<{ home: SidebarHome; fight: ReactNode; aids:
 
 export default function Sidebar({ home, fight, aids, about, after }: SidebarSlots) {
   return (
-    <DefaultSidebar>
-      <style>{SIDEBAR_CSS}</style>
-      <div id="sidebar">
-        <h3>Ocellus</h3>
-        <div className="sidebar_subtitle">The Fractured Archive</div>
-        <HomeButton home={home} />
-        <Section id="sidebar_fight" title="Fight">{fight}</Section>
-        <Section id="learning_aids" title="Learning aids">
-          {aids}
-          <SettingToggles toggles={TILE_INDICATORS} />
-        </Section>
-        <Section id="sidebar_sound" title="Sound">
-          <SettingToggles toggles={SOUNDS} />
-        </Section>
-        <Section id="sidebar_controls" title="Controls">
-          <RuneScapeButton id="keybinds" type="button" onClick={() => ControlPanelController.controller.setActiveControl("SETTINGS")}>Keybinds</RuneScapeButton>
-        </Section>
-        <Section id="sidebar_about" title="About">
-          {about}
-          <Credits />
-        </Section>
-        {after}
-      </div>
-    </DefaultSidebar>
+    <>
+      <DefaultSidebar>
+        <style>{SIDEBAR_CSS}</style>
+        <div id="sidebar">
+          <h3>Ocellus</h3>
+          <div className="sidebar_subtitle">The Fractured Archive</div>
+          <HomeButton home={home} />
+          <Section id="sidebar_fight" title="Fight">{fight}</Section>
+          <Section id="learning_aids" title="Learning aids">
+            {aids}
+            <SettingToggles toggles={TILE_INDICATORS} />
+          </Section>
+          <Section id="sidebar_sound" title="Sound">
+            <SettingToggles toggles={SOUNDS} />
+          </Section>
+          <Section id="sidebar_controls" title="Controls">
+            <RuneScapeButton id="keybinds" type="button" onClick={() => ControlPanelController.controller.setActiveControl("SETTINGS")}>Keybinds</RuneScapeButton>
+          </Section>
+          <Section id="sidebar_about" title="About">
+            {about}
+            <Credits />
+          </Section>
+          {after}
+        </div>
+      </DefaultSidebar>
+      <footer id="policy_footer">
+        <p id="credit_line">{CREDIT_LINE}</p>
+        <p id="app_version">v{LATEST_RELEASE.version}</p>
+      </footer>
+    </>
   );
 }

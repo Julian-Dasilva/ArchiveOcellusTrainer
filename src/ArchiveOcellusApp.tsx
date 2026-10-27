@@ -27,7 +27,7 @@ import { releaseDate } from "./releases";
 import { keepHoverTextOnCanvas } from "./hoverText";
 import { loadWebAnalytics, perfDataAllowed, setPerfDataAllowed, startPerfTelemetry } from "./telemetry/perfTelemetry";
 import { reportUnservedAssets } from "./servedAssets";
-import { CONTRIBUTOR, MAKER, MAKER_LINKS } from "./menu/credits";
+import { CONTRIBUTOR, CREDIT_LINE, MAKER, MAKER_LINKS } from "./menu/credits";
 import type { SidebarSlots } from "./menu/Sidebar";
 
 keepHoverTextOnCanvas();
@@ -37,9 +37,6 @@ window.addEventListener("pointerdown", () => void SoundCache.context?.resume(), 
 window.addEventListener("unhandledrejection", (event) => {
   if (event.reason instanceof Error && /^Sound effect \d+ is not present in the runtime pack$/.test(event.reason.message)) event.preventDefault();
 });
-
-export const CREDIT_LINE =
-  "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.";
 
 declare global {
   interface Window {
@@ -775,8 +772,8 @@ function TrainerPage({ trainer, clock, drill, flags, unreadableLoadout }: Opened
                 </span>
               </p>
             )}
-            <p id="credit_line">{CREDIT_LINE}</p>
-            <p id="app_version">v{LATEST_RELEASE.version}</p>
+            {process.env.ARCHIVE_FULL !== "on" && <p id="credit_line">{CREDIT_LINE}</p>}
+            {process.env.ARCHIVE_FULL !== "on" && <p id="app_version">v{LATEST_RELEASE.version}</p>}
           </footer>
         </div>
         <RunResultPanel drill={drill} clock={clock} flags={flags} />
