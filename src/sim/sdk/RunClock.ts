@@ -40,6 +40,13 @@ export class RunClock {
     if (this.current.kind === "paused") this.trainer.start();
   }
 
+  /** Store set-up before stopping, or the stop is logged as a pause. */
+  holdAtStart(): void {
+    this.current = { kind: "set-up" };
+    if (!this.trainer.world.isPaused) this.trainer.stop();
+    this.ended.length = 0;
+  }
+
   subscribe(listener: () => void): () => void {
     return this.trainer.subscribe(listener);
   }
