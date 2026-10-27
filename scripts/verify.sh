@@ -3,6 +3,7 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
+. scripts/verify/parity-harness.sh
 
 set -a
 OSRS_CACHE_DIR="${OSRS_CACHE_DIR:-$HOME/osrs-sims/cache/openrs2}"
@@ -412,12 +413,55 @@ stage_types() {
   npm run typecheck >"$VERIFY_DIR/types.log" 2>&1 && npm run check-types >>"$VERIFY_DIR/types.log" 2>&1
 }
 
+run_vitest() {
+  npm test -- --reporter=default --reporter=json --outputFile.json="$VERIFY_DIR/vitest.json" >"$VERIFY_DIR/test.log" 2>&1
+}
+
+count_vitest() {
+  local passed
+  passed="$(json numPassedTests <"$VERIFY_DIR/vitest.json")"
+  log "vitest passed ${passed} tests"
+  [[ "$passed" -gt 0 ]]
+}
+
 stage_test() {
-  npm test -- --reporter=default --reporter=json --outputFile.json="$VERIFY_DIR/vitest.json" >"$VERIFY_DIR/test.log" 2>&1 || return 1
-  local total
-  total="$(json numPassedTests <"$VERIFY_DIR/vitest.json")"
-  log "vitest passed ${total} tests"
-  [[ "$total" -gt 0 ]]
+  if [[ "$TEST_SCOPE" == affected ]]; then
+    stage_test_affected
+    return
+  fi
+  run_vitest || return 1
+  count_vitest
+}
+
+stage_test_affected() {
+  local base scope reason passed failed decision changed=()
+  base="$(git rev-parse --verify "${VERIFY_PLAN_BASE:-$(git merge-base origin/main HEAD)}^{commit}")" || { log "test: no base revision; set VERIFY_PLAN_BASE"; return 1; }
+  mapfile -t changed < <(changed_paths "$base")
+  decision="$(node scripts/verify/affected-tests.mjs "${changed[@]}")" || return 1
+  scope="$(printf '%s\n' "$decision" | sed -n '1p')"
+  reason="$(printf '%s\n' "$decision" | sed -n '2p')"
+  log "test: ${reason}"
+  case "$scope" in
+    none) return 0 ;;
+    all)
+      run_vitest || return 1
+      count_vitest
+      ;;
+    related)
+      node_modules/.bin/vitest run --changed "$base" --reporter=default --reporter=json --outputFile.json="$VERIFY_DIR/vitest.json" >"$VERIFY_DIR/test.log" 2>&1 || return 1
+      passed="$(json numPassedTests <"$VERIFY_DIR/vitest.json")"
+      failed="$(json numFailedTests <"$VERIFY_DIR/vitest.json")"
+      if [[ "$passed" == 0 && "$failed" == 0 ]]; then
+        log "test: the related selection ran no test, so the suite runs"
+        run_vitest || return 1
+        count_vitest
+        return
+      fi
+      log "vitest passed ${passed} tests"
+      [[ "$passed" -gt 0 ]]
+      ;;
+    *) log "test: unknown scope ${scope}"; return 1 ;;
+  esac
 }
 
 stage_assets() {
@@ -447,7 +491,7 @@ stage_parity() {
     log "parity: base ${base} recorded in ${cache}"
   else
     log "parity: recording the seeded fights at base ${base}"
-    mkdir -p "$src" && git archive "$base" | tar -x -C "$src" && cp -R test/parity "$src/test/" || { log "parity: the base tree could not be exported"; return 1; }
+    mkdir -p "$src" && git archive "$base" | tar -x -C "$src" && install_parity_harness "$src" || { log "parity: the base tree could not be exported"; return 1; }
     if git diff --quiet "$base" -- package.json package-lock.json scripts/install-beta-sdk.sh; then
       ln -s "$ROOT/node_modules" "$src/node_modules"
     else
@@ -2457,7 +2501,50 @@ release_browser() {
   stop
 }
 
+bounded() {
+  local seconds=$1 pid watcher status=0
+  shift
+  "$@" &
+  pid=$!
+  sleep "$seconds" &
+  watcher=$!
+  while kill -0 "$pid" 2>/dev/null && kill -0 "$watcher" 2>/dev/null; do
+    sleep 0.1
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    status=124
+  else
+    wait "$pid" || status=$?
+  fi
+  kill "$watcher" 2>/dev/null || true
+  wait "$watcher" 2>/dev/null || true
+  return "$status"
+}
+
+chrome_launch() {
+  local session="archive-ocellus-chrome-$$" line=""
+  command -v agent-browser >/dev/null || line="agent-browser is not on PATH"
+  mkdir -p "$VERIFY_DIR"
+  if [[ -z "$line" ]] && ! bounded 30 agent-browser --session "$session" open about:blank >"$VERIFY_DIR/chrome-open.log" 2>&1; then
+    line="$(tail -n 1 "$VERIFY_DIR/chrome-open.log" || true)"
+    [[ -n "$line" ]] || line="agent-browser open produced no output"
+  fi
+  if [[ -z "$line" ]] && ! bounded 30 agent-browser --session "$session" --json eval "1+1" >"$VERIFY_DIR/chrome-eval.log" 2>&1; then
+    line="$(tail -n 1 "$VERIFY_DIR/chrome-eval.log" || true)"
+    [[ -n "$line" ]] || line="agent-browser eval produced no output"
+  fi
+  bounded 30 agent-browser --session "$session" close >/dev/null 2>&1 || true
+  if [[ -n "$line" ]]; then
+    log "chrome: did not launch: ${line}"
+    return 1
+  fi
+  log "chrome: launched"
+}
+
 stage_browser() {
+  chrome_launch || return 1
   BROWSER_SESSION="archive-ocellus-verify-$(basename "$VERIFY_DIR")"
   LAUNCHED_PID=
   local result=1
@@ -2619,6 +2706,7 @@ Server(("127.0.0.1", int(sys.argv[1])), functools.partial(http.server.SimpleHTTP
 }
 
 stage_production() {
+  chrome_launch || return 1
   production_port_free || return 1
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
   ARCHIVE_P2=off ARCHIVE_P3=off node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/production" >"$VERIFY_DIR/production-build.log" 2>&1 || { log "the production build failed"; return 1; }
@@ -2732,6 +2820,7 @@ stage_perfbudgets() {
 
 perf_stage() {
   local mode=$1
+  chrome_launch || return 1
   production_port_free || return 1
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
   mkdir -p "$VERIFY_DIR/perf/captures"
@@ -2756,12 +2845,61 @@ all_units() {
   for module in scripts/verify/units/*.mjs; do basename "$module" .mjs; done
 }
 
+plan_base() {
+  git rev-parse --verify "${VERIFY_PLAN_BASE:-$(git merge-base origin/main HEAD)}^{commit}"
+}
+
+changed_paths() {
+  git diff --name-only --no-renames "$1"
+  git ls-files --others --exclude-standard
+}
+
 plan() {
-  local base changed
-  base="$(git rev-parse --verify "${VERIFY_PLAN_BASE:-$(git merge-base origin/main HEAD)}^{commit}")" || { log "plan: no base revision; set VERIFY_PLAN_BASE"; return 1; }
-  mapfile -t changed < <(git diff --name-only --no-renames "$base" && git ls-files --others --exclude-standard)
+  local base changed=()
+  base="$(plan_base)" || { log "plan: no base revision; set VERIFY_PLAN_BASE"; return 1; }
+  mapfile -t changed < <(changed_paths "$base")
   log "plan: ${#changed[@]} paths changed since ${base}"
   node node_modules/.bin/tsx src/verifyPlan/main.ts scripts/verify-impact.json scripts/verify/units "$@" -- "${changed[@]}"
+}
+
+run_t1() {
+  local handoff="$VERIFY_DIR/handoff.json" kind args_file drive_args=()
+  mkdir -p "$VERIFY_DIR" "$ROOT/.verify"
+  plan --handoff "$handoff" || return $?
+  "$0" t0 || return $?
+  kind="$(node -e '
+    const handoff = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    if (handoff.kind !== "local" && handoff.kind !== "defer" && handoff.kind !== "drive") process.exit(2);
+    process.stdout.write(handoff.kind);
+  ' "$handoff")" || { log "t1: the handoff file could not be read"; return 2; }
+  case "$kind" in
+    local) return 0 ;;
+    defer)
+      log "t1: this change selects every unit. CI runs them. scripts/verify.sh t2 runs them on this machine."
+      return 0
+      ;;
+    drive)
+      args_file="$VERIFY_DIR/handoff-args"
+      node -e '
+        const fs = require("fs");
+        const handoff = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+        const args = [];
+        if (handoff.browser.length > 0) args.push("browser", ...handoff.browser.flatMap((id) => ["--unit", id]));
+        args.push(...handoff.stages);
+        fs.writeFileSync(process.argv[2], args.join("\n") + (args.length ? "\n" : ""));
+      ' "$handoff" "$args_file" || return 2
+      mapfile -t drive_args <"$args_file"
+      [[ ${#drive_args[@]} -gt 0 ]] || { log "t1: the handoff names no browser unit and no stage"; return 2; }
+      exec "$0" "${drive_args[@]}"
+      ;;
+    *) log "t1: unknown handoff ${kind}"; return 2 ;;
+  esac
+}
+
+ci_verdict() {
+  local sha
+  sha="$(git rev-parse --verify "${1:-HEAD}^{commit}")" || { log "ci: no such revision"; return 2; }
+  node scripts/verify/ci-verdict.mjs "$sha"
 }
 
 judge_evidence() {
@@ -2779,16 +2917,20 @@ case "${1:-}" in
   stop) stop; exit $? ;;
   units) all_units; exit 0 ;;
   plan) plan "${@:2}"; exit $? ;;
+  t1) run_t1; exit $? ;;
+  chrome) mkdir -p "$VERIFY_DIR" "$ROOT/.verify"; chrome_launch; exit $? ;;
+  ci) ci_verdict "${2:-}"; exit $? ;;
   judge) [[ -d "${2:-}/units" ]] || { log "usage: scripts/verify.sh judge <evidence dir> [unit...]"; exit 2; }; judge_evidence "${@:2}"; exit $? ;;
   report) [[ -d "${2:-}/units" ]] || { log "usage: scripts/verify.sh report <evidence dir>"; exit 2; }; node scripts/verify/report.mjs "$2" $(all_units); exit $? ;;
 esac
 
-stages=() BROWSER_UNITS=() BROWSER_SHARD=
+stages=() BROWSER_UNITS=() BROWSER_SHARD= TEST_SCOPE=all
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --unit) [[ -n "${2:-}" ]] || { log "--unit needs a unit name"; exit 2; }; BROWSER_UNITS+=("$2"); shift 2 ;;
     --shard) [[ "${2:-}" =~ ^[1-9][0-9]*/[1-9][0-9]*$ ]] || { log "--shard needs INDEX/COUNT, such as 3/8"; exit 2; }; BROWSER_SHARD=$2; shift 2 ;;
-    t0) stages+=(bundle build types test parity); shift ;;
+    t0) TEST_SCOPE=affected; stages+=(bundle build types test parity); shift ;;
+    t2) TEST_SCOPE=all; stages+=(assets build types test browser production); shift ;;
     *) stages+=("$1"); shift ;;
   esac
 done

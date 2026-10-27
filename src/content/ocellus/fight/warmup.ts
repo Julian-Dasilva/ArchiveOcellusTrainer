@@ -22,6 +22,43 @@ const FLOOR_SPOTS: Readonly<Record<StartPhase, readonly number[]>> = {
   ],
 };
 
+type Actor = "boss" | "player";
+
+type WarmPlacement = Readonly<{ actor: Actor; id: number; channel: string }>;
+
+/**
+ * Not a pose this actor plays. The unset pose is -1, so -1 would show the mesh until the first real pose.
+ */
+const HIDDEN_POSE = 1_000_000_000;
+
+const PHASE1_ACTOR_GRAPHICS = [
+  ["boss", SPOT.waterOnBoss],
+  ["boss", SPOT.fireOnBoss],
+  ["player", SPOT.waterImpact],
+  ["player", SPOT.fireImpact],
+  ["boss", SPOT.p1Charge],
+  ["boss", SPOT.p1ExplodeOnBoss],
+  ["boss", SPOT.p1TeleportOut],
+  ["boss", SPOT.p1TeleportIn],
+  ["boss", SPOT.p1ToP2],
+] as const;
+
+type SpotHost = Readonly<{
+  addSpotAnim: (spot: { id: number; channel?: string; animation?: number }) => void;
+  clearSpotAnim: (channel: string) => void;
+}>;
+
+/** One channel per graphic id. A shared channel would drop the first graphic before its mesh exists. */
+export function warmPlacements(entries: readonly (readonly [Actor, number])[]): readonly WarmPlacement[] {
+  const placements = entries.map(([actor, id]) => ({ actor, id, channel: `p1-warm-${id}` }));
+  if (new Set(placements.map((spot) => spot.channel)).size !== placements.length) {
+    throw new Error("phase 1 warm graphics share a channel");
+  }
+  return placements;
+}
+
+const PHASE1_WARM = warmPlacements(PHASE1_ACTOR_GRAPHICS);
+
 type Job = () => Promise<unknown>;
 
 /** Run jobs one at a time in the browser's idle time, so warming never takes a frame the fight needs. */
@@ -50,6 +87,22 @@ function floorSpot(anchor: Renderable, id: number): Job {
 /** The start phase's floor effects, built behind the loading splash so its first attacks don't stall. */
 export function warmStartPhase(anchor: Renderable, start: StartPhase): Promise<unknown> {
   return Promise.all(FLOOR_SPOTS[start].map((id) => floorSpot(anchor, id)().catch(() => undefined)));
+}
+
+/**
+ * Call before the boss and player models are created. Their load builds a mesh for each attached graphic, so the
+ * first real attach finds the mesh and does not convert its colours mid-tick.
+ */
+export function warmPhase1Actors(actors: Readonly<Record<Actor, SpotHost>>): void {
+  for (const spot of PHASE1_WARM) actors[spot.actor].addSpotAnim({ id: spot.id, channel: spot.channel, animation: HIDDEN_POSE });
+}
+
+/**
+ * Call once those models finish preload. The renderer shows the first placement of a graphic id, so a warm
+ * placement left attached hides the fight's own later placement of that id. The built mesh stays.
+ */
+export function releasePhase1Actors(actors: Readonly<Record<Actor, SpotHost>>): void {
+  for (const spot of PHASE1_WARM) actors[spot.actor].clearSpotAnim(spot.channel);
 }
 
 /**

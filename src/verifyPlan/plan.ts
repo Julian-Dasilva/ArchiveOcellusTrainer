@@ -160,3 +160,31 @@ export function runCommand(impact: Impact, selected: Plan): string {
   const words = selected.tier === "t2" ? ["browser", ...impact.stages.values()] : [...(browser.length > 0 ? ["browser", ...browser.flatMap((id) => ["--unit", id])] : []), ...stages];
   return ["scripts/verify.sh", "t0", ...words].join(" ");
 }
+
+export type Handoff =
+  | Readonly<{ kind: "local"; tier: "t0" }>
+  | Readonly<{ kind: "drive"; tier: "t1"; browser: readonly UnitId[]; stages: readonly string[] }>
+  | Readonly<{ kind: "defer"; tier: "t2" }>;
+
+export function handoff(impact: Impact, selected: Plan): Handoff {
+  switch (selected.tier) {
+    case "t0":
+      return { kind: "local", tier: "t0" };
+    case "t2":
+      return { kind: "defer", tier: "t2" };
+    case "t1":
+      return {
+        kind: "drive",
+        tier: "t1",
+        browser: selected.units.filter((id) => !impact.stages.has(id)),
+        stages: selected.units.flatMap((id) => {
+          const stage = impact.stages.get(id);
+          return stage === undefined ? [] : [stage];
+        }),
+      };
+    default: {
+      const unknownTier: never = selected;
+      throw new Error(`unknown plan ${JSON.stringify(unknownTier)}`);
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { testWorkerOption } from "../workerCap.mjs";
 
 export default defineConfig({
   server: { fs: { strict: false } },
@@ -10,5 +11,6 @@ export default defineConfig({
     setupFiles: ["./test/setupFiles.ts"],
     cache: false,
     testTimeout: 600000,
+    ...testWorkerOption(),
   },
 });

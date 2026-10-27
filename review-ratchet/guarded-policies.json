@@ -329,6 +329,116 @@
           "mutation": [{ "find": "verdict.assets.deleted.map((key) => `  - deleted ${key}`)", "replace": "[]" }]
         }
       ]
+    },
+    {
+      "path": "test/workerCap.mjs",
+      "tests": ["scripts/verify/workers.test.sh"],
+      "policies": [
+        {
+          "policy": "CI uses the runner's default worker count",
+          "mutation": [{ "find": "  if (env.CI) return { kind: \"runner\" };\n", "replace": "  if (false) return { kind: \"runner\" };\n" }]
+        },
+        {
+          "policy": "a local run caps workers at 2",
+          "mutation": [{ "find": "?? \"2\"", "replace": "?? \"8\"" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify/affected-tests.mjs",
+      "tests": ["scripts/verify/affected-tests.test.sh"],
+      "policies": [
+        {
+          "policy": "a test runner file runs the whole suite",
+          "mutation": [{ "find": "  if (unique.some((file) => GLOBALS.has(file))) return { kind: \"all\", reason: \"a test runner file changed, so the suite runs\" };\n", "replace": "  if (false) return { kind: \"all\", reason: \"a test runner file changed, so the suite runs\" };\n" }]
+        },
+        {
+          "policy": "a diff with no source file runs no unit test",
+          "mutation": [{ "find": "  if (!unique.some((file) => SOURCE.test(file))) return { kind: \"none\", reason: \"no source file changed, so no unit test runs\" };\n", "replace": "  if (false) return { kind: \"none\", reason: \"no source file changed, so no unit test runs\" };\n" }]
+        },
+        {
+          "policy": "a source file runs the tests that import it",
+          "mutation": [{ "find": "kind: \"related\"", "replace": "kind: \"none\"" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify/pr-evidence.mjs",
+      "tests": ["scripts/verify/pr-evidence.test.sh"],
+      "policies": [
+        {
+          "policy": "a pull request without a Verification section fails",
+          "mutation": [{ "find": "  if (section === null) return [\"the pull request has no ## Verification section\"];\n", "replace": "  if (false) return [\"the pull request has no ## Verification section\"];\n" }]
+        },
+        {
+          "policy": "the Verification section names a scripts/verify.sh command",
+          "mutation": [{ "find": "  if (!section.includes(\"scripts/verify.sh\")) missing.push(\"the Verification section does not name a scripts/verify.sh command\");\n", "replace": "  if (false) missing.push(\"the Verification section does not name a scripts/verify.sh command\");\n" }]
+        },
+        {
+          "policy": "the Verification section records a PASS line or an Actions run",
+          "mutation": [{ "find": "  if (!/\\bPASS\\b|actions\\/runs\\/\\d+/.test(section)) missing.push(\"the Verification section does not record a PASS line or a GitHub Actions run\");\n", "replace": "  if (false) missing.push(\"the Verification section does not record a PASS line or a GitHub Actions run\");\n" }]
+        },
+        {
+          "policy": "a change that selects every unit names CI",
+          "mutation": [{ "find": "  if (plan.tier === \"t2\" && !/\\bCI\\b|actions\\/runs\\/\\d+/.test(section)) missing.push(\"this change selects every unit, so the Verification section must name CI\");\n", "replace": "  if (false) missing.push(\"this change selects every unit, so the Verification section must name CI\");\n" }]
+        },
+        {
+          "policy": "timing pairs report a frame time, a tick gap, or draw calls",
+          "mutation": [{ "find": "  if (plan.tier === \"t1\" && plan.units.includes(\"perf_timing\") && !/frame|draw call|tick-gap|tick gap/i.test(section)) {\n", "replace": "  if (false) {\n" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify.sh",
+      "tests": ["scripts/verify/chrome.test.sh"],
+      "policies": [
+        {
+          "policy": "a browser that does not open fails the launch check",
+          "mutation": [{ "find": "    log \"chrome: did not launch: ${line}\"\n    return 1\n", "replace": "    log \"chrome: did not launch: ${line}\"\n    return 0\n" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify/ci-verdict.mjs",
+      "tests": ["scripts/verify/ci-verdict.test.sh"],
+      "policies": [
+        {
+          "policy": "no test workflow run is not a pass",
+          "mutation": [{ "find": "if (!Array.isArray(runs) || runs.length === 0) return { code: 2, text:", "replace": "if (!Array.isArray(runs) || runs.length === 0) return { code: 0, text:" }]
+        },
+        {
+          "policy": "a run that is still going is not a verdict",
+          "mutation": [{ "find": "if (run.status !== \"completed\") return { code: 2, text:", "replace": "if (run.status !== \"completed\") return { code: 0, text:" }]
+        },
+        {
+          "policy": "a finished run with no t2-verdict artifact is not a pass",
+          "mutation": [{ "find": "if (verdict === null) return { code: 2, text:", "replace": "if (verdict === null) return { code: 0, text:" }]
+        },
+        {
+          "policy": "a failed T2 verdict fails the command",
+          "mutation": [{ "find": "code: verdict.passed === true ? 0 : 1", "replace": "code: 0" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify/parity-harness.sh",
+      "tests": ["scripts/verify/parity-harness.test.sh"],
+      "policies": [
+        {
+          "policy": "the base tree gets the worker cap the head parity config imports",
+          "mutation": [{ "find": "  cp test/workerCap.mjs \"$src/test/workerCap.mjs\"\n", "replace": "  true\n" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify.sh",
+      "tests": ["scripts/verify/parity-harness.test.sh"],
+      "policies": [
+        {
+          "policy": "the parity base tree is built by the harness installer",
+          "mutation": [{ "find": "install_parity_harness \"$src\"", "replace": "cp -R test/parity \"$src/test/\"" }]
+        }
+      ]
     }
   ]
 }
