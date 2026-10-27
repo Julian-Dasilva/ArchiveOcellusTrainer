@@ -653,7 +653,7 @@ click_after_tick() {
     const wait = () => ((window.__archiveOcellusProbe?.snapshot().fight?.run.tick ?? -1) >= tick ? fire() : requestAnimationFrame(wait));
     wait();
   })")" || return 1
-  [[ "$hit" == true ]]
+  [[ "$hit" == true ]] || { [[ "$hit" == false ]] && log "click after tick ${tick} covered"; return 1; }
 }
 
 shot_after_tick() {
