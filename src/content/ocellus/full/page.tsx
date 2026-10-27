@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { CacheRender, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
-import type { Location3, Player, Region, TrainerLoadingState } from "osrs-sdk";
+import type { Location3, Region, TrainerLoadingState } from "osrs-sdk";
 import { GameOverlay, RuneScapeButton, TrainerApp } from "osrs-sdk-react";
 import { readSettings } from "../../../ArchiveOcellusApp";
 import type { CreditLink } from "../../../menu/credits";
 import { CONTRIBUTOR, MAKER_LINKS } from "../../../menu/credits";
 import Sidebar from "../../../menu/Sidebar";
-import { dress } from "../js/OcellusLoadout";
-import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
+import { dressFullFight } from "../fight/blowpipe";
+import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { installBossBar } from "../fight/bossBar";
 import type { ChatLine, StartPhase } from "./options";
 import { CHAT, START_PHASES, formatTicks } from "./options";
@@ -105,7 +105,7 @@ function createTrainer() {
   readSettings();
   const params = readParams();
   const worn = OCELLUS_P4.choices.setup.options[params.setup].value;
-  const region = fullFightStaged(params, (player: Player) => dress(player, defaultLoadout(worn)));
+  const region = fullFightStaged(params, (player) => dressFullFight(player, worn));
   installBossBar((r: Region) => {
     if (!(r instanceof FightRegion)) return null;
     const p1 = r.current === "p1" ? r.p1.mounted : null;
@@ -414,8 +414,8 @@ function FullFightSidebar({ params, region, stage }: Readonly<{ params: Params; 
           <label>
             Setup
             <select id="setup" value={draft.setup} onChange={(event) => set({ setup: event.target.value === "melee" ? "melee" : "ranged" })}>
-              <option value="ranged">Ranged (Twisted bow, Masori)</option>
-              <option value="melee">Melee (Scythe, Inquisitor's)</option>
+              <option value="ranged">Ranged (Toxic blowpipe, Masori)</option>
+              <option value="melee">Inquisitor's (Toxic blowpipe)</option>
             </select>
           </label>
           <label>
