@@ -26,6 +26,7 @@ jobs:
       - run: npm ci
       - run: scripts/install-beta-sdk.sh
       - run: npm run typecheck
+      - run: npm run check-types
       - run: scripts/check-types.test.sh
       - run: scripts/release-notes.test.sh
       - run: scripts/verify/verdicts.test.sh

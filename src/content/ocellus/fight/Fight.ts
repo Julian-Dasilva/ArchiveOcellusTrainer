@@ -172,7 +172,8 @@ export class Fight implements BossHooks, PlayerHooks {
     for (const s of due) if (s.generation === this.generation || s.generation === ALWAYS) s.run();
     this.phase?.step();
     const stats = this.player.currentStats;
-    if (this.practice && stats.hitpoint < 30) stats.hitpoint = this.player.stats.hitpoint;
+    // Practice refills a living player. Hitpoints already at 0 are a death, and a refill would clear it before the SDK's death check.
+    if (this.practice && stats.hitpoint > 0 && stats.hitpoint < 30) stats.hitpoint = this.player.stats.hitpoint;
     // Practice keeps prayer up too; otherwise say why the prayers just went out, as the game does.
     const prayer = stats.prayer ?? 0;
     if (this.practice && prayer < 10) stats.prayer = this.player.stats.prayer ?? 99;
@@ -313,7 +314,7 @@ export class Fight implements BossHooks, PlayerHooks {
   /** Swap Ocellus's body, keeping his facing and, for the shared pool, his HP. */
   swapBoss(form: Form, sw: ATile, hp: number, maxHp: number): BossForm {
     const old = this.boss;
-    const boss = new BossForm(this.region, sw, form, this, () => this.player, maxHp);
+    const boss = new BossForm(this.region, sw, form, this, maxHp);
     boss.currentStats.hitpoint = hp;
     if (old) {
       boss.lastRotation = old.lastRotation;
