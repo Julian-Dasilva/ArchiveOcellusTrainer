@@ -4,6 +4,7 @@ import type { Tick } from "../brands";
 import { worldTick } from "../brands";
 import type { Entries, Host, Phases, Setup } from "../encounter";
 import { Director } from "../director";
+import { toRoom } from "../frame";
 import type { Encounter, Hooks } from "./EncounterBinding";
 import { EncounterBinding } from "./EncounterBinding";
 import type { EncounterPlayerHooks, PlayerHost, PlayerInput } from "./EncounterPlayer";
@@ -92,7 +93,9 @@ export class EncounterRegion<E extends Entries, Ph extends Phases<E, EncounterHo
       region: this,
       player,
       bind: (start, hooks) => {
-        const binding = new EncounterBinding(director.seed, start, player, hooks);
+        const moved = hooks["player-moved"];
+        const local = { ...hooks, "player-moved": (frame: Parameters<typeof moved>[0]) => moved({ ...frame, steps: frame.steps.map((at) => player.local(at)), at: player.local(frame.at) }) };
+        const binding = new EncounterBinding(director.seed, start, player, local);
         this.bound = binding;
         return binding;
       },
@@ -103,10 +106,11 @@ export class EncounterRegion<E extends Entries, Ph extends Phases<E, EncounterHo
     return {
       host: () => this.bound,
       rules: () => this.director.rules(),
+      frame: () => this.director.frame(),
       hop: (to) => {
         const player = this.player;
         if (player === null) throw new Error("a hop was asked for before the player was built");
-        player.hop(to);
+        player.hop(toRoom(this.director.frame(), to));
       },
       canMelee: () => true,
     };

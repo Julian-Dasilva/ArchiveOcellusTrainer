@@ -1,8 +1,9 @@
 import { CacheRenderModel, CacheRenderReferences, MeleeWeapon, Mob, RangedWeapon } from "osrs-sdk";
 import type { IncomingAttackRoll, IncomingAttackRollModifiers, Model, Region, UnitBonuses } from "osrs-sdk";
 import { OCELLUS_P4 } from "../OcellusTimings";
-import type { TickSpan, Tile } from "../../../../sim/brands";
+import type { TickSpan } from "../../../../sim/brands";
 import { span } from "../../../../sim/brands";
+import type { RoomTile } from "../../../../sim/frame";
 
 const RIFT = OCELLUS_P4.rifts;
 /** Unit.drawHPBar draws the HP bar 5 px tall. */
@@ -12,7 +13,7 @@ export class VoidRift extends Mob {
   private detonated = false;
   private charged: TickSpan = span(0);
 
-  constructor(region: Region, at: Tile) {
+  constructor(region: Region, at: RoomTile) {
     super(region, { x: at.x, y: at.y });
     this.playAnimation(RIFT.poses.spawn.value);
   }

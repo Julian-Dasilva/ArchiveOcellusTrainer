@@ -786,7 +786,7 @@ export class Phase3 implements PhaseScript {
     this.patches = this.patches.filter((p) => p.until > fight.tick);
     const here = fight.playerTile;
     const patch = this.patches.find((p) => same(p.tile, here));
-    if (patch && (fight.tick - patch.placed) % 2 === 0) fight.hit({ amount: () => fight.rng.roll(P3.patchDamage) });
+    if (patch && (fight.tick - patch.placed) % P3.patchEvery === 0) fight.hit({ amount: () => fight.rng.roll(P3.patchDamage) });
     this.stepCrossing();
     // The vine holds you for as long as it lives.
     if (this.vine) fight.player.freeze(2);

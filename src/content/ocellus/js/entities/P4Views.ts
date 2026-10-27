@@ -4,6 +4,8 @@ import type { Location3, Model, Region, Renderable, Unit } from "osrs-sdk";
 import { spriteFile } from "../../../../servedAssets";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import type { Tile } from "../../../../sim/brands";
+import type { Frame, RoomTile } from "../../../../sim/frame";
+import { toRoomPoint } from "../../../../sim/frame";
 import type { BossOverhead, Special, Stage, VoidKind } from "../P4Types";
 import type { Side } from "../../../../sim/tiles";
 import { TileSet, beside } from "../../../../sim/tiles";
@@ -16,6 +18,8 @@ const STAR_TILES = 4;
 const STAR_PX_PER_TILE = 32;
 
 type Point = Readonly<{ x: number; z: number }>;
+/** Where a local world point (x, z) lands in the room. */
+type Place = (x: number, z: number) => readonly [number, number];
 type Edge = Readonly<{ at: Tile; side: Side; from: Point; to: Point; inward: Point }>;
 type Rim = Readonly<{ from: Point; to: Point; inward: Point }>;
 
@@ -76,11 +80,12 @@ function starfield(): THREE.Texture {
   return texture;
 }
 
-function floorGeometry(mask: TileSet): THREE.BufferGeometry {
+function floorGeometry(mask: TileSet, place: Place): THREE.BufferGeometry {
   const positions: number[] = [];
   const uvs: number[] = [];
   const corner = (cx: number, cz: number) => {
-    positions.push(cx, GROUND_OVERLAY_Y, cz);
+    const [x, z] = place(cx, cz);
+    positions.push(x, GROUND_OVERLAY_Y, z);
     uvs.push(cx / STAR_TILES, cz / STAR_TILES);
   };
   for (const { x, y } of mask.tiles()) {
@@ -98,16 +103,20 @@ function floorGeometry(mask: TileSet): THREE.BufferGeometry {
 type Vertex = readonly [number, number, number];
 type Segment = Readonly<{ from: Vertex; to: Vertex }>;
 
-function rimGeometry(mask: TileSet): THREE.BufferGeometry {
+function rimGeometry(mask: TileSet, place: Place): THREE.BufferGeometry {
   const rim = new THREE.Color(LOOK.rim);
   const positions: number[] = [];
   const colors: number[] = [];
+  const placed = ([x, y, z]: Vertex) => {
+    const [px, pz] = place(x, z);
+    positions.push(px, y, pz);
+  };
   const lit = (at: Vertex) => {
-    positions.push(...at);
+    placed(at);
     colors.push(rim.r, rim.g, rim.b);
   };
   const dark = (at: Vertex) => {
-    positions.push(...at);
+    placed(at);
     colors.push(0, 0, 0);
   };
   const fadeFromEdge = (edge: Segment, far: Segment) => {
@@ -141,7 +150,7 @@ class VoidFloorModel implements Model {
   private readonly owned: { dispose(): void }[] = [];
   private stars: THREE.Texture | null = null;
 
-  constructor(private readonly showing: () => VoidKind | null) {}
+  constructor(private readonly showing: () => VoidKind | null, private readonly place: Place) {}
 
   draw(scene: THREE.Scene, clockDelta: number, tickPercent: number, location: Location3, angleRadians: number, pitchRadians: number, visible: boolean): void {
     if (this.group.parent !== scene) scene.add(this.group);
@@ -170,8 +179,8 @@ class VoidFloorModel implements Model {
     }
     const floorMaterial = new THREE.MeshBasicMaterial({ map: this.stars, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
     const rimMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide });
-    const floor = floorGeometry(mask);
-    const rim = rimGeometry(mask);
+    const floor = floorGeometry(mask, this.place);
+    const rim = rimGeometry(mask, this.place);
     this.owned.push(floorMaterial, rimMaterial, floor, rim);
     const layer = new THREE.Group();
     layer.add(new THREE.Mesh(floor, floorMaterial), new THREE.Mesh(rim, rimMaterial));
@@ -183,7 +192,7 @@ class VoidFloorModel implements Model {
 export class VoidField extends Entity {
   private showing: VoidKind | null = null;
 
-  constructor(region: Region) {
+  constructor(region: Region, private readonly frame: Frame) {
     super(region, { x: 0, y: 0 });
   }
 
@@ -200,7 +209,11 @@ export class VoidField extends Entity {
   }
 
   protected override create3dModel(): Model {
-    return new VoidFloorModel(() => this.showing);
+    // Tile (x, y) spans world z from y - 1 to y, so world z is the frame's y less one.
+    return new VoidFloorModel(() => this.showing, (x, z) => {
+      const at = toRoomPoint(this.frame, { x, y: z + 1 });
+      return [at.x, at.y - 1];
+    });
   }
 }
 
@@ -209,7 +222,7 @@ const HOLES = OCELLUS_P4.floorHoles;
 export class FloorHole extends Entity {
   private covered = false;
 
-  constructor(region: Region, at: Tile) {
+  constructor(region: Region, at: RoomTile) {
     super(region, { x: at.x, y: at.y });
   }
 
@@ -312,7 +325,7 @@ export class OrbView extends Entity {
     super(region, { x: 0, y: 0 });
   }
 
-  spawn(kind: VoidKind, at: Tile): void {
+  spawn(kind: VoidKind, at: RoomTile): void {
     this.location = { x: at.x, y: at.y };
     this.cue = { spotAnim: SPAWN_LOOK[kind], loops: false };
   }
@@ -345,15 +358,15 @@ export class FragmentFlash extends Entity {
     super(region, { x: 0, y: 0 });
   }
 
-  tell(at: Tile): void {
+  tell(at: RoomTile): void {
     this.play(at, ORB_LOOK.tell.value);
   }
 
-  regain(at: Tile): void {
+  regain(at: RoomTile): void {
     this.play(at, ORB_LOOK.regain.value);
   }
 
-  private play(at: Tile, spotAnim: number): void {
+  private play(at: RoomTile, spotAnim: number): void {
     this.location = { x: at.x, y: at.y };
     this.cue = { spotAnim, loops: false };
   }

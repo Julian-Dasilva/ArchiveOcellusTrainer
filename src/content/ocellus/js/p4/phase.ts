@@ -2,9 +2,12 @@ import { SoundCache, cacheSound } from "osrs-sdk";
 import type { DrillConfig, Loadout } from "../OcellusTimings";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import { dress } from "../OcellusLoadout";
-import type { TickRow } from "../P4Types";
+import type { LingeringVoid, TickRow } from "../P4Types";
+import type { TickSpan } from "../../../../sim/brands";
+import { after, span } from "../../../../sim/brands";
 import type { Entries, PhaseDef, Rules } from "../../../../sim/encounter";
-import { identity } from "../../../../sim/frame";
+import type { Frame } from "../../../../sim/frame";
+import { identity, toRoom } from "../../../../sim/frame";
 import type { EncounterPlayer } from "../../../../sim/sdk/EncounterPlayer";
 import type { EncounterHost } from "../../../../sim/sdk/EncounterRegion";
 import { ExplosionViews } from "../entities/ExplosionViews";
@@ -14,12 +17,61 @@ import { PLATFORM_ROOM } from "../rooms/platform";
 import type { Views } from "./present";
 import { presentRow } from "./present";
 
-export type P4Entry = Readonly<{ kind: "drill"; config: DrillConfig; loadout: Loadout }>;
+/**
+ * The drill dresses a fresh player on its own platform. The full fight's third fall carries the player as it stands, so
+ * only the boss's HP and Defence, where the platform lies in the room, and phase 3's voids cross.
+ */
+export type P4Entry =
+  | Readonly<{ kind: "drill"; config: DrillConfig; loadout: Loadout }>
+  | Readonly<{ kind: "carried"; config: DrillConfig; frame: Frame; boss: Readonly<{ hp: number; defence: number }>; voids: readonly LingeringVoid[] }>;
 
 export type P4Mount = Readonly<{ ocellus: Ocellus; player: EncounterPlayer; views: Views }>;
 
 /** The page's hold on the running P4: its practice toggle, and the units the drill's snapshot and chat read. */
 export type P4Watch = { invincible: boolean; mounted: P4Mount | null };
+
+type Arrival = Readonly<{
+  config: DrillConfig;
+  frame: Frame;
+  voids: readonly LingeringVoid[];
+  /** P4 ticks that passed before this phase opened its first row. */
+  passed: TickSpan;
+  enter(player: EncounterPlayer): void;
+  ready(ocellus: Ocellus): void;
+}>;
+
+/** The fall's own tick is P4's tick 0 and the prefix's last, so a carried P4 opens on tick 1. */
+const FALL_TICK = span(1);
+
+function arrival(entry: P4Entry): Arrival {
+  switch (entry.kind) {
+    case "drill":
+      return {
+        config: entry.config,
+        frame: identity(PLATFORM_ROOM.size),
+        voids: [],
+        passed: span(0),
+        enter: (player) => dress(player, entry.loadout),
+        ready: (ocellus) => ocellus.enterP4(),
+      };
+    case "carried":
+      return {
+        config: { ...entry.config, bossEntryHp: entry.boss.hp },
+        frame: entry.frame,
+        voids: entry.voids,
+        passed: FALL_TICK,
+        enter: () => undefined,
+        ready: (ocellus) => {
+          ocellus.enterP4();
+          ocellus.drainDefenceTo(entry.boss.defence);
+        },
+      };
+    default: {
+      const unhandled: never = entry;
+      return unhandled;
+    }
+  }
+}
 
 const { sounds } = OCELLUS_P4.presentation;
 
@@ -43,13 +95,14 @@ function rules(player: EncounterPlayer): Rules {
 export function p4Phase<E extends Entries & Readonly<{ p4: P4Entry }>>(watch: P4Watch): PhaseDef<E, "p4", TickRow, EncounterHost<E>> {
   return {
     name: "p4",
-    enter({ region, player, bind }, { config, loadout }) {
-      const ocellus = new Ocellus(region, config, player, () => watch.invincible, bind);
-      dress(player, loadout);
+    enter({ region, player, bind }, entry) {
+      const { config, frame, voids, passed, ...arrived } = arrival(entry);
+      const ocellus = new Ocellus(region, config, player, () => watch.invincible, (start, hooks) => bind(after(start, passed), hooks), frame, voids);
+      arrived.enter(player);
       Object.values(sounds).forEach((sound) => SoundCache.preload(cacheSound(sound.value)));
       const views: Views = {
-        field: new VoidField(region),
-        holes: ocellus.holes.tiles().map((at) => new FloorHole(region, at)),
+        field: new VoidField(region, frame),
+        holes: ocellus.holes.tiles().map((at) => new FloorHole(region, toRoom(frame, at))),
         orbs: { "inner-void": new OrbView(region), "outer-void": new OrbView(region) },
         fragment: new FragmentFlash(region),
         explosions: new ExplosionViews(region),
@@ -63,13 +116,13 @@ export function p4Phase<E extends Entries & Readonly<{ p4: P4Entry }>>(watch: P4
       region.setBoss(ocellus);
       watch.mounted = { ocellus, player, views };
       return {
-        frame: identity(PLATFORM_ROOM.size),
+        frame,
         rules: rules(player),
-        ready: () => ocellus.enterP4(),
+        ready: () => arrived.ready(ocellus),
         openTick: () => ocellus.binding.openTick(),
         finishTick: () => {
           const row = ocellus.binding.finishTick();
-          if (row) presentRow(row, views);
+          if (row) presentRow(row, views, frame);
         },
         rows: () => ocellus.binding.rows,
         leave: () => {
