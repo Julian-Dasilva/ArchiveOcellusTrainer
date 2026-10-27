@@ -145,6 +145,7 @@ function Section({ id, title, children }: Readonly<{ id: string; title: string; 
 // #right_panel is the SDK's only scroll container; nothing inside may scroll, or its scrollbar narrows the panel and clips the rows.
 // The drill's What's new panel keeps its popup id, so the sidebar resets that popup styling in place.
 // The SDK draws its tabs and inventory on the canvas, so the policy strip takes a grid row under the canvas and the panel. TrainerApp sets display inline and DefaultSidebar sets the panel width inline, hence !important.
+// #trainer-loading is z-index 1000 and takes hits. The phone panel paints above it, and the footer above the panel.
 const SIDEBAR_CSS = `
 div:has(> #right_panel) { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto; }
 #policy_footer { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 8px; padding: 3px 6px; background: #1b160f; border-top: 1px solid #3e3529; color: #c8b88a; font-size: 11px; }
@@ -154,7 +155,6 @@ div:has(> #right_panel) { display: grid !important; grid-template-columns: minma
 #policy_footer #app_version { margin: 0; white-space: nowrap; opacity: 0.8; }
 #policy_footer #phone_menu { flex: 0 0 auto; margin: 0 0 0 auto; padding: 2px 8px; border: 1px solid #6b5b3e; background: #2b2418; color: #ff981f; font: inherit; }
 html.phone-overlay div:has(> #right_panel) { grid-template-columns: minmax(0, 1fr); }
-/* #trainer-loading is z-index 1000 and takes hits. The open panel has to paint above it, and the footer above the panel. */
 html.phone-overlay #right_panel { position: fixed; top: 0; right: 0; width: min(280px, 92vw) !important; height: auto !important; max-height: 100%; z-index: 1001; }
 html.phone-overlay #policy_footer { position: relative; z-index: 1002; }
 #right_panel { overflow-x: hidden; }
@@ -175,8 +175,7 @@ html.phone-overlay #policy_footer { position: relative; z-index: 1002; }
 #sidebar li { margin-bottom: 5px; }
 #sidebar a { color: #ff981f; }
 #fight_load_error { padding: 24px 16px; color: #ff981f; }
-#fight_load_error p { margin: 0 0 12px; }
-#fight_load_error button, #fight_load_error a { display: inline-flex; align-items: center; box-sizing: border-box; min-height: 24px; margin: 0; padding: 0 8px; border: 0; background: transparent; color: #ff981f; font: inherit; line-height: 24px; text-decoration: none; }
+#fight_load_error button, #fight_load_error a { display: inline-block; min-height: 24px; margin: 0; border: 0; background: none; color: #ff981f; }
 #fight_load_error a { margin-left: 12px; }
 `;
 
