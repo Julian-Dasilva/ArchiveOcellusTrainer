@@ -259,6 +259,25 @@ export const P1 = {
   cornerLineLength: 9,
   transformAfterLanding: 3,
   p2After: 7,
+  /** The shortest wait a timer accepts. */
+  oneTick: 1,
+  /** The opening element, and which tendril leads a corner. His phase 1 rolled a coin for each. */
+  coin: 1 / 2,
+  /** A side tendril runs straight this often. His phase 1 used 62/107. */
+  straightChance: 62 / 107,
+  /** A corner tendril: diagonal below the first, the near side below the second, otherwise the other, out of the last. */
+  cornerTendrilDiagonal: 20,
+  cornerTendrilSide: 31,
+  cornerTendrilOutOf: 42,
+  /** Overhead text. The intro, a strike and the ending hold this long. A corner shout holds the shorter one. */
+  introLasts: 4,
+  cornerShoutLasts: 3,
+  /** The charge follows the arriving volley by this many ticks. Already standing at the corner, it is one tick. */
+  chargeAfterArriving: 6,
+  /** Charge graphics from chargeVfxFrom until the explosion, this often. */
+  chargeVfxEvery: 2,
+  /** The charge graphic in the middle of a beat, before that beat's explosion. */
+  beatChargeAt: 4,
 } as const;
 
 export const P2 = {
