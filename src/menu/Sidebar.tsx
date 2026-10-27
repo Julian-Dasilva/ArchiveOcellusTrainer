@@ -1,38 +1,45 @@
 import React from "react";
 import type { ReactNode } from "react";
-import { Settings } from "osrs-sdk";
+import { ControlPanelController, Settings, SoundCache } from "osrs-sdk";
 import type { SettingsState } from "osrs-sdk";
 import { DefaultSidebar, RuneScapeButton, useSettingsSnapshot } from "osrs-sdk-react";
-import { CONTRIBUTOR, MAKER, MAKER_LINKS } from "./credits";
+import { CHANGELOG } from "../content/ocellus/changelog";
+import { CONTRIBUTOR, CREDIT_LINE, MAKER, MAKER_LINKS } from "./credits";
 
-type TileIndicator = "targetTileEnabled" | "trueTileEnabled" | "hoveredTileEnabled" | "entityIndicatorEnabled";
+const [LATEST_RELEASE] = CHANGELOG;
 
-const TILE_INDICATORS: readonly Readonly<{ id: string; setting: TileIndicator; label: string }>[] = [
-  { id: "destination_tile", setting: "targetTileEnabled", label: "Destination tile (where you clicked)" },
-  { id: "true_tile", setting: "trueTileEnabled", label: "True tile (where the server has you)" },
-  { id: "hovered_tile", setting: "hoveredTileEnabled", label: "Hovered tile" },
-  { id: "entity_outlines", setting: "entityIndicatorEnabled", label: "Player and NPC outlines" },
+type SettingToggle = "targetTileEnabled" | "trueTileEnabled" | "hoveredTileEnabled" | "entityIndicatorEnabled" | "playsAudio" | "playsAreaAudio";
+
+type Toggle = Readonly<{ id: string; setting: SettingToggle; label: string; hint: string | null }>;
+
+const TILE_INDICATORS: readonly Toggle[] = [
+  { id: "destination_tile", setting: "targetTileEnabled", label: "Destination tile", hint: "Where you clicked" },
+  { id: "true_tile", setting: "trueTileEnabled", label: "True tile", hint: "Where the server has you" },
+  { id: "hovered_tile", setting: "hoveredTileEnabled", label: "Hovered tile", hint: null },
+  { id: "entity_outlines", setting: "entityIndicatorEnabled", label: "Outlines", hint: "Players and NPCs" },
 ];
 
-function setTileIndicator(setting: TileIndicator, on: boolean) {
-  const patch: Partial<Pick<SettingsState, TileIndicator>> = {};
+const SOUNDS: readonly Toggle[] = [
+  { id: "sound", setting: "playsAudio", label: "Sound effects", hint: null },
+  { id: "area_sound", setting: "playsAreaAudio", label: "Area sounds", hint: null },
+];
+
+function setToggle(setting: SettingToggle, on: boolean) {
+  const patch: Partial<Pick<SettingsState, SettingToggle>> = {};
   patch[setting] = on;
   Settings.set(patch);
+  void SoundCache.context?.resume();
 }
 
-function TileIndicators() {
+function SettingToggles({ toggles }: Readonly<{ toggles: readonly Toggle[] }>) {
   const settings = useSettingsSnapshot();
-  return (
-    <section id="tile_indicators">
-      <div className="sidebar_title">Tile indicators</div>
-      {TILE_INDICATORS.map(({ id, setting, label }) => (
-        <label key={id}>
-          <input id={id} type="checkbox" checked={settings[setting]} onChange={(event) => setTileIndicator(setting, event.target.checked)} />
-          {label}
-        </label>
-      ))}
-    </section>
-  );
+  return toggles.map(({ id, setting, label, hint }) => (
+    <label key={id}>
+      {label}
+      {hint !== null && <small>{hint}</small>}
+      <input id={id} type="checkbox" checked={settings[setting]} onChange={(event) => setToggle(setting, event.target.checked)} />
+    </label>
+  ));
 }
 
 const external = { target: "_blank", rel: "noopener noreferrer" } as const;
@@ -43,13 +50,13 @@ function HomeButton({ home }: Readonly<{ home: SidebarHome }>) {
   switch (home) {
     case "full-fight":
       return (
-        <RuneScapeButton id="full_fight" type="button" style={{ width: "100%" }} onClick={() => window.location.assign(new URL("?mode=full", window.location.href).href)}>
+        <RuneScapeButton id="full_fight" type="button" onClick={() => window.location.assign(new URL("?mode=full", window.location.href).href)}>
           Full fight (beta)
         </RuneScapeButton>
       );
     case "phase-4-drill":
       return (
-        <RuneScapeButton id="phase_4_drill" type="button" style={{ width: "100%" }} onClick={() => window.location.assign(window.location.pathname)}>
+        <RuneScapeButton id="phase_4_drill" type="button" onClick={() => window.location.assign(window.location.pathname)}>
           Phase 4 drill
         </RuneScapeButton>
       );
@@ -62,63 +69,92 @@ function HomeButton({ home }: Readonly<{ home: SidebarHome }>) {
 
 function Credits() {
   return (
-    <section id="sidebar_credits">
-      <div className="sidebar_title">Credits</div>
-      <ul>
-        <li id="sidebar_maker">
-          Made by {MAKER}:{" "}
-          {MAKER_LINKS.map((link, i) => (
-            <React.Fragment key={link.href}>
-              {i > 0 && " · "}
-              <a href={link.href} {...external}>{link.label}</a>
-            </React.Fragment>
-          ))}
-        </li>
-        <li id="sidebar_contributor">
-          With help from <a href={CONTRIBUTOR.href} {...external}>{CONTRIBUTOR.label}</a>
-        </li>
-      </ul>
+    <ul id="sidebar_credits">
+      <li id="sidebar_maker">
+        Made by {MAKER}:{" "}
+        {MAKER_LINKS.map((link, i) => (
+          <React.Fragment key={link.href}>
+            {i > 0 && " · "}
+            <a href={link.href} {...external}>{link.label}</a>
+          </React.Fragment>
+        ))}
+      </li>
+      <li id="sidebar_contributor">
+        With help from <a href={CONTRIBUTOR.href} {...external}>{CONTRIBUTOR.label}</a>
+      </li>
+    </ul>
+  );
+}
+
+function Section({ id, title, children }: Readonly<{ id: string; title: string; children: ReactNode }>) {
+  return (
+    <section id={id}>
+      <h4 className="sidebar_title">{title}</h4>
+      {children}
     </section>
   );
 }
 
-// The drill's controls keep their popup markup and ids, so the sidebar restyles them in place.
+// #right_panel is the SDK's only scroll container; nothing inside may scroll, or its scrollbar narrows the panel and clips the rows.
+// The drill's What's new panel keeps its popup id, so the sidebar resets that popup styling in place.
+// The SDK draws its tabs and inventory on the canvas, so the policy strip takes a grid row under the canvas and the panel; TrainerApp sets display inline, hence !important.
 const SIDEBAR_CSS = `
-#sidebar { display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 32px); overflow-y: auto; font-size: 14px; color: #ff981f; }
-#sidebar hr { width: 100%; margin: 0; }
+div:has(> #right_panel) { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto; }
+#policy_footer { grid-column: 1 / -1; display: flex; align-items: flex-end; gap: 8px; padding: 3px 6px; background: #1b160f; border-top: 1px solid #3e3529; color: #c8b88a; font-size: 11px; }
+#policy_footer #credit_line { flex: 1 1 0; max-width: none; margin: 0; }
+#policy_footer #app_version { margin: 0; white-space: nowrap; opacity: 0.8; }
+#right_panel { overflow-x: hidden; }
+#sidebar { display: flex; flex-direction: column; gap: 10px; min-width: 0; font-size: 14px; color: #ff981f; overflow-wrap: anywhere; }
 #sidebar h3 { margin: 2px 0 0; font-weight: normal; font-size: 24px; text-align: center; }
-#sidebar .sidebar_subtitle { margin-bottom: 4px; text-align: center; font-size: 13px; color: #c8b88a; }
-#sidebar .sidebar_title { color: #ff981f; }
+#sidebar .sidebar_subtitle { margin-top: -8px; text-align: center; font-size: 13px; color: #c8b88a; }
+#sidebar > section { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid #6b5b3e; }
+#sidebar .sidebar_title { margin: 0; font-weight: normal; font-size: 15px; color: #ff981f; }
+#sidebar > section > form, #sidebar > section > div { display: contents; }
 #sidebar label { display: flex; flex-direction: column; gap: 3px; color: #ffcf8a; }
-#sidebar label:has(> input[type="checkbox"]) { flex-direction: row; align-items: center; justify-content: space-between; gap: 6px; }
-#sidebar #tile_indicators label { justify-content: flex-start; }
+#sidebar label:has(> input[type="checkbox"]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: center; }
+#sidebar label > input[type="checkbox"] { grid-column: 2; grid-row: 1 / span 2; margin: 0; }
+#sidebar label > small { grid-column: 1; font-size: 12px; color: #a89a78; }
 #sidebar select, #sidebar #seed { font: inherit; width: 100%; box-sizing: border-box; padding: 2px; border: 1px solid #6b5b3e; background: #2b2418; color: #fff; }
-#sidebar #drill_controls { flex-direction: column; font-size: inherit; }
-#sidebar #settings_menu, #sidebar #settings_menu[hidden] { position: static; display: grid; justify-items: stretch; max-height: none; padding: 0; border: 0; outline: 0; background: none; white-space: normal; }
-#sidebar #whats_new_panel { position: static; width: auto; max-height: none; }
-#sidebar #settings { display: none; }
-#sidebar #drill_controls button { width: 100%; }
-#sidebar ul { margin: 4px 0 0; padding-left: 16px; color: #e8dcc0; font-size: 13px; line-height: 15px; }
+#sidebar button { width: 100%; }
+#sidebar #whats_new_panel { position: static; box-sizing: border-box; width: auto; max-height: none; overflow: visible; }
+#sidebar ul { margin: 0; padding-left: 16px; color: #e8dcc0; font-size: 13px; line-height: 15px; }
 #sidebar li { margin-bottom: 5px; }
 #sidebar a { color: #ff981f; }
 `;
 
-export default function Sidebar({ children, after = null, home = "full-fight" }: Readonly<{ children: ReactNode; after?: ReactNode; home?: SidebarHome }>) {
+export type SidebarSlots = Readonly<{ home: SidebarHome; fight: ReactNode; aids: ReactNode; about: ReactNode; after: ReactNode }>;
+
+export default function Sidebar({ home, fight, aids, about, after }: SidebarSlots) {
   return (
-    <DefaultSidebar>
-      <style>{SIDEBAR_CSS}</style>
-      <div id="sidebar">
-        <h3>Ocellus</h3>
-        <div className="sidebar_subtitle">The Fractured Archive</div>
-        <HomeButton home={home} />
-        <hr />
-        {children}
-        <hr />
-        <TileIndicators />
-        <hr />
-        <Credits />
-        {after}
-      </div>
-    </DefaultSidebar>
+    <>
+      <DefaultSidebar>
+        <style>{SIDEBAR_CSS}</style>
+        <div id="sidebar">
+          <h3>Ocellus</h3>
+          <div className="sidebar_subtitle">The Fractured Archive</div>
+          <HomeButton home={home} />
+          <Section id="sidebar_fight" title="Fight">{fight}</Section>
+          <Section id="learning_aids" title="Learning aids">
+            {aids}
+            <SettingToggles toggles={TILE_INDICATORS} />
+          </Section>
+          <Section id="sidebar_sound" title="Sound">
+            <SettingToggles toggles={SOUNDS} />
+          </Section>
+          <Section id="sidebar_controls" title="Controls">
+            <RuneScapeButton id="keybinds" type="button" onClick={() => ControlPanelController.controller.setActiveControl("SETTINGS")}>Keybinds</RuneScapeButton>
+          </Section>
+          <Section id="sidebar_about" title="About">
+            {about}
+            <Credits />
+          </Section>
+          {after}
+        </div>
+      </DefaultSidebar>
+      <footer id="policy_footer">
+        <p id="credit_line">{CREDIT_LINE}</p>
+        <p id="app_version">v{LATEST_RELEASE.version}</p>
+      </footer>
+    </>
   );
 }
