@@ -361,7 +361,7 @@ export class Phase3 implements PhaseScript {
         if (still()) boss.addSpotAnim({ id: last ? SPOT.meleePrayerOut : SPOT.meleePrayer, channel: "spin" });
       });
       fight.after(cut - 1, () => {
-        if (!still() || fight.player.protection === null) return;
+        if (!still() || fight.player.protection() === null) return;
         fight.player.prayerController.disableProtectionPrayersForTicks(P3.severTicks);
         fight.message("Ocellus disrupts your concentration, severing your prayer!", CHAT.red);
         fight.message("You've been injured and can't use protection prayers!", CHAT.red);
@@ -865,7 +865,7 @@ export class Phase3 implements PhaseScript {
     const landing = bankBeside(stones[2], arm, target);
     this.crossing = { arm, from, to: target, bank, hops: [...stones, landing], hopping: false };
     if (same(fight.playerTile, bank)) this.crossing.hopping = true;
-    else fight.player.walkDirect(bank);
+    else fight.player.walkTo(bank);
     return true;
   }
 

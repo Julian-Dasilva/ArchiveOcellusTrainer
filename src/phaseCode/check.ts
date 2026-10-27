@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readBuildFlags } from "../flags";
-import { PHASE_ONLY_MODULES, strayPhaseModules } from "./phaseCode";
+import { PHASE_ONLY_MODULES, missingPhaseDirectories, strayPhaseModules } from "./phaseCode";
 
 const USAGE = "usage: check.ts <dist directory>";
 const ROOT = resolve(__dirname, "../..");
@@ -17,6 +17,8 @@ function main(args: readonly string[]): void {
   if (dist === undefined || args.length !== 1) throw new Error(USAGE);
   const missing = [...PHASE_ONLY_MODULES.keys()].filter((module) => !existsSync(join(ROOT, module)));
   if (missing.length > 0) throw new Error(`PHASE_ONLY_MODULES lists modules that do not exist: ${missing.join(", ")}`);
+  const missingDirectories = missingPhaseDirectories((directory) => existsSync(join(ROOT, directory)));
+  if (missingDirectories.length > 0) throw new Error(`PHASE_DIRECTORIES lists directories that do not exist: ${missingDirectories.join(", ")}`);
   const sources = readdirSync(dist, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".js.map"))
     .flatMap((entry) => sourcesOf(join(entry.parentPath, entry.name)));
