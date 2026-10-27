@@ -12,6 +12,7 @@ const SIM_SDK = path.join(SIM, "sdk");
 const SDK_PACKAGE = /^osrs-sdk(-[a-z]+)?(\/|$)/;
 const REACT_PACKAGE = /^(react|react-dom)(\/|$)/;
 const OCELUS = path.join(root, "src/content/ocellus");
+const PHASE_SCRIPTS = [path.join(OCELUS, "full/p3")];
 const ENGINE_PAGE_BAN = new Set(["director.ts", "sdk/EncounterRegion.ts", "sdk/EncounterPlayer.ts"]);
 
 function engineFile(target) {
@@ -198,6 +199,7 @@ for (const file of [...sources(path.join(root, "src")), ...sources(path.join(roo
   const insideFight = file.startsWith(FIGHT + path.sep);
   const insideSim = file.startsWith(SIM + path.sep);
   const insideSimCore = insideSim && !file.startsWith(SIM_SDK + path.sep);
+  const insidePhaseScript = PHASE_SCRIPTS.some((dir) => file.startsWith(dir + path.sep) && !file.startsWith(path.join(dir, "sdk") + path.sep));
   const report = (pos, rule) => {
     const { line, character } = sf.getLineAndCharacterOfPosition(pos);
     findings.push(`${path.relative(root, file)}:${line + 1}:${character + 1} ${rule}`);
@@ -240,6 +242,9 @@ for (const file of [...sources(path.join(root, "src")), ...sources(path.join(roo
       }
       if (insideSimCore && target && target.startsWith(SIM_SDK + path.sep)) {
         report(node.getStart(sf), `sim core import of src/sim/sdk ${path.relative(root, target)}`);
+      }
+      if (insidePhaseScript && SDK_PACKAGE.test(node.text)) {
+        report(node.getStart(sf), `phase script import of the SDK ${node.text}`);
       }
       if (insideSim && REACT_PACKAGE.test(node.text)) {
         report(node.getStart(sf), `sim import of React ${node.text}`);

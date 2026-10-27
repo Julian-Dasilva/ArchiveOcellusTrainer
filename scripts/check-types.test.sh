@@ -142,6 +142,13 @@ sim_import_of_app_fails() { expect_finding src/sim/schedule.ts 'export const app
 sim_core_import_of_the_sdk_fails() { expect_finding src/sim/schedule.ts 'import type { Player } from "osrs-sdk";' "sim core import of the SDK osrs-sdk"; }
 sim_core_import_of_an_sdk_package_fails() { expect_finding src/sim/tiles.ts 'export const react = () => import("osrs-sdk-react");' "sim core import of the SDK osrs-sdk-react"; }
 sim_core_import_of_the_sim_sdk_fails() { expect_finding src/sim/schedule.ts 'export { turn } from "./sdk/binding";' "sim core import of src/sim/sdk src/sim/sdk/binding.ts"; }
+phase_script_import_of_the_sdk_fails() { expect_finding src/content/ocellus/full/p3/script.ts 'import type { Unit } from "osrs-sdk";' "phase script import of the SDK osrs-sdk"; }
+phase_sdk_import_of_the_sdk_passes() {
+  clean_tree
+  plant src/content/ocellus/full/p3/sdk/boss.ts 'import type { Unit } from "osrs-sdk"; export type Boss = Unit;'
+  ready
+  node "$CHECK" "$T" >"$T/out.txt" 2>&1 || { cat "$T/out.txt"; fail "check-types rejected the SDK in the phase's sdk directory"; }
+}
 sim_import_of_react_fails() { expect_finding src/sim/schedule.ts 'import type { FC } from "react";' "sim import of React react"; }
 page_import_of_the_director_fails() { expect_finding src/App.tsx 'export { Director } from "./sim/director";' "page import of the fight engine director.ts"; }
 page_reexport_of_the_director_fails() {
@@ -217,6 +224,8 @@ for t in \
   sim_core_import_of_an_sdk_package_fails \
   sim_core_import_of_the_sim_sdk_fails \
   sim_import_of_react_fails \
+  phase_script_import_of_the_sdk_fails \
+  phase_sdk_import_of_the_sdk_passes \
   page_import_of_the_director_fails \
   page_reexport_of_the_director_fails \
   inferred_start_rejects_a_missing_phase \
