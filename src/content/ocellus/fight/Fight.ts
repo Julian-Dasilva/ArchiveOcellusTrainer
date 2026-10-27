@@ -129,6 +129,7 @@ export class Fight implements BossHooks {
   private markerEntities: Entity[] = [];
   private skipEntities: Entity[] = [];
   private skipTiles: boolean;
+  private showHazardTiles: boolean;
   private voidLayers = new Map<string, readonly ATile[]>();
   private voidVersion = 0;
   private voidCache: Readonly<{ key: string; tiles: readonly ATile[] }> = { key: "0", tiles: [] };
@@ -139,6 +140,7 @@ export class Fight implements BossHooks {
     this.poolMax = scaledHp(P2.hp, options.party);
     this.practice = options.invincible;
     this.skipTiles = options.skipMarkers;
+    this.showHazardTiles = options.hazardTiles;
     this.makePhase = makePhase;
     for (const q of QUADRANTS) this.censers.set(q, { tile: CENSERS[q].tile, god: CENSERS[q].god, lit: false });
     this.setFloor(roomFloor());
@@ -426,7 +428,7 @@ export class Fight implements BossHooks {
   // ---- presentation -----------------------------------------------------------------------------------------------
 
   marks(): readonly TileMark[] {
-    if (!this.options.hazardTiles || !this.phase) return [];
+    if (!this.showHazardTiles || !this.phase) return [];
     return this.phase.marks();
   }
 
@@ -452,6 +454,14 @@ export class Fight implements BossHooks {
 
   get skipMarkers(): boolean {
     return this.skipTiles;
+  }
+
+  get hazardTiles(): boolean {
+    return this.showHazardTiles;
+  }
+
+  setHazardTiles(on: boolean): void {
+    this.showHazardTiles = on;
   }
 
   /** The sidebar's phase 2 skip tiles: switchable mid-fight, shown while phase 2 runs. */

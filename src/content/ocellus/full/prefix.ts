@@ -185,6 +185,12 @@ export class FightRegion extends EncounterRegion<PrefixEntries, PrefixPhases> {
     this.fight?.setSkipMarkers(on);
   }
 
+  /** Danger-tile highlights, on for this fight and for the fight a restart builds. */
+  setHazardTiles(on: boolean): void {
+    this.options = { ...this.options, hazardTiles: on };
+    this.fight?.setHazardTiles(on);
+  }
+
   /**
    * He only spawns when the fight starts, after the loading splash, so load his first body with the arena: otherwise
    * the splash clears onto an empty room and he downloads in front of the player. The start phase's floor effects

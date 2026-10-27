@@ -37,6 +37,29 @@ function TileIndicators() {
 
 const external = { target: "_blank", rel: "noopener noreferrer" } as const;
 
+type SidebarHome = "full-fight" | "phase-4-drill";
+
+function HomeButton({ home }: Readonly<{ home: SidebarHome }>) {
+  switch (home) {
+    case "full-fight":
+      return (
+        <RuneScapeButton id="full_fight" type="button" style={{ width: "100%" }} onClick={() => window.location.assign(new URL("?mode=full", window.location.href).href)}>
+          Full fight (beta)
+        </RuneScapeButton>
+      );
+    case "phase-4-drill":
+      return (
+        <RuneScapeButton id="phase_4_drill" type="button" style={{ width: "100%" }} onClick={() => window.location.assign(window.location.pathname)}>
+          Phase 4 drill
+        </RuneScapeButton>
+      );
+    default: {
+      const unhandled: never = home;
+      return unhandled;
+    }
+  }
+}
+
 function Credits() {
   return (
     <section id="sidebar_credits">
@@ -61,7 +84,7 @@ function Credits() {
 
 // The drill's controls keep their popup markup and ids, so the sidebar restyles them in place.
 const SIDEBAR_CSS = `
-#sidebar { display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: #ff981f; }
+#sidebar { display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 32px); overflow-y: auto; font-size: 14px; color: #ff981f; }
 #sidebar hr { width: 100%; margin: 0; }
 #sidebar h3 { margin: 2px 0 0; font-weight: normal; font-size: 24px; text-align: center; }
 #sidebar .sidebar_subtitle { margin-bottom: 4px; text-align: center; font-size: 13px; color: #c8b88a; }
@@ -80,22 +103,21 @@ const SIDEBAR_CSS = `
 #sidebar a { color: #ff981f; }
 `;
 
-export default function Sidebar({ children }: Readonly<{ children: ReactNode }>) {
+export default function Sidebar({ children, after = null, home = "full-fight" }: Readonly<{ children: ReactNode; after?: ReactNode; home?: SidebarHome }>) {
   return (
     <DefaultSidebar>
       <style>{SIDEBAR_CSS}</style>
       <div id="sidebar">
         <h3>Ocellus</h3>
         <div className="sidebar_subtitle">The Fractured Archive</div>
-        <RuneScapeButton id="full_fight" type="button" style={{ width: "100%" }} onClick={() => window.location.assign(new URL("?mode=full", window.location.href).href)}>
-          Full fight (beta)
-        </RuneScapeButton>
+        <HomeButton home={home} />
         <hr />
         {children}
         <hr />
         <TileIndicators />
         <hr />
         <Credits />
+        {after}
       </div>
     </DefaultSidebar>
   );
