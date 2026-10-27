@@ -5,6 +5,7 @@ import { OCELLUS_P1 } from "./content/ocellus/js/OcellusTimingsP1";
 import { OCELLUS_P2 } from "./content/ocellus/js/OcellusTimingsP2";
 import { OCELLUS_P3 } from "./content/ocellus/js/OcellusTimingsP3";
 import { FIGHT_ASSETS, FIGHT_MODELS } from "./content/ocellus/fight/assets";
+import { PROTECT_MELEE_ICON } from "./content/ocellus/fight/data";
 import { readBuildFlags } from "./flags";
 import { P4_ASSETS, sequences } from "./servedAssets";
 
@@ -69,4 +70,8 @@ export const ARCHIVE_OCELLUS_OVERRIDES = {
 } as const satisfies CacheAssets;
 
 /** The asset tool extracts no sprites, so scripts/extract-sprites.mjs writes these beside its output. */
-export const ARCHIVE_OCELLUS_SPRITES: readonly SpriteFrame[] = [...Object.values(presentation.overheadIcons).map((icon) => icon.value), P1_LOOK.overheadIcon.value];
+export const ARCHIVE_OCELLUS_SPRITES: readonly SpriteFrame[] = [
+  ...Object.values(presentation.overheadIcons).map((icon) => icon.value),
+  P1_LOOK.overheadIcon.value,
+  ...(full ? [PROTECT_MELEE_ICON] : []),
+];

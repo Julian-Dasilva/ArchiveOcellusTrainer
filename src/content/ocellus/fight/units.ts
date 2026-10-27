@@ -1,9 +1,10 @@
 import { CacheRenderModel, CacheRenderReferences, EmptyModel, ImageLoader, Mob, Player, Random, RangedWeapon } from "osrs-sdk";
 import type { IncomingAttackRoll, IncomingAttackRollModifiers, Location, Model, Projectile, Region, Unit, UnitBonuses, UnitStats } from "osrs-sdk";
 import type { BossOverhead } from "./data";
-import { LOWEST_DEFENCE_FRACTION, NPC, P1, P2, P3, SEQ, SPOT } from "./data";
+import { LOWEST_DEFENCE_FRACTION, NPC, P1, P2, P3, PROTECT_MELEE_ICON, SEQ, SPOT } from "./data";
 import type { ATile } from "./geometry";
 import { fromSdk, toSdk } from "./geometry";
+import type { SpriteFrame } from "../js/OcellusTimings";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { spriteFile } from "../../../servedAssets";
 import { tile } from "../../../sim/brands";
@@ -70,58 +71,23 @@ function withDefenceFloor(stats: UnitStats, lowest: number): UnitStats {
   };
 }
 
-const ICON_SIZE = 25;
-const icons = new Map<string, CanvasImageSource>();
+const { overheadIcons, overheadIconBelowHpBar } = OCELLUS_P4.presentation;
+const OVERHEAD_SPRITE: Readonly<Record<BossOverhead, SpriteFrame>> = {
+  "protect-melee": PROTECT_MELEE_ICON,
+  "deflect-melee": overheadIcons["deflect-melee"].value,
+  "deflect-range": overheadIcons["deflect-range"].value,
+  "soul-split": overheadIcons["soul-split"].value,
+};
+const overheadImages = new Map<BossOverhead, HTMLImageElement>();
 
-function tinted(base: HTMLImageElement, cacheKey: string): CanvasImageSource | null {
-  const cached = icons.get(cacheKey);
-  if (cached) return cached;
-  if (!base.complete || base.naturalWidth === 0) return null;
-  const canvas = new OffscreenCanvas(ICON_SIZE + 6, ICON_SIZE + 6);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  // A deflect: the protect icon in a violet halo, the colour of the Ruinous Powers book.
-  const gradient = ctx.createRadialGradient(15, 15, 4, 15, 15, 15);
-  gradient.addColorStop(0, "rgba(176, 92, 255, 0.9)");
-  gradient.addColorStop(1, "rgba(80, 20, 140, 0)");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, ICON_SIZE + 6, ICON_SIZE + 6);
-  ctx.drawImage(base, 3, 3, ICON_SIZE, ICON_SIZE);
-  ctx.globalCompositeOperation = "source-atop";
-  ctx.fillStyle = "rgba(160, 70, 230, 0.35)";
-  ctx.fillRect(0, 0, ICON_SIZE + 6, ICON_SIZE + 6);
-  icons.set(cacheKey, canvas);
-  return canvas;
-}
-
-let soulSplit: HTMLImageElement | null = null;
-
-/** Overhead icons for the boss, built from the player's own prayer sprites. */
-export function overheadIcon(kind: BossOverhead, player: Player): CanvasImageSource | null {
-  const sprite = (name: string): HTMLImageElement | null => {
-    const prayer = player.prayerController.findPrayerByName(name);
-    const image = prayer?.overheadImage();
-    return image instanceof HTMLImageElement ? image : null;
-  };
-  switch (kind) {
-    case "protect-melee":
-      return sprite("Protect from Melee");
-    case "deflect-melee": {
-      const base = sprite("Protect from Melee");
-      return base ? tinted(base, "deflect-melee") : null;
-    }
-    case "deflect-range": {
-      const base = sprite("Protect from Range");
-      return base ? tinted(base, "deflect-range") : null;
-    }
-    case "soul-split":
-      if (soulSplit === null) soulSplit = ImageLoader.createImage(`osrs-assets/${spriteFile(OCELLUS_P4.presentation.overheadIcons["soul-split"].value)}`);
-      return soulSplit.complete ? soulSplit : null;
-    default: {
-      const unhandled: never = kind;
-      return unhandled;
-    }
+/** The cache head icon, once it has loaded: a failed or pending load draws nothing rather than throwing. */
+function overheadIcon(kind: BossOverhead): HTMLImageElement | null {
+  let image = overheadImages.get(kind);
+  if (!image) {
+    image = ImageLoader.createImage(`osrs-assets/${spriteFile(OVERHEAD_SPRITE[kind])}`);
+    overheadImages.set(kind, image);
   }
+  return image.complete && image.naturalWidth > 0 ? image : null;
 }
 
 /** One of Ocellus's bodies. The fight script moves and animates it; it never acts on its own. */
@@ -132,7 +98,7 @@ export class BossForm extends Mob {
   pose: number | null = null;
   private stepsThisTick = 0;
 
-  constructor(region: Region, sw: ATile, readonly form: Form, private readonly hooks: BossHooks, private readonly viewer: () => Player | null, maxHp: number) {
+  constructor(region: Region, sw: ATile, readonly form: Form, private readonly hooks: BossHooks, maxHp: number) {
     super(region, toSdk(sw));
     this.stats = { attack: 1, strength: 1, defence: 1, range: 1, magic: 1, hitpoint: maxHp };
     this.currentStats = { ...this.stats };
@@ -266,10 +232,8 @@ export class BossForm extends Mob {
   }
 
   override drawOverheadPrayers(context: OffscreenCanvasRenderingContext2D, scale: number): void {
-    const viewer = this.viewer();
-    if (this.overhead === null || viewer === null) return;
-    const icon = overheadIcon(this.overhead, viewer);
-    if (icon) context.drawImage(icon, -scale / 2, -scale * 2, scale, scale);
+    const icon = this.overhead && overheadIcon(this.overhead);
+    if (icon) context.drawImage(icon, -scale / 2, overheadIconBelowHpBar.value, scale, scale);
   }
 
   override addProjectile(projectile: Projectile): void {
