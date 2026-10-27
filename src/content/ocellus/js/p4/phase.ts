@@ -11,7 +11,7 @@ import { identity, toRoom } from "../../../../sim/frame";
 import type { EncounterPlayer } from "../../../../sim/sdk/EncounterPlayer";
 import type { EncounterHost } from "../../../../sim/sdk/EncounterRegion";
 import { ExplosionViews } from "../entities/ExplosionViews";
-import { BossLook, FloorHole, FragmentFlash, OrbView, PlayerLook, VoidField } from "../entities/P4Views";
+import { BossLook, FloorHole, FragmentFlash, OrbView, PlayerLook, VoidField, warmSpotAnim } from "../entities/P4Views";
 import { BossFootprint, Ocellus } from "../mobs/Ocellus";
 import { PLATFORM_ROOM } from "../rooms/platform";
 import { PLATFORM } from "./floor";
@@ -113,6 +113,7 @@ export function p4Phase<E extends Entries & Readonly<{ p4: P4Entry }>>(watch: P4
         chat: [],
       };
       [views.field, ...views.holes, views.orbs["inner-void"], views.orbs["outer-void"], views.fragment].forEach((view) => region.addEntity(view));
+      void warmSpotAnim(views.orbs["inner-void"], OCELLUS_P4.explosion.spotAnim.value).catch((error: unknown) => console.error("explosion spotanim did not warm", error));
       region.addEntity(new BossFootprint(region, ocellus));
       region.addMob(ocellus);
       region.setBoss(ocellus);
