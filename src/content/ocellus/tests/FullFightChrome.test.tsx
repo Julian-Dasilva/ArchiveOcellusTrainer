@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { ControlPanelController, Trainer } from "osrs-sdk";
 import { CHANGELOG } from "../changelog";
 import { FightRegion } from "../fight/FightRegion";
-import { FullFightPage } from "../full/page";
+import { FullFightApp } from "../../../FullFightApp";
 
 const POLICY = "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.";
 const [LATEST_RELEASE] = CHANGELOG;
@@ -13,7 +13,7 @@ function loadFullFight(url: string) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
-  act(() => root.render(<FullFightPage />));
+  act(() => root.render(<FullFightApp />));
   const element = (id: string): HTMLElement => {
     const found = container.querySelector<HTMLElement>(`#${id}`);
     if (!found) throw new Error(`the page has no #${id}`);
