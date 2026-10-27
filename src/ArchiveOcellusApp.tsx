@@ -25,6 +25,7 @@ import { CHANGELOG } from "./content/ocellus/changelog";
 import type { ReleaseVersion } from "./releases";
 import { releaseDate } from "./releases";
 import { keepHoverTextOnCanvas } from "./hoverText";
+import { useKeepChatAboveInventory } from "./placeChat";
 import { loadWebAnalytics, perfDataAllowed, setPerfDataAllowed, startPerfTelemetry } from "./telemetry/perfTelemetry";
 import { reportUnservedAssets } from "./servedAssets";
 import { CONTRIBUTOR, CREDIT_LINE, MAKER, MAKER_LINKS } from "./menu/credits";
@@ -704,6 +705,7 @@ function GameChat({ region }: Readonly<{ region: Readonly<{ chat(): readonly str
     }), CHAT_POLL_MS);
     return () => window.clearInterval(poll);
   }, [region]);
+  useKeepChatAboveInventory(lines.join("\n"));
 
   return (
     <ol id="game_chat">
