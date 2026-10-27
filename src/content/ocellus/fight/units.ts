@@ -1,4 +1,4 @@
-import { CacheRenderModel, CacheRenderReferences, EmptyModel, ImageLoader, MagicWeapon, MeleeWeapon, Mob, Player, Random, RangedWeapon } from "osrs-sdk";
+import { CacheRenderModel, CacheRenderReferences, EmptyModel, ImageLoader, Mob, Player, Random, RangedWeapon } from "osrs-sdk";
 import type { IncomingAttackRoll, IncomingAttackRollModifiers, Location, Model, Projectile, Region, Unit, UnitBonuses, UnitStats } from "osrs-sdk";
 import type { BossOverhead } from "./data";
 import { LOWEST_DEFENCE_FRACTION, NPC, P1, P2, P3, PROTECT_MELEE_ICON, SEQ, SPOT } from "./data";
@@ -7,6 +7,9 @@ import { fromSdk, toSdk } from "./geometry";
 import type { SpriteFrame } from "../js/OcellusTimings";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { spriteFile } from "../../../servedAssets";
+import { tile } from "../../../sim/brands";
+import { EncounterPlayer } from "../../../sim/sdk/EncounterPlayer";
+import type { EncounterPlayerHooks } from "../../../sim/sdk/EncounterPlayer";
 
 export type Style = "melee" | "ranged" | "magic";
 export type Form = "hooded" | "p1" | "blade" | "p3";
@@ -375,76 +378,32 @@ export class Emitter extends Mob {
   override detectDeath(): void {}
 }
 
-/** What the fight needs to know about the player each tick, and the moves it can force on them. */
-export interface PlayerHooks {
-  /** Return true to take over a walk order (stepping stones, censers, the safe portal). */
-  interceptWalk(to: ATile): boolean;
-  /** Before the player's attack is rolled: false cancels it (melee on a levitating boss). */
-  playerAttacking(target: Unit, style: Style): boolean;
-}
-
-export class FightPlayer extends Player {
-  hooks: PlayerHooks | null = null;
-
-  constructor(region: Region, tile: ATile) {
-    super(region, toSdk(tile));
+/** The full fight's player. Arena tiles stay in the fight's frame. The engine player keeps room tiles. */
+export class FightPlayer extends EncounterPlayer {
+  constructor(region: Region, at: ATile, hooks: () => EncounterPlayerHooks) {
+    super(region, toSdk(at), hooks);
   }
 
-  get tile(): ATile {
+  arenaTile(): ATile {
     return fromSdk(this.location);
   }
 
-  get protection(): Style | null {
-    if (this.prayerController.matchFeature("melee")) return "melee";
-    if (this.prayerController.matchFeature("range")) return "ranged";
-    if (this.prayerController.matchFeature("magic")) return "magic";
-    return null;
-  }
-
-  get weaponStyle(): Style {
-    const weapon = this.equipment.weapon;
-    if (weapon instanceof MeleeWeapon || !weapon) return "melee";
-    if (weapon instanceof MagicWeapon) return "magic";
-    return "ranged";
-  }
-
-  /**
-   * The vine roots you on its own tile, and the SDK (like the game) won't let you attack what you stand under. Solo,
-   * with "attack your own vine" on, you cut it from there; in a team a teammate does.
-   */
-  override setHasLOS(): void {
-    super.setHasLOS();
-    const target = this.aggro;
-    if (this.hasLOS || !(target instanceof VoidAdd) || target.kind !== "vine" || !target.attackable) return;
-    if (target.location.x === this.location.x && target.location.y === this.location.y) this.hasLOS = true;
-  }
-
-  override moveTo(x: number, y: number): void {
-    if (this.hooks?.interceptWalk(fromSdk({ x, y }))) {
-      this.interruptCombat();
-      return;
-    }
-    super.moveTo(x, y);
-  }
-
   /** A walk ordered by the fight itself, past the walk interception. */
-  walkDirect(tile: ATile): void {
-    const s = toSdk(tile);
-    super.moveTo(s.x, s.y);
+  walkTo(at: ATile): void {
+    const s = toSdk(at);
+    this.walkDirect(tile(s.x, s.y));
   }
 
-  /** A forced hop (stepping stones, the safe portal): land on the tile, drop any walk. */
-  hop(tile: ATile): void {
-    this.setLocation(toSdk(tile));
-    this.destinationLocation = undefined;
-  }
-
-  override attackStep(): void {
-    const target = this.aggro;
-    if (target && this.hooks && !this.hooks.playerAttacking(target, this.weaponStyle)) {
+  /** A forced hop (stepping stones, the safe portal): land on the tile, drop any walk. A room tile still lands as the engine asked. */
+  override hop(at: ATile): void;
+  override hop(to: Readonly<{ x: number; y: number }>): void;
+  override hop(to: ATile | Readonly<{ x: number; y: number }>): void {
+    if ("z" in to) {
+      const s = toSdk(to);
+      super.hop({ x: s.x, y: s.y });
       return;
     }
-    super.attackStep();
+    super.hop(to);
   }
 }
 

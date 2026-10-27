@@ -675,12 +675,26 @@ function GameChat({ region }: Readonly<{ region: Readonly<{ chat(): readonly str
   );
 }
 
-export function ArchiveOcellusApp() {
+function DrillApp() {
   const [opening, setOpening] = useState(openTrainer);
   useEffect(() => {
     if (opening.kind === "loading") void opening.opened.then((opened) => setOpening({ kind: "open", opened }));
   }, [opening]);
   return opening.kind === "open" ? <TrainerPage {...opening.opened} /> : null;
+}
+
+function FullFightShell() {
+  const [Page, setPage] = useState<React.ComponentType | null>(null);
+  useEffect(() => {
+    if (process.env.ARCHIVE_FULL === "on") void import("./content/ocellus/full/page").then(({ FullFightPage }) => setPage(() => FullFightPage));
+  }, []);
+  return Page ? <Page /> : null;
+}
+
+export function ArchiveOcellusApp() {
+  // The full fight loads behind a test of the raw build variable, which webpack folds, so a build with it off contains none of its modules.
+  if (process.env.ARCHIVE_FULL === "on" && new URL(window.location.href).searchParams.get("mode") === "full") return <FullFightShell />;
+  return <DrillApp />;
 }
 
 /** The sidebar loads behind a test of the raw build variable, which webpack folds, so a build with ARCHIVE_FULL off contains none of it. */

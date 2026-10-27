@@ -2,6 +2,17 @@ import type { BuildFlags } from "../flags";
 
 type Phase = keyof BuildFlags;
 
+/** A module under one of these directories belongs to those phases, so a new file does not need its own map entry. */
+export const PHASE_DIRECTORIES: readonly (readonly [string, readonly [Phase, ...Phase[]]])[] = [
+  ["src/content/ocellus/full/", ["full"]],
+  ["src/content/ocellus/fight/", ["full"]],
+];
+
+/** Directories named above that are not on disk. A missing one would make every file under that prefix invisible to the rule. */
+export function missingPhaseDirectories(exists: (directory: string) => boolean): readonly string[] {
+  return PHASE_DIRECTORIES.flatMap(([directory]) => (exists(directory) ? [] : [directory]));
+}
+
 export const PHASE_ONLY_MODULES: ReadonlyMap<string, readonly [Phase, ...Phase[]]> = new Map<string, readonly [Phase, ...Phase[]]>([
   ["src/content/ocellus/js/P2Region.ts", ["p2"]],
   ["src/content/ocellus/js/OcellusTimingsP2.ts", ["p2"]],
@@ -26,24 +37,6 @@ export const PHASE_ONLY_MODULES: ReadonlyMap<string, readonly [Phase, ...Phase[]
   ["src/content/ocellus/js/p1/schedule.ts", ["p1"]],
   ["src/content/ocellus/js/p3/arena.ts", ["p1", "p2", "p3"]],
   ["src/content/ocellus/js/OcellusTimingsP3.ts", ["p1", "p2", "p3"]],
-  ["src/content/ocellus/fight/Fight.ts", ["full"]],
-  ["src/content/ocellus/fight/FightRegion.ts", ["full"]],
-  ["src/content/ocellus/fight/arena.ts", ["full"]],
-  ["src/content/ocellus/fight/assets.ts", ["full"]],
-  ["src/content/ocellus/fight/bossBar.ts", ["full"]],
-  ["src/content/ocellus/fight/data.ts", ["full"]],
-  ["src/content/ocellus/fight/effects.ts", ["full"]],
-  ["src/content/ocellus/fight/geometry.ts", ["full"]],
-  ["src/content/ocellus/fight/handOver.ts", ["full"]],
-  ["src/content/ocellus/fight/locs.ts", ["full"]],
-  ["src/content/ocellus/fight/phase1.ts", ["full"]],
-  ["src/content/ocellus/fight/phase2.ts", ["full"]],
-  ["src/content/ocellus/fight/phase3.ts", ["full"]],
-  ["src/content/ocellus/fight/portals.ts", ["full"]],
-  ["src/content/ocellus/fight/rng.ts", ["full"]],
-  ["src/content/ocellus/fight/units.ts", ["full"]],
-  ["src/content/ocellus/fight/warmup.ts", ["full"]],
-  ["src/FullFightApp.tsx", ["full"]],
   ["src/fullFightStyles.ts", ["full"]],
   ["src/content/ocellus/js/carry.ts", ["full"]],
   ["src/menu/Sidebar.tsx", ["full"]],
@@ -51,10 +44,16 @@ export const PHASE_ONLY_MODULES: ReadonlyMap<string, readonly [Phase, ...Phase[]
 
 export type StrayModule = Readonly<{ module: string; phases: readonly Phase[] }>;
 
+function phasesOf(module: string): readonly Phase[] | undefined {
+  const directory = PHASE_DIRECTORIES.find(([prefix]) => module.startsWith(prefix));
+  if (directory) return directory[1];
+  return PHASE_ONLY_MODULES.get(module);
+}
+
 export function strayPhaseModules(sources: readonly string[], flags: BuildFlags): readonly StrayModule[] {
   return sources.flatMap((source) => {
     const module = source.replace(/^webpack:\/\/[^/]*\/\.\//, "");
-    const phases = PHASE_ONLY_MODULES.get(module);
+    const phases = phasesOf(module);
     return phases !== undefined && !phases.some((phase) => flags[phase]) ? [{ module, phases }] : [];
   });
 }
