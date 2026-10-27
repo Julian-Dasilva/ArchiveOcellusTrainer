@@ -14,6 +14,7 @@ import { ExplosionViews } from "../entities/ExplosionViews";
 import { BossLook, FloorHole, FragmentFlash, OrbView, PlayerLook, VoidField } from "../entities/P4Views";
 import { BossFootprint, Ocellus } from "../mobs/Ocellus";
 import { PLATFORM_ROOM } from "../rooms/platform";
+import { PLATFORM } from "./floor";
 import type { Views } from "./present";
 import { presentRow } from "./present";
 
@@ -95,9 +96,10 @@ function rules(player: EncounterPlayer): Rules {
 export function p4Phase<E extends Entries & Readonly<{ p4: P4Entry }>>(watch: P4Watch): PhaseDef<E, "p4", TickRow, EncounterHost<E>> {
   return {
     name: "p4",
-    enter({ region, player, bind }, entry) {
+    enter({ region, room, player, bind }, entry) {
       const { config, frame, voids, passed, ...arrived } = arrival(entry);
       const ocellus = new Ocellus(region, config, player, () => watch.invincible, (start, hooks) => bind(after(start, passed), hooks), frame, voids);
+      room.walkable(PLATFORM.tiles().map((at) => toRoom(frame, at)));
       arrived.enter(player);
       Object.values(sounds).forEach((sound) => SoundCache.preload(cacheSound(sound.value)));
       const views: Views = {

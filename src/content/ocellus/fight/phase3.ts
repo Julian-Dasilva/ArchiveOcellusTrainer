@@ -31,7 +31,6 @@ import {
 } from "./geometry";
 import type { AddKind, Style } from "./units";
 import { VoidAdd } from "./units";
-import { handOverOf } from "./handOver";
 
 type Special = "spin" | "insolence" | "untether";
 type Patch = { tile: ATile; until: number; placed: number; kind: VoidLocKind };
@@ -756,10 +755,16 @@ export class Phase3 implements PhaseScript {
         this.floorFraction = P3.hpFloors[this.segment];
         return;
       }
-      // This tick is the phase 4 drill's tick 0, and its lead-in keeps him hidden 4 more ticks.
+      // This tick is phase 4's tick 0, and its lead-in keeps him hidden 4 ticks from here.
       this.finished = true;
-      fight.lingeringVoids = this.patches.filter((p) => p.until === Infinity).map(({ tile, placed }) => ({ tile, placed }));
-      fight.options.onHandOver(handOverOf(fight.player, boss));
+      const standing = QUADRANTS.find((left) => !fight.destroyed.has(left));
+      if (!standing) throw new Error("the third fall left no quadrant standing");
+      fight.options.onFall({
+        tick: fight.tick,
+        standing,
+        boss: { hp: boss.currentStats.hitpoint, defence: boss.currentStats.defence },
+        voids: this.patches.filter((p) => p.until === Infinity).map(({ tile, placed }) => ({ tile, placed })),
+      });
     });
     fight.after(u.nextSegment - u.obliteration, () => {
       if (this.finished) return;

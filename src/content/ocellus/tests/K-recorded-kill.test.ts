@@ -1,12 +1,12 @@
-import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
+import { Potion, Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import { dress } from "../js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
 import type { Range } from "../fight/data";
 import { P3, SEQ } from "../fight/data";
 import type { SpotOptions } from "../fight/effects";
-import type { Fight, FightOptions, HitSpec } from "../fight/Fight";
-import type { HandOver } from "../fight/handOver";
+import type { Fight, HitSpec } from "../fight/Fight";
 import { FightRegion } from "../fight/FightRegion";
+import type { FullFightOptions } from "../full/prefix";
 import type { ATile, Body } from "../fight/geometry";
 import { QUADRANTS, at, covers, distanceToBody, quadrantOf, quadrantTiles } from "../fight/geometry";
 import { BossForm } from "../fight/units";
@@ -31,12 +31,10 @@ describe("phase 3 follows the recorded kill [K]", () => {
   });
 
   /** A fight that records his animations, shouts, hits on you and chat by tick; `setup` dresses you as the app does. */
-  function recorded(startPhase: 3, overrides: Partial<FightOptions> = {}, setup: "ranged" | null = null) {
+  function recorded(startPhase: 3, overrides: Partial<FullFightOptions> = {}, setup: "ranged" | null = null) {
     Settings.readFromStorage();
-    const handOvers: { tick: number; state: HandOver }[] = [];
-    const options: FightOptions = {
-      seed: 1, party: 1, startPhase, hazardTiles: true, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true,
-      onHandOver: (state) => handOvers.push({ tick: region.fight?.tick ?? -1, state }), ...overrides,
+    const options: FullFightOptions = {
+      seed: 1, party: 1, startPhase, hazardTiles: true, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true, ...overrides,
     };
     const region = new FightRegion(options, (player) => {
       if (setup) dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options[setup].value));
@@ -105,7 +103,7 @@ describe("phase 3 follows the recorded kill [K]", () => {
     /** His HP at a whole-number percentage of the pool. */
     const bossAt = (percent: number) => (boss().currentStats.hitpoint = Math.ceil((fight.poolMax * percent) / 100));
     const said = (text: string, start: number) => shouts.filter(([, s]) => s === text).map(([t]) => t - start);
-    return { fight, boss, body, tick, tickTo, stayInReach, anims, shouts, hits, messages, spots, from, bossAt, said, handOvers };
+    return { region, fight, boss, body, tick, tickTo, stayInReach, anims, shouts, hits, messages, spots, from, bossAt, said };
   }
 
   /** Phase 3 begins on tick 0 and he lands in his first corner P3.jumpToCornerAfter later: the segment start S. */
@@ -393,7 +391,7 @@ describe("phase 3 follows the recorded kill [K]", () => {
     expect(detonations.map((t) => t - S2)).toEqual([3 + P3.riftDetonatesAfter]);
   });
 
-  test("the third quadrant's fall hands the player, with each potion's doses, and the boss over in place of his phase 4", () => {
+  test("the third quadrant's fall enters our phase 4 in the same world with the player as it stands, each potion's doses included, and the boss", () => {
     const f = recorded(3, {}, "ranged");
     const fallTo = (count: number) => {
       for (let guard = 0; f.fight.destroyed.size < count; guard++) {
@@ -419,28 +417,38 @@ describe("phase 3 follows the recorded kill [K]", () => {
     f.fight.player.hop(standing);
     f.fight.player.prayerController.findPrayerByName("Protect from Range").toggle(f.fight.player);
     f.fight.player.inventory[12].inventoryLeftClick(f.fight.player);
-    expect(f.handOvers).toEqual([]);
+    expect(f.region.current).toBe("prefix");
     fallTo(3);
 
-    // The third quadrant crumbles from tick 40 and falls 13 ticks later, at 53. The hand-over is that tick, the phase 4 drill's tick 0, with him hidden.
-    expect([crumbleStart, f.handOvers.map(({ tick }) => tick), f.fight.boss?.hidden]).toEqual([40, [53], true]);
-    expect(f.handOvers).toHaveLength(1);
-    const [{ state: { player, boss } }] = f.handOvers;
+    // The third quadrant crumbles from tick 40 and falls 13 ticks later, at 53, P4's tick 0, with him hidden. P4 runs from the next world tick.
+    expect([crumbleStart, f.fight.tick, f.fight.boss?.hidden, f.region.current]).toEqual([40, 53, true, "p4"]);
+    const p4 = f.region.p4.mounted;
+    if (!p4) throw new Error("P4 did not mount");
+    const player = p4.player;
     // 25% of the 5,250 pool, rounded up, is the third quadrant's floor.
-    expect(boss).toEqual({ hp: 1313, defence: 250 });
-    expect(player.tile).toEqual(standing);
-    expect(player.prayers).toEqual(["Protect from Range"]);
-    expect(player.equipment).toEqual({
+    expect({ hp: p4.ocellus.currentStats.hitpoint, defence: p4.ocellus.currentStats.defence }).toEqual({ hp: 1313, defence: 250 });
+    expect(player === f.fight.player).toBe(true);
+    expect(f.fight.playerTile).toEqual(standing);
+    expect(player.prayerController.activePrayers().map((prayer) => prayer.name)).toEqual(["Protect from Range"]);
+    const slots = ["weapon", "offhand", "helmet", "necklace", "chest", "legs", "feet", "gloves", "ring", "cape", "ammo"] as const;
+    expect(Object.fromEntries(slots.map((slot) => [slot, player.equipment[slot]?.itemName ?? null]))).toEqual({
       weapon: "Twisted Bow", offhand: null, helmet: "Masori mask (f)", necklace: "Necklace of rupture", chest: "Masori body (f)", legs: "Masori chaps (f)",
       feet: "Avernic treads (max)", gloves: "Zaryte Vambraces", ring: "Venator ring", cape: "Dizana's Quiver", ammo: "Dragon arrow",
     });
-    expect(player.inventory.slice(0, 2)).toEqual([{ name: "Tonalztics of Ralos", doses: null }, { name: "Scythe of Vitur", doses: null }]);
-    expect(player.inventory.slice(9, 14)).toEqual([
+    const carried = (index: number) => {
+      const item = player.inventory[index];
+      return item ? { name: item.itemName, doses: item instanceof Potion ? item.doses : null } : null;
+    };
+    expect([0, 1].map(carried)).toEqual([{ name: "Tonalztics of Ralos", doses: null }, { name: "Scythe of Vitur", doses: null }]);
+    expect([9, 10, 11, 12, 13].map(carried)).toEqual([
       { name: "Super combat potion", doses: 4 }, { name: "Bastion Potion", doses: 4 }, { name: "Saradomin Brew", doses: 4 },
       { name: "Super Restore", doses: 3 }, { name: "Super combat potion", doses: 4 },
     ]);
-    expect([player.hp, player.specialEnergy, player.runEnergy, player.levels]).toEqual([99, 100, 10000, { attack: 99, strength: 99, defence: 99, range: 99, magic: 99 }]);
-    f.tickTo(f.fight.tick + 10);
-    expect([f.fight.label(), f.handOvers.length]).toEqual(["Phase 3", 1]);
+    const { currentStats: now } = player;
+    expect([now.hitpoint, now.specialAttack, now.run, { attack: now.attack, strength: now.strength, defence: now.defence, range: now.range, magic: now.magic }]).toEqual([
+      99, 100, 10000, { attack: 99, strength: 99, defence: 99, range: 99, magic: 99 },
+    ]);
+    for (let world = 0; world < 10; world++) f.tick();
+    expect([f.fight.tick, f.fight.label(), f.region.rows("p4").map((row) => row.tick)]).toEqual([53, "Phase 3", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]);
   });
 });

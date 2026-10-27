@@ -38,7 +38,6 @@ export const PHASE_ONLY_MODULES: ReadonlyMap<string, readonly [Phase, ...Phase[]
   ["src/content/ocellus/js/p3/arena.ts", ["p1", "p2", "p3"]],
   ["src/content/ocellus/js/OcellusTimingsP3.ts", ["p1", "p2", "p3"]],
   ["src/fullFightStyles.ts", ["full"]],
-  ["src/content/ocellus/js/carry.ts", ["full"]],
   ["src/menu/Sidebar.tsx", ["full"]],
 ]);
 
