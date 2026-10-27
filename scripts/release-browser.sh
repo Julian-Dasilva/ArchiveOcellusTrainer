@@ -3,6 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 dist="${RELEASE_DIST:-dist}"
+export RELEASE_DIST="$dist"
 port="${RELEASE_PORT:-8038}"
 
 if [[ ! -f "$dist/index.html" ]]; then

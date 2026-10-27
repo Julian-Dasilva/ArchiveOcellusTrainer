@@ -1,6 +1,6 @@
 import { creditLines } from "../menu/credits";
-import { chunkAbortProblems, walkProblems } from "./walk";
-import type { ChunkAbortObservation, WalkObservation } from "./walk";
+import { chunkAbortProblems, chunkRetryProblems, contrastRatio, visibleCreditLines, walkProblems } from "./walk";
+import type { ChunkAbortObservation, ChunkRetryObservation, WalkObservation } from "./walk";
 
 const LINES = [
   "Made by Julian Dasilva / Moarhots: GitHub · @ShadowJdas",
@@ -38,6 +38,19 @@ const ABORTED: ChunkAbortObservation = {
   drillLink: true,
   creditLines: LINES,
   errors: ["ChunkLoadError: Loading chunk 61 failed"],
+  reloadHeight: 24,
+  backHeight: 24,
+  gapPx: 12,
+  reloadContrast: 9.76,
+  backContrast: 9.76,
+};
+
+const RETRIED: ChunkRetryObservation = {
+  loaded: true,
+  navigations: 1,
+  creditLines: LINES,
+  errors: ["ChunkLoadError: Loading chunk 1 failed"],
+  outcomes: ["503", "200"],
 };
 
 describe("release browser walk", () => {
@@ -88,13 +101,62 @@ describe("release browser walk", () => {
   });
 
   test("an aborted full-fight chunk that stays blank fails", () => {
-    expect(chunkAbortProblems({ ...ABORTED, message: false, reload: false, drillLink: false, creditLines: [], errors: ["TypeError: broke"] })).toEqual([
+    expect(chunkAbortProblems({ ...ABORTED, message: false, reload: false, drillLink: false, creditLines: [], errors: ["TypeError: broke"], reloadHeight: 0, backHeight: 0, gapPx: 0, reloadContrast: 1, backContrast: 1 })).toEqual([
       "the full fight failure message is not on screen",
       "Reload is not on screen",
       "the link back to the drill is not on screen",
+      "Reload is 0px tall",
+      "Back to the drill is 0px tall",
+      "Reload and Back to the drill are 0px apart",
+      "Reload contrast is 1.00:1",
+      "Back to the drill contrast is 1.00:1",
       `${LINES[0]} is not on screen`,
       `${LINES[1]} is not on screen`,
       "page errors: TypeError: broke",
     ]);
+  });
+
+  test("the failure controls fail when they are short, flush, or below AA contrast", () => {
+    expect(chunkAbortProblems({ ...ABORTED, reloadHeight: 21, backHeight: 18, gapPx: 0, reloadContrast: 2.23, backContrast: 2.23 })).toEqual([
+      "Reload is 21px tall",
+      "Back to the drill is 18px tall",
+      "Reload and Back to the drill are 0px apart",
+      "Reload contrast is 2.23:1",
+      "Back to the drill contrast is 2.23:1",
+    ]);
+  });
+
+  test("one failed full-fight request then the file passes", () => {
+    expect(chunkRetryProblems(RETRIED)).toEqual([]);
+  });
+
+  test("a single full-fight attempt fails the retry", () => {
+    expect(chunkRetryProblems({ ...RETRIED, loaded: false, outcomes: ["503"] })).toEqual([
+      "full-fight requests were 503, not one failure then the file",
+      "one failed full-fight request did not load the fight",
+    ]);
+  });
+
+  test("orange on black clears AA and the default link blue does not", () => {
+    expect(Math.round((contrastRatio("rgb(255, 152, 31)", "rgb(0, 0, 0)") ?? 0) * 100) / 100).toBe(9.76);
+    expect(Math.round((contrastRatio("rgb(0, 0, 238)", "rgb(0, 0, 0)") ?? 0) * 100) / 100).toBe(2.23);
+  });
+
+  test("a credit line covered at its centre is not on screen, and its own link is", () => {
+    document.body.innerHTML = '<ul id="policy_footer"><li id="sidebar_contributor">With help from <a href="https://x.com/alrodi">Alessandro Rodi</a></li></ul><div id="cover"></div>';
+    const line = document.getElementById("sidebar_contributor");
+    const link = line?.querySelector("a");
+    const cover = document.getElementById("cover");
+    if (!(line instanceof HTMLElement) || !(link instanceof HTMLAnchorElement) || !(cover instanceof HTMLElement)) throw new Error("the credit fixture is missing");
+    const box = { x: 10, y: 20, left: 10, top: 20, right: 200, bottom: 44, width: 190, height: 24, toJSON: () => ({}) };
+    line.getBoundingClientRect = () => box;
+    line.checkVisibility = () => true;
+    let top: Element = cover;
+    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => top });
+    top = cover;
+    expect(visibleCreditLines(document)).toEqual([]);
+    top = link;
+    expect(visibleCreditLines(document)).toEqual(["With help from Alessandro Rodi"]);
+    document.body.innerHTML = "";
   });
 });

@@ -1,5 +1,71 @@
 import { spawnSync } from "node:child_process";
 import { creditLines } from "../menu/credits";
+import { startReleaseServer } from "./releaseServer";
+
+export function contrastRatio(foreground: string, background: string): number | null {
+  const colors = [foreground, background];
+  const luminances: number[] = [];
+  for (const color of colors) {
+    const match = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(color);
+    if (match === null) return null;
+    const parts = [match[1], match[2], match[3]];
+    const weights = [0.2126, 0.7152, 0.0722];
+    let lum = 0;
+    for (let i = 0; i < 3; i++) {
+      const part = parts[i];
+      const weight = weights[i];
+      if (part === undefined || weight === undefined) return null;
+      const s = Number(part) / 255;
+      const linear = s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      lum += weight * linear;
+    }
+    luminances.push(lum);
+  }
+  const fg = luminances[0];
+  const bg = luminances[1];
+  if (fg === undefined || bg === undefined) return null;
+  const lighter = Math.max(fg, bg);
+  const darker = Math.min(fg, bg);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+export function visibleCreditLines(doc: Document): readonly string[] {
+  const view = doc.defaultView;
+  if (view === null) return [];
+  const lines: string[] = [];
+  for (const node of doc.querySelectorAll("#policy_footer li")) {
+    if (!(node instanceof HTMLElement)) continue;
+    const text = node.textContent;
+    if (text === null || node.checkVisibility() !== true) continue;
+    const box = node.getBoundingClientRect();
+    if (!(box.width > 0 && box.height > 0 && box.bottom > 0 && box.right > 0 && box.top < view.innerHeight && box.left < view.innerWidth)) continue;
+    const x = Math.min(Math.max(box.left + box.width / 2, 0), view.innerWidth - 1);
+    const y = Math.min(Math.max(box.top + box.height / 2, 0), view.innerHeight - 1);
+    const top = doc.elementFromPoint(x, y);
+    if (top === null || (top !== node && !node.contains(top))) continue;
+    lines.push(text.replace(/\s+/g, " ").trim());
+  }
+  return lines;
+}
+
+function readFailureControls(doc: Document): Readonly<{ reloadHeight: number; backHeight: number; gapPx: number; reloadContrast: number; backContrast: number }> {
+  const view = doc.defaultView;
+  const reload = doc.getElementById("fight_reload");
+  const back = doc.getElementById("fight_back_to_drill");
+  const body = doc.body;
+  const reloadBox = reload instanceof HTMLElement ? reload.getBoundingClientRect() : null;
+  const backBox = back instanceof HTMLElement ? back.getBoundingClientRect() : null;
+  const background = body instanceof HTMLElement && view !== null ? view.getComputedStyle(body).backgroundColor : "";
+  const reloadContrast = reload instanceof HTMLElement && view !== null ? contrastRatio(view.getComputedStyle(reload).color, background) ?? 0 : 0;
+  const backContrast = back instanceof HTMLElement && view !== null ? contrastRatio(view.getComputedStyle(back).color, background) ?? 0 : 0;
+  return {
+    reloadHeight: reloadBox === null ? 0 : reloadBox.height,
+    backHeight: backBox === null ? 0 : backBox.height,
+    gapPx: reloadBox === null || backBox === null ? 0 : backBox.left - reloadBox.right,
+    reloadContrast,
+    backContrast,
+  };
+}
 
 export type WalkSurface = "desktop" | "phone";
 
@@ -22,19 +88,29 @@ export type ChunkAbortObservation = Readonly<{
   drillLink: boolean;
   creditLines: readonly string[];
   errors: readonly string[];
+  reloadHeight: number;
+  backHeight: number;
+  gapPx: number;
+  reloadContrast: number;
+  backContrast: number;
+}>;
+
+export type ChunkRetryObservation = Readonly<{
+  loaded: boolean;
+  navigations: number;
+  creditLines: readonly string[];
+  errors: readonly string[];
+  outcomes: readonly string[];
 }>;
 
 const FACTS = `(() => {
+  const visibleCreditLines = ${visibleCreditLines.toString()};
   const onScreen = (el) => {
     if (!el || el.checkVisibility() !== true) return false;
     const box = el.getBoundingClientRect();
     return box.width > 0 && box.height > 0 && box.bottom > 0 && box.right > 0 && box.top < innerHeight && box.left < innerWidth;
   };
-  const creditLines = [];
-  for (const el of document.querySelectorAll("#policy_footer li")) {
-    if (!onScreen(el) || !el.textContent) continue;
-    creditLines.push(el.textContent.replace(/\\s+/g, " ").trim());
-  }
+  const creditLines = visibleCreditLines(document);
   const world = document.getElementById("world");
   const box = world ? world.getBoundingClientRect() : null;
   const corner = document.getElementById("hud_corner");
@@ -58,16 +134,14 @@ const FACTS = `(() => {
 })()`;
 
 const ABORT_FACTS = `(() => {
+  const contrastRatio = ${contrastRatio.toString()};
+  const visibleCreditLines = ${visibleCreditLines.toString()};
+  const readFailureControls = ${readFailureControls.toString()};
   const onScreen = (el) => {
     if (!el || el.checkVisibility() !== true) return false;
     const box = el.getBoundingClientRect();
     return box.width > 0 && box.height > 0 && box.bottom > 0 && box.right > 0 && box.top < innerHeight && box.left < innerWidth;
   };
-  const creditLines = [];
-  for (const el of document.querySelectorAll("#policy_footer li")) {
-    if (!onScreen(el) || !el.textContent) continue;
-    creditLines.push(el.textContent.replace(/\\s+/g, " ").trim());
-  }
   const reload = document.getElementById("fight_reload");
   const back = document.getElementById("fight_back_to_drill");
   const text = document.body ? document.body.innerText : "";
@@ -75,7 +149,8 @@ const ABORT_FACTS = `(() => {
     message: text.includes("The full fight didn't load."),
     reload: onScreen(reload),
     drillLink: back instanceof HTMLAnchorElement && onScreen(back) && back.getAttribute("href") === location.pathname,
-    creditLines,
+    creditLines: visibleCreditLines(document),
+    ...readFailureControls(document),
   };
 })()`;
 
@@ -99,6 +174,11 @@ type AbortFacts = Readonly<{
   reload: boolean;
   drillLink: boolean;
   creditLines: readonly string[];
+  reloadHeight: number;
+  backHeight: number;
+  gapPx: number;
+  reloadContrast: number;
+  backContrast: number;
 }>;
 
 function missingCredits(lines: readonly string[]): readonly string[] {
@@ -125,6 +205,23 @@ export function chunkAbortProblems(observed: ChunkAbortObservation): readonly st
   if (!observed.message) problems.push("the full fight failure message is not on screen");
   if (!observed.reload) problems.push("Reload is not on screen");
   if (!observed.drillLink) problems.push("the link back to the drill is not on screen");
+  if (observed.reloadHeight < 24) problems.push(`Reload is ${observed.reloadHeight}px tall`);
+  if (observed.backHeight < 24) problems.push(`Back to the drill is ${observed.backHeight}px tall`);
+  if (observed.gapPx < 8) problems.push(`Reload and Back to the drill are ${observed.gapPx}px apart`);
+  if (observed.reloadContrast < 4.5) problems.push(`Reload contrast is ${observed.reloadContrast.toFixed(2)}:1`);
+  if (observed.backContrast < 4.5) problems.push(`Back to the drill contrast is ${observed.backContrast.toFixed(2)}:1`);
+  problems.push(...missingCredits(observed.creditLines));
+  const unexpected = observed.errors.filter((error) => !error.includes("ChunkLoadError") && !error.includes("Loading chunk"));
+  if (unexpected.length > 0) problems.push(`page errors: ${unexpected.join("; ")}`);
+  return problems;
+}
+
+export function chunkRetryProblems(observed: ChunkRetryObservation): readonly string[] {
+  const problems: string[] = [];
+  const seen = observed.outcomes.join(",");
+  if (seen !== "503,200") problems.push(`full-fight requests were ${seen === "" ? "none" : seen}, not one failure then the file`);
+  if (!observed.loaded) problems.push("one failed full-fight request did not load the fight");
+  if (observed.navigations !== 1) problems.push(`${observed.navigations} navigations, not one`);
   problems.push(...missingCredits(observed.creditLines));
   const unexpected = observed.errors.filter((error) => !error.includes("ChunkLoadError") && !error.includes("Loading chunk"));
   if (unexpected.length > 0) problems.push(`page errors: ${unexpected.join("; ")}`);
@@ -205,6 +302,11 @@ function parseAbortFacts(value: unknown): AbortFacts {
     reload: booleanField(record, "reload"),
     drillLink: booleanField(record, "drillLink"),
     creditLines: stringListField(record, "creditLines"),
+    reloadHeight: numberField(record, "reloadHeight"),
+    backHeight: numberField(record, "backHeight"),
+    gapPx: numberField(record, "gapPx"),
+    reloadContrast: numberField(record, "reloadContrast"),
+    backContrast: numberField(record, "backContrast"),
   };
 }
 
@@ -374,12 +476,56 @@ function abortFullFight(surface: WalkSurface, origin: string): readonly string[]
   }
 }
 
-function main(origin: string): void {
+const RETRY_FACTS = `(() => {
+  const visibleCreditLines = ${visibleCreditLines.toString()};
+  const text = document.body ? document.body.innerText : "";
+  return {
+    loaded: document.getElementById("start_phase") !== null && !text.includes("The full fight didn't load."),
+    navigations: performance.getEntriesByType("navigation").length,
+    creditLines: visibleCreditLines(document),
+  };
+})()`;
+
+type RetryFacts = Readonly<{
+  loaded: boolean;
+  navigations: number;
+  creditLines: readonly string[];
+}>;
+
+function parseRetryFacts(value: unknown): RetryFacts {
+  const record = asRecord(value);
+  if (record === null) throw new Error("page facts are not an object");
+  return {
+    loaded: booleanField(record, "loaded"),
+    navigations: numberField(record, "navigations"),
+    creditLines: stringListField(record, "creditLines"),
+  };
+}
+
+async function recoverFullFight(): Promise<readonly string[]> {
+  const dist = process.env.RELEASE_DIST;
+  if (dist === undefined || dist === "") throw new Error("RELEASE_DIST is unset");
+  const server = await startReleaseServer(dist, { chunkFaults: ["503"] });
+  process.env.AGENT_BROWSER_SESSION = `release-retry-${process.pid}`;
+  try {
+    agent(["set", "viewport", "1280", "800"]);
+    agent(["open", `${server.origin}/?mode=full&seed=1&invincible=on`]);
+    agent(["wait", "--fn", "document.getElementById('start_phase') !== null || (document.body && document.body.innerText.includes('The full fight didn\\'t load.'))", "--timeout", "180000"]);
+    const facts = parseRetryFacts(readEval(RETRY_FACTS));
+    return chunkRetryProblems({ ...facts, errors: readErrors(), outcomes: server.chunkOutcomes() });
+  } finally {
+    closeBrowser();
+    await server.close();
+  }
+}
+
+async function main(origin: string): Promise<void> {
   const problems = [
     ...driveSurface("desktop", origin),
     ...driveSurface("phone", origin),
     ...abortFullFight("desktop", origin),
     ...abortFullFight("phone", origin),
+    ...(await recoverFullFight()),
   ];
   for (const problem of problems) console.error(`release-browser: ${problem}`);
   if (problems.length > 0) process.exitCode = 1;
@@ -389,5 +535,9 @@ function main(origin: string): void {
 if (process.env.RELEASE_BROWSER === "1") {
   const origin = process.argv[2];
   if (origin === undefined) throw new Error("usage: walk.ts <origin>");
-  main(origin);
+  main(origin).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : "the release walk failed";
+    console.error(`release-browser: ${message}`);
+    process.exitCode = 1;
+  });
 }
