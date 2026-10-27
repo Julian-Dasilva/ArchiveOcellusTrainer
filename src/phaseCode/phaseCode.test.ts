@@ -44,6 +44,12 @@ describe("strayPhaseModules", () => {
     expect(await strayPhaseModules(["webpack://archive-ocellus-trainer/./src/content/ocellus/js/P1Region.ts", "webpack://archive-ocellus-trainer/./src/content/ocellus/js/p3/arena.ts"], { ...flags, full: false })).toEqual(strays);
   });
 
+  test("a phase directory that is not on disk is named, and engine/ is not one of them", async () => {
+    const checker: typeof import("./phaseCode") = await import(/* @vite-ignore */ CHECKER);
+    expect(checker.missingPhaseDirectories((directory) => directory !== "src/content/ocellus/fight/")).toEqual(["src/content/ocellus/fight/"]);
+    expect(checker.PHASE_DIRECTORIES.map(([directory]) => directory)).toEqual(["src/content/ocellus/full/", "src/content/ocellus/fight/"]);
+  });
+
   test("a module under the full fight directories is stray unless full is on", async () => {
     const sources = ["webpack://archive-ocellus-trainer/./src/content/ocellus/full/prefix.ts", "webpack://archive-ocellus-trainer/./src/content/ocellus/fight/phase1.ts"];
     expect(await strayPhaseModules(sources, { p1: false, p2: false, p3: false, full: false })).toEqual([

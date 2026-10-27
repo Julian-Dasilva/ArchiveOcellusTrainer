@@ -6,8 +6,12 @@ type Phase = keyof BuildFlags;
 export const PHASE_DIRECTORIES: readonly (readonly [string, readonly [Phase, ...Phase[]]])[] = [
   ["src/content/ocellus/full/", ["full"]],
   ["src/content/ocellus/fight/", ["full"]],
-  ["src/content/ocellus/engine/", ["full"]],
 ];
+
+/** Directories named above that are not on disk. A missing one would make every file under that prefix invisible to the rule. */
+export function missingPhaseDirectories(exists: (directory: string) => boolean): readonly string[] {
+  return PHASE_DIRECTORIES.flatMap(([directory]) => (exists(directory) ? [] : [directory]));
+}
 
 export const PHASE_ONLY_MODULES: ReadonlyMap<string, readonly [Phase, ...Phase[]]> = new Map<string, readonly [Phase, ...Phase[]]>([
   ["src/content/ocellus/js/P2Region.ts", ["p2"]],
