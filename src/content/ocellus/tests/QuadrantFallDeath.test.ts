@@ -88,8 +88,7 @@ describe("a falling quadrant", () => {
   const here = (fight: P3Fight) => quadrantOf(fight.player.arenaTile());
   const collapses = (fight: P3Fight) => fight.region.chat().filter((line) => line.text === "The quadrant begins to collapse! Jump across the stones!").length;
 
-  function killed(practice: boolean): void {
-    const { fight, tickTo, enteredP4 } = open(practice);
+  function killed({ fight, tickTo, enteredP4 }: ReturnType<typeof open>): void {
     tickTo(P3.jumpToCornerAfter);
     const home = here(fight);
     if (!home) throw new Error("the player is not in a quadrant");
@@ -130,11 +129,11 @@ describe("a falling quadrant", () => {
   }
 
   test("standing on the quadrant at the fall tick kills the player with practice on", () => {
-    killed(true);
+    killed(open(true));
   });
 
   test("standing on the quadrant at the fall tick kills the player with practice off", () => {
-    killed(false);
+    killed(open(false));
   });
 
   test("guard: standing on a quadrant that is still there leaves the player alive", () => {
