@@ -2,7 +2,6 @@ import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import type { Fight, StartPhase } from "../fight/Fight";
 import type { Quadrant } from "../fight/geometry";
 import { QUADRANTS, at, quadrantOf, quadrantTiles, toSdk } from "../fight/geometry";
-import { carriedEntry, quadrantFrame } from "../full/fall";
 import type { FightRegion, FullFightOptions } from "../full/prefix";
 import { fullFightStaged } from "../full/prefix";
 import { dress } from "../js/OcellusLoadout";
@@ -13,7 +12,6 @@ import { p4Phase } from "../js/p4/phase";
 import { seed, span, tile } from "../../../sim/brands";
 import { toRoom } from "../../../sim/frame";
 import { EncounterRegion } from "../../../sim/sdk/EncounterRegion";
-import { fence } from "../../../sim/sdk/fence";
 
 type Tiles = readonly Readonly<{ x: number; y: number }>[];
 const PLATFORM = OCELLUS_P4.geometry.platform.value.flatMap((row, y) => [...row].flatMap((cell, x) => (cell === "#" ? [tile(x, y)] : [])));
@@ -143,7 +141,7 @@ describe("the third fall enters P4 in the same world", () => {
     });
   });
 
-  test("guard: phase 3's drained Defence, which his own floor holds at 150, crosses into P4 as it is", () => {
+  test("phase 3's drained Defence, which his own floor holds at 150, crosses into P4", () => {
     const { region, fight } = fullFight(3);
     toThirdFall(region, fight, () => {
       if (fight.boss) fight.boss.currentStats.defence = 40;
@@ -153,9 +151,14 @@ describe("the third fall enters P4 in the same world", () => {
   });
 });
 
+// Loaded per test, so on a build without the carried entry each test runs and fails on its own.
+const fall = () => import("../full/fall");
+
 /** P4 carried into one quadrant of his arena: the room is his 29-tile grid and the fall is given. */
-function carriedP4(standing: Quadrant, voids: readonly Readonly<{ tile: Readonly<{ x: number; z: number }>; placed: number }>[] = [], defence = 250) {
+async function carriedP4(standing: Quadrant, voids: readonly Readonly<{ tile: Readonly<{ x: number; z: number }>; placed: number }>[] = [], defence = 250) {
   Settings.readFromStorage();
+  const { carriedEntry, quadrantFrame } = await fall();
+  const { fence } = await import("../../../sim/sdk/fence");
   const entry: P4Entry = carriedEntry({ tick: 100, standing, boss: { hp: 1313, defence }, voids }, fullFightConfig(seed(1)));
   const frame = quadrantFrame(standing);
   const watch: P4Watch = { invincible: true, mounted: null };
@@ -183,8 +186,8 @@ describe("P4 in his arena", () => {
     { standing: "SW", boss: [7, 21], holes: [[10, 26], [11, 26], [12, 26]], orb: [8, 16], rifts: [[11, 19], [12, 17]] },
     { standing: "NW", boss: [7, 9], holes: [[2, 10], [2, 11], [2, 12]], orb: [12, 8], rifts: [[9, 11], [11, 12]] },
     { standing: "NE", boss: [19, 9], holes: [[16, 2], [17, 2], [18, 2]], orb: [20, 12], rifts: [[16, 11], [17, 9]] },
-  ] as const)("in the $standing quadrant the boss, holes, first orb and first rifts stand on literal room tiles", ({ standing, boss, holes, orb, rifts }) => {
-    const { region, p4, tickTo } = carriedP4(standing);
+  ] as const)("in the $standing quadrant the boss, holes, first orb and first rifts stand on literal room tiles", async ({ standing, boss, holes, orb, rifts }) => {
+    const { region, p4, tickTo } = await carriedP4(standing);
     tickTo(12);
     const orbAt = p4.views.orbs["inner-void"].location;
     tickTo(67);
@@ -196,7 +199,8 @@ describe("P4 in his arena", () => {
     }).toEqual({ boss, holes, orb, rifts });
   });
 
-  test("P4's platform is each quadrant less its inner corner, which the room fences", () => {
+  test("P4's platform is each quadrant less its inner corner, which the room fences", async () => {
+    const { quadrantFrame } = await fall();
     const off = QUADRANTS.map((q) => {
       const platform = new Set(PLATFORM.map((local) => toRoom(quadrantFrame(q), local)).map(({ x, y }) => `${x},${y}`));
       const quadrant = quadrantTiles(q).map(toSdk);
@@ -210,20 +214,21 @@ describe("P4 in his arena", () => {
     ]);
   });
 
-  test("a carried Defence below P4's floor enters at the floor, and one above it as carried", () => {
-    const drained = carriedP4("SE", [], 40).p4.ocellus.currentStats.defence;
+  test("a carried Defence below P4's floor enters at the floor, and one above it as carried", async () => {
+    const drained = (await carriedP4("SE", [], 40)).p4.ocellus.currentStats.defence;
     close?.();
-    const kept = carriedP4("SE", [], 200).p4.ocellus.currentStats.defence;
+    const kept = (await carriedP4("SE", [], 200)).p4.ocellus.currentStats.defence;
     expect([drained, kept]).toEqual([150, 200]);
   });
 
-  test("phase 3's voids hurt in P4 on every second tick counted from when they dropped", () => {
+  test("phase 3's voids hurt in P4 on every second tick counted from when they dropped", async () => {
+    const { carriedEntry } = await fall();
     // P4's spawn, local (5, 1), is arena (6, -2) in the south-east quadrant.
     const onSpawn = at(6, -2);
     const entry = carriedEntry({ tick: 100, standing: "SE", boss: { hp: 1313, defence: 250 }, voids: [{ tile: onSpawn, placed: 97 }] }, fullFightConfig(seed(1)));
     const expected: readonly LingeringVoid[] = [{ tile: tile(5, 1), sincePlaced: span(3), period: span(2), damage: { min: 6, max: 7 } }];
     expect(entry.kind === "carried" ? entry.voids : []).toEqual(expected);
-    const { region, tickTo } = carriedP4("SE", [{ tile: onSpawn, placed: 97 }]);
+    const { region, tickTo } = await carriedP4("SE", [{ tile: onSpawn, placed: 97 }]);
     tickTo(8);
     expect(region.rows("p4").flatMap((row) => row.events.flatMap((event) => (event.kind === "void-hit" ? [[event.at, event.tile.x, event.tile.y]] : [])))).toEqual([
       [1, 5, 1], [3, 5, 1], [5, 5, 1], [7, 5, 1],
