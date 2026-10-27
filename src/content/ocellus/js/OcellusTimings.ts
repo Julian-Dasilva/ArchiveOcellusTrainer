@@ -36,7 +36,7 @@ const FIGHT_LOGS: Readonly<Record<FightLog, FightLogEntry>> = {
   L8: { recorded: "2026-10-23", fight: "raid", players: 7, reached: "a wipe in phase 3, after one quadrant fell", records: "as L6" },
 };
 
-type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24";
+type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24" | "2026-10-27";
 
 export type Source =
   | Readonly<{ kind: "fight-log"; log: FightLog; at: string }>
@@ -294,7 +294,18 @@ type GearRecipe = Readonly<{
   twistedBow: Selected<StanceSpeeds<TwistedBow["attackSpeed"]>>;
   ralos: Selected<StanceSpeeds & Readonly<{ range: number; longrangeRange: number; hits: number; hitMaxFraction: number }>>;
   division: Selected<Readonly<{ energy: number; accuracyFactor: number; defenceDrainOfMagic: number }>>;
-  ammunition: Selected<Readonly<{ twistedBow: AmmunitionClass; tonalzticsOfRalos: AmmunitionClass }>>;
+  ammunition: Selected<Readonly<{ twistedBow: AmmunitionClass; tonalzticsOfRalos: AmmunitionClass; toxicBlowpipe: AmmunitionClass }>>;
+  toxicBlowpipe: Selected<
+    Readonly<{
+      itemId: number;
+      rapidSpeed: 2;
+      otherSpeed: 3;
+      range: 5;
+      longrangeRange: 7;
+      rangedAttack: number;
+      rangedStrength: number;
+    }>
+  >;
   inquisitorCrushPerMille: Selected<Readonly<Record<InquisitorPiece, number>>>;
   scytheStance: Selected<"jab">;
   scytheMaxHitsOnOneTarget: Selected<number>;
@@ -918,6 +929,10 @@ const ZARYTE_VAMBRACES_PAGE = wiki(`${OSRS_WIKI}Zaryte_vambraces`, 15190607);
 const RAID_INVENTORY = wiki(`${OSRS_WIKI}The_Fractured_Archive/Strategies`, 15378756);
 const RANGED_SWITCH = wiki(`${OSRS_WIKI}The_Fractured_Archive/Strategies`, 15379033);
 const RANGED_PAGE = wiki(`${OSRS_WIKI}Ranged`, 15373088);
+const BLOWPIPE_PAGE = wiki(`${OSRS_WIKI}Toxic_blowpipe`, 15376390);
+const DRAGON_DART_PAGE = wiki(`${OSRS_WIKI}Dragon_dart`, 15372145);
+const OCELLUS_BLOWPIPE_PAGE = wiki(`${OSRS_WIKI}Ocellus`, 15383870);
+const STRATEGIES_BLOWPIPE = wiki(`${OSRS_WIKI}The_Fractured_Archive/Strategies`, 15383713);
 
 type Five = readonly [stab: number, slash: number, crush: number, magic: number, range: number];
 const stats = (attack: Five, defence: Five, other: readonly [meleeStrength: number, rangedStrength: number, magicDamage: number, prayer: number]): ItemStats => ({
@@ -960,9 +975,28 @@ const GEAR: GearRecipe = {
     RAID_INVENTORY, wiki(`${OSRS_WIKI}Ranging_potion`, 15293943), wiki(`${OSRS_WIKI}Bastion_potion`, 15293966),
   ),
   twistedBow: selected({ rapidSpeed: 5, otherSpeed: 6 }, "spec-single", "unscaled", "attack speed by stance: 5 ticks on Rapid, 6 on Accurate and Longrange", TWISTED_BOW_PAGE),
+  toxicBlowpipe: selected(
+    { itemId: 12926, rapidSpeed: 2, otherSpeed: 3, range: 5, longrangeRange: 7, rangedAttack: 30, rangedStrength: 55 } as const,
+    "spec-single",
+    "unscaled",
+    "charged, in PvM: Accurate and Longrange are 3 ticks, Rapid is 2; range is 5 tiles, 7 on Longrange; Ranged attack +30 and Ranged strength +20, and dragon darts add +35",
+    BLOWPIPE_PAGE,
+    DRAGON_DART_PAGE,
+    OCELLUS_BLOWPIPE_PAGE,
+    STRATEGIES_BLOWPIPE,
+    owner("keep a blowpipe for the whole fight", "2026-10-27"),
+  ),
   ralos: selected({ rapidSpeed: span(6), otherSpeed: span(7), range: 7, longrangeRange: 9, hits: 2, hitMaxFraction: 0.75 }, "spec-single", "unscaled", "charged, one-handed thrown: two independent hits, each 0 to 75% of the max ranged hit", RALOS_PAGE),
   division: selected({ energy: 50, accuracyFactor: 1.5, defenceDrainOfMagic: 0.125 }, "spec-single", "unscaled", "+50% accuracy; each hit that deals damage lowers Defence by 12.5% of Magic (10% before 2026-07-22) and, on NPCs, before the second roll; the drain applies as each glaive lands, so a hit the target rejects drains nothing (inferred); rounding not stated, floored (inferred)", RALOS_PAGE),
-  ammunition: selected({ twistedBow: "standard", tonalzticsOfRalos: "light" }, "spec-single", "unscaled", "the Twisted Bow fires dragon arrows, and arrows roll against standard ranged defence; Ralos rolls against light", RANGED_PAGE, RALOS_PAGE),
+  ammunition: selected(
+    { twistedBow: "standard", tonalzticsOfRalos: "light", toxicBlowpipe: "light" },
+    "spec-single",
+    "unscaled",
+    "the Twisted Bow fires dragon arrows, and arrows roll against standard ranged defence; Ralos and the toxic blowpipe's dragon darts roll against light",
+    RANGED_PAGE,
+    RALOS_PAGE,
+    BLOWPIPE_PAGE,
+  ),
   inquisitorCrushPerMille: selected({ inquisitorsGreatHelm: 5, inquisitorsHauberk: 10, inquisitorsPlateskirt: 10 }, "spec-single", "unscaled", "crush accuracy and damage per piece; the 2026-07-22 update moved the 1% set bonus onto the hauberk and plateskirt", wiki(`${OSRS_WIKI}Inquisitor%27s_hauberk`, 15352823), wiki(`${OSRS_WIKI}Inquisitor%27s_plateskirt`, 15352824), INQUISITOR_SET),
   scytheStance: selected("jab", "spec-single", "unscaled", "Jab is the scythe's crush style; the owner wants the Scythe setup on crush", SCYTHE_PAGE, owner("melee setup")),
   scytheMaxHitsOnOneTarget: selected(3, "spec-single", "unscaled", "one hit per tile of the target's width, up to three: a 1x1 target once, 2x2 twice, 3x3 or larger three times; other 1x1 targets in the 1x3 arc take their own hit", SCYTHE_PAGE),
@@ -1125,6 +1159,13 @@ const CHOICES: { readonly [K in ChoiceName]: Readonly<{ default: OptionKey<K>; o
 
 export function isInventory(slots: readonly (CarryKey | null)[]): slots is Inventory {
   return slots.length === INVENTORY_SIZE;
+}
+
+export function ammunitionAgainst(itemId: number | "TODO" | null | undefined): AmmunitionClass {
+  const table = OCELLUS_P4.gear.ammunition.value;
+  if (itemId === OCELLUS_P4.gear.items.tonalzticsOfRalos.itemId.value) return table.tonalzticsOfRalos;
+  if (itemId === OCELLUS_P4.gear.toxicBlowpipe.value.itemId) return table.toxicBlowpipe;
+  return table.twistedBow;
 }
 
 export function defaultLoadout(worn: Setup): Loadout {
