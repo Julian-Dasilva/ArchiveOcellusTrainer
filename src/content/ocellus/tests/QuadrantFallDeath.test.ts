@@ -1,5 +1,5 @@
 import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
-import { P3 } from "../full/data/p3";
+import { P3 } from "../fight/data";
 import type { Fight, FightOptions } from "../fight/Fight";
 import { FightRegion } from "../fight/FightRegion";
 import type { ATile, Quadrant } from "../fight/geometry";
