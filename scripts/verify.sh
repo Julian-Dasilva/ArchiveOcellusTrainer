@@ -1124,7 +1124,7 @@ open_ticking() {
 
 tile_pixel() {
   local page="$1" tile="$2" after="$3" read
-  # The read, and the click when the fourth argument is click, none, or control, both run on the first frame of tick $after. none and control hold Shift, because the projected centre can sit on a mob clickbox and a plain click then attacks. The eval stays under agent-browser's 25 s timeout.
+  # The read, and the click when the fourth argument is click, none, control, or walk, both run on the first frame of tick $after. The eval stays under agent-browser's 25 s timeout.
   [[ "$after" == now ]] || fight_tick_at_least $((after - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((after - 1))"; return 1; }
   read="$(ab --json eval "new Promise((done) => {
     const probe = window.__archiveOcellusProbe, ready = () => '${after}' === 'now' || (probe.snapshot().fight?.run.tick ?? -1) >= Number('${after}');
@@ -1133,10 +1133,10 @@ tile_pixel() {
       const at = probe.tileCentre(${tile}), box = document.querySelector('#world').getBoundingClientRect();
       const point = at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y) };
       let hit = true;
-      if (point && ('${4:-}' === 'click' || '${4:-}' === 'none' || '${4:-}' === 'control')) {
+      if (point && ('${4:-}' === 'click' || '${4:-}' === 'none' || '${4:-}' === 'control' || '${4:-}' === 'walk')) {
         const world = document.querySelector('#world');
         hit = document.elementFromPoint(point.x, point.y) === world;
-        if (hit) for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: point.x, clientY: point.y, ctrlKey: '${4:-}' === 'control', shiftKey: '${4:-}' === 'none' || '${4:-}' === 'control' }));
+        if (hit) for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: point.x, clientY: point.y, ctrlKey: '${4:-}' === 'control', shiftKey: '${4:-}' === 'walk' }));
       }
       done({ at: point, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length, hit });
     };
@@ -1332,7 +1332,7 @@ drive_corner() {
   probe "log()" >"$VERIFY_DIR/corner-hole-log.json"
   ab wait 1000 >/dev/null && ab screenshot "$VERIFY_DIR/corner-hole.png" >/dev/null || { log "corner screenshot failed"; return 1; }
   ab open "${URL}${CORNER_QUERY}" >/dev/null && wait_until_ticking || return 1
-  walk_to_tile corner-nub "$CORNER_NUB_TILE" "$CORNER_NUB_TILE" || return 1
+  walk_to_tile corner-nub "$CORNER_NUB_TILE" "$CORNER_NUB_TILE" walk || return 1
   probe "snapshot()" >"$VERIFY_DIR/corner-nub.json"
   probe "log()" >"$VERIFY_DIR/corner-nub-log.json"
   ab console >"$VERIFY_DIR/corner-console.log" 2>&1 || { log "console capture failed"; return 1; }
