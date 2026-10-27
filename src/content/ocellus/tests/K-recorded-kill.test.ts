@@ -1,8 +1,9 @@
 import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import { dress } from "../js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
-import type { Range } from "../fight/data";
-import { P3, SEQ } from "../fight/data";
+import type { Range } from "../full/data/looks";
+import { SEQ } from "../full/data/looks";
+import { P3 } from "../full/data/p3";
 import type { SpotOptions } from "../fight/effects";
 import type { Fight, FightOptions, HitSpec } from "../fight/Fight";
 import type { HandOver } from "../fight/handOver";

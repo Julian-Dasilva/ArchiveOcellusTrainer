@@ -1,6 +1,6 @@
 import { Settings, Viewport } from "osrs-sdk";
 import type { Region } from "osrs-sdk";
-import { P1 } from "./data";
+import { P1 } from "../full/data/p1";
 import type { Fight } from "./Fight";
 
 const WIDTH = 300;
