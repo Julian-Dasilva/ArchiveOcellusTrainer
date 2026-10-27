@@ -725,7 +725,9 @@ function DrillApp() {
 function FullFightShell() {
   const [Page, setPage] = useState<React.ComponentType | null>(null);
   useEffect(() => {
-    if (process.env.ARCHIVE_FULL === "on") void import("./content/ocellus/full/page").then(({ FullFightPage }) => setPage(() => FullFightPage));
+    if (process.env.ARCHIVE_FULL === "on") {
+      void import("./loadFullChunks").then((loaded) => loaded.loadFullFightPage().then(({ FullFightPage }) => setPage(() => FullFightPage)));
+    }
   }, []);
   return Page ? <Page /> : null;
 }
@@ -737,7 +739,7 @@ export function ArchiveOcellusApp() {
 }
 
 /** The sidebar loads behind a test of the raw build variable, which webpack folds, so a build with ARCHIVE_FULL off contains none of it. */
-const loadSidebar = () => (process.env.ARCHIVE_FULL === "on" ? lazy(() => import("./menu/Sidebar")) : null);
+const loadSidebar = () => (process.env.ARCHIVE_FULL === "on" ? lazy(() => import("./loadFullChunks").then((loaded) => loaded.loadSidebar())) : null);
 
 function TrainerPage({ trainer, clock, drill, flags, unreadableLoadout }: Opened) {
   const [loading, setLoading] = useState<TrainerLoadingState>();
