@@ -71,3 +71,11 @@ export function paintedFills(paint: (context: OffscreenCanvasRenderingContext2D)
   paint(context as unknown as OffscreenCanvasRenderingContext2D);
   return fills;
 }
+
+/** The arguments of each image a paint draws. */
+export function paintedImages(paint: (context: OffscreenCanvasRenderingContext2D) => void): readonly (readonly unknown[])[] {
+  const images: unknown[][] = [];
+  const context = { drawImage: (...args: unknown[]) => void images.push(args) };
+  paint(context as unknown as OffscreenCanvasRenderingContext2D);
+  return images;
+}
