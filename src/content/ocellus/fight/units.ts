@@ -1,7 +1,10 @@
 import { CacheRenderModel, CacheRenderReferences, EmptyModel, ImageLoader, Mob, Player, Random, RangedWeapon } from "osrs-sdk";
 import type { IncomingAttackRoll, IncomingAttackRollModifiers, Location, Model, Projectile, Region, Unit, UnitBonuses, UnitStats } from "osrs-sdk";
-import type { BossOverhead } from "./data";
-import { LOWEST_DEFENCE_FRACTION, NPC, P1, P2, P3, PROTECT_MELEE_ICON, SEQ, SPOT } from "./data";
+import type { BossOverhead } from "../full/data/looks";
+import { LOWEST_DEFENCE_FRACTION, NPC, PROTECT_MELEE_ICON, SEQ, SPOT } from "../full/data/looks";
+import { P1 } from "../full/data/p1";
+import { P2 } from "../full/data/p2";
+import { P3 } from "../full/data/p3";
 import type { ATile } from "./geometry";
 import { fromSdk, toSdk } from "./geometry";
 import type { SpriteFrame } from "../js/OcellusTimings";

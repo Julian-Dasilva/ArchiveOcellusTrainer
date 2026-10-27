@@ -3,7 +3,7 @@ import { CacheRenderInstancedModel, CacheRenderReferences, SoundCache, cacheSoun
 import type { Renderable } from "osrs-sdk";
 import type { StartPhase } from "./Fight";
 import { START_PHASES } from "./Fight";
-import { SOUND, SPOT } from "./data";
+import { SOUND, SPOT } from "../full/data/looks";
 
 /**
  * The floor effects (`fight.spot`) each phase draws. A floor effect builds its animation frames the first time it is

@@ -21,6 +21,7 @@ type Hit = Readonly<{ tick: number; style: HitSpec["style"] | null }>;
 const SWING = SEQ.p3MeleeBasic;
 const SLASH = SEQ.p3MeleeSlash;
 const PANIC = SEQ.p3ProjectileAll;
+const same = (a: Range, b: Range) => a.min === b.min && a.max === b.max;
 
 describe("phase 3 follows the recorded kill [K]", () => {
   let restore: (() => void)[] = [];
@@ -148,7 +149,7 @@ describe("phase 3 follows the recorded kill [K]", () => {
     const bands: number[] = [];
     const roll = f.fight.rng.roll.bind(f.fight.rng);
     vi.spyOn(f.fight.rng, "roll").mockImplementation((damage: Range) => {
-      if (damage === P3.insolenceDamage) bands.push(f.fight.tick - I);
+      if (same(damage, P3.insolenceDamage)) bands.push(f.fight.tick - I);
       return roll(damage);
     });
     f.tickTo(S + 210, f.stayInReach);
@@ -353,7 +354,7 @@ describe("phase 3 follows the recorded kill [K]", () => {
     const slashes: number[] = [];
     const roll = f.fight.rng.roll.bind(f.fight.rng);
     vi.spyOn(f.fight.rng, "roll").mockImplementation((damage: Range) => {
-      if (damage === P3.slashDamage) slashes.push(f.fight.tick - S);
+      if (same(damage, P3.slashDamage)) slashes.push(f.fight.tick - S);
       return roll(damage);
     });
     f.tickTo(S + 8, f.stayInReach);
@@ -379,7 +380,7 @@ describe("phase 3 follows the recorded kill [K]", () => {
     const detonations: number[] = [];
     const roll = f.fight.rng.roll.bind(f.fight.rng);
     vi.spyOn(f.fight.rng, "roll").mockImplementation((damage: Range) => {
-      if (damage === P3.riftDetonationDamage) detonations.push(f.fight.tick);
+      if (same(damage, P3.riftDetonationDamage)) detonations.push(f.fight.tick);
       return roll(damage);
     });
     // Drop the first quadrant mid-spin; rifts come 3 ticks into the next one.

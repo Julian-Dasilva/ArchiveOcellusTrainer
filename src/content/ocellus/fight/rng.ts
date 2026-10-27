@@ -1,4 +1,4 @@
-import type { Range } from "./data";
+import type { Range } from "../full/data/looks";
 
 /** Seeded mulberry32, so a run replays from its seed. */
 export class Rng {
