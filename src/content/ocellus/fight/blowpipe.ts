@@ -73,8 +73,12 @@ export class OcellusBlowpipe extends Blowpipe {
 
 export function dressFullFight(player: Player, worn: Setup): void {
   dress(player, defaultLoadout(worn));
+  const replaced = player.equipment.weapon;
   const blowpipe = new OcellusBlowpipe();
   player.equipment.weapon = blowpipe;
+  const open = player.inventory.findIndex((slot) => slot === null || slot === undefined);
+  const index = open === -1 ? player.inventory.length - 1 : open;
+  if (replaced && index >= 0) player.inventory[index] = replaced;
   player.equipmentChanged();
   AttackStylesController.controller.setWeaponAttackStyle(blowpipe, AttackStyle.RAPID);
 }

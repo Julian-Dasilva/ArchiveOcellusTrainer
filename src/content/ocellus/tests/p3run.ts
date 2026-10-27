@@ -1,10 +1,10 @@
-import { AttackStyle, AttackStylesController, Blowpipe, Settings, TrainerInstance, Viewport } from "osrs-sdk";
+import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import type { ScriptEvent } from "../../../sim/script";
 import type { ATile, Body, Quadrant } from "../fight/geometry";
 import { QUADRANTS, at, distanceToBody, quadrantOf, quadrantTiles } from "../fight/geometry";
+import { dressFullFight } from "../fight/blowpipe";
 import { FightPlayer } from "../fight/units";
-import { dress } from "../js/OcellusLoadout";
-import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
+import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { P3 } from "../full/data/p3";
 import type { FullFightOptions } from "../full/prefix";
 import { FightRegion } from "../full/prefix";
@@ -27,11 +27,7 @@ export function startP3(options: P3RunOptions = {}) {
   };
   const region = new FightRegion(fight, (player) => {
     if (!options.setup) return;
-    dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options[options.setup].value));
-    const blowpipe = new Blowpipe();
-    player.equipment.weapon = blowpipe;
-    player.equipmentChanged();
-    AttackStylesController.controller.setWeaponAttackStyle(blowpipe, AttackStyle.RAPID);
+    dressFullFight(player, OCELLUS_P4.choices.setup.options[options.setup].value);
   });
   const trainer = new TrainerInstance(region, { force2d: true });
   trainer.mount(document.createElement("canvas"), document.createElement("div"));
