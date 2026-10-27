@@ -8,13 +8,20 @@ type Run = ReturnType<typeof startP2>;
 function drawnThrough(f: Run, unit: () => Unit, ticks: number) {
   const points: Location3[] = [];
   let ms = 0;
-  for (let t = 0; t < ticks; t++) {
-    f.tickOnce();
-    for (let i = 0; i < 40; i++) {
-      ms += 15;
-      f.region.world.clientTick(f.region, i / 40, ms);
-      points.push(unit().getPerceivedLocation(i / 40));
+  // The draw blends across 20ms of performance.now and ignores the timestamp clientTick stored.
+  const clock = performance.now;
+  performance.now = () => ms + 20;
+  try {
+    for (let t = 0; t < ticks; t++) {
+      f.tickOnce();
+      for (let i = 0; i < 40; i++) {
+        ms += 15;
+        f.region.world.clientTick(f.region, i / 40, ms);
+        points.push(unit().getPerceivedLocation(i / 40));
+      }
     }
+  } finally {
+    performance.now = clock;
   }
   const round = (n: number) => Math.round(n * 100) / 100;
   const largestStep = points.slice(1).reduce((most, p, i) => Math.max(most, Math.hypot(p.x - points[i].x, p.y - points[i].y)), 0);

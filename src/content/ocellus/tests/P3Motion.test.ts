@@ -11,13 +11,20 @@ type Run = ReturnType<typeof startP3>;
 function drawnThrough(f: Run, unit: () => Unit, ticks: number) {
   const points: Location3[] = [];
   let ms = 0;
-  for (let t = 0; t < ticks; t++) {
-    f.tickOnce();
-    for (let i = 0; i < 40; i++) {
-      ms += 15;
-      f.region.world.clientTick(f.region, i / 40, ms);
-      points.push(unit().getPerceivedLocation(i / 40));
+  // The draw blends across 20ms of performance.now and ignores the timestamp clientTick stored.
+  const clock = performance.now;
+  performance.now = () => ms + 20;
+  try {
+    for (let t = 0; t < ticks; t++) {
+      f.tickOnce();
+      for (let i = 0; i < 40; i++) {
+        ms += 15;
+        f.region.world.clientTick(f.region, i / 40, ms);
+        points.push(unit().getPerceivedLocation(i / 40));
+      }
     }
+  } finally {
+    performance.now = clock;
   }
   const round = (n: number) => Math.round(n * 100) / 100;
   const largestStep = points.slice(1).reduce((most, p, i) => Math.max(most, Math.hypot(p.x - points[i].x, p.y - points[i].y)), 0);
@@ -60,7 +67,7 @@ describe("phase 3 moves on screen without a jump", () => {
     // From arena (5, -3) he walks to the bank and hops the east arm's stones to (10, 2), SDK (24, 12).
     expect({ from: crossing.where(0), to: crossing.where(399), largestStep: crossing.largestStep, here: f.here() }).toEqual({
       from: { x: 18.98, y: 16.98, z: 0 },
-      to: { x: 24, y: 12.07, z: 0 },
+      to: { x: 24, y: 12, z: 0 },
       largestStep: 0.13,
       here: at(10, 2),
     });
