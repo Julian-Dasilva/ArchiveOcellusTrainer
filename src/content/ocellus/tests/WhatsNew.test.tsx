@@ -85,8 +85,8 @@ describe("What's new", () => {
     page.click("whats_new");
     const { releases } = whatsNew(page);
     page.close();
-    expect({ settingsDot, menuDot, unshipped: releases.slice(0, 2).map((release) => release.version), next: releases[2] }).toEqual({
-      settingsDot: true, menuDot: true, unshipped: ["2026.10.26.2", "2026.10.26.1"], next: NEXT_RELEASE,
+    expect({ settingsDot, menuDot, unshipped: releases.slice(0, 3).map((release) => release.version), next: releases[3] }).toEqual({
+      settingsDot: true, menuDot: true, unshipped: ["2026.10.27", "2026.10.26.2", "2026.10.26.1"], next: NEXT_RELEASE,
     });
   });
 

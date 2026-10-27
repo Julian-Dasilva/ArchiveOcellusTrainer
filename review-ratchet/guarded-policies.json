@@ -103,6 +103,20 @@
         {
           "policy": "each note prints as a Markdown list item under the version heading",
           "mutation": [{ "find": "`- ${note}`", "replace": "`* ${note}`" }]
+        },
+        {
+          "policy": "notes since a version leave that version out",
+          "mutation": [{ "find": "  return false;\n}", "replace": "  return true;\n}" }]
+        }
+      ]
+    },
+    {
+      "path": "scripts/release-build.sh",
+      "tests": ["scripts/release-build.test.sh"],
+      "policies": [
+        {
+          "policy": "a set analytics token refuses the release build",
+          "mutation": [{ "find": "if [[ -n \"${CF_WEB_ANALYTICS_TOKEN:-}\" ]]; then\n  echo \"release-build: CF_WEB_ANALYTICS_TOKEN is set, so this build would ship the analytics beacon\" >&2\n  exit 1\nfi\n", "replace": "" }]
         }
       ]
     },

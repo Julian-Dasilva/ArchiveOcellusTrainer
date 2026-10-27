@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { ComponentType, LazyExoticComponent } from "react";
+import type { ComponentType, LazyExoticComponent, ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { CacheRender, ControlPanelController, SETTINGS_STORAGE_KEY, Settings, SoundCache, TrainerInstance, TrainerLoadingState, Viewport } from "osrs-sdk";
 import type { Item, SettingsState } from "osrs-sdk";
@@ -25,6 +25,7 @@ import { CHANGELOG } from "./content/ocellus/changelog";
 import type { ReleaseVersion } from "./releases";
 import { releaseDate } from "./releases";
 import { keepHoverTextOnCanvas } from "./hoverText";
+import { useKeepChatAboveInventory } from "./placeChat";
 import { loadWebAnalytics, perfDataAllowed, setPerfDataAllowed, startPerfTelemetry } from "./telemetry/perfTelemetry";
 import { reportUnservedAssets } from "./servedAssets";
 import { CONTRIBUTOR, CREDIT_LINE, MAKER, MAKER_LINKS } from "./menu/credits";
@@ -704,6 +705,7 @@ function GameChat({ region }: Readonly<{ region: Readonly<{ chat(): readonly str
     }), CHAT_POLL_MS);
     return () => window.clearInterval(poll);
   }, [region]);
+  useKeepChatAboveInventory(lines.join("\n"));
 
   return (
     <ol id="game_chat">
@@ -720,12 +722,73 @@ function DrillApp() {
   return opening.kind === "open" ? <TrainerPage {...opening.opened} /> : null;
 }
 
+type FightNotice = ComponentType<{ failed: boolean }>;
+
+type FightLoad =
+  | Readonly<{ status: "booting" }>
+  | Readonly<{ status: "loading"; Notice: FightNotice }>
+  | Readonly<{ status: "ready"; Page: ComponentType; Notice: FightNotice }>
+  | Readonly<{ status: "failed"; Notice: FightNotice }>;
+
+type BoundaryProps = Readonly<{ fallback: ReactNode; children: ReactNode }>;
+type BoundaryState = Readonly<{ failed: boolean }>;
+
+class FullFightBoundary extends React.Component<BoundaryProps, BoundaryState> {
+  override state: BoundaryState = { failed: false };
+
+  static getDerivedStateFromError(): BoundaryState {
+    return { failed: true };
+  }
+
+  override render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
 function FullFightShell() {
-  const [Page, setPage] = useState<React.ComponentType | null>(null);
+  const [load, setLoad] = useState<FightLoad>({ status: "booting" });
   useEffect(() => {
-    if (process.env.ARCHIVE_FULL === "on") void import("./content/ocellus/full/page").then(({ FullFightPage }) => setPage(() => FullFightPage));
+    if (process.env.ARCHIVE_FULL !== "on") return;
+    let live = true;
+    void import("./loadFullChunks").then((loaded) => loaded.loadSidebar().then((sidebar) => {
+      if (!live) return;
+      const Notice = sidebar.FightLoadNotice;
+      setLoad({ status: "loading", Notice });
+      return loaded.loadFullFightPage().then(
+        (page) => { if (live) setLoad({ status: "ready", Page: page.FullFightPage, Notice }); },
+        () => { if (live) setLoad({ status: "failed", Notice }); },
+      );
+    })).catch(() => {
+      if (!live) return;
+      setLoad((current) => (current.status === "loading" ? { status: "failed", Notice: current.Notice } : current));
+    });
+    return () => { live = false; };
   }, []);
-  return Page ? <Page /> : null;
+  switch (load.status) {
+    case "booting":
+      return null;
+    case "loading": {
+      const Notice = load.Notice;
+      return <Notice failed={false} />;
+    }
+    case "failed": {
+      const Notice = load.Notice;
+      return <Notice failed />;
+    }
+    case "ready": {
+      const Page = load.Page;
+      const Notice = load.Notice;
+      return (
+        <FullFightBoundary fallback={<Notice failed />}>
+          <Page />
+        </FullFightBoundary>
+      );
+    }
+    default: {
+      const unhandled: never = load;
+      return unhandled;
+    }
+  }
 }
 
 export function ArchiveOcellusApp() {
@@ -735,7 +798,7 @@ export function ArchiveOcellusApp() {
 }
 
 /** The sidebar loads behind a test of the raw build variable, which webpack folds, so a build with ARCHIVE_FULL off contains none of it. */
-const loadSidebar = () => (process.env.ARCHIVE_FULL === "on" ? lazy(() => import("./menu/Sidebar")) : null);
+const loadSidebar = () => (process.env.ARCHIVE_FULL === "on" ? lazy(() => import("./loadFullChunks").then((loaded) => loaded.loadSidebar())) : null);
 
 function TrainerPage({ trainer, clock, drill, flags, unreadableLoadout }: Opened) {
   const [loading, setLoading] = useState<TrainerLoadingState>();
