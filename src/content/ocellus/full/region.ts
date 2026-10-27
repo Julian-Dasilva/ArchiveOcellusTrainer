@@ -1,4 +1,4 @@
-import { CacheRenderModel, CacheRenderReferences, CardinalDirection, TileMarker } from "osrs-sdk";
+import { CacheRender, CacheRenderModel, CacheRenderReferences, CardinalDirection, TileMarker } from "osrs-sdk";
 import type { Entity, Player, Region } from "osrs-sdk";
 import type { FloorState } from "../fight/arena";
 import { ArenaFloor, fullRoom } from "../fight/arena";
@@ -10,7 +10,7 @@ import { GRID, at, fromSdk, toSdk } from "../fight/geometry";
 import type { LocView } from "../fight/locs";
 import { LocField } from "../fight/locs";
 import { FightPlayer } from "../fight/units";
-import { warmStartPhase } from "../fight/warmup";
+import { releasePhase1Actors, warmPhase1Actors, warmStartPhase } from "../fight/warmup";
 import type { DrillConfig } from "../js/OcellusTimings";
 import { fullFightConfig } from "../js/OcellusTimings";
 import type { P4Entry, P4Watch } from "../js/p4/phase";
@@ -228,7 +228,11 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
   override reset(startWorld = true): { player: Player } {
     const result = super.reset(false);
     this.dress(result.player);
-    if (startWorld) this.world.startTicking();
+    this.warmHeldGraphics();
+    if (startWorld) {
+      this.preloadHeldGraphics();
+      this.world.startTicking();
+    }
     this.listeners.forEach((listener) => listener());
     return result;
   }
@@ -275,9 +279,34 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
   override async preload(): Promise<void> {
     const anchor = this.entities[0];
     const start = this.run.options.startPhase;
+    this.warmHeldGraphics();
     const boss = anchor ? CacheRenderModel.forRenderable(anchor, CacheRenderReferences.npc(START_NPC[start])).preload() : Promise.resolve();
     const spots = anchor ? warmStartPhase(anchor, start) : Promise.resolve();
     await Promise.all([super.preload(), boss, spots]);
+    this.releaseHeldGraphics();
+  }
+
+  private phase1Hosts() {
+    const phase1 = this.run.options.startPhase === 1 ? this.p1.mounted : null;
+    const player = this.players[0];
+    if (!phase1 || !player || !CacheRender.isConfigured()) return null;
+    return { boss: phase1.boss, player };
+  }
+
+  private warmHeldGraphics(): void {
+    const hosts = this.phase1Hosts();
+    if (hosts) warmPhase1Actors(hosts);
+  }
+
+  private releaseHeldGraphics(): void {
+    const hosts = this.phase1Hosts();
+    if (hosts) releasePhase1Actors(hosts);
+  }
+
+  private preloadHeldGraphics(): void {
+    const hosts = this.phase1Hosts();
+    if (!hosts) return;
+    void Promise.all([hosts.boss.preload(), hosts.player.preload()]).finally(() => releasePhase1Actors(hosts));
   }
 
   /** A death in phase 1 ends the run here. Phases 2 and 3 end their own, and P4 ends its own. */

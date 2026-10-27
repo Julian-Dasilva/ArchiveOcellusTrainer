@@ -8,6 +8,7 @@
 - Keep the project free: no ads, donations or paid features. Keep the credit line in the README and the app. Keep "RuneScape" and "Jagex" out of names.
 - Prove each change with the repository's verification skill before calling it done.
 - The verification recipe is `.claude/skills/verify-archive-ocellus/` (`scripts/verify.sh` runs it).
+- On an iteration run `scripts/verify.sh t0`. Before handoff run `scripts/verify.sh t1`. The full run is the CI summary. Read it with `scripts/verify.sh ci`.
 
 ## PStack
 - Before editing, load the `poteto-mode` skill from [PStack](https://github.com/cursor/plugins/tree/main/pstack) and the playbook that matches the task, such as feature, bug-fix or refactoring.
