@@ -10,7 +10,7 @@ import { GRID, at, fromSdk, toSdk } from "../fight/geometry";
 import type { LocView } from "../fight/locs";
 import { LocField } from "../fight/locs";
 import { FightPlayer } from "../fight/units";
-import { warmPhase1Actors, warmStartPhase } from "../fight/warmup";
+import { releasePhase1Actors, warmPhase1Actors, warmStartPhase } from "../fight/warmup";
 import type { DrillConfig } from "../js/OcellusTimings";
 import { fullFightConfig } from "../js/OcellusTimings";
 import type { P4Entry, P4Watch } from "../js/p4/phase";
@@ -229,7 +229,10 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
     const result = super.reset(false);
     this.dress(result.player);
     this.warmHeldGraphics();
-    if (startWorld) this.world.startTicking();
+    if (startWorld) {
+      this.preloadHeldGraphics();
+      this.world.startTicking();
+    }
     return result;
   }
 
@@ -279,13 +282,30 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
     const boss = anchor ? CacheRenderModel.forRenderable(anchor, CacheRenderReferences.npc(START_NPC[start])).preload() : Promise.resolve();
     const spots = anchor ? warmStartPhase(anchor, start) : Promise.resolve();
     await Promise.all([super.preload(), boss, spots]);
+    this.releaseHeldGraphics();
   }
 
-  /** Phase 1's actor graphics, attached before either model is created so the load builds the meshes. */
-  private warmHeldGraphics(): void {
+  private phase1Hosts() {
     const phase1 = this.run.options.startPhase === 1 ? this.p1.mounted : null;
     const player = this.players[0];
-    if (phase1 && player && CacheRender.isConfigured()) warmPhase1Actors({ boss: phase1.boss, player });
+    if (!phase1 || !player || !CacheRender.isConfigured()) return null;
+    return { boss: phase1.boss, player };
+  }
+
+  private warmHeldGraphics(): void {
+    const hosts = this.phase1Hosts();
+    if (hosts) warmPhase1Actors(hosts);
+  }
+
+  private releaseHeldGraphics(): void {
+    const hosts = this.phase1Hosts();
+    if (hosts) releasePhase1Actors(hosts);
+  }
+
+  private preloadHeldGraphics(): void {
+    const hosts = this.phase1Hosts();
+    if (!hosts) return;
+    void Promise.all([hosts.boss.preload(), hosts.player.preload()]).finally(() => releasePhase1Actors(hosts));
   }
 
   /** A death in phase 1 ends the run here. Phases 2 and 3 end their own, and P4 ends its own. */

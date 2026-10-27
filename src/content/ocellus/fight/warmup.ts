@@ -6,7 +6,7 @@ import { START_PHASES } from "../full/options";
 import { SOUND, SPOT } from "../full/data/looks";
 
 /**
- * The floor effects (`fight.spot`) each phase draws. A graphic builds its animation frames the first time it is
+ * The floor effects (`fight.spot`) each phase draws. A floor effect builds its animation frames the first time it is
  * used, which mid-fight cost a visible stall (phase 3's first bombs and shadow slash), so they are built ahead.
  */
 const FLOOR_SPOTS: Readonly<Record<StartPhase, readonly number[]>> = {
@@ -24,26 +24,40 @@ const FLOOR_SPOTS: Readonly<Record<StartPhase, readonly number[]>> = {
 
 type Actor = "boss" | "player";
 
+type WarmPlacement = Readonly<{ actor: Actor; id: number; channel: string }>;
+
 /**
  * Not a pose this actor plays. The unset pose is -1, so -1 would show the mesh until the first real pose.
- * The mesh stays hidden until the fight's own attach, on the same channel, replaces this one.
  */
 const HIDDEN_POSE = 1_000_000_000;
 
-/** Phase 1's actor graphics, on the channels the script uses. */
-const PHASE1_ACTOR_SPOTS: readonly (readonly [Actor, number, string])[] = [
-  ["boss", SPOT.waterOnBoss, "volley"],
-  ["boss", SPOT.fireOnBoss, "volley"],
-  ["player", SPOT.waterImpact, "p1-impact"],
-  ["player", SPOT.fireImpact, "p1-impact"],
-  ["boss", SPOT.p1Charge, "charge"],
-  ["boss", SPOT.p1ExplodeOnBoss, "explode"],
-  ["boss", SPOT.p1TeleportOut, "teleport"],
-  ["boss", SPOT.p1TeleportIn, "teleport"],
-  ["boss", SPOT.p1ToP2, "transform"],
-];
+const PHASE1_ACTOR_GRAPHICS = [
+  ["boss", SPOT.waterOnBoss],
+  ["boss", SPOT.fireOnBoss],
+  ["player", SPOT.waterImpact],
+  ["player", SPOT.fireImpact],
+  ["boss", SPOT.p1Charge],
+  ["boss", SPOT.p1ExplodeOnBoss],
+  ["boss", SPOT.p1TeleportOut],
+  ["boss", SPOT.p1TeleportIn],
+  ["boss", SPOT.p1ToP2],
+] as const;
 
-type SpotHost = Readonly<{ addSpotAnim: (spot: { id: number; channel?: string; animation?: number }) => void }>;
+type SpotHost = Readonly<{
+  addSpotAnim: (spot: { id: number; channel?: string; animation?: number }) => void;
+  clearSpotAnim: (channel: string) => void;
+}>;
+
+/** One channel per graphic id. A shared channel would drop the first graphic before its mesh exists. */
+export function warmPlacements(entries: readonly (readonly [Actor, number])[]): readonly WarmPlacement[] {
+  const placements = entries.map(([actor, id]) => ({ actor, id, channel: `p1-warm-${id}` }));
+  if (new Set(placements.map((spot) => spot.channel)).size !== placements.length) {
+    throw new Error("phase 1 warm graphics share a channel");
+  }
+  return placements;
+}
+
+const PHASE1_WARM = warmPlacements(PHASE1_ACTOR_GRAPHICS);
 
 type Job = () => Promise<unknown>;
 
@@ -70,10 +84,9 @@ function floorSpot(anchor: Renderable, id: number): Job {
   };
 }
 
-/** The start phase's graphics, built behind the loading splash so its first attacks don't stall. */
+/** The start phase's floor effects, built behind the loading splash so its first attacks don't stall. */
 export function warmStartPhase(anchor: Renderable, start: StartPhase): Promise<unknown> {
-  const spots = FLOOR_SPOTS[start].map((id) => floorSpot(anchor, id)());
-  return Promise.all(spots.map((ready) => ready.catch(() => undefined)));
+  return Promise.all(FLOOR_SPOTS[start].map((id) => floorSpot(anchor, id)().catch(() => undefined)));
 }
 
 /**
@@ -81,9 +94,15 @@ export function warmStartPhase(anchor: Renderable, start: StartPhase): Promise<u
  * first real attach finds the mesh and does not convert its colours mid-tick.
  */
 export function warmPhase1Actors(actors: Readonly<Record<Actor, SpotHost>>): void {
-  for (const [actor, id, channel] of PHASE1_ACTOR_SPOTS) {
-    actors[actor].addSpotAnim({ id, channel, animation: HIDDEN_POSE });
-  }
+  for (const spot of PHASE1_WARM) actors[spot.actor].addSpotAnim({ id: spot.id, channel: spot.channel, animation: HIDDEN_POSE });
+}
+
+/**
+ * Call once those models finish preload. The renderer shows the first placement of a graphic id, so a warm
+ * placement left attached hides the fight's own later placement of that id. The built mesh stays.
+ */
+export function releasePhase1Actors(actors: Readonly<Record<Actor, SpotHost>>): void {
+  for (const spot of PHASE1_WARM) actors[spot.actor].clearSpotAnim(spot.channel);
 }
 
 /**
