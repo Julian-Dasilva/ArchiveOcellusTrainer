@@ -129,6 +129,8 @@ export class Fight implements BossHooks, PlayerHooks {
   private markerEntities: Entity[] = [];
   private skipEntities: Entity[] = [];
   private skipTiles: boolean;
+  /** Hazard highlights, copied from the options so the sidebar can switch them during the fight. */
+  private showHazardTiles: boolean;
   private voidLayers = new Map<string, readonly ATile[]>();
   private voidVersion = 0;
   private voidCache: Readonly<{ key: string; tiles: readonly ATile[] }> = { key: "0", tiles: [] };
@@ -139,6 +141,7 @@ export class Fight implements BossHooks, PlayerHooks {
     this.poolMax = scaledHp(P2.hp, options.party);
     this.practice = options.invincible;
     this.skipTiles = options.skipMarkers;
+    this.showHazardTiles = options.hazardTiles;
     this.makePhase = makePhase;
     player.hooks = this;
     for (const q of QUADRANTS) this.censers.set(q, { tile: CENSERS[q].tile, god: CENSERS[q].god, lit: false });
@@ -426,7 +429,7 @@ export class Fight implements BossHooks, PlayerHooks {
   // ---- presentation -----------------------------------------------------------------------------------------------
 
   marks(): readonly TileMark[] {
-    if (!this.options.hazardTiles || !this.phase) return [];
+    if (!this.showHazardTiles || !this.phase) return [];
     return this.phase.marks();
   }
 
@@ -452,6 +455,14 @@ export class Fight implements BossHooks, PlayerHooks {
 
   get skipMarkers(): boolean {
     return this.skipTiles;
+  }
+
+  get hazardTiles(): boolean {
+    return this.showHazardTiles;
+  }
+
+  setHazardTiles(on: boolean): void {
+    this.showHazardTiles = on;
   }
 
   /** The sidebar's phase 2 skip tiles: switchable mid-fight, shown while phase 2 runs. */

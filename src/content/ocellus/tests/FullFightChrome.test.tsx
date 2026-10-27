@@ -1,7 +1,8 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { ControlPanelController } from "osrs-sdk";
+import { ControlPanelController, Trainer } from "osrs-sdk";
 import { CHANGELOG } from "../changelog";
+import { FightRegion } from "../fight/FightRegion";
 import { FullFightApp } from "../../../FullFightApp";
 
 const POLICY = "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.";
@@ -74,7 +75,9 @@ describe("the full fight page", () => {
       lines: [...credits.querySelectorAll("li")].map((line) => line.textContent),
       links: [...credits.querySelectorAll("a")].map((link) => [link.textContent, link.href]),
       phase: phaseValue(page.element("start_phase")),
+      aids: page.element("learning_aids").querySelector(".sidebar_title")?.textContent ?? null,
       danger: page.checked("hazard_tiles"),
+      dangerInAids: page.element("learning_aids").contains(page.element("hazard_tiles")),
       markers: page.checked("video_markers"),
       practice: page.checked("practice"),
       tipsTitle: page.element("phase_tips").querySelector(".sidebar_title")?.textContent ?? null,
@@ -101,7 +104,9 @@ describe("the full fight page", () => {
         ["Alessandro Rodi", "https://x.com/alrodi"],
       ],
       phase: "1",
+      aids: "Learning aids",
       danger: true,
+      dangerInAids: true,
       markers: false,
       practice: false,
       tipsTitle: "Phase 1",
@@ -138,4 +143,80 @@ describe("the full fight page", () => {
       ],
     });
   });
+
+  test("danger tiles start on, the toggle hides them, and a reload keeps the choice", () => {
+    const page = loadFullFight("/?mode=full&phase=1&seed=1");
+    const region = fightRegion();
+    const fight = region.fight;
+    if (!fight) throw new Error("the region built no fight");
+    region.world.getReadyTimer = 0;
+    let ticks = 0;
+    for (; ticks < 80 && fight.marks().length === 0; ticks++) region.world.tickWorld();
+    const shown = fight.marks().length;
+    page.click("hazard_tiles");
+    const hidden = { marks: fight.marks().length, checked: page.checked("hazard_tiles"), search: window.location.search };
+    page.click("hazard_tiles");
+    const restored = { marks: fight.marks().length, checked: page.checked("hazard_tiles"), search: window.location.search };
+    page.close();
+
+    const saved = loadFullFight("/?mode=full&phase=1&seed=1&tiles=0");
+    const savedRegion = fightRegion();
+    const savedFight = savedRegion.fight;
+    if (!savedFight) throw new Error("the region built no fight");
+    savedRegion.world.getReadyTimer = 0;
+    for (let i = 0; i < ticks; i++) savedRegion.world.tickWorld();
+    const off = { marks: savedFight.marks().length, checked: saved.checked("hazard_tiles") };
+    saved.close();
+
+    expect(shown).toBeGreaterThan(0);
+    expect({ hidden, restored, off }).toEqual({
+      hidden: { marks: 0, checked: false, search: "?mode=full&phase=1&seed=1&tiles=0" },
+      restored: { marks: shown, checked: true, search: "?mode=full&phase=1&seed=1&tiles=1" },
+      off: { marks: 0, checked: false },
+    });
+  });
+
+  test("the death dialog and the clear screen link both accounts, ours first", () => {
+    const read = () => {
+      const line = document.querySelector(".fight-result-follow");
+      if (!(line instanceof HTMLParagraphElement)) throw new Error("the page has no update line");
+      return {
+        heading: document.querySelector(".fight-result h2")?.textContent ?? null,
+        text: line.textContent,
+        links: [...line.querySelectorAll("a")].map((link) => [link.textContent, link.href]),
+      };
+    };
+
+    const dead = loadFullFight("/?mode=full&phase=1&seed=1");
+    const lost = fightRegion().fight;
+    if (!lost) throw new Error("the region built no fight");
+    act(() => lost.lose("a hit"));
+    const death = read();
+    dead.close();
+
+    const clear = loadFullFight("/?mode=full&phase=1&seed=1");
+    const won = fightRegion().fight;
+    if (!won) throw new Error("the region built no fight");
+    act(() => won.win());
+    const victory = read();
+    clear.close();
+
+    const line = {
+      text: "Updates and new sims: @ShadowJdas and @alrodi on X",
+      links: [
+        ["@ShadowJdas", "https://x.com/ShadowJdas"],
+        ["@alrodi", "https://x.com/alrodi"],
+      ],
+    };
+    expect({ death, victory }).toEqual({
+      death: { heading: "Oh dear, you are dead!", ...line },
+      victory: { heading: "Ocellus defeated", ...line },
+    });
+  });
 });
+
+function fightRegion(): FightRegion {
+  const region = Trainer.player.region;
+  if (!(region instanceof FightRegion)) throw new Error("the trainer is not the full fight");
+  return region;
+}

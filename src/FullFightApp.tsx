@@ -4,6 +4,8 @@ import type { Player, Region, TrainerLoadingState } from "osrs-sdk";
 import { GameOverlay, RuneScapeButton, TrainerApp, useSettingsSnapshot } from "osrs-sdk-react";
 import { CREDIT_LINE, readSettings } from "./ArchiveOcellusApp";
 import { CHANGELOG } from "./content/ocellus/changelog";
+import type { CreditLink } from "./menu/credits";
+import { CONTRIBUTOR, MAKER_LINKS } from "./menu/credits";
 import Sidebar from "./menu/Sidebar";
 import { dress } from "./content/ocellus/js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "./content/ocellus/js/OcellusTimings";
@@ -21,12 +23,21 @@ declare global {
     __fullFightProbe?: Readonly<{
       snapshot(): FullFightSnapshot;
       tileCentre(at: ATile): Readonly<{ x: number; y: number }> | null;
+      die(): void;
     }>;
   }
 }
 
-const FOLLOW_URL = "https://x.com/alrodi";
 const CHAT_LINES_SHOWN = 5;
+
+function xHandle(link: CreditLink): CreditLink {
+  return { label: `@${new URL(link.href).pathname.replace(/^\//, "")}`, href: link.href };
+}
+
+const UPDATE_LINKS: readonly CreditLink[] = [
+  ...MAKER_LINKS.filter((link) => new URL(link.href).host === "x.com").map(xHandle),
+  xHandle(CONTRIBUTOR),
+];
 const [LATEST_RELEASE] = CHANGELOG;
 
 type Setup = "ranged" | "melee";
@@ -237,11 +248,18 @@ function Result({ fight, params }: Readonly<{ fight: Fight; params: Params }>) {
         {outcome.kind === "won" ? "Challenge complete" : "You fell"} after <b>{formatTicks(outcome.ticks)}</b> ({outcome.ticks} ticks), in {fight.label().toLowerCase()}.
       </p>
       <div className="fight-result-buttons">
-        <RuneScapeButton type="button" onClick={() => writeParams({ ...params, invincible: fight.practice, skipMarkers: fight.skipMarkers })}>Try again</RuneScapeButton>
-        <RuneScapeButton type="button" onClick={() => writeParams({ ...params, invincible: fight.practice, skipMarkers: fight.skipMarkers }, false)}>Same seed</RuneScapeButton>
+        <RuneScapeButton type="button" onClick={() => writeParams({ ...params, hazardTiles: fight.hazardTiles, invincible: fight.practice, skipMarkers: fight.skipMarkers })}>Try again</RuneScapeButton>
+        <RuneScapeButton type="button" onClick={() => writeParams({ ...params, hazardTiles: fight.hazardTiles, invincible: fight.practice, skipMarkers: fight.skipMarkers }, false)}>Same seed</RuneScapeButton>
       </div>
       <p className="fight-result-follow">
-        Updates and new sims: <a href={FOLLOW_URL} target="_blank" rel="noreferrer">@alrodi on X</a>
+        Updates and new sims:{" "}
+        {UPDATE_LINKS.map((link, index) => (
+          <React.Fragment key={link.href}>
+            {index > 0 && " and "}
+            <a href={link.href} target="_blank" rel="noreferrer">{link.label}</a>
+          </React.Fragment>
+        ))}
+        {" on X"}
       </p>
     </div>
   );
@@ -273,7 +291,7 @@ function FullFightControls({ params, region }: Readonly<{ params: Params; region
   const [draft, setDraft] = useState<Params>(params);
   const { playsAudio, playsAreaAudio } = useSettingsSnapshot();
   const set = (patch: Partial<Params>) => setDraft((current) => ({ ...current, ...patch }));
-  const changedAtLoad = (["startPhase", "setup", "hazardTiles", "videoMarkers", "soloVine"] as const).some((key) => draft[key] !== params[key]);
+  const changedAtLoad = (["startPhase", "setup", "videoMarkers", "soloVine"] as const).some((key) => draft[key] !== params[key]);
   const setSound = (patch: Readonly<{ playsAudio: boolean } | { playsAreaAudio: boolean }>) => {
     Settings.set(patch);
     void SoundCache.context?.resume();
@@ -294,10 +312,6 @@ function FullFightControls({ params, region }: Readonly<{ params: Params; region
           <option value="ranged">Ranged (Twisted bow, Masori)</option>
           <option value="melee">Melee (Scythe, Inquisitor's)</option>
         </select>
-      </label>
-      <label>
-        Highlight danger tiles
-        <input id="hazard_tiles" type="checkbox" checked={draft.hazardTiles} onChange={(event) => set({ hazardTiles: event.target.checked })} />
       </label>
       <label>
         Community tile markers
@@ -321,6 +335,23 @@ function FullFightControls({ params, region }: Readonly<{ params: Params; region
           }}
         />
       </label>
+      <section id="learning_aids">
+        <div className="sidebar_title">Learning aids</div>
+        <label>
+          Highlight danger tiles
+          <input
+            id="hazard_tiles"
+            type="checkbox"
+            checked={draft.hazardTiles}
+            onChange={(event) => {
+              const on = event.target.checked;
+              set({ hazardTiles: on });
+              region.setHazardTiles(on);
+              rememberFlag("tiles", on);
+            }}
+          />
+        </label>
+      </section>
       <label>
         Sound effects
         <input id="sound" type="checkbox" checked={playsAudio} onChange={(event) => setSound({ playsAudio: event.target.checked })} />
@@ -376,6 +407,7 @@ function exposeProbe(trainer: TrainerInstance, region: FightRegion): void {
       };
     },
     tileCentre: (at) => Viewport.viewport.projectTile(toSdk(at), trainer.getSnapshot().world),
+    die: () => region.fight?.lose("fell"),
   });
 }
 
