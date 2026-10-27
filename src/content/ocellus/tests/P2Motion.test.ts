@@ -8,13 +8,19 @@ type Run = ReturnType<typeof startP2>;
 function drawnThrough(f: Run, unit: () => Unit, ticks: number) {
   const points: Location3[] = [];
   let ms = 0;
-  for (let t = 0; t < ticks; t++) {
-    f.tickOnce();
-    for (let i = 0; i < 40; i++) {
-      ms += 15;
-      f.region.world.clientTick(f.region, i / 40, ms);
-      points.push(unit().getPerceivedLocation(i / 40));
+  // The draw blends with performance.now(). Reading at the client-tick timestamp keeps the point off process uptime.
+  const now = vi.spyOn(performance, "now").mockImplementation(() => ms);
+  try {
+    for (let t = 0; t < ticks; t++) {
+      f.tickOnce();
+      for (let i = 0; i < 40; i++) {
+        ms += 15;
+        f.region.world.clientTick(f.region, i / 40, ms);
+        points.push(unit().getPerceivedLocation(i / 40));
+      }
     }
+  } finally {
+    now.mockRestore();
   }
   const round = (n: number) => Math.round(n * 100) / 100;
   const largestStep = points.slice(1).reduce((most, p, i) => Math.max(most, Math.hypot(p.x - points[i].x, p.y - points[i].y)), 0);
@@ -36,7 +42,7 @@ describe("phase 2 moves on screen without a jump", () => {
     f.player().hop(at(1, 0));
     const shove = drawnThrough(f, f.player, 1);
     expect({ from: shove.where(0), to: shove.where(39), largestStep: shove.largestStep, here: f.here() }).toEqual({
-      from: { x: 15, y: 13.97, z: 0 },
+      from: { x: 15, y: 14, z: 0 },
       to: { x: 15, y: 13, z: 0 },
       largestStep: 0.07,
       here: at(1, 1),
@@ -54,8 +60,8 @@ describe("phase 2 moves on screen without a jump", () => {
     const escaped = f.ofKind("escaped").find(([tick]) => tick === 45);
     if (!escaped || escaped[1].kind !== "escaped") throw new Error("standing on the safe portal did not hop");
     expect({ from: hop.where(0), to: hop.where(39), largestStep: hop.largestStep, here: f.here() }).toEqual({
-      from: { x: 14.87, y: 17.13, z: 0 },
-      to: { x: 10.8, y: 20, z: 0 },
+      from: { x: 15, y: 17, z: 0 },
+      to: { x: 10.83, y: 20, z: 0 },
       largestStep: 0.19,
       here: escaped[1].to,
     });
