@@ -6,7 +6,7 @@ import { START_PHASES } from "../full/options";
 import { SOUND, SPOT } from "../full/data/looks";
 
 /**
- * The floor effects (`fight.spot`) each phase draws. A floor effect builds its animation frames the first time it is
+ * The floor effects (`fight.spot`) each phase draws. A graphic builds its animation frames the first time it is
  * used, which mid-fight cost a visible stall (phase 3's first bombs and shadow slash), so they are built ahead.
  */
 const FLOOR_SPOTS: Readonly<Record<StartPhase, readonly number[]>> = {
@@ -21,6 +21,29 @@ const FLOOR_SPOTS: Readonly<Record<StartPhase, readonly number[]>> = {
     SPOT.fallingDebris, SPOT.superiorSlash, SPOT.p2Pool, ...SPOT.unleashArena,
   ],
 };
+
+type Actor = "boss" | "player";
+
+/**
+ * Not a pose this actor plays. The unset pose is -1, so -1 would show the mesh until the first real pose.
+ * The mesh stays hidden until the fight's own attach, on the same channel, replaces this one.
+ */
+const HIDDEN_POSE = 1_000_000_000;
+
+/** Phase 1's actor graphics, on the channels the script uses. */
+const PHASE1_ACTOR_SPOTS: readonly (readonly [Actor, number, string])[] = [
+  ["boss", SPOT.waterOnBoss, "volley"],
+  ["boss", SPOT.fireOnBoss, "volley"],
+  ["player", SPOT.waterImpact, "p1-impact"],
+  ["player", SPOT.fireImpact, "p1-impact"],
+  ["boss", SPOT.p1Charge, "charge"],
+  ["boss", SPOT.p1ExplodeOnBoss, "explode"],
+  ["boss", SPOT.p1TeleportOut, "teleport"],
+  ["boss", SPOT.p1TeleportIn, "teleport"],
+  ["boss", SPOT.p1ToP2, "transform"],
+];
+
+type SpotHost = Readonly<{ addSpotAnim: (spot: { id: number; channel?: string; animation?: number }) => void }>;
 
 type Job = () => Promise<unknown>;
 
@@ -47,9 +70,20 @@ function floorSpot(anchor: Renderable, id: number): Job {
   };
 }
 
-/** The start phase's floor effects, built behind the loading splash so its first attacks don't stall. */
+/** The start phase's graphics, built behind the loading splash so its first attacks don't stall. */
 export function warmStartPhase(anchor: Renderable, start: StartPhase): Promise<unknown> {
-  return Promise.all(FLOOR_SPOTS[start].map((id) => floorSpot(anchor, id)().catch(() => undefined)));
+  const spots = FLOOR_SPOTS[start].map((id) => floorSpot(anchor, id)());
+  return Promise.all(spots.map((ready) => ready.catch(() => undefined)));
+}
+
+/**
+ * Call before the boss and player models are created. Their load builds a mesh for each attached graphic, so the
+ * first real attach finds the mesh and does not convert its colours mid-tick.
+ */
+export function warmPhase1Actors(actors: Readonly<Record<Actor, SpotHost>>): void {
+  for (const [actor, id, channel] of PHASE1_ACTOR_SPOTS) {
+    actors[actor].addSpotAnim({ id, channel, animation: HIDDEN_POSE });
+  }
 }
 
 /**
