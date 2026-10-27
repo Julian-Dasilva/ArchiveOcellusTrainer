@@ -1,4 +1,4 @@
-import { AttackStyle, AttackStylesController, Blowpipe } from "osrs-sdk";
+import { AttackStyle, AttackStylesController, Blowpipe, SaradominBrew } from "osrs-sdk";
 import type { Player, Weapon } from "osrs-sdk";
 import { wiki } from "../../../sim/provenance";
 import type { AmmunitionClass, Setup, Source, StanceSpeeds } from "../js/OcellusTimings";
@@ -76,8 +76,12 @@ export function dressFullFight(player: Player, worn: Setup): void {
   const replaced = player.equipment.weapon;
   const blowpipe = new OcellusBlowpipe();
   player.equipment.weapon = blowpipe;
+  let lastBrew = -1;
+  player.inventory.forEach((slot, i) => {
+    if (slot instanceof SaradominBrew) lastBrew = i;
+  });
   const open = player.inventory.findIndex((slot) => slot === null || slot === undefined);
-  const index = open === -1 ? player.inventory.length - 1 : open;
+  const index = open === -1 ? lastBrew : open;
   if (replaced && index >= 0) player.inventory[index] = replaced;
   player.equipmentChanged();
   AttackStylesController.controller.setWeaponAttackStyle(blowpipe, AttackStyle.RAPID);
