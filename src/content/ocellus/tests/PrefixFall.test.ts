@@ -1,6 +1,7 @@
 import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
-import type { Fight, StartPhase } from "../fight/Fight";
+import type { StartPhase } from "../fight/Fight";
 import { QUADRANTS, quadrantOf, quadrantTiles } from "../fight/geometry";
+import { FightPlayer } from "../fight/units";
 import type { FightRegion, FullFightOptions } from "../full/prefix";
 import { fullFightStaged } from "../full/prefix";
 import { dress } from "../js/OcellusLoadout";
@@ -23,34 +24,58 @@ function fullFight(startPhase: StartPhase, setup: "melee" | null = null) {
   region.world.getReadyTimer = 0;
   Viewport.viewport.resize(800, 600);
   close = () => trainer.dispose();
-  const fight = region.fight;
-  if (!fight) throw new Error("the region built no fight");
-  return { region, fight };
+  return region;
+}
+
+function player(region: FightRegion): FightPlayer {
+  const first = region.players[0];
+  if (!(first instanceof FightPlayer)) throw new Error("the region has no full-fight player");
+  return first;
+}
+
+function mountedP3(region: FightRegion) {
+  const p3 = region.p3.mounted;
+  if (!p3) throw new Error("phase 3 is not running");
+  return p3;
+}
+
+/** The running phase's name as the HUD shows it. */
+function label(region: FightRegion): string {
+  switch (region.current) {
+    case "prefix":
+      return region.fight?.label() ?? "";
+    case "p3":
+      return "Phase 3";
+    case "p4":
+      return "Phase 4";
+  }
 }
 
 /** Standing on a quadrant when it falls kills the player, so leave each one as it crumbles. */
-function stepOff(fight: Fight): void {
-  const here = quadrantOf(fight.playerTile);
-  const next = QUADRANTS.find((q) => q !== here && !fight.destroyed.has(q));
+function stepOff(region: FightRegion): void {
+  const here = quadrantOf(player(region).arenaTile());
+  const fallen = region.floorState().destroyed;
+  const next = QUADRANTS.find((q) => q !== here && !fallen.includes(q));
   if (!next) throw new Error("no quadrant left to stand on");
-  const floor = quadrantTiles(next).find((t) => fight.isWalkable(t));
+  const floor = quadrantTiles(next).find((t) => mountedP3(region).arena.isWalkable(t));
   if (!floor) throw new Error(`no floor in ${next}`);
-  fight.player.hop(floor);
+  player(region).hop(floor);
 }
 
 /** Phases 1 to 3 at speed: each pool drops to its floor at once, and the player leaves every crumbling quadrant. Returns the third fall's world tick. */
-function toThirdFall(region: FightRegion, fight: Fight, each: () => void = () => undefined): number {
+function toThirdFall(region: FightRegion, each: () => void = () => undefined): number {
   for (let step = 0; step < 2500; step++) {
     region.world.tickWorld();
-    if (fight.destroyed.size === 3) return region.world.globalTickCounter;
+    if (region.floorState().destroyed.length === 3) return region.world.globalTickCounter;
     each();
-    const boss = fight.boss;
-    const label = fight.label();
-    if (boss && label === "Phase 1" && boss.form === "p1" && boss.currentStats.hitpoint > 0) boss.currentStats.hitpoint = 0;
-    const floor = fight.phase?.hpFloor() ?? 0;
-    if (boss && label === "Phase 3" && boss.currentStats.hitpoint > floor) boss.currentStats.hitpoint = floor;
-    const crumbling = fight.floorState().crumbling;
-    if (crumbling.length > 0 && quadrantOf(fight.playerTile) === crumbling[0]) stepOff(fight);
+    const boss = region.fight?.boss;
+    if (region.current === "prefix" && boss && label(region) === "Phase 1" && boss.form === "p1" && boss.currentStats.hitpoint > 0) boss.currentStats.hitpoint = 0;
+    if (region.current === "p3") {
+      const { boss: his, script } = mountedP3(region);
+      his.currentStats.hitpoint = Math.min(his.currentStats.hitpoint, script.hpFloor(his.stats.hitpoint));
+      const crumbling = region.floorState().crumbling;
+      if (crumbling.length > 0 && quadrantOf(player(region).arenaTile()) === crumbling[0]) stepOff(region);
+    }
   }
   throw new Error("phase 3 never fell for the third time");
 }
@@ -61,13 +86,32 @@ function mountedP4(region: FightRegion) {
   return p4;
 }
 
+describe("phase 2 hands over to phase 3 on the engine", () => {
+  test("phase 3's tick 0 is P2's tick 131, his own phase 3's first tick, with the pool's HP as it stands", () => {
+    const region = fullFight(2);
+    for (let guard = 0; region.current === "prefix"; guard++) {
+      if (guard > 300) throw new Error("phase 2 never handed over");
+      if (region.fight?.tick === 120 && region.fight.boss) region.fight.boss.currentStats.hitpoint = 4321;
+      region.world.tickWorld();
+    }
+    region.world.tickWorld();
+    expect({
+      from: region.startOf("p3"),
+      his: region.fight?.tick,
+      p3: region.rows("p3").map((row) => [row.tick, row.worldTick - (region.rows("p3")[0]?.worldTick ?? 0)]),
+      hp: mountedP3(region).boss.currentStats.hitpoint,
+      labels: [region.fight?.label(), label(region)],
+    }).toEqual({ from: 131, his: 130, p3: [[0, 0]], hp: 4321, labels: ["Phase 2", "Phase 3"] });
+  });
+});
+
 describe("the third fall enters P4 in the same world", () => {
   test("seed 1 runs from phase 1 to P4's kill, and P4's section logs a deflected hit's reflection", () => {
-    const { region, fight } = fullFight(1, "melee");
+    const region = fullFight(1, "melee");
     const labels: string[] = [];
-    toThirdFall(region, fight, () => {
-      const label = fight.label();
-      if (label !== "" && labels[labels.length - 1] !== label) labels.push(label);
+    toThirdFall(region, () => {
+      const now = label(region);
+      if (now !== "" && labels[labels.length - 1] !== now) labels.push(now);
     });
     const p4 = region.p4.mounted;
     const reflected = () => region.rows("p4").some((row) => row.events.some((event) => event.kind === "deflect-reflected"));
@@ -84,14 +128,14 @@ describe("the third fall enters P4 in the same world", () => {
       run: p4?.ocellus.runState().kind ?? null,
       end: region.rows("p4").flatMap((row) => row.events.flatMap((event) => (event.kind === "run-ended" ? [event.reason] : []))),
       reflected: reflected(),
-    }).toEqual({ labels: ["Phase 1", "Phase 2", "Phase 3"], phases: ["prefix", "p4"], run: "ended", end: ["kill"], reflected: true });
+    }).toEqual({ labels: ["Phase 1", "Phase 2", "Phase 3"], phases: ["prefix", "p3", "p4"], run: "ended", end: ["kill"], reflected: true });
   }, 120000);
 
   test("P4 opens on the next world tick with no GET READY, and the boss is hidden for the 4 ticks from the fall", () => {
-    const { region, fight } = fullFight(3);
+    const region = fullFight(3);
     const shown: boolean[] = [];
-    const bossShown = () => (region.current === "p4" ? mountedP4(region).ocellus.visible() : fight.boss?.visible() === true);
-    const fellAt = toThirdFall(region, fight, () => {
+    const bossShown = () => (region.current === "p4" ? mountedP4(region).ocellus.visible() : mountedP3(region).boss.visible());
+    const fellAt = toThirdFall(region, () => {
       shown.splice(0, shown.length, bossShown());
     });
     shown.push(bossShown());
@@ -107,33 +151,27 @@ describe("the third fall enters P4 in the same world", () => {
     });
   });
 
-  test("phase 3's timers, mobs and entities stay behind, and his fight steps no more", () => {
-    const { region, fight } = fullFight(3);
-    const fired: number[] = [];
-    let set = false;
-    toThirdFall(region, fight, () => {
-      if (set || fight.floorState().crumbling.length === 0 || fight.destroyed.size < 2) return;
-      set = true;
-      fight.after(1, () => fired.push(fight.tick));
-      fight.after(30, () => fired.push(fight.tick));
-    });
-    const fellAt = fight.tick;
+  test("phase 3's mobs and entities stay behind, and it opens no tick after its fall", () => {
+    const region = fullFight(3);
+    toThirdFall(region);
+    const fellAt = region.rows("p3").at(-1)?.tick ?? -1;
     for (let world = 0; world < 40; world++) region.world.tickWorld();
     const counts: Record<string, number> = {};
     for (const entity of region.entities) counts[entity.constructor.name] = (counts[entity.constructor.name] ?? 0) + 1;
     const mobs = [...region.mobs, ...region.newMobs].map((mob) => mob.constructor.name);
-    expect({ fired: fired.map((t) => t - fellAt), hisTick: fight.tick - fellAt, mobs, counts }).toEqual({
-      fired: [-12],
-      hisTick: 0,
+    expect({ p3Ticks: (region.rows("p3").at(-1)?.tick ?? -1) - fellAt, mounted: region.p3.mounted, fallen: region.floorState().destroyed.length, mobs, counts }).toEqual({
+      p3Ticks: 0,
+      mounted: null,
+      fallen: 3,
       mobs: ["Ocellus"],
       counts: { ArenaFloor: 1, LocField: 1, InvisibleMovementBlocker: 48, VoidField: 1, FloorHole: 3, OrbView: 2, FragmentFlash: 1, BossFootprint: 1 },
     });
   });
 
   test("phase 3's drained Defence, which his own floor holds at 150, crosses into P4", () => {
-    const { region, fight } = fullFight(3);
-    toThirdFall(region, fight, () => {
-      if (fight.boss) fight.boss.currentStats.defence = 40;
+    const region = fullFight(3);
+    toThirdFall(region, () => {
+      if (region.p3.mounted) region.p3.mounted.boss.currentStats.defence = 40;
     });
     const { ocellus } = mountedP4(region);
     expect([ocellus.currentStats.defence, ocellus.stats.defence]).toEqual([150, 250]);

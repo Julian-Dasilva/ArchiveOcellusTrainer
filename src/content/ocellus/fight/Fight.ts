@@ -1,14 +1,14 @@
 import { InvisibleMovementBlocker, Projectile, Sound, SoundCache, TileMarker, cacheSound } from "osrs-sdk";
 import type { Entity, Location3, ProjectileVisuals, Region, Unit } from "osrs-sdk";
-import type { CenserLook, FloorState } from "./arena";
-import type { BossOverhead, Range } from "../full/data/looks";
+import type { FloorState } from "./arena";
+import type { BossOverhead } from "../full/data/looks";
 import { SOUND, scaledHp } from "../full/data/looks";
 import { P1 } from "../full/data/p1";
 import { P2 } from "../full/data/p2";
 import type { SpotOptions, TileMark } from "./effects";
 import { GroundSpot } from "./effects";
-import type { ATile, Quadrant } from "./geometry";
-import { CENSERS, GRID, QUADRANTS, QUADRANT_SIGN, TileSet, at, fromSdk, inRoom, key, quadrantOf, toSdk } from "./geometry";
+import type { ATile } from "./geometry";
+import { GRID, QUADRANT_SIGN, TileSet, at, fromSdk, inRoom, key, toSdk } from "./geometry";
 import { Rng } from "./rng";
 import type { BossHooks, Form, Style } from "./units";
 import { BossForm, FightPlayer } from "./units";
@@ -16,14 +16,6 @@ import { BossForm, FightPlayer } from "./units";
 /** Phase 3's third fall hands the fight to our phase 4 drill, so his phase 4 is not a start phase. */
 export const START_PHASES = [1, 2, 3] as const;
 export type StartPhase = (typeof START_PHASES)[number];
-
-/** Phase 3's third fall, read as the quadrant goes: the one left standing, the boss as he is, and the voids on it, by the fight's clock. */
-export type Fall = Readonly<{
-  tick: number;
-  standing: Quadrant;
-  boss: Readonly<{ hp: number; defence: number }>;
-  voids: readonly Readonly<{ tile: ATile; placed: number }>[];
-}>;
 
 export type FightOptions = Readonly<{
   seed: number;
@@ -35,7 +27,6 @@ export type FightOptions = Readonly<{
   skipMarkers: boolean;
   soloVine: boolean;
   invincible: boolean;
-  onFall: (fall: Fall) => void;
 }>;
 
 export type ChatLine = Readonly<{ text: string; colour: string; tick: number }>;
@@ -58,8 +49,6 @@ export interface PhaseScript {
   meter(): number | null;
   onBossHit(): void;
   incomingDamageFactor?(): number;
-  /** Extra right-click options on a tile (stepping stones, censers). */
-  tileActions?(tile: ATile): readonly Readonly<{ label: string; target: string; run: () => void }>[];
 }
 
 type Scheduled = Readonly<{ at: number; generation: number; run: () => void }>;
@@ -123,12 +112,8 @@ export class Fight implements BossHooks {
   private version = 0;
   private floorTiles = new TileSet();
   private blockedExtra = new TileSet();
-  private stoneTiles: ATile[] = [];
-  private crumbling: Quadrant[] = [];
   private floorKey = 0;
   private blockers = new Map<string, InvisibleMovementBlocker>();
-  readonly censers = new Map<Quadrant, CenserLook>();
-  destroyed = new Set<Quadrant>();
   /** Practice mode (hits never kill, prayer never runs out), from the options but switchable from the sidebar. */
   practice: boolean;
   private prayerLeft = 1;
@@ -149,7 +134,6 @@ export class Fight implements BossHooks {
     this.skipTiles = options.skipMarkers;
     this.showHazardTiles = options.hazardTiles;
     this.makePhase = makePhase;
-    for (const q of QUADRANTS) this.censers.set(q, { tile: CENSERS[q].tile, god: CENSERS[q].god, lit: false });
     this.setFloor(roomFloor());
   }
 
@@ -261,11 +245,6 @@ export class Fight implements BossHooks {
     this.player.addProjectile(projectile);
   }
 
-  /** Roll damage the player can pray against: blocked fully by the matching protection. */
-  prayable(style: Style, damage: Range): (prayer: Style | null) => number {
-    return (prayer) => (prayer === style ? 0 : this.rng.roll(damage));
-  }
-
   /** Heal with a heal splat; an overheal (phase 4's orb) can pass max HP, which the SDK's splat cannot. */
   healPlayer(amount: number, overheal = false): void {
     if (amount <= 0 || this.player.currentStats.hitpoint <= 0) return;
@@ -349,36 +328,10 @@ export class Fight implements BossHooks {
     this.syncBlockers();
   }
 
-  removeFloor(tiles: Iterable<ATile>): void {
-    for (const t of tiles) this.floorTiles.delete(t);
-    this.floorKey++;
-    this.syncBlockers();
-  }
-
   /** Floor you cannot walk on (phase 2's portal walls, the middle 5x5). */
   setBlocked(tiles: Iterable<ATile>): void {
     this.blockedExtra = new TileSet(tiles);
     this.syncBlockers();
-  }
-
-  setStones(stones: ATile[]): void {
-    this.stoneTiles = stones;
-    this.floorKey++;
-  }
-
-  get stones(): readonly ATile[] {
-    return this.stoneTiles;
-  }
-
-  setCrumbling(quadrants: Quadrant[]): void {
-    this.crumbling = quadrants;
-    this.floorKey++;
-  }
-
-  lightCenser(q: Quadrant): void {
-    const censer = this.censers.get(q);
-    if (censer) this.censers.set(q, { ...censer, lit: true });
-    this.floorKey++;
   }
 
   /** Starry void floor, from any number of named sources (phase 4's voids, phase 3's patches). */
@@ -402,10 +355,10 @@ export class Fight implements BossHooks {
     return {
       key: `${this.floorKey}`,
       floor: this.floorTiles.tiles(),
-      stones: this.stoneTiles,
-      censers: [...this.censers.values()],
-      crumbling: this.crumbling,
-      destroyed: [...this.destroyed],
+      stones: [],
+      censers: [],
+      crumbling: [],
+      destroyed: [],
     };
   }
 
@@ -507,10 +460,6 @@ export class Fight implements BossHooks {
 
   scaledP1Hp(): number {
     return scaledHp(P1.hp, this.options.party);
-  }
-
-  quadrantOfPlayer(): Quadrant | null {
-    return quadrantOf(this.playerTile);
   }
 
   playCrackSound(): void {

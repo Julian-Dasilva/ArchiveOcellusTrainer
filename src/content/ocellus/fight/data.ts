@@ -352,6 +352,8 @@ export const P3 = {
   spinOpeningDamage: range(0, 18),
   /** "Severing your prayer!" locks protection prayers this long: back on 3 ticks later in [V] duo 18:53-18:55. */
   severTicks: 3,
+  /** The overhead severed is the one up on the tick before each cut. ocellus-sim phase3.ts:351 */
+  severBefore: 1,
   panicLands: 2,
   volleyDamage: range(20, 26),
   patchDamage: range(6, 7),
@@ -452,6 +454,51 @@ export const P3 = {
    */
   hpFloors: [0.75, 0.5, 0.25],
   jumpTicks: 2,
+  shoutLasts: {
+    /** Untether, panic, Insolence and the escape line stay over his head 3 ticks. ocellus-sim phase3.ts:380, 501, 593, 715 */
+    short: 3,
+    /** The vine's and the fall's shouts stay 4 ticks. ocellus-sim phase3.ts:452, 699 */
+    long: 4,
+  },
+  /** He says either of his two vine shouts, and either of his two fall shouts, evenly. ocellus-sim phase3.ts:452, 699 */
+  shoutChance: 0.5,
+  /** His Untether and fall loops take over 2 ticks into their opening animations. ocellus-sim phase3.ts:602, 704 */
+  poseLoopAfter: 2,
+  /** The collapsing quadrant bursts every 2 ticks, 4 bursts at a time, until it falls. ocellus-sim phase3.ts:709-711 */
+  collapseBurstEvery: 2,
+  collapseBursts: 4,
+  /** The spin's hits reach 8 tiles from his south-west tile. ocellus-sim phase3.ts:362 */
+  spinReach: 8,
+  /** The shadow slash's band shows a tick before his animation, the last tick to click out of it. ocellus-sim phase3.ts:253 */
+  slashShowsBefore: 1,
+  /** The vine's hold, renewed on every tick it lives. ocellus-sim phase3.ts:469, 772 */
+  vineHolds: 2,
+  /** Each stepping-stone hop holds you a tick. ocellus-sim phase3.ts:867 */
+  hopHolds: 1,
+  /** The vine's grip and the over-head bomb each turn to their idle look a tick after they start. ocellus-sim phase3.ts:471; [K] 4302 then 4299 a tick later */
+  idleAfter: 1,
+  /** "It's flying too high to hit using melee." shows at most once in this many ticks. ocellus-sim phase3.ts:935 */
+  flyingMessageEvery: 3,
+  /** Insolence leaves debris at these fractions along each band, nearest him first. ocellus-sim phase3.ts:528 */
+  insolenceDebrisAt: [0.2, 0.5, 0.85],
+  /** A rift spawns at least 2 tiles clear of his body. ocellus-sim phase3.ts:538 */
+  riftClearance: 2,
+  censer: {
+    /** The Zarosian censer gives 50 special energy. ocellus-sim phase3.ts:893 */
+    special: 50,
+    /** Special energy stops at 100. ocellus-sim phase3.ts:893 */
+    specialMax: 100,
+    /** The Saradomin censer gives 50 hitpoints, past your maximum. ocellus-sim phase3.ts:896 */
+    hitpoints: 50,
+    /** The Saradomin censer gives 50 prayer, up to your maximum. ocellus-sim phase3.ts:897 */
+    prayer: 50,
+  },
+  practiceRefill: {
+    /** Practice refills hitpoints that fall under 30 and are not 0. ocellus-sim Fight.ts:169 */
+    hitpoints: 30,
+    /** Practice refills prayer that falls under 10. ocellus-sim Fight.ts:172 */
+    prayer: 10,
+  },
 } as const;
 
 export type BossOverhead = "protect-melee" | "deflect-melee" | "deflect-range" | "soul-split";
