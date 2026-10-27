@@ -38,6 +38,11 @@ describe("page script bytes", () => {
     ]);
   });
 
+  test("an unknown script counts on / and fails the 1753 KiB budget", () => {
+    const withVendor: readonly BuiltScript[] = [...RELEASE, { path: "assets/vendors.0123abcd.js", bytes: 60 * 1024, role: "other" }];
+    expect(kib(pageBytes(withVendor, "drill"))).toBeGreaterThan(DRILL_BUDGET_KIB);
+  });
+
   test("growth in the / entry still fails the 1753 KiB budget", () => {
     const grown = RELEASE.map((script) => (script.role === "entry" ? { ...script, bytes: script.bytes + 6 * 1024 } : script));
     expect(kib(pageBytes(grown, "drill"))).toBeGreaterThan(DRILL_BUDGET_KIB);

@@ -11,10 +11,10 @@ export type BuiltScript = Readonly<{
   role: ScriptRole;
 }>;
 
-/** `/` loads the HTML scripts and the sidebar chunk. `?mode=full` loads the HTML scripts and the full-fight chunk. */
+/** `/` loads the HTML scripts, the sidebar chunk, and any script with no page role. `?mode=full` loads the HTML scripts, the full-fight chunk, and any script with no page role. */
 const PAGE_ROLES: Readonly<Record<PageName, readonly ScriptRole[]>> = {
-  drill: ["entry", "sidebar"],
-  full: ["entry", "full-fight"],
+  drill: ["entry", "sidebar", "other"],
+  full: ["entry", "full-fight", "other"],
 };
 
 export function kib(bytes: number): number {
