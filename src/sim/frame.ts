@@ -47,14 +47,31 @@ function unturnd(turns: QuarterTurns): QuarterTurns {
   }
 }
 
+function roomTile(x: number, y: number): RoomTile {
+  const placed = tile(x, y);
+  if (!isRoomTile(placed)) throw new RangeError(`${x}, ${y} is not a room tile`);
+  return placed;
+}
+
 export function toRoom(frame: Frame, at: Tile): RoomTile {
   const turnedTile = turned(frame, at.x, at.y);
-  const placed = tile(turnedTile.x + frame.origin.x, turnedTile.y + frame.origin.y);
-  if (!isRoomTile(placed)) throw new RangeError(`local ${at.x}, ${at.y} has no room tile`);
-  return placed;
+  return roomTile(turnedTile.x + frame.origin.x, turnedTile.y + frame.origin.y);
 }
 
 export function toLocal(frame: Frame, at: Readonly<{ x: number; y: number }>): Tile {
   const back = turned({ ...frame, turns: unturnd(frame.turns) }, at.x - frame.origin.x, at.y - frame.origin.y);
   return tile(back.x, back.y);
+}
+
+/** A point where local tile (x, y) spans x to x + 1 and y to y + 1. It turns about the centre of tile (0, 0), so a tile's centre lands on its room tile's centre. */
+export function toRoomPoint(frame: Frame, at: Readonly<{ x: number; y: number }>): Readonly<{ x: number; y: number }> {
+  const turnedPoint = turned(frame, at.x - 0.5, at.y - 0.5);
+  return { x: turnedPoint.x + 0.5 + frame.origin.x, y: turnedPoint.y + 0.5 + frame.origin.y };
+}
+
+/** The SDK anchors a unit on its south-west tile and extends it east and north, so a turned body has a new south-west tile. */
+export function toRoomFootprint(frame: Frame, southWest: Tile, size: number): RoomTile {
+  const corner = toRoom(frame, southWest);
+  const opposite = toRoom(frame, tile(southWest.x + size - 1, southWest.y - size + 1));
+  return roomTile(Math.min(corner.x, opposite.x), Math.max(corner.y, opposite.y));
 }

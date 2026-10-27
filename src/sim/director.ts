@@ -45,6 +45,10 @@ export class Director<E extends Entries, Ph extends Phases<E, H>, H extends Host
     return this.live().opened.mounted.rules;
   }
 
+  frame(): MountedPhase["frame"] {
+    return this.live().opened.mounted.frame;
+  }
+
   next(to: EnterFrom<Ph>): void;
   next(to: Enter<E>, fromRegion: "region"): void;
   next(to: Asked<E, Ph>, _fromRegion?: "region"): void {

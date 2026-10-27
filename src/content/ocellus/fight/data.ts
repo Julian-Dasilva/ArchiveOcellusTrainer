@@ -355,6 +355,8 @@ export const P3 = {
   panicLands: 2,
   volleyDamage: range(20, 26),
   patchDamage: range(6, 7),
+  /** A void hurts whoever stands on it every second tick from the tick it dropped. */
+  patchEvery: 2,
   patchLasts: range(21, 51),
   /**
    * Void bombs fall on every raider but the tank (solo: you), and on the same tile turned into each other standing

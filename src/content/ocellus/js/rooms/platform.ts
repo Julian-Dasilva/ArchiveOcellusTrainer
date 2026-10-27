@@ -1,9 +1,9 @@
-import { InvisibleMovementBlocker } from "osrs-sdk";
-import type { Region } from "osrs-sdk";
+import type { Entity, Region } from "osrs-sdk";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import type { Tile } from "../../../../sim/brands";
 import type { Room } from "../../../../sim/encounter";
 import { identity, toRoom } from "../../../../sim/frame";
+import { fence } from "../../../../sim/sdk/fence";
 import { Brazier, Walkway } from "../entities/Scenery";
 import { BRAZIERS, CURB, PLATFORM } from "../p4/floor";
 
@@ -48,8 +48,11 @@ export const PLATFORM_ROOM: Room<Region> = {
   },
 
   mount(region) {
-    const scenery = [new Walkway(region), ...BRAZIERS.tiles().map((at) => new Brazier(region, at)), ...PLATFORM.surround().tiles().map((edge) => new InvisibleMovementBlocker(region, { ...edge }))];
+    const scenery: Entity[] = [new Walkway(region), ...BRAZIERS.tiles().map((at) => new Brazier(region, at))];
     scenery.forEach((entity) => region.addEntity(entity));
-    return { dispose: () => scenery.forEach((entity) => region.removeEntity(entity)) };
+    return {
+      dispose: () => scenery.forEach((entity) => region.removeEntity(entity)),
+      walkable: (tiles) => scenery.push(...fence(region, tiles)),
+    };
   },
 };
