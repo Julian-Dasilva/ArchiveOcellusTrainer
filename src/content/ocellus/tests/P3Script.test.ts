@@ -1,7 +1,6 @@
 import { SEQ } from "../full/data/looks";
 import { P3 } from "../full/data/p3";
 import { Potion } from "osrs-sdk";
-import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { QUADRANTS, at, covers, quadrantOf } from "../fight/geometry";
 import { S, startP3 } from "./p3run";
 
@@ -255,10 +254,8 @@ describe("phase 3 on the engine follows the recorded kill [K]", () => {
     expect(f.landed(["rift-detonation"], S2)).toEqual([[3 + P3.riftDetonatesAfter, "rift-detonation"]]);
   });
 
-  test("the third quadrant's fall enters our phase 4 in the same world with the player as it stands, each potion's doses included, and the boss", async () => {
+  test("the third quadrant's fall enters our phase 4 in the same world with the player as it stands, each potion's doses included, and the boss", () => {
     const f = open({ setup: "ranged" });
-    const { dressFullFight } = await import("../fight/blowpipe");
-    dressFullFight(f.player(), OCELLUS_P4.choices.setup.options.ranged.value);
     const fallTo = (count: number) => {
       for (let guard = 0; f.live().arena.destroyed.size < count; guard++) {
         if (guard > 100) throw new Error(`quadrant ${count} never fell`);
