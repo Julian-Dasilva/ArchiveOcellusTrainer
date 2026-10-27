@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { creditLines } from "../menu/credits";
 import { startReleaseServer } from "./releaseServer";
 
@@ -251,6 +251,33 @@ function agent(args: readonly string[]): string {
   return result.stdout;
 }
 
+function agentAsync(args: readonly string[]): Promise<string> {
+  const child = spawn("agent-browser", ["--session", sessionName(), ...args], { stdio: ["ignore", "pipe", "pipe"] });
+  const stdout = child.stdout;
+  const stderr = child.stderr;
+  if (stdout === null || stderr === null) return Promise.reject(new Error("agent-browser has no pipes"));
+  return new Promise((resolve, reject) => {
+    const out: Buffer[] = [];
+    const err: Buffer[] = [];
+    stdout.on("data", (chunk: Buffer) => {
+      out.push(chunk);
+    });
+    stderr.on("data", (chunk: Buffer) => {
+      err.push(chunk);
+    });
+    child.on("error", reject);
+    child.on("close", (status) => {
+      const text = Buffer.concat(out).toString("utf8");
+      const detail = Buffer.concat(err).toString("utf8").trim() || text.trim();
+      if (status !== 0) {
+        reject(new Error(detail === "" ? `agent-browser ${args.join(" ")} failed` : detail));
+        return;
+      }
+      resolve(text);
+    });
+  });
+}
+
 function numberField(record: Readonly<Record<string, unknown>>, key: string): number {
   const value = record[key];
   if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`page facts ${key} is not a number`);
@@ -310,12 +337,16 @@ function parseAbortFacts(value: unknown): AbortFacts {
   };
 }
 
-function readEval(script: string): unknown {
-  const raw: unknown = JSON.parse(agent(["--json", "eval", script]));
+function readEvalPayload(rawText: string): unknown {
+  const raw: unknown = JSON.parse(rawText);
   const top = asRecord(raw);
   const data = top === null ? null : asRecord(top.data);
   const payload = data === null ? undefined : data.result;
   return typeof payload === "string" ? JSON.parse(payload) : payload;
+}
+
+function readEval(script: string): unknown {
+  return readEvalPayload(agent(["--json", "eval", script]));
 }
 
 function readFacts(): PageFacts {
@@ -326,13 +357,16 @@ function readAbortFacts(): AbortFacts {
   return parseAbortFacts(readEval(ABORT_FACTS));
 }
 
-function readErrors(): readonly string[] {
-  const raw: unknown = JSON.parse(agent(["--json", "errors"]));
+function errorTexts(raw: unknown): readonly string[] {
   const top = asRecord(raw);
   const data = top === null ? null : asRecord(top.data);
   const errors = data === null ? undefined : data.errors;
   if (!Array.isArray(errors)) return [];
   return errors.flatMap((item) => (typeof item === "string" ? [item] : []));
+}
+
+function readErrors(): readonly string[] {
+  return errorTexts(JSON.parse(agent(["--json", "errors"])));
 }
 
 function shot(name: string): void {
@@ -375,7 +409,8 @@ function prayerTab(surface: WalkSurface, facts: PageFacts): Readonly<{ x: number
 }
 
 function closeBrowser(): void {
-  spawnSync("agent-browser", ["--session", sessionName(), "close"], { encoding: "utf8" });
+  // The next surface needs a new browser. Leaving the daemon's browser up stops the following page load.
+  spawnSync("agent-browser", ["--session", sessionName(), "close", "--all"], { encoding: "utf8" });
 }
 
 function visible(id: string): boolean {
@@ -508,11 +543,13 @@ async function recoverFullFight(): Promise<readonly string[]> {
   const server = await startReleaseServer(dist, { chunkFaults: ["503"] });
   process.env.AGENT_BROWSER_SESSION = `release-retry-${process.pid}`;
   try {
-    agent(["set", "viewport", "1280", "800"]);
-    agent(["open", `${server.origin}/?mode=full&seed=1&invincible=on`]);
-    agent(["wait", "--fn", "document.getElementById('start_phase') !== null || (document.body && document.body.innerText.includes('The full fight didn\\'t load.'))", "--timeout", "180000"]);
-    const facts = parseRetryFacts(readEval(RETRY_FACTS));
-    return chunkRetryProblems({ ...facts, errors: readErrors(), outcomes: server.chunkOutcomes() });
+    // spawnSync would block this process, and this process is the server the page is loading from.
+    await agentAsync(["set", "viewport", "1280", "800"]);
+    await agentAsync(["open", `${server.origin}/?mode=full&seed=1&invincible=on`]);
+    await agentAsync(["wait", "--fn", "document.getElementById('start_phase') !== null || (document.body && document.body.innerText.includes('The full fight didn\\'t load.'))", "--timeout", "180000"]);
+    const facts = parseRetryFacts(readEvalPayload(await agentAsync(["--json", "eval", RETRY_FACTS])));
+    const errors: unknown = JSON.parse(await agentAsync(["--json", "errors"]));
+    return chunkRetryProblems({ ...facts, errors: errorTexts(errors), outcomes: server.chunkOutcomes() });
   } finally {
     closeBrowser();
     await server.close();
