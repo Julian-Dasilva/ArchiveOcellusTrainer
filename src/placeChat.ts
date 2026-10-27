@@ -9,23 +9,21 @@ const RESTING_BOTTOM_PX = 4;
 
 export type Box = Readonly<{ left: number; top: number; right: number; bottom: number }>;
 
-/** How far the chat corner sits off the bottom of the playable area so its lines stay above the inventory. */
-export function chatCornerBottom(area: Box, corner: Box, blocked: Box): number {
-  const sharesColumns = corner.left < blocked.right && corner.right > blocked.left;
+/** How far the chat corner sits off the bottom of the playable area so its lines stay above chrome they actually overlap. */
+export function chatCornerBottom(area: Box, corner: Box, blocked: readonly Box[]): number {
   const cornerHeight = corner.bottom - corner.top;
-  if (!sharesColumns || cornerHeight <= 0) return RESTING_BOTTOM_PX;
-  const abovePanel = area.bottom - blocked.top + GAP_PX;
+  if (cornerHeight <= 0) return RESTING_BOTTOM_PX;
+  let obstacleTop = Number.POSITIVE_INFINITY;
+  for (const piece of blocked) {
+    const sharesColumns = corner.left < piece.right && corner.right > piece.left;
+    const overlapsVertically = corner.top < piece.bottom && corner.bottom > piece.top;
+    if (!sharesColumns || !overlapsVertically) continue;
+    if (piece.top < obstacleTop) obstacleTop = piece.top;
+  }
+  if (!Number.isFinite(obstacleTop)) return RESTING_BOTTOM_PX;
+  const abovePanel = area.bottom - obstacleTop + GAP_PX;
   const room = Math.max(RESTING_BOTTOM_PX, area.bottom - area.top - cornerHeight);
   return Math.min(Math.max(RESTING_BOTTOM_PX, abovePanel), room);
-}
-
-function union(boxes: readonly Box[]): Box {
-  return boxes.reduce((total, box) => ({
-    left: Math.min(total.left, box.left),
-    top: Math.min(total.top, box.top),
-    right: Math.max(total.right, box.right),
-    bottom: Math.max(total.bottom, box.bottom),
-  }));
 }
 
 function selectedPanel(controller: ControlPanelController): ControlPanelController["selectedControl"] | null {
@@ -34,7 +32,7 @@ function selectedPanel(controller: ControlPanelController): ControlPanelControll
   return controller.selectedControl;
 }
 
-function controlChrome(canvas: HTMLCanvasElement): Box | null {
+function controlChrome(canvas: HTMLCanvasElement): readonly Box[] | null {
   const css = canvas.getBoundingClientRect();
   if (css.width === 0 || css.height === 0) return null;
   const controller = ControlPanelController.controller;
@@ -57,7 +55,8 @@ function controlChrome(canvas: HTMLCanvasElement): Box | null {
     right: css.left + origin.x + PANEL_SPRITE.width * panelScale,
     bottom: css.top + origin.y + PANEL_SPRITE.height * panelScale,
   }];
-  return union([...panel, ...tabs]);
+  const pieces = [...panel, ...tabs];
+  return pieces.length === 0 ? null : pieces;
 }
 
 function place(corner: HTMLElement): void {

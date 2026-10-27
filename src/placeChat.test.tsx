@@ -85,7 +85,7 @@ describe("chat above a closed side panel", () => {
     const { sdk, keep } = await placeOn(PHONE);
     closePanel(sdk.ControlPanelController.controller);
     const page = mount("The void consumes you.", keep);
-    expect(page.corner.style.bottom).toBe("496.75px");
+    expect(page.corner.style.bottom).toBe("4px");
     page.close();
   });
 
