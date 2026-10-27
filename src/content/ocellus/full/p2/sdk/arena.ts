@@ -17,10 +17,10 @@ class Shot extends Projectile {
   }
 }
 
-/** A forced move glides through the SDK's own path interpolation, one tile of the path at a time. */
 class PlayerPort implements Fighter {
   constructor(private readonly player: FightPlayer) {}
 
+  /** Glides through the SDK's path interpolation, one tile of the path at a time. */
   hop(to: ATile): void {
     const player = this.player;
     const from = fromSdk(player.location);
@@ -33,6 +33,12 @@ class PlayerPort implements Fighter {
       player.visualPath.push({ x: step.x, y: step.y, run: true });
     }
     player.region.refreshUnitChunk(player);
+  }
+
+  teleport(to: ATile): void {
+    const target = toSdk(to);
+    this.player.setLocation({ x: target.x, y: target.y });
+    this.player.destinationLocation = undefined;
   }
 }
 

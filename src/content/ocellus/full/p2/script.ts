@@ -155,7 +155,7 @@ export class P2Script<E extends Entries> implements Script<E, P2Types> {
     if (safe.kind === "open" && safe.left === "here" && offset >= escapeFrom && offset <= T.safePortalUntil.value && same(here, safe.tile)) {
       safe.left = "gone";
       const landing = m.pick("escape-tile", nonEmpty(this.poolTiles(clockwise(round.q))));
-      this.world.fighter.hop(landing);
+      this.world.fighter.teleport(landing);
       m.show({ kind: "player-spot", id: SPOT.safePortalDespawn.value, channel: "portal" });
       m.log({ kind: "escaped", at: m.now, to: landing });
       return;
