@@ -51,7 +51,11 @@ export type Source =
 export type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
 
 export function selected<T>(value: T, basis: Basis, scale: Scale, note: string, ...sources: Citations<Source>): Selected<T> {
-  return { kind: "selected", value, evidence: { status: "unverified", basis, scale, note, sources } };
+  return {
+    kind: "selected",
+    value,
+    evidence: { status: "unverified", basis, scale, note: process.env.NODE_ENV === "production" ? "" : note, sources },
+  };
 }
 
 type Options = Readonly<Record<string, Selected<unknown>>>;
@@ -744,10 +748,22 @@ const LIFEFORCE_ORB: LifeforceOrbRecipe = {
   },
 };
 
+type SpinRing = Readonly<{
+  count: number;
+  radius: number;
+  lean: number;
+  halfWidth: number;
+  height: number;
+  radPerSec: number;
+  flareSeconds: number;
+  colour: string;
+}>;
+
 type ExplosionSeriesRecipe = Readonly<{
   seriesStartsAfterHit: Selected<TickSpan>;
   telegraph: Selected<number>;
   spotAnim: Selected<number>;
+  spin: Selected<SpinRing>;
   dodge: Selected<Readonly<{ radius: number; attackDelayCut: TickSpan }>>;
 }>;
 
@@ -779,6 +795,14 @@ const EXPLOSION: ExplosionSeriesRecipe = {
     cache("spotanim 4339 vfx_void_chain_explosion: model 62616, seq 14933 vfx_void_chain_explosion_full, 21 frames, 55 client cycles; 1990 of 2135 faces opaque and 145 with base alphas, none textured"),
     vod("V1", "3:54:06.40 to 3:54:07.35, shards high around the head at 6.45 to 6.55, glow on the left tile from 6.75, burst at 7.0"),
     owner("the void shards come in high over the player's head at the start of each mark, not at the feet", "2026-10-24"),
+  ),
+  spin: selected(
+    { count: 7, radius: 0.3, lean: 0.12, halfWidth: 0.05, height: 0.85, radPerSec: 3, flareSeconds: 0.6, colour: "#5e317b" },
+    "assumption",
+    "unscaled",
+    "seven shards stand in a ring of radius 0.3 and half width 0.05, tips 0.85 tiles up, and spin at 3 radians a second, then scale out over 0.6 seconds. The strategies page says void particles spin around every player to warn that the explosion attack is starting and the player has to keep moving. The colour is the median of the shards on four mark ticks",
+    STRATEGIES_P4,
+    ocellusSim("P4Views.ts:343-349"),
   ),
   dodge: selected(
     { radius: 1, attackDelayCut: span(3) },
