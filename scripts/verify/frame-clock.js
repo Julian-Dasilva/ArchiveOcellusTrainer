@@ -60,9 +60,11 @@
 
   const click = ({ x, y }) => {
     const world = document.querySelector("#world");
+    if (document.elementFromPoint(x, y) !== world) return false;
     for (const type of ["mousedown", "mouseup"]) {
       world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === "mousedown" ? 1 : 0, clientX: x, clientY: y }));
     }
+    return true;
   };
 
   // The world loop starts each tick at its animation frame's timestamp, so the frames that follow it read the tick's start on the same clock.
@@ -81,7 +83,11 @@
             copied.push({ name: action.name, when, shot: due.onScreenAtFraction });
             return false;
           }
-          return t <= when.tick + 1;
+          if (t > when.tick + 1) {
+            clock.done[action.name] = { dropped: "no-drawn-frame" };
+            return false;
+          }
+          return true;
         }
         const shot = frame(when.kind, t, now);
         if (t === when.tick && phase < when.fraction) {
@@ -99,8 +105,8 @@
       if (t === when.tick && phase < when.fraction) return true;
       switch (action.kind) {
         case "click":
-          click(action);
-          clock.done[action.name] = at(when.kind, t, now);
+          if (click(action)) clock.done[action.name] = at(when.kind, t, now);
+          else clock.done[action.name] = { hit: false, reason: "covered" };
           break;
         case "log":
           clock.done[action.name] = { log: window.__archiveOcellusProbe.log() };

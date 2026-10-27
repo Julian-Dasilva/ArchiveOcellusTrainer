@@ -567,7 +567,21 @@ stop() {
 
 START_ON_LOAD=1
 
+BROWSER_SESSIONS_BEGUN=
+
+begin_browser_session() {
+  local begun
+  [[ -n "${BROWSER_SESSION:-}" ]] || return 1
+  while IFS= read -r begun; do
+    [[ "$begun" == "$BROWSER_SESSION" ]] && return 0
+  done <<<"${BROWSER_SESSIONS_BEGUN}"
+  # A daemon already bound to this name ignores a later --init-script and keeps the previous page errors.
+  agent-browser --session "$BROWSER_SESSION" close >/dev/null 2>&1 || true
+  BROWSER_SESSIONS_BEGUN="${BROWSER_SESSIONS_BEGUN}"$'\n'"${BROWSER_SESSION}"
+}
+
 ab() {
+  begin_browser_session || return
   agent-browser --session "$BROWSER_SESSION" "$@" || return
   [[ "$START_ON_LOAD" == 1 && ( "$1" == open || "$1" == reload ) && "${2:-}" != about:blank ]] || return 0
   start_run
@@ -603,19 +617,21 @@ canvas_centre() {
 }
 
 click_after_tick() {
-  local tick=$1 x=$((CX + $2)) y=$((CY + $3))
+  local tick=$1 x=$((CX + $2)) y=$((CY + $3)) hit
   # Arm on the previous tick. The click then runs in the page on the first frame of this tick, before another CDP turn can land it a tick late.
   if (( tick > 0 )); then fight_tick_at_least $((tick - 1)) 90000 || return 1; fi
-  ab eval "new Promise((done) => {
+  hit="$(ab eval "new Promise((done) => {
     const tick = ${tick}, x = ${x}, y = ${y};
     const fire = () => {
       const world = document.querySelector('#world');
+      if (document.elementFromPoint(x, y) !== world) return done(false);
       for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: x, clientY: y }));
       done(true);
     };
     const wait = () => ((window.__archiveOcellusProbe?.snapshot().fight?.run.tick ?? -1) >= tick ? fire() : requestAnimationFrame(wait));
     wait();
-  })" >/dev/null
+  })")" || return 1
+  [[ "$hit" == true ]]
 }
 
 shot_after_tick() {
@@ -633,8 +649,9 @@ arm_shot() {
 
 take_shot() {
   local name=$1 tick=$2 taken
-  ab wait --fn "typeof window.__frameClock.done['${name}']?.png === 'string'" --timeout 30000 >/dev/null || return 1
-  taken="$(ab --json eval "window.__frameClock.done['${name}']" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const { png, ...at } = JSON.parse(s).data.result;require("fs").writeFileSync(process.argv[1],Buffer.from(png.replace(/^data:image\/png;base64,/,""),"base64"));process.stdout.write(JSON.stringify(at))})' "$VERIFY_DIR/$name")" || return 1
+  ab wait --fn "window.__frameClock.done['${name}'] != null" --timeout 30000 >/dev/null || return 1
+  taken="$(ab --json eval "window.__frameClock.done['${name}']" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const record=JSON.parse(s).data.result; if (record.dropped==="no-drawn-frame") { process.stdout.write("dropped"); return; } const { png, ...at } = record; require("fs").writeFileSync(process.argv[1],Buffer.from(png.replace(/^data:image\/png;base64,/,""),"base64")); process.stdout.write(JSON.stringify(at)); })' "$VERIFY_DIR/$name")" || return 1
+  [[ "$taken" != dropped ]] || { log "${name} dropped: no-drawn-frame"; return 1; }
   log "${name} copied at ${taken}"
   [[ "$(json tick <<<"$taken")" == "$tick" ]] || { log "${name} missed tick ${tick}"; return 1; }
 }
@@ -1049,15 +1066,18 @@ tile_pixel() {
       if (!ready()) return requestAnimationFrame(read);
       const at = probe.tileCentre(${tile}), box = document.querySelector('#world').getBoundingClientRect();
       const point = at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y) };
+      let hit = true;
       if (point && '${4:-}' === 'click') {
         const world = document.querySelector('#world');
-        for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: point.x, clientY: point.y }));
+        hit = document.elementFromPoint(point.x, point.y) === world;
+        if (hit) for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: point.x, clientY: point.y }));
       }
-      done({ at: point, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length });
+      done({ at: point, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length, hit });
     };
     read();
   })" | json data.result)" || { log "${page}: tile ${tile} was not read"; return 1; }
   [[ "$(json at <<<"$read")" != null ]] || { log "${page}: tile ${tile} is not on the canvas"; return 1; }
+  [[ "$(json hit <<<"$read")" != false ]] || { log "${page}: the click on ${tile} was covered"; return 1; }
   CLICK_X="$(json at.x <<<"$read")" CLICK_Y="$(json at.y <<<"$read")" WALK_ORDERS="$(json orders <<<"$read")"
 }
 
@@ -1165,7 +1185,7 @@ click_twice_in_one_tick() {
     const clock = window.__frameClock, tick = window.__archiveOcellusProbe.snapshot().tick + 1;
     clock.at({ kind: 'world', tick, fraction: ${CORRECTION_FIRST_MS} / clock.tickMs }, { kind: 'click', name: 'correction-first', x: ${first[0]}, y: ${first[1]} });
     clock.at({ kind: 'world', tick, fraction: ${CORRECTION_LATE_MS} / clock.tickMs }, { kind: 'click', name: 'correction-last', x: ${last[0]}, y: ${last[1]} });
-  })()" >/dev/null && ab wait --fn "window.__frameClock.done['correction-last'] !== undefined" --timeout 10000 >/dev/null
+  })()" >/dev/null && ab wait --fn "window.__frameClock.done['correction-first']?.hit !== false && window.__frameClock.done['correction-last']?.hit !== false" --timeout 10000 >/dev/null
 }
 
 drive_click_correction() {
@@ -1363,7 +1383,9 @@ drive_lifeforce_orb() {
     take_shot "orb-dormant-${frame}.png" "$ORB_DORMANT_TICK" || { log "dormant orb frame ${frame} missed tick ${ORB_DORMANT_TICK}"; return 1; }
     take_shot "orb-glow-${frame}.png" "$ORB_GLOW_TICK" || { log "glowing orb frame ${frame} missed tick ${ORB_GLOW_TICK}"; return 1; }
   done
-  ab wait --fn "window.__frameClock.done['orb-click'] && (() => { const d = window.__archiveOcellusProbe.snapshot().destination, spawn = ${SPAWN_TILE}; return d !== null && (d.x !== spawn.x || d.y !== spawn.y); })()" \
+  ab wait --fn "window.__frameClock.done['orb-click'] != null" --timeout 30000 >/dev/null || { log "orb-click missed its tick"; return 1; }
+  [[ "$(ab --json eval "window.__frameClock.done['orb-click'].reason ?? ''" | json data.result)" != covered ]] || { log "orb-click covered"; return 1; }
+  ab wait --fn "(() => { const d = window.__archiveOcellusProbe.snapshot().destination, spawn = ${SPAWN_TILE}; return d !== null && (d.x !== spawn.x || d.y !== spawn.y); })()" \
     --timeout 30000 >/dev/null || log "the orb click set no new destination"
   echo "{\"x\":${ox},\"y\":${oy},\"snapshot\":$(probe "snapshot()")}" >"$VERIFY_DIR/orb-click.json"
   ab wait --fn "window.__frameClock.done['orb-log']?.log" --timeout 30000 >/dev/null || { log "the orb log was not sampled at P4 tick ${ORB_LAST_TICK}"; return 1; }
