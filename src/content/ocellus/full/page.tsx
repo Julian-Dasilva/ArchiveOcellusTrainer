@@ -440,6 +440,7 @@ type FullFightSnapshot = Readonly<{
   boss: Readonly<{ tile: ATile; hp: number; hidden: boolean }> | null;
   fallen: readonly Quadrant[];
   crumbling: readonly Quadrant[];
+  stones: readonly ATile[];
   chat: readonly string[];
 }>;
 
@@ -465,6 +466,7 @@ function exposeProbe(trainer: TrainerInstance, region: FightRegion): void {
         boss: fight?.boss ? { tile: fight.boss.tile, hp: fight.boss.currentStats.hitpoint, hidden: fight.boss.hidden } : null,
         fallen: fight ? [...fight.destroyed] : [],
         crumbling: fight ? fight.floorState().crumbling : [],
+        stones: fight ? fight.floorState().stones : [],
         chat: fight?.chat.slice(-6).map((line) => line.text) ?? [],
       };
     },
