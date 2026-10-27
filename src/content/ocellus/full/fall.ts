@@ -1,4 +1,4 @@
-import { P3 } from "../fight/data";
+import { P3 } from "./data/p3";
 import type { Fall } from "../fight/Fight";
 import type { Quadrant } from "../fight/geometry";
 import { C, GRID, toSdk } from "../fight/geometry";

@@ -3,7 +3,7 @@ import { Unit } from "osrs-sdk";
 import type { Entity, Player, Region } from "osrs-sdk";
 import type { FloorState } from "../fight/arena";
 import { ArenaFloor, fullRoom } from "../fight/arena";
-import { NPC, VOID_LOC } from "../fight/data";
+import { NPC, VOID_LOC } from "./data/looks";
 import { TileMarks, VoidFloor } from "../fight/effects";
 import type { FightOptions, StartPhase } from "../fight/Fight";
 import { Fight } from "../fight/Fight";

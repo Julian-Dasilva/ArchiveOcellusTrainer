@@ -298,6 +298,13 @@ export const p3Sourced = {
     noWiki("the wiki's phase 3 text does not state this count"),
     ocellusSim("data.ts:352"),
   ),
+  patchEvery: selected(
+    2,
+    "inferred",
+    "unscaled",
+    "A void hurts whoever stands on it every second tick from the tick it dropped.",
+    noWiki("the wiki's phase 3 text does not state this count"),
+  ),
   patchLasts: selected(
     { min: 21, max: 51 },
     "inferred",
@@ -720,6 +727,7 @@ export const P3 = {
   panicLands: p3Sourced.panicLands.value,
   volleyDamage: p3Sourced.volleyDamage.value,
   patchDamage: p3Sourced.patchDamage.value,
+  patchEvery: p3Sourced.patchEvery.value,
   patchLasts: p3Sourced.patchLasts.value,
   bombOverheadBefore: p3Sourced.bombOverheadBefore.value,
   bombDropAfter: p3Sourced.bombDropAfter.value,
