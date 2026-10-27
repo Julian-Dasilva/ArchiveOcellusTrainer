@@ -45,8 +45,8 @@ export function judgeRelease(dist: string, budgetKiB: number): ReleaseCheck {
   const drillKiB = kib(pageBytes(scripts, "drill"));
   const fullFightKiB = kib(pageBytes(scripts, "full"));
   const problems: string[] = [];
-  const drill = textOf(dist, scripts, ["entry", "sidebar"]);
-  if (!drill.includes(FULL_FIGHT)) problems.push(`the / scripts do not contain ${JSON.stringify(FULL_FIGHT)}`);
+  const sidebar = textOf(dist, scripts, ["sidebar"]);
+  if (!sidebar.includes("full_fight") || !sidebar.includes(FULL_FIGHT)) problems.push("the sidebar chunk does not contain the Full fight (beta) button");
   const fullChunk = scripts.find((script) => script.role === "full-fight");
   const hash = fullChunk === undefined ? null : contentHash(fullChunk.path);
   if (fullChunk === undefined || hash === null) problems.push("?mode=full has no full-fight chunk");

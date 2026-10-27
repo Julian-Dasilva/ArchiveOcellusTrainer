@@ -17,7 +17,7 @@ type DistFiles = { main: string; sidebar: string; full: string | null; rate: num
 
 function dist(mutate: (files: DistFiles) => void) {
   const root = mkdtempSync(join(tmpdir(), "release-bundle-"));
-  const files: DistFiles = { main: "assets/full-fight.ccc.js", sidebar: "Full fight (beta)", full: "phase page", rate: 0 };
+  const files: DistFiles = { main: "assets/full-fight.ccc.js", sidebar: "full_fight Full fight (beta)", full: "phase page", rate: 0 };
   mutate(files);
   mkdirSync(join(root, "assets"));
   writeFileSync(join(root, "index.html"), `<script src="assets/main.aaa.js"></script>`);
@@ -42,7 +42,8 @@ describe("release bundle", () => {
   });
 
   test.each<{ name: string; mutate: (files: DistFiles) => void; problem: string }>([
-    { name: "drops Full fight (beta)", mutate: (files) => { files.sidebar = "Phase 4 drill"; }, problem: 'the / scripts do not contain "Full fight (beta)"' },
+    { name: "drops Full fight (beta)", mutate: (files) => { files.sidebar = "Phase 4 drill"; }, problem: "the sidebar chunk does not contain the Full fight (beta) button" },
+    { name: "keeps the button text only in the entry", mutate: (files) => { files.main = "assets/full-fight.ccc.js full_fight Full fight (beta) on the drill page opens it"; files.sidebar = "Phase 4 drill"; }, problem: "the sidebar chunk does not contain the Full fight (beta) button" },
     { name: "has no full-fight chunk", mutate: (files) => { files.full = null; }, problem: "?mode=full has no full-fight chunk" },
     { name: "does not reference the full-fight chunk", mutate: (files) => { files.main = "no chunk name"; }, problem: "the entry script does not reference the full-fight chunk" },
     { name: "ships a sample rate of 1", mutate: (files) => { files.rate = 1; }, problem: "telemetry.json sampleRate is 1, not 0" },
@@ -67,7 +68,7 @@ describe("release bundle", () => {
     mkdirSync(join(root, "assets"));
     writeFileSync(join(root, "index.html"), `<script src="assets/main.aaa.js"></script>`);
     writeSized(join(root, "assets/main.aaa.js"), MAIN + 6 * 1024, "assets/full-fight.ccc.js");
-    writeSized(join(root, "assets/sidebar.bbb.js"), SIDEBAR, "Full fight (beta)");
+    writeSized(join(root, "assets/sidebar.bbb.js"), SIDEBAR, "full_fight Full fight (beta)");
     writeSized(join(root, "assets/full-fight.ccc.js"), FULL, "phase page");
     writeFileSync(join(root, "telemetry.json"), JSON.stringify({ sampleRate: 0 }));
     expect(judgeRelease(root, BUDGET_KIB).problems).toContain("/ scripts are 1755 KiB, over the 1753 KiB budget");
