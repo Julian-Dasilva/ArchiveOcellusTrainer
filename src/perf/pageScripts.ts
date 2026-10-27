@@ -11,7 +11,7 @@ export type BuiltScript = Readonly<{
   role: ScriptRole;
 }>;
 
-/** `/` loads the HTML scripts, the sidebar chunk, and any script with no page role. `?mode=full` loads the HTML scripts, the full-fight chunk, and any script with no page role. */
+/** `/` loads the HTML scripts and any script with no page role. A sidebar chunk still counts on `/`, so splitting the sidebar again fails the budget. `?mode=full` loads the HTML scripts, the full-fight chunk, and any script with no page role. */
 const PAGE_ROLES: Readonly<Record<PageName, readonly ScriptRole[]>> = {
   drill: ["entry", "sidebar", "other"],
   full: ["entry", "full-fight", "other"],

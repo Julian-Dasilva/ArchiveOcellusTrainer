@@ -45,8 +45,9 @@ export function judgeRelease(dist: string, budgetKiB: number): ReleaseCheck {
   const drillKiB = kib(pageBytes(scripts, "drill"));
   const fullFightKiB = kib(pageBytes(scripts, "full"));
   const problems: string[] = [];
-  const sidebar = textOf(dist, scripts, ["sidebar"]);
-  if (!sidebar.includes("full_fight") || !sidebar.includes(FULL_FIGHT)) problems.push("the sidebar chunk does not contain the Full fight (beta) button");
+  const entry = textOf(dist, scripts, ["entry"]);
+  if (!entry.includes("full_fight") || !entry.includes(FULL_FIGHT)) problems.push("the entry does not contain the Full fight (beta) button");
+  if (scripts.some((script) => script.role === "sidebar")) problems.push("the sidebar is a separate chunk");
   const fullChunk = scripts.find((script) => script.role === "full-fight");
   const hash = fullChunk === undefined ? null : contentHash(fullChunk.path);
   if (fullChunk === undefined || hash === null) problems.push("?mode=full has no full-fight chunk");

@@ -101,6 +101,38 @@ function Credits() {
   );
 }
 
+function openKeybinds() {
+  ControlPanelController.controller.setActiveControl("SETTINGS");
+  if (phoneLayout()) Settings.setMenuVisible(false);
+}
+
+function PolicyFooter({ menu }: Readonly<{ menu: ReactNode }>) {
+  return (
+    <footer id="policy_footer">
+      <Credits />
+      <p id="credit_line">{CREDIT_LINE}</p>
+      <p id="app_version">v{LATEST_RELEASE.version}</p>
+      {menu}
+    </footer>
+  );
+}
+
+export function FightLoadNotice({ failed }: Readonly<{ failed: boolean }>) {
+  return (
+    <>
+      <style>{SIDEBAR_CSS}</style>
+      {failed && (
+        <main id="fight_load_error">
+          <p>The full fight didn't load.</p>
+          <button id="fight_reload" type="button" onClick={() => window.location.reload()}>Reload</button>
+          <a id="fight_back_to_drill" href={window.location.pathname}>Back to the drill</a>
+        </main>
+      )}
+      <PolicyFooter menu={null} />
+    </>
+  );
+}
+
 function Section({ id, title, children }: Readonly<{ id: string; title: string; children: ReactNode }>) {
   return (
     <section id={id}>
@@ -141,6 +173,7 @@ html.phone-overlay #policy_footer { position: relative; z-index: 41; }
 #sidebar ul { margin: 0; padding-left: 16px; color: #e8dcc0; font-size: 13px; line-height: 15px; }
 #sidebar li { margin-bottom: 5px; }
 #sidebar a { color: #ff981f; }
+#fight_load_error { padding: 24px 16px; color: #ff981f; }
 `;
 
 export type SidebarSlots = Readonly<{ home: SidebarHome; fight: ReactNode; aids: ReactNode; about: ReactNode; after: ReactNode }>;
@@ -183,7 +216,7 @@ export default function Sidebar({ home, fight, aids, about, after }: SidebarSlot
             <SettingToggles toggles={SOUNDS} />
           </Section>
           <Section id="sidebar_controls" title="Controls">
-            <RuneScapeButton id="keybinds" type="button" onClick={() => ControlPanelController.controller.setActiveControl("SETTINGS")}>Keybinds</RuneScapeButton>
+            <RuneScapeButton id="keybinds" type="button" onClick={openKeybinds}>Keybinds</RuneScapeButton>
           </Section>
           <Section id="sidebar_about" title="About">
             {about}
@@ -191,12 +224,7 @@ export default function Sidebar({ home, fight, aids, about, after }: SidebarSlot
           {after}
         </div>
       </DefaultSidebar>
-      <footer id="policy_footer">
-        <Credits />
-        <p id="credit_line">{CREDIT_LINE}</p>
-        <p id="app_version">v{LATEST_RELEASE.version}</p>
-        <PhoneMenuButton />
-      </footer>
+      <PolicyFooter menu={<PhoneMenuButton />} />
     </>
   );
 }

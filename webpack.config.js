@@ -50,7 +50,7 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /loadFullChunks\.ts$/,
+        test: /load(?:FullChunks|Attempts)\.ts$/,
         use: [
           {
             loader: "ts-loader",
@@ -67,7 +67,7 @@ module.exports = {
             options: { transpileOnly: true },
           },
         ],
-        exclude: [/node_modules/, /loadFullChunks\.ts$/],
+        exclude: [/node_modules/, /loadFullChunks\.ts$/, /loadAttempts\.ts$/],
       },
       {
         test: /\.(png|svg|jpg|jpeg|gif|ogg|gltf|glb)$/i,

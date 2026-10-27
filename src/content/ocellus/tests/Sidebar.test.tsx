@@ -2,6 +2,8 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { ControlPanelController, Settings } from "osrs-sdk";
 import { FullFightApp } from "../../../FullFightApp";
+import { creditLines } from "../../../menu/credits";
+import { FightLoadNotice } from "../../../menu/Sidebar";
 import { captureNavigation, loadPage } from "./page";
 
 const SAVED_SETTINGS = "osrs-sdk:settings";
@@ -127,6 +129,54 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
     navigation.restore();
 
     expect({ navigation: navigation.assigned, tab }).toEqual({ navigation: ["http://localhost/?mode=full"], tab: "SETTINGS" });
+  });
+
+  test("on a phone, Keybinds closes the menu and opens the key bindings", async () => {
+    vi.stubEnv("ARCHIVE_FULL", "on");
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(PHONE);
+    Settings._isMobileResult = null;
+    const page = await loadSidebarPage("/?seed=1");
+    try {
+      const panel = document.querySelector("#right_panel");
+      if (!(panel instanceof HTMLElement)) throw new Error("the page has no #right_panel");
+      page.click("phone_menu");
+      page.click("keybinds");
+      const menu = page.element("phone_menu");
+      expect({
+        menu: menu.textContent,
+        expanded: menu.getAttribute("aria-expanded"),
+        panel: panel.style.display,
+        tab: openTab(),
+      }).toEqual({ menu: "Menu", expanded: "false", panel: "none", tab: "SETTINGS" });
+    } finally {
+      page.close();
+    }
+  });
+
+  test("a failed full fight shows the reload message, the drill link, and both credit lines", () => {
+    window.history.replaceState(null, "", "/?mode=full&seed=1");
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    act(() => root.render(<FightLoadNotice failed />));
+    const shown = {
+      message: document.querySelector("#fight_load_error p")?.textContent ?? null,
+      reload: document.querySelector("#fight_reload")?.textContent ?? null,
+      back: document.querySelector("#fight_back_to_drill")?.textContent ?? null,
+      href: document.querySelector("#fight_back_to_drill")?.getAttribute("href") ?? null,
+      lines: [...document.querySelectorAll("#policy_footer li")].map((line) => line.textContent),
+    };
+    act(() => root.unmount());
+    container.remove();
+
+    expect(shown).toEqual({
+      message: "The full fight didn't load.",
+      reload: "Reload",
+      back: "Back to the drill",
+      href: "/",
+      lines: ["Made by Julian Dasilva / Moarhots: GitHub · @ShadowJdas", "With help from Alessandro Rodi"],
+    });
+    expect(creditLines()).toEqual(shown.lines);
   });
 
   test("the sidebar credits the makers first, then Alessandro Rodi on X, and the footer keeps the Jagex credit line", async () => {
