@@ -79,9 +79,12 @@ export type Section<E extends Entries, Ph extends Phases<E>> = {
 export type Room<Target = RoomMount> = Readonly<{
   size: Readonly<{ width: number; height: number }>;
   drawFloor(context: OffscreenCanvasRenderingContext2D, scale: number): void;
-  mount(region: Target): Readonly<{ dispose(): void }>;
+  mount(region: Target): MountedRoom;
   spawn: RoomTile;
 }>;
+
+/** A room in the region. It fences the floor a phase declares walkable, and takes the fence down with its scenery. */
+export type MountedRoom = Readonly<{ dispose(): void; walkable(tiles: readonly RoomTile[]): void }>;
 
 /** The SDK region a room mounts into. Core code names no SDK type. */
 export type RoomMount = Readonly<{ addEntity(entity: unknown): void }>;

@@ -6,6 +6,8 @@ import { bossBonuses, withDefenceFloor } from "../bossStats";
 import type { Cycle, Tick, Tile } from "../../../../sim/brands";
 import { after, span, tick } from "../../../../sim/brands";
 import type { IncomingStyle, Style } from "../../../../sim/combat";
+import type { Frame } from "../../../../sim/frame";
+import { toRoom, toRoomFootprint } from "../../../../sim/frame";
 import { cutAttackDelay } from "../../../../sim/combat";
 import type { AttackDelayCut, FrameOf, Heal, HitRequest, Hooks, InFlight, IncomingHit, Judgement, Landed, Logged } from "../../../../sim/sdk/EncounterBinding";
 import { incomingStyle } from "../../../../sim/sdk/EncounterBinding";
@@ -17,6 +19,7 @@ import type {
   FightEvent,
   HealCause,
   InputObservation,
+  LingeringVoid,
   Ordinal,
   Phase,
   PlayerHit,
@@ -139,8 +142,16 @@ export class Ocellus extends Mob {
     "tick-ended": (frame) => this.closeRow(frame),
   };
 
-  constructor(region: Region, private readonly config: DrillConfig, private readonly target: EncounterPlayer, private readonly invincible: () => boolean, bind: BindP4) {
-    super(region, OCELLUS_P4.geometry.bossAnchor.value);
+  constructor(
+    region: Region,
+    private readonly config: DrillConfig,
+    private readonly target: EncounterPlayer,
+    private readonly invincible: () => boolean,
+    bind: BindP4,
+    private readonly frame: Frame,
+    private readonly voids: readonly LingeringVoid[],
+  ) {
+    super(region, toRoomFootprint(frame, OCELLUS_P4.geometry.bossAnchor.value, OCELLUS_P4.boss.size.value));
     this.schedule = compileSchedule(config.seed, config.choices);
     this.holes = TileSet.at(this.schedule.acts("floor-holes") ? config.choices.floorHoleLayout.option.value.tiles : []);
     this.binding = bind(this.schedule.start, this.hooks);
@@ -152,6 +163,11 @@ export class Ocellus extends Mob {
     const lowestDefence = Math.ceil((this.stats.defence * OCELLUS_P4.boss.lowestDefencePercent.value) / 100);
     const entryHp = this.config.bossEntryHp ?? Math.floor(maxHp * this.config.choices.entryHpFraction.option.value);
     this.currentStats = withDefenceFloor({ ...this.stats, hitpoint: entryHp }, lowestDefence);
+  }
+
+  /** Phase 3's Defence drains carry into P4 through the same floor a drain in P4 meets. */
+  drainDefenceTo(defence: number): void {
+    this.currentStats.defence = defence;
   }
 
   override mobName(): string {
@@ -250,7 +266,7 @@ export class Ocellus extends Mob {
     const destroyed = this.destroyFallenRifts(at, player.attackDelay);
     this.rifts.forEach((rift) => rift.mob.charge(span(at - rift.spawnedAt)));
     const reactions = moment.beats.flatMap((beat) => this.react(beat, at, player));
-    return { outputs: [...phased, ...destroyed, ...reactions, ...this.strikeHole(at, player)], ending: null };
+    return { outputs: [...phased, ...destroyed, ...reactions, ...this.strikeHole(at, player), ...this.strikeVoid(at, player)], ending: null };
   }
 
   landingDamage(projectile: InFlight): number {
@@ -345,6 +361,11 @@ export class Ocellus extends Mob {
     return [fixedHit(rollInt(this.config.seed, "holeDamage", at, rule.perTick, 0), { kind: "hole-hit", at, tile: player.tile })];
   }
 
+  private strikeVoid(at: Tick, player: PlayerObservation): readonly Output[] {
+    const under = this.voids.find(({ tile, sincePlaced, period }) => tile.x === player.tile.x && tile.y === player.tile.y && (sincePlaced + at) % period === 0);
+    return under ? [fixedHit(rollInt(this.config.seed, "voidDamage", at, under.damage, 0), { kind: "void-hit", at, tile: player.tile })] : [];
+  }
+
   private strikeSpecial(ordinal: Ordinal, variant: Special, at: Tick): HitRequest<PlayerHit> {
     const { protectedDamage, unprotectedDamage } = OCELLUS_P4.special;
     const special = specialAttack(at, ordinal, variant);
@@ -365,7 +386,7 @@ export class Ocellus extends Mob {
 
   private spawnRifts(forCycle: Cycle, at: Tick): FightEvent[] {
     return riftTiles(this.config.seed, forCycle, at, this.holes).map((place, slot): FightEvent => {
-      const mob = new VoidRift(this.region, place);
+      const mob = new VoidRift(this.region, toRoom(this.frame, place));
       this.region.addMob(mob);
       const id = riftId(at, slot);
       this.rifts = [...this.rifts, { id, tile: place, forCycle, mob, hpAtPostTick: mob.currentStats.hitpoint, spawnedAt: at }];
@@ -407,6 +428,7 @@ export class Ocellus extends Mob {
       case "deflect-reflected":
       case "floor-hit":
       case "hole-hit":
+      case "void-hit":
       case "rift-burst":
         return [{ ...cause, receipt }];
       case "special-hit":

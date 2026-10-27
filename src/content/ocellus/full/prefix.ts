@@ -1,35 +1,46 @@
 import { CacheRenderModel, CacheRenderReferences, CardinalDirection } from "osrs-sdk";
 import { Unit } from "osrs-sdk";
 import type { Entity, Player, Region } from "osrs-sdk";
-import { ArenaFloor } from "../fight/arena";
-import { NPC } from "../fight/data";
+import type { FloorState } from "../fight/arena";
+import { ArenaFloor, fullRoom } from "../fight/arena";
+import { NPC, VOID_LOC } from "./data/looks";
 import { TileMarks, VoidFloor } from "../fight/effects";
 import type { FightOptions, StartPhase } from "../fight/Fight";
 import { Fight } from "../fight/Fight";
 import type { ATile } from "../fight/geometry";
 import { GRID, at, fromSdk, toSdk } from "../fight/geometry";
+import type { LocView } from "../fight/locs";
+import { LocField } from "../fight/locs";
 import { Phase1 } from "../fight/phase1";
 import { Phase2 } from "../fight/phase2";
 import { Phase3 } from "../fight/phase3";
 import { FightPlayer, VoidAdd } from "../fight/units";
 import { warmStartPhase } from "../fight/warmup";
+import type { DrillConfig } from "../js/OcellusTimings";
+import { fullFightConfig } from "../js/OcellusTimings";
+import type { P4Entry, P4Watch } from "../js/p4/phase";
+import { p4Phase } from "../js/p4/phase";
 import { seed, tile } from "../../../sim/brands";
-import type { AttackTarget, Mounted, Phases, Room, Rules } from "../../../sim/encounter";
+import type { AttackTarget, Mounted, Room, Rules } from "../../../sim/encounter";
 import { identity, toRoom } from "../../../sim/frame";
 import type { EncounterPlayerHooks } from "../../../sim/sdk/EncounterPlayer";
 import type { EncounterHost } from "../../../sim/sdk/EncounterRegion";
 import { EncounterRegion } from "../../../sim/sdk/EncounterRegion";
+import { fence } from "../../../sim/sdk/fence";
+import { carriedEntry } from "./fall";
 
 /** The body he spawns in for each start phase (phase 1's hooded intro wears the phase 1 model). */
 export const START_NPC: Readonly<Record<StartPhase, number>> = { 1: NPC.p1, 2: NPC.p2, 3: NPC.p3 };
 
 const SPAWN: Readonly<Record<StartPhase, ATile>> = { 1: at(0, -9), 2: at(5, -3), 3: at(5, -3) };
 
-type PrefixEntries = Readonly<{ prefix: PrefixEntry }>;
-type PrefixHost = EncounterHost<PrefixEntries>;
-type PrefixPhases = Phases<PrefixEntries, PrefixHost>;
-
 export type PrefixEntry = Readonly<{ kind: "fresh"; start: StartPhase }>;
+type FullEntries = Readonly<{ prefix: PrefixEntry; p4: P4Entry }>;
+type FullHost = EncounterHost<FullEntries>;
+type FullPhases = Readonly<{ prefix: Readonly<{ name: "prefix"; enter: typeof mountPrefix }>; p4: ReturnType<typeof p4Phase<FullEntries>> }>;
+
+/** The region builds his fight's fall into our P4, so the page does not choose what follows phase 3. */
+export type FullFightOptions = Omit<FightOptions, "onFall">;
 
 export function makePhase(n: StartPhase, fight: Fight) {
   switch (n) {
@@ -46,7 +57,19 @@ export function makePhase(n: StartPhase, fight: Fight) {
   }
 }
 
-function roomFor(start: StartPhase): Room<Region> {
+const OPEN_ROOM: FloorState = { key: "open", floor: fullRoom(), stones: [], censers: [], crumbling: [], destroyed: [] };
+
+/** The arena outlives phase 3: his fight lays its floor while it runs, and the floor and voids stay as the third fall left them. */
+class Arena {
+  fight: Fight | null = null;
+  voids: readonly LocView[] = [];
+
+  floor(): FloorState {
+    return this.fight?.floorState() ?? OPEN_ROOM;
+  }
+}
+
+function arenaRoom(start: StartPhase, arena: Arena): Room<Region> {
   const size = { width: GRID, height: GRID };
   const spawn = toSdk(SPAWN[start]);
   return {
@@ -56,8 +79,13 @@ function roomFor(start: StartPhase): Room<Region> {
       context.fillStyle = "#07060b";
       context.fillRect(0, 0, GRID * scale, GRID * scale);
     },
-    mount() {
-      return { dispose() {} };
+    mount(region) {
+      const scenery: Entity[] = [new ArenaFloor(region, () => arena.floor()), new LocField(region, () => arena.voids)];
+      scenery.forEach((entity) => region.addEntity(entity));
+      return {
+        dispose: () => scenery.forEach((entity) => region.removeEntity(entity)),
+        walkable: (tiles) => scenery.push(...fence(region, tiles)),
+      };
     },
   };
 }
@@ -82,20 +110,28 @@ function rulesOf(fight: Fight, player: FightPlayer): Rules {
   };
 }
 
-function mountPrefix(host: PrefixHost, entry: PrefixEntry): Mounted<never> {
+function mountPrefix(host: FullHost, entry: PrefixEntry): Mounted<never> {
   const region = host.region;
   const player = host.player;
   if (!(region instanceof FightRegion) || !(player instanceof FightPlayer)) throw new Error("the hosted prefix runs on the full fight region and player");
-  const fight = new Fight(region, { ...region.currentOptions(), startPhase: entry.start }, player, makePhase);
+  // Everything his fight adds is the prefix's, and leaves with it; the room and the player were here first.
+  const before = new Set<unknown>([...region.entities, ...region.mobs, ...region.newMobs]);
+  const fight = new Fight(
+    region,
+    {
+      ...region.currentOptions(),
+      startPhase: entry.start,
+      onFall: (fall) => {
+        region.fell(fall.voids.map(({ tile: on, placed }) => ({ key: `bomb:${placed}:${on.x},${on.z}`, tile: on, models: VOID_LOC.bomb.models })));
+        host.next({ phase: "p4", entry: carriedEntry(fall, region.p4Config) });
+      },
+    },
+    player,
+    makePhase,
+  );
   region.attach(fight);
-  const added: Entity[] = [];
-  const track = (entity: Entity) => {
-    region.addEntity(entity);
-    added.push(entity);
-  };
-  track(new ArenaFloor(region, () => fight.floorState()));
-  track(new VoidFloor(region, () => fight.voidTiles()));
-  track(new TileMarks(region, () => fight.marks()));
+  region.addEntity(new VoidFloor(region, () => fight.voidTiles()));
+  region.addEntity(new TileMarks(region, () => fight.marks()));
   const size = { width: GRID, height: GRID };
   return {
     frame: identity(size),
@@ -112,34 +148,50 @@ function mountPrefix(host: PrefixHost, entry: PrefixEntry): Mounted<never> {
     finishTick() {},
     rows: () => [],
     leave() {
-      for (const entity of added) region.removeEntity(entity);
-      added.splice(0, added.length);
+      const added = (unit: unknown) => !before.has(unit);
+      // Region.removeEntity hands the entity to lodash's remove as a matcher, so a bare blocker at (0, 0) would take the arena with it.
+      region.entities = region.entities.filter((entity) => !added(entity));
+      [...region.mobs, ...region.newMobs].filter(added).forEach((mob) => region.removeMob(mob));
+      if (player.aggro && added(player.aggro)) player.setAggro(null);
     },
   };
 }
 
-/** His phases 1 to 3, hosted as the prefix phase on the engine's region and player. */
-export function fullFightStaged(options: FightOptions, dress: (player: Player) => void): FightRegion {
+/** His phases 1 to 3, hosted as the prefix phase on the engine's region and player, then our P4 in the same world. */
+export function fullFightStaged(options: FullFightOptions, dress: (player: Player) => void): FightRegion {
   return new FightRegion(options, dress);
 }
 
-export class FightRegion extends EncounterRegion<PrefixEntries, PrefixPhases> {
-  fight: Fight | null = null;
-  private options: FightOptions;
+export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
+  readonly p4: P4Watch;
+  readonly p4Config: DrillConfig;
+  private options: FullFightOptions;
+  private readonly arena: Arena;
   private readonly listeners = new Set<() => void>();
+  private readonly tickListeners = new Set<() => void>();
 
-  constructor(options: FightOptions, private readonly dress: (player: Player) => void) {
+  constructor(options: FullFightOptions, private readonly dress: (player: Player) => void) {
+    const arena = new Arena();
+    const watch: P4Watch = { invincible: options.invincible, mounted: null };
     const entry: PrefixEntry = { kind: "fresh", start: options.startPhase };
     super({
-      room: roomFor(options.startPhase),
-      phases: { prefix: { name: "prefix", enter: mountPrefix } },
+      room: arenaRoom(options.startPhase, arena),
+      phases: { prefix: { name: "prefix", enter: mountPrefix }, p4: p4Phase<FullEntries>(watch) },
       start: { phase: "prefix", entry },
       seed: seed(options.seed),
     });
     this.options = options;
+    this.arena = arena;
+    this.p4 = watch;
+    this.p4Config = fullFightConfig(seed(options.seed));
   }
 
-  currentOptions(): FightOptions {
+  /** His fight: the running one through phase 3, and the one that fell into P4 after. */
+  get fight(): Fight | null {
+    return this.arena.fight;
+  }
+
+  currentOptions(): FullFightOptions {
     return this.options;
   }
 
@@ -165,17 +217,24 @@ export class FightRegion extends EncounterRegion<PrefixEntries, PrefixPhases> {
   }
 
   attach(fight: Fight): void {
-    this.fight = fight;
+    this.arena.fight = fight;
+    this.arena.voids = [];
     this.listeners.forEach((listener) => listener());
   }
 
-  setOptions(options: FightOptions): void {
+  fell(voids: readonly LocView[]): void {
+    this.arena.voids = voids;
+    this.listeners.forEach((listener) => listener());
+  }
+
+  setOptions(options: FullFightOptions): void {
     this.options = options;
   }
 
   /** The sidebar's practice toggle: it takes effect now, in the running fight, and in every restart. */
   setPractice(on: boolean): void {
     this.options = { ...this.options, invincible: on };
+    this.p4.invincible = on;
     if (this.fight) this.fight.practice = on;
   }
 
@@ -203,13 +262,30 @@ export class FightRegion extends EncounterRegion<PrefixEntries, PrefixPhases> {
     await Promise.all([super.preload(), boss, spots]);
   }
 
+  /** P4 ends its own run on a death; his fight ends phases 1 to 3. */
   override onGameOver(): void {
-    this.fight?.lose("death");
+    if (this.current === "prefix") this.fight?.lose("death");
     this.world.stopTicking();
   }
 
   onFightChange(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  override postTick(): void {
+    super.postTick();
+    this.tickListeners.forEach((listener) => listener());
+  }
+
+  /** Called after every world tick's phase work, for a page that follows P4, which has no change events of its own. */
+  onTick(listener: () => void): () => void {
+    this.tickListeners.add(listener);
+    return () => this.tickListeners.delete(listener);
+  }
+
+  ticks(): number {
+    const running = this.world;
+    return running ? running.globalTickCounter : 0;
   }
 }

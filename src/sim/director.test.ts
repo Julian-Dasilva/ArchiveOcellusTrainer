@@ -25,7 +25,7 @@ function room(): Room {
     size,
     drawFloor() {},
     mount() {
-      return { dispose() {} };
+      return { dispose() {}, walkable() {} };
     },
     spawn: toRoom(identity(size), tile(10, 10)),
   };

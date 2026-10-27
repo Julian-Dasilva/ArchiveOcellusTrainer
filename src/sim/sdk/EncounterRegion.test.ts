@@ -40,7 +40,7 @@ function built(walk: () => Walk, sight: () => "sdk" | "granted", onEnter?: (host
       size,
       drawFloor() {},
       mount() {
-        return { dispose() {} };
+        return { dispose() {}, walkable() {} };
       },
       spawn: toRoom(identity(size), tile(10, 10)),
     },

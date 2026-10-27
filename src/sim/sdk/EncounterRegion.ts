@@ -2,8 +2,9 @@ import { Region } from "osrs-sdk";
 import type { Player } from "osrs-sdk";
 import type { Tick } from "../brands";
 import { worldTick } from "../brands";
-import type { Entries, Host, Phases, Setup } from "../encounter";
+import type { Entries, Host, MountedRoom, PhaseOf, Phases, RowOf, Run, Section, Setup } from "../encounter";
 import { Director } from "../director";
+import { toRoom } from "../frame";
 import type { Encounter, Hooks } from "./EncounterBinding";
 import { EncounterBinding } from "./EncounterBinding";
 import type { EncounterPlayerHooks, PlayerHost, PlayerInput } from "./EncounterPlayer";
@@ -17,11 +18,11 @@ export type EncounterHost<E extends Entries> = Host<E> &
     bind<R extends Encounter & Readonly<{ input: PlayerInput }>>(start: Tick, hooks: Hooks<R>): EncounterBinding<R>;
   }>;
 
-export class EncounterRegion<E extends Entries, Ph extends Phases<E, EncounterHost<E>>> extends Region {
+export class EncounterRegion<E extends Entries, Ph extends Phases<E, EncounterHost<E>>> extends Region implements Run<E, Ph> {
   private readonly director: Director<E, Ph, EncounterHost<E>>;
   private player: EncounterPlayer | null = null;
   private bound: PlayerHost | null = null;
-  private scenery: Readonly<{ dispose(): void }> | null = null;
+  private scenery: MountedRoom | null = null;
 
   constructor(private readonly setup: Setup<E, Ph, Region>) {
     super();
@@ -69,6 +70,18 @@ export class EncounterRegion<E extends Entries, Ph extends Phases<E, EncounterHo
     return result;
   }
 
+  get current(): PhaseOf<E> {
+    return this.director.current;
+  }
+
+  sections(): readonly Section<E, Ph>[] {
+    return this.director.sections();
+  }
+
+  rows<P extends PhaseOf<E>>(phase: P): readonly RowOf<Ph[P]>[] {
+    return this.director.rows(phase);
+  }
+
   override beforeNpcTurns(): void {
     this.director.beforeNpcTurns();
   }
@@ -87,12 +100,20 @@ export class EncounterRegion<E extends Entries, Ph extends Phases<E, EncounterHo
     const director = this.director;
     return {
       seed: director.seed,
-      room: director.room,
+      room: {
+        size: director.room.size,
+        walkable: (tiles) => {
+          if (this.scenery === null) throw new Error("a phase fenced its floor before the room was mounted");
+          this.scenery.walkable(tiles);
+        },
+      },
       next: (to) => director.next(to, "region"),
       region: this,
       player,
       bind: (start, hooks) => {
-        const binding = new EncounterBinding(director.seed, start, player, hooks);
+        // The binding reads the player's steps off the SDK in room tiles; the phase reasons in its own.
+        const inPhaseTiles: typeof hooks = { ...hooks, "player-moved": (moved) => hooks["player-moved"]({ ...moved, steps: moved.steps.map((at) => player.local(at)), at: player.local(moved.at) }) };
+        const binding = new EncounterBinding(director.seed, start, player, inPhaseTiles);
         this.bound = binding;
         return binding;
       },
@@ -103,10 +124,11 @@ export class EncounterRegion<E extends Entries, Ph extends Phases<E, EncounterHo
     return {
       host: () => this.bound,
       rules: () => this.director.rules(),
+      frame: () => this.director.frame(),
       hop: (to) => {
         const player = this.player;
         if (player === null) throw new Error("a hop was asked for before the player was built");
-        player.hop(to);
+        player.hop(toRoom(this.director.frame(), to));
       },
       canMelee: () => true,
     };

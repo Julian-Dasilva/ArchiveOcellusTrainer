@@ -21,7 +21,7 @@ function engineFile(target) {
   const file = rel.endsWith(".ts") || rel.endsWith(".tsx") ? rel : `${rel}.ts`;
   return ENGINE_PAGE_BAN.has(file) ? file : null;
 }
-const PUBLIC = new Set(["OcellusRegion.ts", "OcellusLoadout.ts", "OcellusTimings.ts", "OcellusTimingsP1.ts", "OcellusTimingsP2.ts", "OcellusTimingsP3.ts", "P4Types.ts", "P3Region.ts", "P3Types.ts", "P2Region.ts", "P2Types.ts", "P1Region.ts", "P1Types.ts", "carry.ts"].map((file) => path.join(FIGHT, file)));
+const PUBLIC = new Set(["OcellusRegion.ts", "OcellusLoadout.ts", "OcellusTimings.ts", "OcellusTimingsP1.ts", "OcellusTimingsP2.ts", "OcellusTimingsP3.ts", "P4Types.ts", "P3Region.ts", "P3Types.ts", "P2Region.ts", "P2Types.ts", "P1Region.ts", "P1Types.ts", "p4/phase.ts"].map((file) => path.join(FIGHT, file)));
 const SUPPRESSION = /@ts-(ignore|expect-error|nocheck)\b/;
 const TEST_FILE = /(^|[/\\])__tests__[/\\]|\.(test|spec)(-d)?\.[cm]?[jt]sx?$/;
 

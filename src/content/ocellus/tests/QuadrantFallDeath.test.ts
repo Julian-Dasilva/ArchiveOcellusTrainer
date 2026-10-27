@@ -1,10 +1,10 @@
 import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import { P3 } from "../fight/data";
-import type { Fight, FightOptions } from "../fight/Fight";
+import type { Fight } from "../fight/Fight";
 import { FightRegion } from "../fight/FightRegion";
 import type { ATile, Quadrant } from "../fight/geometry";
 import { QUADRANTS, quadrantOf, quadrantTiles } from "../fight/geometry";
-import type { HandOver } from "../fight/handOver";
+import type { FullFightOptions } from "../full/prefix";
 
 /**
  * The quadrant falls 13 ticks after it starts to collapse, and the collapse starts the tick after his HP is at the
@@ -22,8 +22,7 @@ describe("a falling quadrant", () => {
 
   function open(practice: boolean) {
     Settings.readFromStorage();
-    const handOvers: HandOver[] = [];
-    const options: FightOptions = {
+    const options: FullFightOptions = {
       seed: 1,
       party: 1,
       startPhase: 3,
@@ -32,7 +31,6 @@ describe("a falling quadrant", () => {
       skipMarkers: false,
       soloVine: true,
       invincible: practice,
-      onHandOver: (state) => handOvers.push(state),
     };
     const region = new FightRegion(options, () => undefined);
     const trainer = new TrainerInstance(region, { force2d: true });
@@ -50,7 +48,8 @@ describe("a falling quadrant", () => {
         if (++guard > 400) throw new Error(`the fight stuck at tick ${fight.tick}, outcome ${fight.outcome.kind}`);
       }
     };
-    return { fight, tick, tickTo, handOvers };
+    const enteredP4 = () => region.current === "p4";
+    return { fight, tick, tickTo, enteredP4 };
   }
 
   /** His HP at a whole-number percentage, set between ticks so the next tick can start the collapse. */
@@ -82,18 +81,18 @@ describe("a falling quadrant", () => {
   }
 
   function killed(practice: boolean): void {
-    const { fight, tickTo, handOvers } = open(practice);
+    const { fight, tickTo, enteredP4 } = open(practice);
     tickTo(P3.jumpToCornerAfter);
     const home = quadrantOf(fight.playerTile);
     if (!home) throw new Error("the player is not in a quadrant");
     floorBoss(fight);
     tickTo(FALL_TICK);
-    expect({ tick: fight.tick, home, state: playerState(fight), chat: consumed(fight), handedOver: handOvers.length }).toEqual({
+    expect({ tick: fight.tick, home, state: playerState(fight), chat: consumed(fight), enteredP4: enteredP4() }).toEqual({
       tick: FALL_TICK,
       home,
       state: [0, 4, "running"],
       chat: [[FALL_TICK, "The void consumes you."]],
-      handedOver: 0,
+      enteredP4: false,
     });
     tickTo(DEATH_SCREEN_TICK);
     expect({
@@ -101,7 +100,7 @@ describe("a falling quadrant", () => {
       state: playerState(fight),
       outcome: fight.outcome,
       chat: consumed(fight),
-      handedOver: handOvers.length,
+      enteredP4: enteredP4(),
       crumbling: [...fight.floorState().crumbling],
       fell: [...fight.destroyed],
       hidden: fight.boss?.hidden === true,
@@ -114,7 +113,7 @@ describe("a falling quadrant", () => {
         [FALL_TICK, "The void consumes you."],
         [DEATH_SCREEN_TICK, "Oh dear, you are dead!"],
       ],
-      handedOver: 0,
+      enteredP4: false,
       crumbling: [],
       fell: [home],
       hidden: true,
@@ -131,7 +130,7 @@ describe("a falling quadrant", () => {
   });
 
   test("guard: standing on a quadrant that is still there leaves the player alive", () => {
-    const { fight, tickTo, handOvers } = open(false);
+    const { fight, tickTo, enteredP4 } = open(false);
     tickTo(P3.jumpToCornerAfter);
     const home = quadrantOf(fight.playerTile);
     const safe = standOn(fight, otherThan(fight, home));
@@ -142,14 +141,14 @@ describe("a falling quadrant", () => {
       tile: fight.playerTile,
       state: playerState(fight),
       chat: consumed(fight),
-      handedOver: handOvers.length,
+      enteredP4: enteredP4(),
       fell: [...fight.destroyed],
     }).toEqual({
       tick: FALL_TICK,
       tile: safe,
       state: [99, -1, "running"],
       chat: [],
-      handedOver: 0,
+      enteredP4: false,
       fell: home ? [home] : [],
     });
     tickTo(DEATH_SCREEN_TICK);
@@ -157,7 +156,7 @@ describe("a falling quadrant", () => {
   });
 
   test("guard: leaving on the tick before the fall leaves the player alive", () => {
-    const { fight, tickTo, handOvers } = open(false);
+    const { fight, tickTo, enteredP4 } = open(false);
     tickTo(P3.jumpToCornerAfter);
     const home = quadrantOf(fight.playerTile);
     if (!home) throw new Error("the player is not in a quadrant");
@@ -170,20 +169,20 @@ describe("a falling quadrant", () => {
       tile: fight.playerTile,
       state: playerState(fight),
       chat: consumed(fight),
-      handedOver: handOvers.length,
+      enteredP4: enteredP4(),
       fell: [...fight.destroyed],
     }).toEqual({
       tick: FALL_TICK,
       tile: safe,
       state: [99, -1, "running"],
       chat: [],
-      handedOver: 0,
+      enteredP4: false,
       fell: [home],
     });
   });
 
   test.each([true, false])("standing on the third quadrant when it falls kills the player and does not start phase 4, practice %s", (practice) => {
-    const { fight, tick, tickTo, handOvers } = open(practice);
+    const { fight, tick, tickTo, enteredP4 } = open(practice);
     tickTo(P3.jumpToCornerAfter);
     const untilFallen = (count: number) => {
       let guard = 0;
@@ -215,23 +214,23 @@ describe("a falling quadrant", () => {
     if (!home) throw new Error("the player left the last quadrant");
     untilFallen(3);
     const fallTick = fight.tick;
-    expect({ home, state: playerState(fight), chat: consumed(fight), handedOver: handOvers.length }).toEqual({
+    expect({ home, state: playerState(fight), chat: consumed(fight), enteredP4: enteredP4() }).toEqual({
       home,
       state: [0, 4, "running"],
       chat: [[fallTick, "The void consumes you."]],
-      handedOver: 0,
+      enteredP4: false,
     });
     tickTo(fallTick + 4);
     expect({
       outcome: fight.outcome,
-      handedOver: handOvers.length,
+      enteredP4: enteredP4(),
       crumbling: [...fight.floorState().crumbling],
       fell: fight.destroyed.size,
       hidden: fight.boss?.hidden === true,
       collapses: fight.chat.filter((line) => line.text === "The quadrant begins to collapse! Jump across the stones!").length,
     }).toEqual({
       outcome: { kind: "lost", ticks: fallTick + 4, cause: "death" },
-      handedOver: 0,
+      enteredP4: false,
       crumbling: [],
       fell: 3,
       hidden: true,

@@ -1,6 +1,8 @@
 import { Sound, SoundCache, cacheSound } from "osrs-sdk";
 import { OCELLUS_P4 } from "../OcellusTimings";
-import type { SoundId, Tile } from "../../../../sim/brands";
+import type { SoundId } from "../../../../sim/brands";
+import type { Frame, RoomTile } from "../../../../sim/frame";
+import { toRoom } from "../../../../sim/frame";
 import type { FightEvent, PlayerHitSource, TickRow, VoidKind } from "../P4Types";
 import type { ExplosionViews } from "../entities/ExplosionViews";
 import type { BossLook, FloorHole, FragmentFlash, OrbView, PlayerLook, VoidField } from "../entities/P4Views";
@@ -23,26 +25,26 @@ const LETHAL_HIT: Readonly<Record<PlayerHitSource, string>> = {
   "deflect-reflected": "a deflected hit's reflection",
   "floor-hit": "the void floor",
   "hole-hit": "a floor hole",
+  "void-hit": "a phase 3 void",
   "lifeforce-drained": "the lifeforce steal",
   "explosion-resolved": "an explosion",
   "special-hit": "a transition attack",
   "rift-burst": "a void rift burst",
 };
 
-function playCue(id: SoundId, at: Tile, delayMs = 0): void {
+function playCue(id: SoundId, at: RoomTile, delayMs = 0): void {
   const { volume, range, retain } = soundPlayback.value;
   SoundCache.play(new Sound(cacheSound(id), volume, delayMs, { location: at, range, retain }));
 }
 
-
-function present(event: FightEvent, views: Views, player: Tile): void {
+function present(event: FightEvent, views: Views, frame: Frame, player: RoomTile): void {
   switch (event.kind) {
     case "lifeforce-told":
       views.fragment.tell(player);
       views.chat.push(OCELLUS_P4.lifeforce.tellChat.value);
       return;
     case "orb-spawned":
-      views.orbs[event.void].spawn(event.void, event.tile);
+      views.orbs[event.void].spawn(event.void, toRoom(frame, event.tile));
       return;
     case "orb-matured":
       views.orbs[event.void].mature();
@@ -60,7 +62,7 @@ function present(event: FightEvent, views: Views, player: Tile): void {
       playCue(sounds.explosionSeriesStart.value, player);
       return;
     case "explosion-marked":
-      views.explosions.mark(event.void, event.pulse, event.tile);
+      views.explosions.mark(event.void, event.pulse, toRoom(frame, event.tile));
       playCue(sounds.explosionMark.value, player);
       return;
     case "explosion-resolved":
@@ -106,6 +108,7 @@ function present(event: FightEvent, views: Views, player: Tile): void {
     case "deflect-reflected":
     case "floor-hit":
     case "hole-hit":
+    case "void-hit":
     case "boss-healed":
     case "special-hit":
     case "rift-spawned":
@@ -118,9 +121,10 @@ function present(event: FightEvent, views: Views, player: Tile): void {
   }
 }
 
-export function presentRow(row: TickRow, views: Views): void {
+export function presentRow(row: TickRow, views: Views, frame: Frame): void {
   const floor = voidUnder(row.phase);
   views.field.show(floor);
   views.holes.forEach((hole) => hole.cover(floor));
-  row.events.forEach((event) => present(event, views, row.playerAtPostTick.tile));
+  const player = toRoom(frame, row.playerAtPostTick.tile);
+  row.events.forEach((event) => present(event, views, frame, player));
 }

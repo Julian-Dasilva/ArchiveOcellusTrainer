@@ -1,13 +1,13 @@
 import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import { dress } from "../js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
-import type { FightOptions } from "../fight/Fight";
 import { FightRegion } from "../fight/FightRegion";
+import type { FullFightOptions } from "../full/prefix";
 
 describe("a melee player targeting the levitating boss", () => {
   test("at 0 hitpoints dies on the next ticks, and the swing is refused", () => {
     Settings.readFromStorage();
-    const options: FightOptions = {
+    const options: FullFightOptions = {
       seed: 1,
       party: 1,
       startPhase: 3,
@@ -16,7 +16,6 @@ describe("a melee player targeting the levitating boss", () => {
       skipMarkers: false,
       soloVine: true,
       invincible: true,
-      onHandOver: () => undefined,
     };
     const region = new FightRegion(options, (player) => dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options.melee.value)));
     const trainer = new TrainerInstance(region, { force2d: true });

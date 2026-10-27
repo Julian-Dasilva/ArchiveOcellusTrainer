@@ -1,6 +1,6 @@
 import { ImageLoader, Settings, TrainerInstance, Viewport } from "osrs-sdk";
-import type { FightOptions } from "../fight/Fight";
 import { FightRegion } from "../fight/FightRegion";
+import type { FullFightOptions } from "../full/prefix";
 import { paintedImages } from "../../../../test/paintedTiles";
 
 describe("his overhead prayer", () => {
@@ -26,8 +26,8 @@ describe("his overhead prayer", () => {
     });
 
     Settings.readFromStorage();
-    const options: FightOptions = {
-      seed: 1, party: 1, startPhase: 3, hazardTiles: false, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true, onHandOver: () => undefined,
+    const options: FullFightOptions = {
+      seed: 1, party: 1, startPhase: 3, hazardTiles: false, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true,
     };
     const region = new FightRegion(options, () => undefined);
     const trainer = new TrainerInstance(region, { force2d: true });

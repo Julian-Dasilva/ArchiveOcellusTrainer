@@ -1,7 +1,7 @@
 import { CollisionType, Entity, LineOfSightMask } from "osrs-sdk";
 import type { Model, Region } from "osrs-sdk";
 import { OCELLUS_P4 } from "../OcellusTimings";
-import type { Tile } from "../../../../sim/brands";
+import type { RoomTile } from "../../../../sim/frame";
 import type { VoidKind } from "../P4Types";
 import { SpotAnimModel } from "./P4Views";
 
@@ -12,7 +12,7 @@ type Blast = "marked" | "detonated";
 class ExplosionView extends Entity {
   private blast: Blast = "marked";
 
-  constructor(region: Region, at: Tile) {
+  constructor(region: Region, at: RoomTile) {
     super(region, { x: at.x, y: at.y });
   }
 
@@ -42,7 +42,7 @@ export class ExplosionViews {
 
   constructor(private readonly region: Region) {}
 
-  mark(kind: VoidKind, pulse: number, at: Tile): void {
+  mark(kind: VoidKind, pulse: number, at: RoomTile): void {
     const view = new ExplosionView(this.region, at);
     this.region.addEntity(view);
     this.live.set(`${kind}:${pulse}`, view);
