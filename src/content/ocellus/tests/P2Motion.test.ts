@@ -2,7 +2,7 @@ import { at } from "../fight/geometry";
 import { startP2 } from "./p2run";
 import { drawnThrough } from "./drawn";
 
-describe("phase 2 forced moves", () => {
+describe("phase 2 moves on screen without a jump", () => {
   let close: (() => void) | null = null;
   afterEach(() => {
     close?.();
