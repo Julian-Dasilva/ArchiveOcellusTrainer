@@ -9,6 +9,7 @@ import type { ATile } from "./geometry";
 import { fromSdk, toSdk } from "./geometry";
 import type { SpriteFrame } from "../js/OcellusTimings";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
+import { PHASE_RANGED_DEFENCE, ammunitionAgainst } from "./blowpipe";
 import { spriteFile } from "../../../servedAssets";
 import { tile } from "../../../sim/brands";
 import { EncounterPlayer } from "../../../sim/sdk/EncounterPlayer";
@@ -168,9 +169,12 @@ export class BossForm extends Mob {
 
   override get bonuses(): UnitBonuses {
     const defence = this.form === "p1" ? P1.defenceBonuses : this.form === "blade" ? P2.bladeDefenceBonuses : P3.defenceBonuses;
+    const form = this.form;
+    const ammunition = ammunitionAgainst(this.region.players[0]?.equipment.weapon?.cacheItemId);
+    const range = form === "p1" ? PHASE_RANGED_DEFENCE.p1[ammunition] : form === "blade" ? PHASE_RANGED_DEFENCE.blade[ammunition] : defence.range;
     return {
       attack: { stab: 0, slash: 0, crush: 0, magic: 0, range: 0 },
-      defence: { ...defence },
+      defence: { ...defence, range },
       other: { meleeStrength: 0, rangedStrength: 0, magicDamage: 0, prayer: 0 },
     };
   }
