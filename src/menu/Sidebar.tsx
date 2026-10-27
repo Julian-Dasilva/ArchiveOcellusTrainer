@@ -146,38 +146,7 @@ function Section({ id, title, children }: Readonly<{ id: string; title: string; 
 // The drill's What's new panel keeps its popup id, so the sidebar resets that popup styling in place.
 // The SDK draws its tabs and inventory on the canvas, so the policy strip takes a grid row under the canvas and the panel. TrainerApp sets display inline and DefaultSidebar sets the panel width inline, hence !important.
 // #trainer-loading is z-index 1000 and takes hits. The phone panel paints above it, and the footer above the panel.
-const SIDEBAR_CSS = `
-div:has(> #right_panel) { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto; }
-#policy_footer { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 8px; padding: 3px 6px; background: #1b160f; border-top: 1px solid #3e3529; color: #c8b88a; font-size: 11px; }
-#policy_footer #sidebar_credits { flex: 1 1 100%; margin: 0; padding-left: 16px; color: #e8dcc0; font-size: 13px; line-height: 15px; }
-#policy_footer #sidebar_credits a { color: #ff981f; }
-#policy_footer #credit_line { flex: 1 1 0; max-width: none; margin: 0; }
-#policy_footer #app_version { margin: 0; white-space: nowrap; opacity: 0.8; }
-#policy_footer #phone_menu { flex: 0 0 auto; margin: 0 0 0 auto; padding: 2px 8px; border: 1px solid #6b5b3e; background: #2b2418; color: #ff981f; font: inherit; }
-html.phone-overlay div:has(> #right_panel) { grid-template-columns: minmax(0, 1fr); }
-html.phone-overlay #right_panel { position: fixed; top: 0; right: 0; width: min(280px, 92vw) !important; height: auto !important; max-height: 100%; z-index: 1001; }
-html.phone-overlay #policy_footer { position: relative; z-index: 1002; }
-#right_panel { overflow-x: hidden; }
-#sidebar { display: flex; flex-direction: column; gap: 10px; min-width: 0; font-size: 14px; color: #ff981f; overflow-wrap: anywhere; }
-#sidebar h3 { margin: 2px 0 0; font-weight: normal; font-size: 24px; text-align: center; }
-#sidebar .sidebar_subtitle { margin-top: -8px; text-align: center; font-size: 13px; color: #c8b88a; }
-#sidebar > section { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid #6b5b3e; }
-#sidebar .sidebar_title { margin: 0; font-weight: normal; font-size: 15px; color: #ff981f; }
-#sidebar > section > form, #sidebar > section > div { display: contents; }
-#sidebar label { display: flex; flex-direction: column; gap: 3px; color: #ffcf8a; }
-#sidebar label:has(> input[type="checkbox"]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: center; }
-#sidebar label > input[type="checkbox"] { grid-column: 2; grid-row: 1 / span 2; margin: 0; }
-#sidebar label > small { grid-column: 1; font-size: 12px; color: #a89a78; }
-#sidebar select, #sidebar #seed { font: inherit; width: 100%; box-sizing: border-box; padding: 2px; border: 1px solid #6b5b3e; background: #2b2418; color: #fff; }
-#sidebar button { width: 100%; }
-#sidebar #whats_new_panel { position: static; box-sizing: border-box; width: auto; max-height: none; overflow: visible; }
-#sidebar ul { margin: 0; padding-left: 16px; color: #e8dcc0; font-size: 13px; line-height: 15px; }
-#sidebar li { margin-bottom: 5px; }
-#sidebar a { color: #ff981f; }
-#fight_load_error { padding: 24px 16px; color: #ff981f; }
-#fight_load_error button, #fight_load_error a { display: inline-block; min-height: 24px; margin: 0; border: 0; background: none; color: #ff981f; }
-#fight_load_error a { margin-left: 12px; }
-`;
+const SIDEBAR_CSS = `div:has(>#right_panel){display:grid !important;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(0,1fr) auto}#policy_footer{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:flex-end;gap:4px 8px;padding:3px 6px;background:#1b160f;border-top:1px solid #3e3529;color:#c8b88a;font-size:11px}#policy_footer #sidebar_credits{flex:1 1 100%;margin:0;padding-left:16px;color:#e8dcc0;font-size:13px;line-height:15px}#policy_footer #sidebar_credits a{color:#ff981f}#policy_footer #credit_line{flex:1 1 0;max-width:none;margin:0}#policy_footer #app_version{margin:0;white-space:nowrap;opacity:0.8}#policy_footer #phone_menu{flex:0 0 auto;margin:0 0 0 auto;padding:2px 8px;border:1px solid #6b5b3e;background:#2b2418;color:#ff981f;font:inherit}html.phone-overlay div:has(>#right_panel){grid-template-columns:minmax(0,1fr)}html.phone-overlay #right_panel{position:fixed;top:0;right:0;width:min(280px,92vw) !important;height:auto !important;max-height:100%;z-index:1001}html.phone-overlay #policy_footer{position:relative;z-index:1002}#right_panel{overflow-x:hidden}#sidebar{display:flex;flex-direction:column;gap:10px;min-width:0;font-size:14px;color:#ff981f;overflow-wrap:anywhere}#sidebar h3{margin:2px 0 0;font-weight:normal;font-size:24px;text-align:center}#sidebar .sidebar_subtitle{margin-top:-8px;text-align:center;font-size:13px;color:#c8b88a}#sidebar>section{display:flex;flex-direction:column;gap:6px;padding-top:8px;border-top:1px solid #6b5b3e}#sidebar .sidebar_title{margin:0;font-weight:normal;font-size:15px;color:#ff981f}#sidebar>section>form,#sidebar>section>div{display:contents}#sidebar label{display:flex;flex-direction:column;gap:3px;color:#ffcf8a}#sidebar label:has(>input[type="checkbox"]){display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-items:center}#sidebar label>input[type="checkbox"]{grid-column:2;grid-row:1 / span 2;margin:0}#sidebar label>small{grid-column:1;font-size:12px;color:#a89a78}#sidebar select,#sidebar #seed{font:inherit;width:100%;box-sizing:border-box;padding:2px;border:1px solid #6b5b3e;background:#2b2418;color:#fff}#sidebar button{width:100%}#sidebar #whats_new_panel{position:static;box-sizing:border-box;width:auto;max-height:none;overflow:visible}#sidebar ul{margin:0;padding-left:16px;color:#e8dcc0;font-size:13px;line-height:15px}#sidebar li{margin-bottom:5px}#sidebar a{color:#ff981f}#fight_load_error{padding:24px 16px;color:#ff981f}#fight_load_error button,#fight_load_error a{display:inline-block;min-height:24px;margin:0;border:0;background:none;color:#ff981f}#fight_load_error a{margin-left:12px}`;
 
 export type SidebarSlots = Readonly<{ home: SidebarHome; fight: ReactNode; aids: ReactNode; about: ReactNode; after: ReactNode }>;
 
