@@ -1202,12 +1202,18 @@ drive_control_walk() {
 }
 
 click_twice_in_one_tick() {
-  local first=($1) last=($2)
+  local first=($1) last=($2) hits
   ab eval "(() => {
     const clock = window.__frameClock, tick = window.__archiveOcellusProbe.snapshot().tick + 1;
     clock.at({ kind: 'world', tick, fraction: ${CORRECTION_FIRST_MS} / clock.tickMs }, { kind: 'click', name: 'correction-first', x: ${first[0]}, y: ${first[1]} });
     clock.at({ kind: 'world', tick, fraction: ${CORRECTION_LATE_MS} / clock.tickMs }, { kind: 'click', name: 'correction-last', x: ${last[0]}, y: ${last[1]} });
-  })()" >/dev/null && ab wait --fn "window.__frameClock.done['correction-first']?.hit !== false && window.__frameClock.done['correction-last']?.hit !== false" --timeout 10000 >/dev/null
+  })()" >/dev/null || return 1
+  if ab wait --fn "window.__frameClock.done['correction-first'] !== undefined && window.__frameClock.done['correction-last'] !== undefined && window.__frameClock.done['correction-first'].hit !== false && window.__frameClock.done['correction-last'].hit !== false" --timeout 10000 >/dev/null; then
+    return 0
+  fi
+  hits="$(ab --json eval "({ first: window.__frameClock.done['correction-first']?.hit ?? null, last: window.__frameClock.done['correction-last']?.hit ?? null })" | json data.result)" || return 1
+  [[ "$(json first <<<"$hits")" == false || "$(json last <<<"$hits")" == false ]] && log "correction click covered"
+  return 1
 }
 
 drive_click_correction() {
