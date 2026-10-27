@@ -44,10 +44,16 @@ function label(region: FightRegion): string {
   switch (region.current) {
     case "prefix":
       return region.fight?.label() ?? "";
+    case "p2":
+      return "Phase 2";
     case "p3":
       return "Phase 3";
     case "p4":
       return "Phase 4";
+    default: {
+      const unhandled: never = region.current;
+      return unhandled;
+    }
   }
 }
 
@@ -89,19 +95,20 @@ function mountedP4(region: FightRegion) {
 describe("phase 2 hands over to phase 3 on the engine", () => {
   test("phase 3's tick 0 is P2's tick 131, his own phase 3's first tick, with the pool's HP as it stands", () => {
     const region = fullFight(2);
-    for (let guard = 0; region.current === "prefix"; guard++) {
+    for (let guard = 0; region.current === "p2"; guard++) {
       if (guard > 300) throw new Error("phase 2 never handed over");
-      if (region.fight?.tick === 120 && region.fight.boss) region.fight.boss.currentStats.hitpoint = 4321;
+      const p2 = region.p2.mounted;
+      if (p2?.now() === 120) p2.boss.currentStats.hitpoint = 4321;
       region.world.tickWorld();
     }
     region.world.tickWorld();
     expect({
       from: region.startOf("p3"),
-      his: region.fight?.tick,
+      last: region.rows("p2").at(-1)?.tick,
       p3: region.rows("p3").map((row) => [row.tick, row.worldTick - (region.rows("p3")[0]?.worldTick ?? 0)]),
       hp: mountedP3(region).boss.currentStats.hitpoint,
-      labels: [region.fight?.label(), label(region)],
-    }).toEqual({ from: 131, his: 130, p3: [[0, 0]], hp: 4321, labels: ["Phase 2", "Phase 3"] });
+      label: label(region),
+    }).toEqual({ from: 131, last: 130, p3: [[0, 0]], hp: 4321, label: "Phase 3" });
   });
 });
 
@@ -128,7 +135,7 @@ describe("the third fall enters P4 in the same world", () => {
       run: p4?.ocellus.runState().kind ?? null,
       end: region.rows("p4").flatMap((row) => row.events.flatMap((event) => (event.kind === "run-ended" ? [event.reason] : []))),
       reflected: reflected(),
-    }).toEqual({ labels: ["Phase 1", "Phase 2", "Phase 3"], phases: ["prefix", "p3", "p4"], run: "ended", end: ["kill"], reflected: true });
+    }).toEqual({ labels: ["Phase 1", "Phase 2", "Phase 3"], phases: ["prefix", "p2", "p3", "p4"], run: "ended", end: ["kill"], reflected: true });
   }, 120000);
 
   test("P4 opens on the next world tick with no GET READY, and the boss is hidden for the 4 ticks from the fall", () => {

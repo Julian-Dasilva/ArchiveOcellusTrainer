@@ -239,6 +239,27 @@ export const p2Sourced = {
     noWiki("the wiki's phase 2 text does not state this count"),
     ocellusSim("data.ts:298"),
   ),
+  oneTick: selected(
+    1,
+    "inferred",
+    "unscaled",
+    "One tick, for a beat that follows another by a tick.",
+    noWiki("the wiki's phase 2 text does not state this count"),
+  ),
+  repairEvery: selected(
+    3,
+    "inferred",
+    "unscaled",
+    "The sword's repair graphic: first at tick 3, then every 3 until enough.",
+    noWiki("the wiki's phase 2 text does not state this count"),
+  ),
+  shoutLasts: selected(
+    4,
+    "inferred",
+    "unscaled",
+    "How many ticks an overhead line stays up.",
+    noWiki("the wiki's phase 2 text does not state this count"),
+  ),
 };
 
 export const P2 = {
@@ -273,4 +294,7 @@ export const P2 = {
   skipRunOut: p2Sourced.skipRunOut.value,
   skipMarkerColour: p2Sourced.skipMarkerColour.value,
   poolDamage: p2Sourced.poolDamage.value,
+  oneTick: p2Sourced.oneTick.value,
+  repairEvery: p2Sourced.repairEvery.value,
+  shoutLasts: p2Sourced.shoutLasts.value,
 };

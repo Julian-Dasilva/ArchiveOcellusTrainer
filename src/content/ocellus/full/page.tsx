@@ -19,6 +19,7 @@ import type { P4Mount } from "../js/p4/phase";
 import type { RunState } from "../js/P4Types";
 import type { BossForm } from "../fight/units";
 import { FightPlayer } from "../fight/units";
+import type { P2Mount } from "./p2/sdk/phase";
 import type { P3Mount } from "./p3/sdk/phase";
 import type { FullFightOptions } from "./prefix";
 import { FightRegion, START_NPC, fullFightStaged } from "./prefix";
@@ -183,9 +184,10 @@ function LoadingSplash({ state, download }: { state?: TrainerLoadingState; downl
   );
 }
 
-/** His fight through phase 2, phase 3 on the engine, then our P4 in the same world. `from` is the fight clock on the phase's tick 0. */
+/** His fight through phase 1, then phases 2 and 3 on the engine, then our P4 in the same world. `from` is the fight clock on the phase's tick 0. */
 type Stage =
   | Readonly<{ phase: "prefix"; fight: Fight }>
+  | Readonly<{ phase: "p2"; p2: P2Mount; from: number }>
   | Readonly<{ phase: "p3"; p3: P3Mount; from: number }>
   | Readonly<{ phase: "p4"; p4: P4Mount; from: number }>;
 
@@ -195,6 +197,8 @@ function stageOf(region: FightRegion): Stage | null {
   if (p4) return { phase: "p4", p4, from: region.startOf("p4") };
   const p3 = region.p3.mounted;
   if (p3) return { phase: "p3", p3, from: region.startOf("p3") };
+  const p2 = region.p2.mounted;
+  if (p2) return { phase: "p2", p2, from: region.startOf("p2") };
   const fight = region.fight;
   return fight && { phase: "prefix", fight };
 }
@@ -240,6 +244,8 @@ function stageTicks(stage: Stage): number {
   switch (stage.phase) {
     case "prefix":
       return stage.fight.tick;
+    case "p2":
+      return stage.from + stage.p2.now();
     case "p3":
       return stage.from + stage.p3.now();
     case "p4":
@@ -255,6 +261,8 @@ function stageLabel(stage: Stage): string {
   switch (stage.phase) {
     case "prefix":
       return stage.fight.started ? stage.fight.label() : "Get ready";
+    case "p2":
+      return stage.p2.started() ? "Phase 2" : "Get ready";
     case "p3":
       return stage.p3.started() ? "Phase 3" : "Get ready";
     case "p4":
@@ -308,6 +316,10 @@ function endingOf(stage: Stage): Ending | null {
     case "prefix": {
       const outcome = stage.fight.outcome;
       return outcome.kind === "running" ? null : { won: outcome.kind === "won", ticks: outcome.ticks, phase: stage.fight.label() };
+    }
+    case "p2": {
+      const outcome = stage.p2.script.outcome;
+      return outcome.kind === "running" ? null : { won: false, ticks: stage.from + outcome.at, phase: "Phase 2" };
     }
     case "p3": {
       const outcome = stage.p3.script.outcome;
@@ -465,6 +477,8 @@ function tipsPhase(stage: Stage | null, start: StartPhase): StartPhase | 4 {
       return start;
     case "prefix":
       return START_PHASES.find((phase) => stage.fight.label() === `Phase ${phase}`) ?? start;
+    case "p2":
+      return 2;
     case "p3":
       return 3;
     case "p4":
@@ -513,6 +527,8 @@ function bossOf(stage: Stage | null): Readonly<{ unit: BossForm; pool: number }>
       return null;
     case "prefix":
       return stage.fight.boss && { unit: stage.fight.boss, pool: stage.fight.poolMax };
+    case "p2":
+      return { unit: stage.p2.boss, pool: stage.p2.boss.stats.hitpoint };
     case "p3":
       return { unit: stage.p3.boss, pool: stage.p3.boss.stats.hitpoint };
     default: {
@@ -563,6 +579,7 @@ function exposeProbe(trainer: TrainerInstance, region: FightRegion): void {
     die: () => {
       const stage = stageOf(region);
       if (stage?.phase === "prefix") stage.fight.lose("fell");
+      if (stage?.phase === "p2") stage.p2.script.lose();
       if (stage?.phase === "p3") stage.p3.script.lose();
     },
     bossTo: (percent) => {
