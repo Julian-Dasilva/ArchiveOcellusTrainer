@@ -297,7 +297,7 @@ describe("phase 3 on the engine follows the recorded kill [K]", () => {
     expect(player.prayerController.activePrayers().map((prayer) => prayer.name)).toEqual(["Protect from Range"]);
     const slots = ["weapon", "offhand", "helmet", "necklace", "chest", "legs", "feet", "gloves", "ring", "cape", "ammo"] as const;
     expect(Object.fromEntries(slots.map((slot) => [slot, player.equipment[slot]?.itemName ?? null]))).toEqual({
-      weapon: "Twisted Bow", offhand: null, helmet: "Masori mask (f)", necklace: "Necklace of rupture", chest: "Masori body (f)", legs: "Masori chaps (f)",
+      weapon: "Toxic Blowpipe", offhand: null, helmet: "Masori mask (f)", necklace: "Necklace of rupture", chest: "Masori body (f)", legs: "Masori chaps (f)",
       feet: "Avernic treads (max)", gloves: "Zaryte Vambraces", ring: "Venator ring", cape: "Dizana's Quiver", ammo: "Dragon arrow",
     });
     const carried = (index: number) => {
