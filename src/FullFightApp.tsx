@@ -1,8 +1,12 @@
-import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { CacheRender, ControlPanelController, Settings, SoundCache, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
-import type { Player, Region, SettingsSnapshot, TrainerLoadingState } from "osrs-sdk";
-import { DefaultSidebar, GameOverlay, RuneScapeButton, TrainerApp, useSettingsSnapshot } from "osrs-sdk-react";
+import type { Player, Region, TrainerLoadingState } from "osrs-sdk";
+import { GameOverlay, RuneScapeButton, TrainerApp, useSettingsSnapshot } from "osrs-sdk-react";
 import { CREDIT_LINE, readSettings } from "./ArchiveOcellusApp";
+import { CHANGELOG } from "./content/ocellus/changelog";
+import type { CreditLink } from "./menu/credits";
+import { CONTRIBUTOR, MAKER_LINKS } from "./menu/credits";
+import Sidebar from "./menu/Sidebar";
 import { dress } from "./content/ocellus/js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "./content/ocellus/js/OcellusTimings";
 import { installBossBar } from "./content/ocellus/fight/bossBar";
@@ -19,20 +23,22 @@ declare global {
     __fullFightProbe?: Readonly<{
       snapshot(): FullFightSnapshot;
       tileCentre(at: ATile): Readonly<{ x: number; y: number }> | null;
+      die(): void;
     }>;
   }
 }
 
-const FOLLOW_URL = "https://x.com/alrodi";
+const CHAT_LINES_SHOWN = 5;
 
-const CREDITS: readonly Readonly<{ who: string; what: string; href: string }>[] = [
-  { who: "Julian-Dasilva", what: "ArchiveOcellusTrainer, the phase 4 trainer this grew from", href: "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer" },
-  { who: "Julian-Dasilva", what: "play his phase 4 trainer", href: "https://archive-ocellus-trainer.raid-sims.workers.dev" },
-  { who: "ShadowStalkerTM", what: "Duo The Fractured Archive, the reference fight", href: "https://www.youtube.com/watch?v=HAgq_qg0OIY" },
-  { who: "MRobertEvers", what: "RSProx tick analysis of the fight", href: "https://github.com/MRobertEvers/oldschool-clientc" },
-  { who: "OldSchoolSDK", what: "osrs-sdk, the engine", href: "https://github.com/OldSchoolSDK/osrs-sdk" },
-  { who: "OSRS Wiki editors", what: "Ocellus", href: "https://oldschool.runescape.wiki/w/Ocellus" },
+function xHandle(link: CreditLink): CreditLink {
+  return { label: `@${new URL(link.href).pathname.replace(/^\//, "")}`, href: link.href };
+}
+
+const UPDATE_LINKS: readonly CreditLink[] = [
+  ...MAKER_LINKS.filter((link) => new URL(link.href).host === "x.com").map(xHandle),
+  xHandle(CONTRIBUTOR),
 ];
+const [LATEST_RELEASE] = CHANGELOG;
 
 type Setup = "ranged" | "melee";
 type Params = Omit<FightOptions, "onHandOver"> & Readonly<{ setup: Setup }>;
@@ -60,7 +66,6 @@ function readParams(): Params {
   };
 }
 
-/** A setting that applies live, kept in the URL so a reload keeps it too. */
 function rememberFlag(name: string, on: boolean): void {
   const url = new URL(window.location.href);
   url.searchParams.set(name, on ? "1" : "0");
@@ -102,11 +107,6 @@ function createTrainer() {
   return { trainer, region, params };
 }
 
-/**
- * Ocellus's later bodies are big (each animation is baked as vertex frames: 12 MB for phase 2, 34 MB for phase 3).
- * Fetch them one at a time once the fight has loaded (his first body loads behind the splash), so the transformations
- * do not stall; the hashed files are cached as immutable.
- */
 function prefetchLaterPhases(start: StartPhase): void {
   const later = START_PHASES.filter((phase) => phase > start).map((phase) => START_NPC[phase]);
   const ids = [...new Set(later)].filter((npc) => npc !== START_NPC[start]).map((npc) => `npc-${npc}`);
@@ -115,7 +115,7 @@ function prefetchLaterPhases(start: StartPhase): void {
       try {
         await bundle.fetchAsset(id);
       } catch {
-        // The model loader fetches it again when the phase begins.
+        continue;
       }
     }
   });
@@ -155,7 +155,7 @@ function useFirstDownload(start: StartPhase, active: boolean): Download | null {
       });
       observer.observe({ type: "resource", buffered: true });
       setDownload({ done, total });
-    });
+    }).catch(() => undefined);
     return () => {
       stopped = true;
       observer?.disconnect();
@@ -188,7 +188,6 @@ function useFight(region: FightRegion): Fight | null {
   const [fight, setFight] = useState<Fight | null>(region.fight);
   useEffect(() => {
     const unsubscribe = region.onFightChange(() => setFight(region.fight));
-    // The trainer may have built the region before this effect ran.
     setFight(region.fight);
     const poll = window.setInterval(() => setFight(region.fight), 500);
     return () => {
@@ -217,26 +216,15 @@ function Hud({ fight }: Readonly<{ fight: Fight }>) {
   );
 }
 
-function Chatbox({ fight }: Readonly<{ fight: Fight }>) {
+function Chatbox({ fight }: Readonly<{ fight: Fight | null }>) {
   useFightVersion(fight);
-  const lines: readonly ChatLine[] = fight.chat.slice(-8);
-  const list = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (list.current) list.current.scrollTop = list.current.scrollHeight;
-  });
+  const lines: readonly ChatLine[] = fight?.chat.slice(-CHAT_LINES_SHOWN) ?? [];
   return (
-    <div className="fight-chat">
-      <div className="fight-chat-lines" ref={list}>
-        {lines.map((line, i) => (
-          <div key={`${line.tick}-${i}-${line.text}`} style={{ color: line.colour }}>
-            {line.text}
-          </div>
-        ))}
-      </div>
-      <div className="fight-chat-input">
-        <span className="fight-chat-name">You</span>: <span className="fight-chat-caret">Press Enter to Chat...</span>
-      </div>
-    </div>
+    <ol id="game_chat">
+      {lines.map((line, index) => (
+        <li key={`${line.tick}-${index}`} style={{ color: line.colour }}>{line.text}</li>
+      ))}
+    </ol>
   );
 }
 
@@ -251,11 +239,18 @@ function Result({ fight, params }: Readonly<{ fight: Fight; params: Params }>) {
         {outcome.kind === "won" ? "Challenge complete" : "You fell"} after <b>{formatTicks(outcome.ticks)}</b> ({outcome.ticks} ticks), in {fight.label().toLowerCase()}.
       </p>
       <div className="fight-result-buttons">
-        <RuneScapeButton type="button" onClick={() => writeParams({ ...params, invincible: fight.practice, skipMarkers: fight.skipMarkers })}>Try again</RuneScapeButton>
-        <RuneScapeButton type="button" onClick={() => writeParams({ ...params, invincible: fight.practice, skipMarkers: fight.skipMarkers }, false)}>Same seed</RuneScapeButton>
+        <RuneScapeButton type="button" onClick={() => writeParams({ ...params, hazardTiles: fight.hazardTiles, invincible: fight.practice, skipMarkers: fight.skipMarkers })}>Try again</RuneScapeButton>
+        <RuneScapeButton type="button" onClick={() => writeParams({ ...params, hazardTiles: fight.hazardTiles, invincible: fight.practice, skipMarkers: fight.skipMarkers }, false)}>Same seed</RuneScapeButton>
       </div>
       <p className="fight-result-follow">
-        Updates and new sims: <a href={FOLLOW_URL} target="_blank" rel="noreferrer">@alrodi on X</a>
+        Updates and new sims:{" "}
+        {UPDATE_LINKS.map((link, index) => (
+          <React.Fragment key={link.href}>
+            {index > 0 && " and "}
+            <a href={link.href} target="_blank" rel="noreferrer">{link.label}</a>
+          </React.Fragment>
+        ))}
+        {" on X"}
       </p>
     </div>
   );
@@ -283,74 +278,20 @@ const TIPS: Readonly<Record<StartPhase, readonly string[]>> = {
   ],
 };
 
-function SoundToggle() {
-  const [on, setOn] = useState(Settings.playsAudio && Settings.playsAreaAudio);
-  return (
-    <label className="fight-check">
-      <input
-        type="checkbox"
-        checked={on}
-        onChange={(event) => {
-          Settings.playsAudio = event.target.checked;
-          Settings.playsAreaAudio = event.target.checked;
-          Settings.persistToStorage();
-          void SoundCache.context?.resume();
-          setOn(event.target.checked);
-        }}
-      />
-      Sound (game audio)
-    </label>
-  );
-}
-
-/**
- * RuneLite's Tile Indicators. The SDK draws all four, but its toggles sit behind "Advanced settings" at the foot of
- * the sidebar; these apply at once, mid-fight.
- */
-const TILE_INDICATORS: readonly Readonly<{ label: string; on: (s: SettingsSnapshot) => boolean; set: (on: boolean) => void }>[] = [
-  { label: "Destination tile (where you clicked)", on: (s) => s.targetTileEnabled, set: (on) => Settings.set({ targetTileEnabled: on }) },
-  { label: "True tile (where the server has you)", on: (s) => s.trueTileEnabled, set: (on) => Settings.set({ trueTileEnabled: on }) },
-  { label: "Hovered tile", on: (s) => s.hoveredTileEnabled, set: (on) => Settings.set({ hoveredTileEnabled: on }) },
-  { label: "Player and NPC outlines", on: (s) => s.entityIndicatorEnabled, set: (on) => Settings.set({ entityIndicatorEnabled: on }) },
-];
-
-function TileIndicators() {
-  const settings = useSettingsSnapshot();
-  return (
-    <div className="fight-indicators">
-      <div className="fight-tips-title">Tile indicators</div>
-      {TILE_INDICATORS.map(({ label, on, set }) => (
-        <label key={label} className="fight-check">
-          <input
-            type="checkbox"
-            checked={on(settings)}
-            onChange={(event) => {
-              set(event.target.checked);
-              Settings.notifyChanged();
-            }}
-          />
-          {label}
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function Sidebar({ params, fight, region }: Readonly<{ params: Params; fight: Fight | null; region: FightRegion }>) {
+function FullFightControls({ params, region }: Readonly<{ params: Params; region: FightRegion }>) {
   const [draft, setDraft] = useState<Params>(params);
-  const [credits, setCredits] = useState(false);
+  const { playsAudio, playsAreaAudio } = useSettingsSnapshot();
   const set = (patch: Partial<Params>) => setDraft((current) => ({ ...current, ...patch }));
-  const phaseNow = START_PHASES.find((phase) => fight?.label() === `Phase ${phase}`) ?? params.startPhase;
-  // Restart replays the current fight; if a setting that only applies at load changed, it relaunches with it instead.
-  const changedAtLoad = (["startPhase", "setup", "hazardTiles", "videoMarkers", "soloVine"] as const).some((key) => draft[key] !== params[key]);
-  useFightVersion(fight);
+  const changedAtLoad = (["startPhase", "setup", "videoMarkers", "soloVine"] as const).some((key) => draft[key] !== params[key]);
+  const setSound = (patch: Readonly<{ playsAudio: boolean } | { playsAreaAudio: boolean }>) => {
+    Settings.set(patch);
+    void SoundCache.context?.resume();
+  };
   return (
-    <div className="fight-sidebar">
-      <h3 className="fight-title">Ocellus</h3>
-      <div className="fight-subtitle">The Fractured Archive · full fight</div>
+    <div id="full_fight_controls">
       <label>
         Start at
-        <select value={draft.startPhase} onChange={(event) => set({ startPhase: START_PHASES.find((phase) => String(phase) === event.target.value) ?? 1 })}>
+        <select id="start_phase" value={draft.startPhase} onChange={(event) => set({ startPhase: START_PHASES.find((phase) => String(phase) === event.target.value) ?? 1 })}>
           <option value={1}>Phase 1 · Corners</option>
           <option value={2}>Phase 2 · The Blade</option>
           <option value={3}>Phase 3 · Quadrants</option>
@@ -358,25 +299,23 @@ function Sidebar({ params, fight, region }: Readonly<{ params: Params; fight: Fi
       </label>
       <label>
         Setup
-        <select value={draft.setup} onChange={(event) => set({ setup: event.target.value === "melee" ? "melee" : "ranged" })}>
+        <select id="setup" value={draft.setup} onChange={(event) => set({ setup: event.target.value === "melee" ? "melee" : "ranged" })}>
           <option value="ranged">Ranged (Twisted bow, Masori)</option>
           <option value="melee">Melee (Scythe, Inquisitor's)</option>
         </select>
       </label>
-      <label className="fight-check">
-        <input type="checkbox" checked={draft.hazardTiles} onChange={(event) => set({ hazardTiles: event.target.checked })} />
-        Highlight danger tiles
-      </label>
-      <label className="fight-check">
-        <input type="checkbox" checked={draft.videoMarkers} onChange={(event) => set({ videoMarkers: event.target.checked })} />
+      <label>
         Community tile markers
+        <input id="video_markers" type="checkbox" checked={draft.videoMarkers} onChange={(event) => set({ videoMarkers: event.target.checked })} />
       </label>
-      <label className="fight-check">
-        <input type="checkbox" checked={draft.soloVine} onChange={(event) => set({ soloVine: event.target.checked })} />
+      <label>
         Solo: attack your own vine
+        <input id="solo_vine" type="checkbox" checked={draft.soloVine} onChange={(event) => set({ soloVine: event.target.checked })} />
       </label>
-      <label className="fight-check">
+      <label>
+        Practice (can't die, prayer stays up)
         <input
+          id="practice"
           type="checkbox"
           checked={draft.invincible}
           onChange={(event) => {
@@ -386,35 +325,47 @@ function Sidebar({ params, fight, region }: Readonly<{ params: Params; fight: Fi
             rememberFlag("practice", on);
           }}
         />
-        Practice (can't die, prayer stays up)
       </label>
-      <SoundToggle />
-      <RuneScapeButton type="button" style={{ width: "100%" }} onClick={() => writeParams(draft)}>Start fight</RuneScapeButton>
-      <RuneScapeButton type="button" style={{ width: "100%" }} onClick={() => (changedAtLoad ? writeParams(draft, false) : Trainer.reset())}>Restart</RuneScapeButton>
-      <hr />
-      <TileIndicators />
-      <hr />
-      <div className="fight-tips">
-        <div className="fight-tips-title">{`Phase ${phaseNow}`}</div>
-        <ul>{TIPS[phaseNow].map((tip) => <li key={tip}>{tip}</li>)}</ul>
-      </div>
-      <hr />
-      <RuneScapeButton type="button" style={{ width: "100%" }} onClick={() => ControlPanelController.controller.setActiveControl("SETTINGS")}>Game settings</RuneScapeButton>
-      <RuneScapeButton type="button" style={{ width: "100%" }} onClick={() => window.location.assign(window.location.pathname)}>Phase 4 drill</RuneScapeButton>
-      <RuneScapeButton type="button" style={{ width: "100%" }} onClick={() => setCredits((open) => !open)}>Credits & sources</RuneScapeButton>
-      <RuneScapeButton type="button" style={{ width: "100%" }} onClick={() => window.open(FOLLOW_URL, "_blank", "noopener")}>Follow @alrodi on X</RuneScapeButton>
-      {credits && (
-        <ul className="fight-credits">
-          <li>Jagex (all game assets)</li>
-          {CREDITS.map(({ who, what, href }) => (
-            <li key={href}>
-              {who}, <a href={href} target="_blank" rel="noreferrer">{what}</a>
-            </li>
-          ))}
-          <li>Seed {params.seed}</li>
-        </ul>
-      )}
+      <section id="learning_aids">
+        <div className="sidebar_title">Learning aids</div>
+        <label>
+          Highlight danger tiles
+          <input
+            id="hazard_tiles"
+            type="checkbox"
+            checked={draft.hazardTiles}
+            onChange={(event) => {
+              const on = event.target.checked;
+              set({ hazardTiles: on });
+              region.setHazardTiles(on);
+              rememberFlag("tiles", on);
+            }}
+          />
+        </label>
+      </section>
+      <label>
+        Sound effects
+        <input id="sound" type="checkbox" checked={playsAudio} onChange={(event) => setSound({ playsAudio: event.target.checked })} />
+      </label>
+      <label>
+        Area sounds
+        <input id="area_sound" type="checkbox" checked={playsAreaAudio} onChange={(event) => setSound({ playsAreaAudio: event.target.checked })} />
+      </label>
+      <RuneScapeButton id="keybinds" type="button" style={{ width: "100%" }} onClick={() => ControlPanelController.controller.setActiveControl("SETTINGS")}>Keybinds</RuneScapeButton>
+      <RuneScapeButton id="start_fight" type="button" style={{ width: "100%" }} onClick={() => writeParams(draft)}>Start fight</RuneScapeButton>
+      <RuneScapeButton id="restart_fight" type="button" style={{ width: "100%" }} onClick={() => (changedAtLoad ? writeParams(draft, false) : Trainer.reset())}>Restart</RuneScapeButton>
     </div>
+  );
+}
+
+function PhaseTips({ params, fight }: Readonly<{ params: Params; fight: Fight | null }>) {
+  useFightVersion(fight);
+  const phaseNow = START_PHASES.find((phase) => fight?.label() === `Phase ${phase}`) ?? params.startPhase;
+  return (
+    <section id="phase_tips">
+      <div className="sidebar_title">{`Phase ${phaseNow}`}</div>
+      <ul>{TIPS[phaseNow].map((tip) => <li key={tip}>{tip}</li>)}</ul>
+    </section>
   );
 }
 
@@ -447,6 +398,7 @@ function exposeProbe(trainer: TrainerInstance, region: FightRegion): void {
       };
     },
     tileCentre: (at) => Viewport.viewport.projectTile(toSdk(at), trainer.getSnapshot().world),
+    die: () => region.fight?.lose("fell"),
   });
 }
 
@@ -477,13 +429,18 @@ export function FullFightApp() {
       <GameOverlay>
         <LoadingSplash state={loading} download={download} />
         {fight && <Hud fight={fight} />}
-        {fight && <Chatbox fight={fight} />}
+        <div id="hud_corner">
+          <Chatbox fight={fight} />
+          <footer id="credits">
+            <p id="credit_line">{CREDIT_LINE}</p>
+            <p id="app_version">v{LATEST_RELEASE.version}</p>
+          </footer>
+        </div>
         {fight && <Result fight={fight} params={params} />}
-        <p id="credit_line">{CREDIT_LINE}</p>
       </GameOverlay>
-      <DefaultSidebar>
-        <Sidebar params={params} fight={fight} region={region} />
-      </DefaultSidebar>
+      <Sidebar home="phase-4-drill" after={<PhaseTips params={params} fight={fight} />}>
+        <FullFightControls params={params} region={region} />
+      </Sidebar>
     </TrainerApp>
   );
 }

@@ -115,6 +115,12 @@ export class FightRegion extends Region {
     this.fight?.setSkipMarkers(on);
   }
 
+  /** Danger-tile highlights, on for this fight and for the fight a restart builds. */
+  setHazardTiles(on: boolean): void {
+    this.options = { ...this.options, hazardTiles: on };
+    this.fight?.setHazardTiles(on);
+  }
+
   initialiseRegion(): { player: Player } {
     const player = new FightPlayer(this, SPAWN[this.options.startPhase]);
     this.dressPlayer(player);
