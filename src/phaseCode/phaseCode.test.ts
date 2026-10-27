@@ -51,10 +51,10 @@ describe("strayPhaseModules", () => {
   });
 
   test("a module under the full fight directories is stray unless full is on", async () => {
-    const sources = ["webpack://archive-ocellus-trainer/./src/content/ocellus/full/prefix.ts", "webpack://archive-ocellus-trainer/./src/content/ocellus/fight/phase1.ts"];
+    const sources = ["webpack://archive-ocellus-trainer/./src/content/ocellus/full/region.ts", "webpack://archive-ocellus-trainer/./src/content/ocellus/fight/data.ts"];
     expect(await strayPhaseModules(sources, { p1: false, p2: false, p3: false, full: false })).toEqual([
-      { module: "src/content/ocellus/full/prefix.ts", phases: ["full"] },
-      { module: "src/content/ocellus/fight/phase1.ts", phases: ["full"] },
+      { module: "src/content/ocellus/full/region.ts", phases: ["full"] },
+      { module: "src/content/ocellus/fight/data.ts", phases: ["full"] },
     ]);
     expect(await strayPhaseModules(sources, { p1: false, p2: false, p3: false, full: true })).toEqual([]);
   });

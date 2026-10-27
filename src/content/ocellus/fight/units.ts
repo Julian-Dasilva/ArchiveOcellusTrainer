@@ -100,11 +100,23 @@ export class BossForm extends Mob {
   attackable = true;
   pose: number | null = null;
   private stepsThisTick = 0;
+  private shape: Form;
 
-  constructor(region: Region, sw: ATile, readonly form: Form, private readonly hooks: BossHooks, maxHp: number) {
+  constructor(region: Region, sw: ATile, form: Form, private readonly hooks: BossHooks, maxHp: number) {
     super(region, toSdk(sw));
+    this.shape = form;
     this.stats = { attack: 1, strength: 1, defence: 1, range: 1, magic: 1, hitpoint: maxHp };
     this.currentStats = { ...this.stats };
+    this.applyForm();
+  }
+
+  get form(): Form {
+    return this.shape;
+  }
+
+  /** The hood comes off onto phase 1. Hitpoints stay; defence and the name follow the new form. */
+  become(next: Form): void {
+    this.shape = next;
     this.applyForm();
   }
 

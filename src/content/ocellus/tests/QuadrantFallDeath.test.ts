@@ -4,8 +4,8 @@ import type { ATile, Quadrant } from "../fight/geometry";
 import { QUADRANTS, quadrantOf, quadrantTiles } from "../fight/geometry";
 import { FightPlayer } from "../fight/units";
 import type { P3Mount } from "../full/p3/sdk/phase";
-import type { FullFightOptions } from "../full/prefix";
-import { FightRegion } from "../full/prefix";
+import type { FullFightOptions } from "../full/region";
+import { FightRegion } from "../full/region";
 
 /**
  * The quadrant falls 13 ticks after it starts to collapse, and the collapse starts the tick after his HP is at the

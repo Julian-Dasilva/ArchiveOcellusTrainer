@@ -1,0 +1,34 @@
+/** What a full-fight run is started with. Phase 4 is not a start: it follows phase 3. */
+export const START_PHASES = [1, 2, 3] as const;
+export type StartPhase = (typeof START_PHASES)[number];
+
+export type FullFightOptions = Readonly<{
+  seed: number;
+  party: number;
+  startPhase: StartPhase;
+  hazardTiles: boolean;
+  videoMarkers: boolean;
+  /** Mark the phase 2 skip tiles. */
+  skipMarkers: boolean;
+  soloVine: boolean;
+  invincible: boolean;
+}>;
+
+export type ChatLine = Readonly<{ text: string; colour: string; tick: number }>;
+
+export const CHAT = {
+  game: "#000000",
+  red: "#ef1020",
+  purple: "#7f00ff",
+  boss: "#a32ac9",
+  green: "#0b6e0b",
+  blue: "#0000ff",
+} as const;
+
+/** The HUD clock. A tick is 0.6 seconds. */
+export function formatTicks(ticks: number): string {
+  const seconds = ticks * 0.6;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds - minutes * 60;
+  return `${minutes}:${rest.toFixed(1).padStart(4, "0")}`;
+}

@@ -2,7 +2,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { ControlPanelController, Trainer } from "osrs-sdk";
 import { CHANGELOG } from "../changelog";
-import { FightRegion } from "../full/prefix";
+import { FightRegion } from "../full/region";
 import { FullFightApp } from "../../../FullFightApp";
 
 const POLICY = "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.";
@@ -147,25 +147,28 @@ describe("the full fight page", () => {
   test("danger tiles start on, the toggle hides them, and a reload keeps the choice", () => {
     const page = loadFullFight("/?mode=full&phase=1&seed=1");
     const region = fightRegion();
-    const fight = region.fight;
-    if (!fight) throw new Error("the region built no fight");
+    const marks = () => {
+      const views = region.p1.mounted?.views;
+      if (!views) throw new Error("phase 1 is not running");
+      return views.marks().length;
+    };
     region.world.getReadyTimer = 0;
     let ticks = 0;
-    for (; ticks < 80 && fight.marks().length === 0; ticks++) region.world.tickWorld();
-    const shown = fight.marks().length;
+    for (; ticks < 80 && marks() === 0; ticks++) region.world.tickWorld();
+    const shown = marks();
     page.click("hazard_tiles");
-    const hidden = { marks: fight.marks().length, checked: page.checked("hazard_tiles"), search: window.location.search };
+    const hidden = { marks: marks(), checked: page.checked("hazard_tiles"), search: window.location.search };
     page.click("hazard_tiles");
-    const restored = { marks: fight.marks().length, checked: page.checked("hazard_tiles"), search: window.location.search };
+    const restored = { marks: marks(), checked: page.checked("hazard_tiles"), search: window.location.search };
     page.close();
 
     const saved = loadFullFight("/?mode=full&phase=1&seed=1&tiles=0");
     const savedRegion = fightRegion();
-    const savedFight = savedRegion.fight;
-    if (!savedFight) throw new Error("the region built no fight");
+    const savedViews = savedRegion.p1.mounted?.views;
+    if (!savedViews) throw new Error("phase 1 is not running");
     savedRegion.world.getReadyTimer = 0;
     for (let i = 0; i < ticks; i++) savedRegion.world.tickWorld();
-    const off = { marks: savedFight.marks().length, checked: saved.checked("hazard_tiles") };
+    const off = { marks: savedViews.marks().length, checked: saved.checked("hazard_tiles") };
     saved.close();
 
     expect(shown).toBeGreaterThan(0);
@@ -188,15 +191,15 @@ describe("the full fight page", () => {
     };
 
     const dead = loadFullFight("/?mode=full&phase=1&seed=1");
-    const lost = fightRegion().fight;
-    if (!lost) throw new Error("the region built no fight");
-    act(() => lost.lose("a hit"));
+    const lost = fightRegion().p1.mounted?.script;
+    if (!lost) throw new Error("phase 1 is not running");
+    act(() => lost.lose());
     const death = read();
     dead.close();
 
     const clear = loadFullFight("/?mode=full&phase=1&seed=1");
-    const won = fightRegion().fight;
-    if (!won) throw new Error("the region built no fight");
+    const won = fightRegion().p1.mounted?.script;
+    if (!won) throw new Error("phase 1 is not running");
     act(() => won.win());
     const victory = read();
     clear.close();

@@ -6,8 +6,8 @@ import { FightPlayer } from "../fight/units";
 import { dress } from "../js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
 import { P3 } from "../full/data/p3";
-import type { FullFightOptions } from "../full/prefix";
-import { FightRegion } from "../full/prefix";
+import type { FullFightOptions } from "../full/region";
+import { FightRegion } from "../full/region";
 import type { P3Cause, P3Look, P3Row, P3Types } from "../full/p3/types";
 
 export type P3RunOptions = Readonly<{ seed?: number; practice?: boolean; soloVine?: boolean; setup?: "ranged" | "melee" | null }>;

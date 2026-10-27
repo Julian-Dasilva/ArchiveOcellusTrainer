@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { CacheRenderInstancedModel, CacheRenderReferences, SoundCache, cacheSound } from "osrs-sdk";
 import type { Renderable } from "osrs-sdk";
-import type { StartPhase } from "./Fight";
-import { START_PHASES } from "./Fight";
+import type { StartPhase } from "../full/options";
+import { START_PHASES } from "../full/options";
 import { SOUND, SPOT } from "../full/data/looks";
 
 /**
