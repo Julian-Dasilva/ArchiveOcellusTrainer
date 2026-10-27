@@ -17,6 +17,7 @@ import { P3Script } from "../script";
 import type { Fall, P3Cause, P3Entry, P3Row, P3Types } from "../types";
 import { Arena } from "./arena";
 import { P3Boss } from "./boss";
+import type { ChatLine } from "./views";
 import { P3Views } from "./views";
 
 type P3Encounter = Readonly<{ input: PlayerInput; event: never; cause: P3Cause; snapshot: null; row: P3Row; end: never }>;
@@ -24,7 +25,7 @@ type P3Encounter = Readonly<{ input: PlayerInput; event: never; cause: P3Cause; 
 /** The sidebar's live toggles: practice, "attack your own vine", and the danger-tile highlights. */
 export type P3Settings = Readonly<{ practice: () => boolean; soloVine: () => boolean; hazardTiles: () => boolean }>;
 
-export type P3Mount = Readonly<{ boss: P3Boss; views: P3Views; arena: Arena; script: P3Script<Entries> }>;
+export type P3Mount = Readonly<{ boss: P3Boss; views: P3Views; arena: Arena; script: P3Script<Entries>; now: () => number; started: () => boolean }>;
 /** The page's hold on the running P3: the boss bar, chat and probe read it. */
 export type P3Watch = { mounted: P3Mount | null };
 
@@ -35,6 +36,8 @@ export type P3Options<E extends Entries> = Readonly<{
   showFloor: (state: () => FloorState) => () => void;
   /** Where the third fall leads, or null when this run ends with phase 3. */
   fallInto: (fall: Fall) => Enter<E> | null;
+  /** The chatbox outlives the phase, so its lines go to whoever keeps it. */
+  say: (line: ChatLine) => void;
 }>;
 
 /** The vine roots you on its own tile, and the SDK will not let you attack what you stand under. Solo, you cut it from there. */
@@ -157,10 +160,10 @@ export function p3Phase<E extends Entries & Readonly<{ p3: P3Entry }>>(options: 
       binding = host.bind(tick(0), hooks);
       region.addMob(boss);
       region.setBoss(boss);
-      const views = new P3Views(region, { boss: () => boss, player, addAt: (t) => arena.unitAt(t) }, settings.hazardTiles);
+      const views = new P3Views(region, { boss: () => boss, player, addAt: (t) => arena.unitAt(t) }, settings.hazardTiles, options.say);
       const hideFloor = options.showFloor(() => arena.floorState());
-      watch.mounted = { boss, views, arena, script };
       const bound = binding;
+      watch.mounted = { boss, views, arena, script, now: () => run.now, started: () => bound.rows.length > 0 };
       return {
         frame: identity({ width: GRID, height: GRID }),
         rules: {

@@ -33,4 +33,5 @@ export const P3_REPLAYS: Replays<P3Types, FightLog> = {
   "player-consumed": { kind: "unlogged", why: "nobody stood on a falling quadrant in the logs" },
   "crossing-started": { kind: "unlogged", why: "a crossing starts on the player's click" },
   "censer-lit": { kind: "unlogged", why: "a censer lights on the player's click" },
+  "player-died": { kind: "unlogged", why: "the death screen follows the SDK's death timer, not a mark of his in the logs" },
 };

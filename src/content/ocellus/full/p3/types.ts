@@ -38,7 +38,8 @@ export type P3Event =
   | Readonly<{ kind: "quadrant-fell"; at: Tick; quadrant: Quadrant; standing: readonly Quadrant[] }>
   | Readonly<{ kind: "player-consumed"; at: Tick; quadrant: Quadrant }>
   | Readonly<{ kind: "crossing-started"; at: Tick; from: Quadrant; to: Quadrant }>
-  | Readonly<{ kind: "censer-lit"; at: Tick; quadrant: Quadrant; god: God }>;
+  | Readonly<{ kind: "censer-lit"; at: Tick; quadrant: Quadrant; god: God }>
+  | Readonly<{ kind: "player-died"; at: Tick }>;
 
 export type Tone = "game" | "red" | "purple" | "green";
 export type DangerRole = "slash" | "bomb" | "debris" | "superior-slash";
@@ -90,8 +91,11 @@ export type Fall = Readonly<{
   tick: Tick;
   standing: Quadrant;
   boss: Readonly<{ hp: number; defence: number }>;
-  voids: readonly Readonly<{ tile: ATile; placed: number }>[];
+  voids: readonly Readonly<{ tile: ATile; placed: Tick }>[];
 }>;
+
+/** Phase 3 has no win of its own: the run goes on into phase 4 or ends on the death screen. */
+export type P3Outcome = Readonly<{ kind: "running" }> | Readonly<{ kind: "lost"; at: Tick }>;
 
 /** One stage at a time, in place of his five booleans. `airborne` is his levitating: melee cannot reach him. */
 export type P3Stage =

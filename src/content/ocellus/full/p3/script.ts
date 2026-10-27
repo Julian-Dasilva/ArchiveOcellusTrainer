@@ -29,12 +29,11 @@ import {
 } from "../../fight/geometry";
 import { seqSourced as SEQ, spotSourced as SPOT } from "../data/looks";
 import { T, V } from "./data";
-import type { Fall, God, P3Cause, P3Ctx, P3Entry, P3Stage, P3Types, PatchEnd, RiftKind, Special, Tone } from "./types";
+import type { Fall, God, P3Cause, P3Ctx, P3Entry, P3Outcome, P3Stage, P3Types, PatchEnd, RiftKind, Special, Tone } from "./types";
 import type { Add, P3World } from "./world";
 
 type Patch = Readonly<{ tile: ATile; placed: Tick; end: PatchEnd }>;
 type Crossing = Readonly<{ from: Quadrant; to: Quadrant; bank: ATile; hops: readonly ATile[]; hopping: boolean }>;
-type TileAction = Readonly<{ label: string; target: string; run: () => void }>;
 
 const RIFT_ORDER: readonly [RiftKind, ...RiftKind[]] = ["rift-buff", "rift-basic", "rift-heal"];
 const GOD_NAME: Readonly<Record<God, string>> = { bandos: "Bandosian", saradomin: "Saradomin", armadyl: "Armadylean", zaros: "Zarosian" };
@@ -114,6 +113,7 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
   private crossing: Crossing | null = null;
   private lastFlyingMessage = -10;
   private prayerLeft = 1;
+  private ending: P3Outcome = { kind: "running" };
   private ctx: P3Ctx<E> | null = null;
 
   constructor(
@@ -124,6 +124,10 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
 
   get current(): P3Stage {
     return this.stage;
+  }
+
+  get outcome(): P3Outcome {
+    return this.ending;
   }
 
   begin(m: P3Ctx<E>): void {
@@ -878,15 +882,13 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     }
   }
 
-  tileActions(tile: ATile): readonly TileAction[] {
+  /** The SDK's death screen, on the tick it shows. */
+  lose(): void {
     const m = this.ctx;
-    if (m === null) return [];
-    const actions: TileAction[] = [];
-    for (const [q, censer] of this.world.censers) {
-      if (reach(tile, censer.tile) <= 1) actions.push({ label: "Interact", target: `${GOD_NAME[censer.god]} censer`, run: () => this.useCenser(m, q) });
-    }
-    if (ARMS.some((arm) => stonesOf(arm).some((s) => same(s, tile)))) actions.push({ label: "Jump", target: "Stepping stone", run: () => this.interceptWalk(tile) });
-    return actions;
+    if (m === null || this.ending.kind === "lost") return;
+    this.ending = { kind: "lost", at: m.now };
+    this.chat(m, "Oh dear, you are dead!", "game");
+    m.log({ kind: "player-died", at: m.now });
   }
 
   hpFloor(maxHp: number): number {

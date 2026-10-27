@@ -14,7 +14,6 @@ import type { DangerRole, P3Look, P3Row, PatchEnd, Tone } from "../types";
 const RAISED = 2;
 const MAGIC_SHOT: Omit<ProjectileVisuals, "spotAnim"> = { startCycleOffset: 45, endCycleOffset: 60, verticalOffset: 1 };
 const FLARE_SHOT: Omit<ProjectileVisuals, "spotAnim"> = { startCycleOffset: 0, endCycleOffset: 30, verticalOffset: 0.5 };
-const CHAT_KEPT = 120;
 export const TONE: Readonly<Record<Tone, string>> = { game: "#000000", red: "#ef1020", purple: "#7f00ff", green: "#0b6e0b" };
 const DANGER: Readonly<Record<DangerRole, number>> = { slash: 0xb01030, bomb: 0x8a2be2, debris: 0x8a6a3a, "superior-slash": 0x5a0a0a };
 const UNLEASH_TURN: Readonly<Record<Quadrant, number>> = { NE: 2, NW: 1, SW: 0, SE: 3 };
@@ -40,7 +39,6 @@ export type Actors = Readonly<{ boss: () => Unit; player: Unit; addAt: (tile: AT
  * logs it, and every floor entity it makes retires itself on its own tick limit.
  */
 export class P3Views {
-  readonly chat: ChatLine[] = [];
   private telegraphs: readonly Telegraph[] = [];
   private zone: Zone | null = null;
   private crossing: Readonly<{ bank: ATile; hops: readonly ATile[] }> | null = null;
@@ -48,7 +46,12 @@ export class P3Views {
   private shownAt = 0;
   private readonly owned: Entity[] = [];
 
-  constructor(private readonly region: Region, private readonly actors: Actors, private readonly hazardTiles: () => boolean) {
+  constructor(
+    private readonly region: Region,
+    private readonly actors: Actors,
+    private readonly hazardTiles: () => boolean,
+    private readonly say: (line: ChatLine) => void,
+  ) {
     this.own(new TileMarks(region, () => this.marks()));
     this.own(new LocField(region, () => this.patchViews()));
   }
@@ -86,8 +89,7 @@ export class P3Views {
   private show(look: P3Look, now: Tick): void {
     switch (look.kind) {
       case "chat":
-        this.chat.push({ text: look.text, colour: TONE[look.tone], tick: now });
-        if (this.chat.length > CHAT_KEPT) this.chat.splice(0, this.chat.length - CHAT_KEPT);
+        this.say({ text: look.text, colour: TONE[look.tone], tick: now });
         return;
       case "player-spot":
         this.actors.player.addSpotAnim({ id: look.id, channel: look.channel, ...(look.raised ? { height: RAISED } : {}) });

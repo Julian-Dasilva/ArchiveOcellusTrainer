@@ -1,6 +1,7 @@
 import { SEQ } from "../full/data/looks";
 import { P3 } from "../full/data/p3";
-import { at, covers, quadrantOf } from "../fight/geometry";
+import { Potion } from "osrs-sdk";
+import { QUADRANTS, at, covers, quadrantOf } from "../fight/geometry";
 import { S, startP3 } from "./p3run";
 
 const SWING = SEQ.p3MeleeBasic;
@@ -253,12 +254,13 @@ describe("phase 3 on the engine follows the recorded kill [K]", () => {
     expect(f.landed(["rift-detonation"], S2)).toEqual([[3 + P3.riftDetonatesAfter, "rift-detonation"]]);
   });
 
-  test("the third quadrant's fall reports the standing quadrant, his HP and Defence, and the bomb voids on it", () => {
+  test("the third quadrant's fall enters our phase 4 in the same world with the player as it stands, each potion's doses included, and the boss", () => {
     const f = open({ setup: "ranged" });
     const fallTo = (count: number) => {
       for (let guard = 0; f.live().arena.destroyed.size < count; guard++) {
         if (guard > 100) throw new Error(`quadrant ${count} never fell`);
         f.tickOnce();
+        if (f.region.current !== "p3") return;
         const crumbling = f.live().arena.floorState().crumbling;
         if (crumbling.length > 0 && quadrantOf(f.here()) === crumbling[0]) f.stepOff();
       }
@@ -272,14 +274,46 @@ describe("phase 3 on the engine follows the recorded kill [K]", () => {
     f.bossAt(25);
     while (f.live().arena.floorState().crumbling.length === 0) f.tickOnce();
     const crumbleStart = f.now();
-    const standing = (["NE", "SE", "SW", "NW"] as const).filter((q) => !f.live().arena.destroyed.has(q) && !f.live().arena.floorState().crumbling.includes(q));
-    expect(standing).toHaveLength(1);
-    f.standOn(standing[0]);
-    expect(f.falls).toEqual([]);
+    const left = QUADRANTS.filter((q) => !f.live().arena.destroyed.has(q) && !f.live().arena.floorState().crumbling.includes(q));
+    expect(left).toHaveLength(1);
+    const standing = f.standOn(left[0]);
+    const you = f.player();
+    you.prayerController.findPrayerByName("Protect from Range").toggle(you);
+    you.inventory[12].inventoryLeftClick(you);
+    expect(f.region.current).toBe("p3");
     fallTo(3);
-    // The third quadrant crumbles from tick 40 and falls 13 ticks later, at 53: phase 4's tick 0, with him hidden.
-    expect([crumbleStart, f.falls.map(({ tick }) => tick), f.live().boss.hidden]).toEqual([40, [53], true]);
+
+    // The third quadrant crumbles from tick 40 and falls 13 ticks later, at 53, P4's tick 0, with him hidden. P4 runs from the next world tick.
+    const fell = f.events().flatMap(([t, e]) => (e.kind === "quadrant-fell" ? [t] : []));
+    const hidden = f.events().flatMap(([t, e]) => (e.kind === "boss-changed" && e.change.kind === "shown" && !e.change.visible ? [t] : []));
+    expect([crumbleStart, fell.at(-1), hidden.at(-1), f.region.current]).toEqual([40, 53, 53, "p4"]);
+    const p4 = f.region.p4.mounted;
+    if (!p4) throw new Error("P4 did not mount");
+    const player = p4.player;
     // 25% of the 5,250 pool, rounded up, is the third quadrant's floor.
-    expect(f.falls.map(({ standing: left, boss }) => [left, boss])).toEqual([[standing[0], { hp: 1313, defence: 250 }]]);
+    expect({ hp: p4.ocellus.currentStats.hitpoint, defence: p4.ocellus.currentStats.defence }).toEqual({ hp: 1313, defence: 250 });
+    expect(player === you).toBe(true);
+    expect(f.here()).toEqual(standing);
+    expect(player.prayerController.activePrayers().map((prayer) => prayer.name)).toEqual(["Protect from Range"]);
+    const slots = ["weapon", "offhand", "helmet", "necklace", "chest", "legs", "feet", "gloves", "ring", "cape", "ammo"] as const;
+    expect(Object.fromEntries(slots.map((slot) => [slot, player.equipment[slot]?.itemName ?? null]))).toEqual({
+      weapon: "Twisted Bow", offhand: null, helmet: "Masori mask (f)", necklace: "Necklace of rupture", chest: "Masori body (f)", legs: "Masori chaps (f)",
+      feet: "Avernic treads (max)", gloves: "Zaryte Vambraces", ring: "Venator ring", cape: "Dizana's Quiver", ammo: "Dragon arrow",
+    });
+    const carried = (index: number) => {
+      const item = player.inventory[index];
+      return item ? { name: item.itemName, doses: item instanceof Potion ? item.doses : null } : null;
+    };
+    expect([0, 1].map(carried)).toEqual([{ name: "Tonalztics of Ralos", doses: null }, { name: "Scythe of Vitur", doses: null }]);
+    expect([9, 10, 11, 12, 13].map(carried)).toEqual([
+      { name: "Super combat potion", doses: 4 }, { name: "Bastion Potion", doses: 4 }, { name: "Saradomin Brew", doses: 4 },
+      { name: "Super Restore", doses: 3 }, { name: "Super combat potion", doses: 4 },
+    ]);
+    const { currentStats: stats } = player;
+    expect([stats.hitpoint, stats.specialAttack, stats.run, { attack: stats.attack, strength: stats.strength, defence: stats.defence, range: stats.range, magic: stats.magic }]).toEqual([
+      99, 100, 10000, { attack: 99, strength: 99, defence: 99, range: 99, magic: 99 },
+    ]);
+    for (let world = 0; world < 10; world++) f.tickOnce();
+    expect([f.now(), f.region.p3.mounted, f.region.rows("p4").map((row) => row.tick)]).toEqual([53, null, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]);
   });
 });

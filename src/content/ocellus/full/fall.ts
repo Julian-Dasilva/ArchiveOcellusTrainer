@@ -1,5 +1,5 @@
 import { P3 } from "./data/p3";
-import type { Fall } from "../fight/Fight";
+import type { Fall } from "./p3/types";
 import type { Quadrant } from "../fight/geometry";
 import { C, GRID, toSdk } from "../fight/geometry";
 import type { DrillConfig } from "../js/OcellusTimings";

@@ -1,110 +1,44 @@
-import { CardinalDirection, Settings, TrainerInstance, Viewport } from "osrs-sdk";
-import type { Region } from "osrs-sdk";
-import { seed, tile } from "../../../sim/brands";
-import type { Mounted } from "../../../sim/encounter";
-import { identity, toRoom } from "../../../sim/frame";
+import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import type { ScriptEvent } from "../../../sim/script";
-import type { EncounterPlayerHooks } from "../../../sim/sdk/EncounterPlayer";
-import type { EncounterHost } from "../../../sim/sdk/EncounterRegion";
-import { EncounterRegion } from "../../../sim/sdk/EncounterRegion";
-import { ArenaFloor } from "../fight/arena";
 import type { ATile, Body, Quadrant } from "../fight/geometry";
-import { GRID, QUADRANTS, at, distanceToBody, fromSdk, quadrantOf, quadrantTiles, toSdk } from "../fight/geometry";
+import { QUADRANTS, at, distanceToBody, quadrantOf, quadrantTiles } from "../fight/geometry";
 import { FightPlayer } from "../fight/units";
 import { dress } from "../js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
 import { P3 } from "../full/data/p3";
-import type { P3Watch } from "../full/p3/sdk/phase";
-import { p3Phase } from "../full/p3/sdk/phase";
-import type { Fall, P3Cause, P3Entry, P3Look, P3Row, P3Types } from "../full/p3/types";
+import type { FullFightOptions } from "../full/prefix";
+import { FightRegion } from "../full/prefix";
+import type { P3Cause, P3Look, P3Row, P3Types } from "../full/p3/types";
 
-type P3Only = Readonly<{ p3: P3Entry }>;
-type Host = EncounterHost<P3Only>;
-type Phases = Readonly<{ p3: Readonly<{ name: "p3"; enter: (host: Host, entry: P3Entry) => Mounted<P3Row> }> }>;
+export type P3RunOptions = Readonly<{ seed?: number; practice?: boolean; soloVine?: boolean; setup?: "ranged" | "melee" | null }>;
 
-export type P3RunOptions = Readonly<{ seed?: number; practice?: boolean; soloVine?: boolean; setup?: "ranged" | "melee" | null; entry?: P3Entry }>;
-
-/** Phase 3 alone, in the full fight's 29-wide arena with his player, for the tests: the engine phase the page mounts. */
-class P3Arena extends EncounterRegion<P3Only, Phases> {
-  constructor(setup: ConstructorParameters<typeof EncounterRegion<P3Only, Phases>>[0], private readonly worn: (player: FightPlayer) => void) {
-    super(setup);
-  }
-
-  override get initialFacing(): CardinalDirection {
-    return CardinalDirection.NORTH;
-  }
-
-  override drawDefaultFloor(): boolean {
-    return false;
-  }
-
-  protected override createPlayer(start: Readonly<{ x: number; y: number }>, hooks: () => EncounterPlayerHooks): FightPlayer {
-    const player = new FightPlayer(this, fromSdk(start), hooks);
-    this.worn(player);
-    return player;
-  }
-}
-
+/** The full fight's own region started at phase 3, as `?mode=full&phase=3` starts it, ticked by hand. */
 export function startP3(options: P3RunOptions = {}) {
   Settings.readFromStorage();
-  const watch: P3Watch = { mounted: null };
-  const falls: Fall[] = [];
-  let mounted: Mounted<P3Row> | null = null;
-  const practice = { on: options.practice ?? true };
-  const def = p3Phase<P3Only>({
-    settings: { practice: () => practice.on, soloVine: () => options.soloVine ?? true, hazardTiles: () => true },
-    watch,
-    showFloor: (state) => {
-      const floor = new ArenaFloor(region, state);
-      region.addEntity(floor);
-      return () => {
-        region.entities = region.entities.filter((entity) => entity !== floor);
-      };
-    },
-    fallInto: (fall) => {
-      falls.push(fall);
-      return null;
-    },
+  const fight: FullFightOptions = {
+    seed: options.seed ?? 1,
+    party: 1,
+    startPhase: 3,
+    hazardTiles: true,
+    videoMarkers: false,
+    skipMarkers: false,
+    soloVine: options.soloVine ?? true,
+    invincible: options.practice ?? true,
+  };
+  const region = new FightRegion(fight, (player) => {
+    if (options.setup) dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options[options.setup].value));
   });
-  const size = { width: GRID, height: GRID };
-  const spawn = toSdk(at(5, -3));
-  const region: P3Arena = new P3Arena(
-    {
-      room: {
-        size,
-        spawn: toRoom(identity(size), tile(spawn.x, spawn.y)),
-        drawFloor: () => undefined,
-        mount: (_: Region) => ({ dispose() {}, walkable() {} }),
-      },
-      phases: {
-        p3: {
-          name: "p3",
-          enter: (host, entry) => {
-            mounted = def.enter(host, entry);
-            return mounted;
-          },
-        },
-      },
-      start: { phase: "p3", entry: options.entry ?? { kind: "fresh" } },
-      seed: seed(options.seed ?? 1),
-    },
-    (player) => {
-      if (options.setup) dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options[options.setup].value));
-    },
-  );
   const trainer = new TrainerInstance(region, { force2d: true });
   trainer.mount(document.createElement("canvas"), document.createElement("div"));
   region.world.getReadyTimer = 0;
   Viewport.viewport.resize(800, 600);
 
-  const rows = (): readonly P3Row[] => {
-    if (mounted === null) throw new Error("phase 3 never mounted");
-    return mounted.rows();
-  };
+  const rows = (): readonly P3Row[] => region.rows("p3");
   const now = () => rows().at(-1)?.tick ?? -1;
   const live = () => {
-    if (watch.mounted === null) throw new Error("phase 3 is not running");
-    return watch.mounted;
+    const mounted = region.p3.mounted;
+    if (mounted === null) throw new Error("phase 3 is not running");
+    return mounted;
   };
   const player = () => {
     const p = region.players[0];
@@ -158,7 +92,7 @@ export function startP3(options: P3RunOptions = {}) {
     return events().flatMap(([t, e]) => (e.kind === "shown" && isKind(e.look) ? [[t, e.look] as const] : []));
   };
   const chat = (text: string, from = 0) => looks("chat").flatMap(([t, look]) => (look.text === text ? [t - from] : []));
-  return { region, trainer, watch, live, player, rows, now, tickOnce, tickTo, body, here, stayInReach, bossAt, stepOff, standOn, events, anims, said, landed, looks, chat, falls, practice, close: () => trainer.dispose() };
+  return { region, trainer, live, player, rows, now, tickOnce, tickTo, body, here, stayInReach, bossAt, stepOff, standOn, events, anims, said, landed, looks, chat, close: () => trainer.dispose() };
 }
 
 /** Phase 3 begins on tick 0 and he lands in his first corner P3.jumpToCornerAfter later: the segment start S. */
