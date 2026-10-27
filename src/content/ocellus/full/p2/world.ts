@@ -3,9 +3,10 @@ import type { ATile, Arm } from "../../fight/geometry";
 /** One portal on the cross: its arm, its index out from the middle, and the two tiles it stands on. */
 export type Portal = Readonly<{ arm: Arm; index: number; tiles: readonly [ATile, ATile] }>;
 
-/** The player as phase 2 moves them. A hop glides; it does not cut. */
+/** The player as phase 2 moves them. A hop glides. A teleport does not. */
 export interface Fighter {
   hop(to: ATile): void;
+  teleport(to: ATile): void;
 }
 
 /** The arena as phase 2's closures act on it. The SDK side implements it. */
