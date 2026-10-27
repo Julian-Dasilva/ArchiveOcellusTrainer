@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { CacheRenderInstancedModel, CacheRenderModel, CacheRenderReferences, CollisionType, Entity, GROUND_OVERLAY_Y, LineOfSightMask } from "osrs-sdk";
+import { CacheRenderInstancedModel, CacheRenderModel, CacheRenderReferences, CollisionType, Entity, GROUND_OVERLAY_Y, LineOfSightMask, Settings } from "osrs-sdk";
 import type { Location3, Model, Region, Renderable, Unit } from "osrs-sdk";
 import { spriteFile } from "../../../../servedAssets";
 import { OCELLUS_P4 } from "../OcellusTimings";
@@ -273,20 +273,39 @@ class Playing {
   }
 }
 
+type FightAge = { tick: number; percent: number; fed: number };
+
 /** The SDK plays a cache spotanim once, so a looping cue gets a fresh instance each time one ends. */
 export class SpotAnimModel implements Model {
   private playing: Playing | null = null;
+  private fightAge: FightAge | null = null;
 
-  constructor(private readonly renderable: Renderable, private readonly cue: () => Cue | null, private readonly looks: readonly number[] = []) {}
+  constructor(private readonly renderable: Entity, private readonly cue: () => Cue | null, private readonly looks: readonly number[] = []) {}
+
+  /** Wall-clock deltas include render stalls the fight tick never counts, and one of those ends this one-shot before the mark shot. */
+  private fightSeconds(tickPercent: number): number {
+    const tick = this.renderable.region.world.globalTickCounter;
+    const age = this.fightAge;
+    if (age === null) {
+      this.fightAge = { tick, percent: tickPercent, fed: 0 };
+      return 0;
+    }
+    const seconds = (tick - age.tick + (tickPercent - age.percent)) * (Settings.tickMs / 1000);
+    const delta = Math.max(0, seconds - age.fed);
+    age.fed += delta;
+    return delta;
+  }
 
   draw(scene: THREE.Scene, clockDelta: number, tickPercent: number, location: Location3, angleRadians: number, pitchRadians: number, visible: boolean, modelOffsets: Location3[]): void {
     const cue = this.cue();
     if (this.playing !== null && (this.playing.cue !== cue || (this.playing.ended && this.playing.cue.loops))) {
       this.playing.model.destroy(scene);
       this.playing = null;
+      this.fightAge = null;
     }
     if (this.playing === null && cue !== null) this.playing = new Playing(this.renderable, cue);
-    this.playing?.model.draw(scene, clockDelta, tickPercent, location, angleRadians, pitchRadians, visible, modelOffsets);
+    const advance = cue?.spotAnim === OCELLUS_P4.explosion.spotAnim.value ? this.fightSeconds(tickPercent) : clockDelta;
+    this.playing?.model.draw(scene, advance, tickPercent, location, angleRadians, pitchRadians, visible, modelOffsets);
   }
 
   destroy(scene: THREE.Scene): void {
