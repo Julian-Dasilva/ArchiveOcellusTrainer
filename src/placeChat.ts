@@ -28,13 +28,20 @@ function union(boxes: readonly Box[]): Box {
   }));
 }
 
+function selectedPanel(controller: ControlPanelController): ControlPanelController["selectedControl"] | null {
+  const raw: unknown = controller.selectedControl;
+  if (typeof raw !== "object" || raw === null) return null;
+  return controller.selectedControl;
+}
+
 function controlChrome(canvas: HTMLCanvasElement): Box | null {
   const css = canvas.getBoundingClientRect();
   if (css.width === 0 || css.height === 0) return null;
   const controller = ControlPanelController.controller;
   const tabScale = controller.getTabScale();
   const panelScale = Settings.controlPanelScale;
-  const origin = controller.controlPosition(controller.selectedControl);
+  const selected = selectedPanel(controller);
+  const origin = selected === null ? null : controller.controlPosition(selected);
   const tabs = controller.controls.map((_, index) => {
     const tab = controller.tabPosition(index);
     return {
@@ -44,15 +51,13 @@ function controlChrome(canvas: HTMLCanvasElement): Box | null {
       bottom: css.top + tab.y + TAB_SPRITE.height * tabScale,
     };
   });
-  return union([
-    {
-      left: css.left + origin.x,
-      top: css.top + origin.y,
-      right: css.left + origin.x + PANEL_SPRITE.width * panelScale,
-      bottom: css.top + origin.y + PANEL_SPRITE.height * panelScale,
-    },
-    ...tabs,
-  ]);
+  const panel = origin === null ? [] : [{
+    left: css.left + origin.x,
+    top: css.top + origin.y,
+    right: css.left + origin.x + PANEL_SPRITE.width * panelScale,
+    bottom: css.top + origin.y + PANEL_SPRITE.height * panelScale,
+  }];
+  return union([...panel, ...tabs]);
 }
 
 function place(corner: HTMLElement): void {
@@ -63,6 +68,7 @@ function place(corner: HTMLElement): void {
   const chat = corner.querySelector("#game_chat");
   if (blocked === null || !(chat instanceof HTMLElement) || chat.childElementCount === 0) {
     corner.style.bottom = "";
+    appendFileSync("/tmp/place-debug.txt", "cleared\n");
     return;
   }
   const bottom = chatCornerBottom(area.getBoundingClientRect(), corner.getBoundingClientRect(), blocked);
@@ -81,9 +87,15 @@ export function useKeepChatAboveInventory(transcript: string): void {
     if (corner.offsetParent instanceof Element) observer.observe(corner.offsetParent);
     if (canvas instanceof Element) observer.observe(canvas);
     window.addEventListener("resize", run);
+    window.addEventListener("mousedown", run);
+    window.addEventListener("click", run);
+    window.addEventListener("keydown", run);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", run);
+      window.removeEventListener("mousedown", run);
+      window.removeEventListener("click", run);
+      window.removeEventListener("keydown", run);
     };
   }, [transcript]);
 }
