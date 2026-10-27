@@ -28,12 +28,6 @@ export const FULL_FIGHT_CSS = `
   color: #c8b88a;
 }
 
-#full_fight_controls {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 .fight-loading {
   position: absolute;
   inset: 0;

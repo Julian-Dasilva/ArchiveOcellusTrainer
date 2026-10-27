@@ -1,8 +1,9 @@
 import React, { Suspense, lazy, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { ComponentType, LazyExoticComponent } from "react";
 import { flushSync } from "react-dom";
 import { CacheRender, ControlPanelController, SETTINGS_STORAGE_KEY, Settings, SoundCache, TrainerInstance, TrainerLoadingState, Viewport } from "osrs-sdk";
 import type { Item, SettingsState } from "osrs-sdk";
-import { GameOverlay, TrainerApp, TrainerLoadingSplash, useSettingsSnapshot } from "osrs-sdk-react";
+import { GameOverlay, RuneScapeButton, TrainerApp, TrainerLoadingSplash, useSettingsSnapshot } from "osrs-sdk-react";
 import { OcellusRegion } from "./content/ocellus/js/OcellusRegion";
 import type { P3Region } from "./content/ocellus/js/P3Region";
 import type { P1Region } from "./content/ocellus/js/P1Region";
@@ -27,6 +28,7 @@ import { keepHoverTextOnCanvas } from "./hoverText";
 import { loadWebAnalytics, perfDataAllowed, setPerfDataAllowed, startPerfTelemetry } from "./telemetry/perfTelemetry";
 import { reportUnservedAssets } from "./servedAssets";
 import { CONTRIBUTOR, MAKER, MAKER_LINKS } from "./menu/credits";
+import type { SidebarSlots } from "./menu/Sidebar";
 
 keepHoverTextOnCanvas();
 // Desktop browsers start the SDK's AudioContext suspended until a user gesture, and the SDK never resumes it.
@@ -282,7 +284,9 @@ const UnseenDot = () => <span className="unseen_dot" role="img" aria-label="new"
 
 type MenuView = "closed" | "settings" | "whats-new";
 
-function DrillControls({ drill, flags, clock }: Readonly<{ drill: Drill; flags: BuildFlags; clock: RunClock }>) {
+type LazySidebar = LazyExoticComponent<ComponentType<SidebarSlots>>;
+
+function DrillControls({ drill, flags, clock, Sidebar }: Readonly<{ drill: Drill; flags: BuildFlags; clock: RunClock; Sidebar: LazySidebar | null }>) {
   const { config, region } = drill;
   const [setup, setSetup] = useState<string>(config.choices.setup.key);
   const [typedSeed, setTypedSeed] = useState<string | null>(null);
@@ -290,6 +294,7 @@ function DrillControls({ drill, flags, clock }: Readonly<{ drill: Drill; flags: 
   const [unseen, setUnseen] = useState(() => seenRelease() !== LATEST_RELEASE.version);
   const [sendsPerfData, setSendsPerfData] = useState(perfDataAllowed);
   const form = useRef<HTMLFormElement>(null);
+  const about = useRef<HTMLDivElement>(null);
   const settingsButton = useRef<HTMLButtonElement>(null);
   const whatsNewTitle = useRef<HTMLHeadingElement>(null);
   const { playsAudio, playsAreaAudio } = useSettingsSnapshot();
@@ -320,7 +325,8 @@ function DrillControls({ drill, flags, clock }: Readonly<{ drill: Drill; flags: 
       else setView("closed");
     };
     const closeOutside = (event: Event) => {
-      if (event.target instanceof Node && !form.current?.contains(event.target)) setView("closed");
+      const inside = [form.current, about.current].some((root) => event.target instanceof Node && root?.contains(event.target));
+      if (!inside) setView("closed");
     };
     // Capture, because the seed box and the SDK canvas stop their events from bubbling.
     document.addEventListener("keydown", closeOnEscape, true);
@@ -331,39 +337,98 @@ function DrillControls({ drill, flags, clock }: Readonly<{ drill: Drill; flags: 
     };
   }, [view]);
 
+  const phaseField = phases.length > 1 && (
+    <label>
+      Phase{" "}
+      <select id="phase" value={drill.phase} onChange={(event) => startPhase(phaseOf(event.target.value), setup, region.invincible)}>
+        {phases.map(({ phase, label: name }) => <option key={phase} value={phase}>{name}</option>)}
+      </select>
+    </label>
+  );
+  const setupField = (
+    <label>
+      Setup{" "}
+      <select id="setup" value={setup} onChange={(event) => setSetup(event.target.value)}>
+        {SETUP_KEYS.map((key) => <option key={key} value={key}>{label(key)}</option>)}
+      </select>
+    </label>
+  );
+  const focusField = currentFocus !== null && (
+    <label>
+      Focus{" "}
+      <select id="focus" value={currentFocus} onChange={(event) => restart(event.target.value)}>
+        {FOCUS_KEYS.map((key) => <option key={key} value={key}>{label(key)}</option>)}
+      </select>
+    </label>
+  );
+  const skipTilesField = drill.phase === "p2" && (
+    <label>
+      Skip tiles <input id="skip_tiles" type="checkbox" defaultChecked={drill.config.choices.markers.key === "skip-tiles"} onChange={(event) => drill.region.showSkipTiles(event.target.checked)} />
+    </label>
+  );
+  const seedField = (
+    <label>
+      Seed <input id="seed" inputMode="numeric" value={typedSeed ?? String(config.seed)} onInput={(event) => setTypedSeed(event.currentTarget.value)} onKeyDown={(event) => event.stopPropagation()} />
+    </label>
+  );
+  const invincibleField = (
+    <label>
+      Invincible <input id="invincible" type="checkbox" defaultChecked={region.invincible} onChange={(event) => { region.invincible = event.target.checked; }} />
+    </label>
+  );
+  const whatsNewPanel = (
+    <section id="whats_new_panel" role="dialog" aria-labelledby="whats_new_title" hidden={view !== "whats-new"}>
+      <h2 id="whats_new_title" ref={whatsNewTitle} tabIndex={-1}>What's new</h2>
+      {CHANGELOG.map(({ version, notes }) => (
+        <article key={version}>
+          <h3><time dateTime={releaseDate(version)}>{version}</time></h3>
+          <ul>{notes.map((note) => <li key={note}>{note}</li>)}</ul>
+        </article>
+      ))}
+      <button id="whats_new_close" type="button" onClick={closeWhatsNew}>Close</button>
+    </section>
+  );
+
+  if (process.env.ARCHIVE_FULL === "on" && Sidebar !== null) {
+    return (
+      <Sidebar
+        home="full-fight"
+        fight={
+          <form ref={form} onSubmit={(event) => { event.preventDefault(); restart(currentFocus); }}>
+            {phaseField}
+            {setupField}
+            {focusField}
+            {seedField}
+            {invincibleField}
+            <RuneScapeButton id="restart" type="submit">Restart</RuneScapeButton>
+            {running && <RuneScapeButton id="pause" type="button" onClick={() => clock.pause()}>Pause (P)</RuneScapeButton>}
+          </form>
+        }
+        aids={skipTilesField}
+        about={
+          <div ref={about}>
+            <label>
+              Performance data
+              <small>Sent anonymously</small>
+              <input id="perf_data" type="checkbox" checked={sendsPerfData} onChange={(event) => { setPerfDataAllowed(event.target.checked); setSendsPerfData(event.target.checked); }} />
+            </label>
+            <RuneScapeButton id="whats_new" type="button" aria-expanded={view === "whats-new"} onClick={view === "whats-new" ? closeWhatsNew : openWhatsNew}>What's new{unseen && <UnseenDot />}</RuneScapeButton>
+            {whatsNewPanel}
+          </div>
+        }
+        after={null}
+      />
+    );
+  }
+
   return (
     <form id="drill_controls" ref={form} onSubmit={(event) => { event.preventDefault(); restart(currentFocus); }}>
       <div id="settings_menu" hidden={view !== "settings"}>
-        {phases.length > 1 && (
-          <label>
-            Phase{" "}
-            <select id="phase" value={drill.phase} onChange={(event) => startPhase(phaseOf(event.target.value), setup, region.invincible)}>
-              {phases.map(({ phase, label: name }) => <option key={phase} value={phase}>{name}</option>)}
-            </select>
-          </label>
-        )}
-        <label>
-          Setup{" "}
-          <select id="setup" value={setup} onChange={(event) => setSetup(event.target.value)}>
-            {SETUP_KEYS.map((key) => <option key={key} value={key}>{label(key)}</option>)}
-          </select>
-        </label>
-        {currentFocus !== null && (
-          <label>
-            Focus{" "}
-            <select id="focus" value={currentFocus} onChange={(event) => restart(event.target.value)}>
-              {FOCUS_KEYS.map((key) => <option key={key} value={key}>{label(key)}</option>)}
-            </select>
-          </label>
-        )}
-        {drill.phase === "p2" && (
-          <label>
-            Skip tiles <input id="skip_tiles" type="checkbox" defaultChecked={drill.config.choices.markers.key === "skip-tiles"} onChange={(event) => drill.region.showSkipTiles(event.target.checked)} />
-          </label>
-        )}
-        <label>
-          Seed <input id="seed" inputMode="numeric" value={typedSeed ?? String(config.seed)} onInput={(event) => setTypedSeed(event.currentTarget.value)} onKeyDown={(event) => event.stopPropagation()} />
-        </label>
+        {phaseField}
+        {setupField}
+        {focusField}
+        {skipTilesField}
+        {seedField}
         <button id="keybinds" type="button" onClick={() => ControlPanelController.controller.setActiveControl("SETTINGS")}>Keybinds</button>
         <label>
           Sound effects <input id="sound" type="checkbox" checked={playsAudio} onChange={(event) => Settings.set({ playsAudio: event.target.checked })} />
@@ -371,24 +436,13 @@ function DrillControls({ drill, flags, clock }: Readonly<{ drill: Drill; flags: 
         <label>
           Area sounds <input id="area_sound" type="checkbox" checked={playsAreaAudio} onChange={(event) => Settings.set({ playsAreaAudio: event.target.checked })} />
         </label>
-        <label>
-          Invincible <input id="invincible" type="checkbox" defaultChecked={region.invincible} onChange={(event) => { region.invincible = event.target.checked; }} />
-        </label>
+        {invincibleField}
         <label>
           Send anonymous performance data <input id="perf_data" type="checkbox" checked={sendsPerfData} onChange={(event) => { setPerfDataAllowed(event.target.checked); setSendsPerfData(event.target.checked); }} />
         </label>
         <button id="whats_new" type="button" onClick={openWhatsNew}>What's new{unseen && <UnseenDot />}</button>
       </div>
-      <section id="whats_new_panel" role="dialog" aria-labelledby="whats_new_title" hidden={view !== "whats-new"}>
-        <h2 id="whats_new_title" ref={whatsNewTitle} tabIndex={-1}>What's new</h2>
-        {CHANGELOG.map(({ version, notes }) => (
-          <article key={version}>
-            <h3><time dateTime={releaseDate(version)}>{version}</time></h3>
-            <ul>{notes.map((note) => <li key={note}>{note}</li>)}</ul>
-          </article>
-        ))}
-        <button id="whats_new_close" type="button" onClick={closeWhatsNew}>Close</button>
-      </section>
+      {whatsNewPanel}
       <button id="settings" ref={settingsButton} type="button" aria-expanded={view !== "closed"} aria-controls="settings_menu" onClick={() => setView((shown) => (shown === "closed" ? "settings" : "closed"))}>
         ⚙ Settings{unseen && <UnseenDot />}
       </button>
@@ -689,7 +743,7 @@ const loadSidebar = () => (process.env.ARCHIVE_FULL === "on" ? lazy(() => import
 function TrainerPage({ trainer, clock, drill, flags, unreadableLoadout }: Opened) {
   const [loading, setLoading] = useState<TrainerLoadingState>();
   const [Sidebar] = useState(loadSidebar);
-  const controls = <DrillControls drill={drill} flags={flags} clock={clock} />;
+  const controls = <DrillControls drill={drill} flags={flags} clock={clock} Sidebar={Sidebar} />;
 
   return (
     <TrainerApp trainer={trainer} autoStart={false} onLoadingStateChange={setLoading}>
@@ -730,7 +784,7 @@ function TrainerPage({ trainer, clock, drill, flags, unreadableLoadout }: Opened
       </GameOverlay>
       {Sidebar !== null && (
         <Suspense fallback={null}>
-          <Sidebar>{controls}</Sidebar>
+          {controls}
         </Suspense>
       )}
     </TrainerApp>
