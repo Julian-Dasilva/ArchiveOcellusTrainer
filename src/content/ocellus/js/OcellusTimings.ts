@@ -1161,6 +1161,11 @@ export function isInventory(slots: readonly (CarryKey | null)[]): slots is Inven
   return slots.length === INVENTORY_SIZE;
 }
 
+export const PHASE_RANGED_DEFENCE = {
+  p1: { light: 50, standard: 135, heavy: 50 },
+  blade: { light: 100, standard: 110, heavy: 80 },
+} as const satisfies Readonly<{ p1: Readonly<Record<AmmunitionClass, number>>; blade: Readonly<Record<AmmunitionClass, number>> }>;
+
 export function ammunitionAgainst(itemId: number | "TODO" | null | undefined): AmmunitionClass {
   const table = OCELLUS_P4.gear.ammunition.value;
   if (itemId === OCELLUS_P4.gear.items.tonalzticsOfRalos.itemId.value) return table.tonalzticsOfRalos;

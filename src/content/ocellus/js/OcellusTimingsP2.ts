@@ -4,7 +4,7 @@ import type { Basis } from "../../../sim/provenance";
 import { noWiki, wiki } from "../../../sim/provenance";
 import type { Arm } from "./P2Types";
 import type { AmmunitionClass, DamageRange, FightLog, Selected, Source } from "./OcellusTimings";
-import { DEFENCE_REDUCTION_TABLE, HOTFIX_NEWS, NO_WIKI_PRACTICE, NO_WIKI_PRESENTATION, PORTAL_SKIP_GUIDE, RSPROX_PLAN, analysis, cache, fightLog, guide, selected } from "./OcellusTimings";
+import { DEFENCE_REDUCTION_TABLE, HOTFIX_NEWS, NO_WIKI_PRACTICE, NO_WIKI_PRESENTATION, PHASE_RANGED_DEFENCE, PORTAL_SKIP_GUIDE, RSPROX_PLAN, analysis, cache, fightLog, guide, selected } from "./OcellusTimings";
 
 const STRATEGIES_P2 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381236);
 const BOSS_PAGE_P2 = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15381233);
@@ -99,7 +99,7 @@ const P2: P2Recipe = {
     combatLevel: selected(0, "spec-confirmed", "unscaled", "the cache level; the infobox's 0 agrees", BOSS_PAGE_P2, cache("npc 16676 combat level")),
     stats: selected({ attack: 1, strength: 1, defence: 250, range: 1, magic: 220 }, "spec-confirmed", "unscaled", "The Blade never attacks; its 1000 hitpoints never fall, because it stores the damage instead (Strategies), so the trainer draws Ocellus's health on it", BOSS_PAGE_P2, cache("npc 16676 stats [1, 250, 1, 1000, 1, 220]")),
     defenceBonuses: selected({ stab: 150, slash: 120, crush: 10, magic: 100 }, "spec-confirmed", "unscaled", "cache params 5 to 8 match the infobox's phase 2 column; the Strategies page calls crush his weakest style", BOSS_PAGE_P2, STRATEGIES_P2, cache("npc 16676 params 5, 6, 7, 8")),
-    rangedDefence: selected({ light: 100, standard: 110, heavy: 80 }, "spec-single", "unscaled", "the infobox's phase 2 column; the cache decode has no ranged defence param; heavy is the Strategies page's second weakness", BOSS_PAGE_P2, STRATEGIES_P2),
+    rangedDefence: selected(PHASE_RANGED_DEFENCE.blade, "spec-single", "unscaled", "the infobox's phase 2 column; the cache decode has no ranged defence param; heavy is the Strategies page's second weakness", BOSS_PAGE_P2, STRATEGIES_P2),
     lowestDefencePercent: selected(0, "inferred", "unscaled", "the 21 October hotfix stops Ocellus's Defence at 60% of his level; The Blade is a separate NPC and is drained to 0 (inferred)", DEFENCE_REDUCTION_TABLE, HOTFIX_NEWS),
     releasedPercent: selected(
       50,

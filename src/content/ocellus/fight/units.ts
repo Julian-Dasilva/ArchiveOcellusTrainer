@@ -8,9 +8,7 @@ import { P3 } from "../full/data/p3";
 import type { ATile } from "./geometry";
 import { fromSdk, toSdk } from "./geometry";
 import type { SpriteFrame } from "../js/OcellusTimings";
-import { OCELLUS_P4, ammunitionAgainst } from "../js/OcellusTimings";
-import { OCELLUS_P1 } from "../js/OcellusTimingsP1";
-import { OCELLUS_P2 } from "../js/OcellusTimingsP2";
+import { OCELLUS_P4, PHASE_RANGED_DEFENCE, ammunitionAgainst } from "../js/OcellusTimings";
 import { spriteFile } from "../../../servedAssets";
 import { tile } from "../../../sim/brands";
 import { EncounterPlayer } from "../../../sim/sdk/EncounterPlayer";
@@ -172,7 +170,7 @@ export class BossForm extends Mob {
     const defence = this.form === "p1" ? P1.defenceBonuses : this.form === "blade" ? P2.bladeDefenceBonuses : P3.defenceBonuses;
     const form = this.form;
     const ammunition = ammunitionAgainst(this.region.players[0]?.equipment.weapon?.cacheItemId);
-    const range = form === "p1" ? OCELLUS_P1.boss.rangedDefence.value[ammunition] : form === "blade" ? OCELLUS_P2.blade.rangedDefence.value[ammunition] : defence.range;
+    const range = form === "p1" ? PHASE_RANGED_DEFENCE.p1[ammunition] : form === "blade" ? PHASE_RANGED_DEFENCE.blade[ammunition] : defence.range;
     return {
       attack: { stab: 0, slash: 0, crush: 0, magic: 0, range: 0 },
       defence: { ...defence, range },
