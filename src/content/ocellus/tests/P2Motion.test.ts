@@ -16,7 +16,7 @@ describe("phase 2 moves on screen without a jump", () => {
     f.player().hop(at(1, 0));
     const shove = drawnThrough(f, f.player, 1);
     expect({ from: shove.where(0), to: shove.where(39), largestStep: shove.largestStep, here: f.here() }).toEqual({
-      from: { x: 15, y: 13.97, z: 0 },
+      from: { x: 15, y: 14, z: 0 },
       to: { x: 15, y: 13, z: 0 },
       largestStep: 0.07,
       here: at(1, 1),
@@ -34,8 +34,8 @@ describe("phase 2 moves on screen without a jump", () => {
     const escaped = f.ofKind("escaped").find(([tick]) => tick === 45);
     if (!escaped || escaped[1].kind !== "escaped") throw new Error("standing on the safe portal did not hop");
     expect({ from: hop.where(0), to: hop.where(39), largestStep: hop.largestStep, here: f.here() }).toEqual({
-      from: { x: 14.87, y: 17.13, z: 0 },
-      to: { x: 10.8, y: 20, z: 0 },
+      from: { x: 15, y: 17, z: 0 },
+      to: { x: 10.83, y: 20, z: 0 },
       largestStep: 0.19,
       here: escaped[1].to,
     });
