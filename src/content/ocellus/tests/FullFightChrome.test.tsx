@@ -90,7 +90,7 @@ describe("the full fight page", () => {
       corner: ["game_chat"],
       chat: null,
       hisMenu: null,
-      footer: ["credit_line", "app_version"],
+      footer: ["sidebar_credits", "credit_line", "app_version"],
       policy: POLICY,
       version: `v${LATEST_RELEASE.version}`,
       footerMaker: null,

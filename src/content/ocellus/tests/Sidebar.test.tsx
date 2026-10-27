@@ -1,6 +1,6 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { ControlPanelController } from "osrs-sdk";
+import { ControlPanelController, Settings } from "osrs-sdk";
 import { FullFightApp } from "../../../FullFightApp";
 import { captureNavigation, loadPage } from "./page";
 
@@ -69,9 +69,16 @@ const POLICY_BELOW_GAME = {
 
 const openTab = () => Object.entries(ControlPanelController.controls).find(([, control]) => control === ControlPanelController.controller.selectedControl)?.[0] ?? null;
 
+const PHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+
 describe("the sidebar behind ARCHIVE_FULL", () => {
   beforeEach(() => localStorage.removeItem(SAVED_SETTINGS));
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+    Settings._isMobileResult = null;
+    document.documentElement.classList.remove("phone-overlay");
+  });
 
   test.each([
     { full: "off", expected: { sidebar: false, fullFight: false, settingsButton: true, footerMaker: true, comingSoon: "Phases 1 to 3 coming soon." } },
@@ -130,6 +137,7 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
       lines: [...credits.querySelectorAll("li")].map((line) => line.textContent),
       links: [...credits.querySelectorAll("a")].map((link) => [link.textContent, link.href, link.target, link.rel]),
       jagex: page.element("credit_line").textContent,
+      inFooter: credits.closest("#policy_footer") !== null && credits.closest("#right_panel") === null,
     };
     page.close();
 
@@ -141,7 +149,41 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
         ["Alessandro Rodi", "https://x.com/alrodi", "_blank", "noopener noreferrer"],
       ],
       jagex: "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.",
+      inFooter: true,
     });
+  });
+
+  test("on a phone, Menu opens the sidebar over the game and Close puts it away", async () => {
+    vi.stubEnv("ARCHIVE_FULL", "on");
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(PHONE);
+    Settings._isMobileResult = null;
+    const previousHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.id === "policy_footer" ? 96 : 0;
+      },
+    });
+    try {
+      const page = await loadSidebarPage("/?seed=1");
+      const panel = document.querySelector("#right_panel");
+      const menu = page.element("phone_menu");
+      if (!(panel instanceof HTMLElement)) throw new Error("the page has no #right_panel");
+      const closed = { menu: menu.textContent, expanded: menu.getAttribute("aria-expanded"), panel: panel.style.display, overlay: document.documentElement.classList.contains("phone-overlay"), aboveFooter: panel.style.bottom };
+      page.click("phone_menu");
+      const opened = { menu: page.element("phone_menu").textContent, expanded: page.element("phone_menu").getAttribute("aria-expanded"), panel: panel.style.display, fullFight: panel.contains(page.element("full_fight")) };
+      page.click("phone_menu");
+      const again = { menu: page.element("phone_menu").textContent, panel: panel.style.display };
+      page.close();
+
+      expect({ closed, opened, again }).toEqual({
+        closed: { menu: "Menu", expanded: "false", panel: "none", overlay: true, aboveFooter: "96px" },
+        opened: { menu: "Close", expanded: "true", panel: "flex", fullFight: true },
+        again: { menu: "Menu", panel: "none" },
+      });
+    } finally {
+      if (previousHeight) Object.defineProperty(HTMLElement.prototype, "offsetHeight", previousHeight);
+    }
   });
 
   test("on the drill and the full fight, the side panel is the only scroll container, never scrolls sideways, and lists the same sections, and the policy line sits below the game canvas", async () => {
