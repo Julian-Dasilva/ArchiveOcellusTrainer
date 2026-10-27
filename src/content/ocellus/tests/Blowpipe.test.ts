@@ -131,7 +131,7 @@ describe("the full fight's toxic blowpipe", () => {
     return you.inventory.map((item) => (typeof item?.cacheItemId === "number" ? item.cacheItemId : null));
   }
 
-  test("phase 1 starts with the blowpipe worn and the twisted bow still in the bag", () => {
+  test("phase 1 starts with the blowpipe worn and the twisted bow in a brew's slot, keeping every super restore", () => {
     const dressed = (setup: "ranged" | "melee") => {
       const region = open(1, setup);
       try {
