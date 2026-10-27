@@ -1,8 +1,9 @@
 import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import { dress } from "../js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
-import { FightRegion } from "../fight/FightRegion";
+import { FightPlayer } from "../fight/units";
 import type { FullFightOptions } from "../full/prefix";
+import { FightRegion } from "../full/prefix";
 
 describe("a melee player targeting the levitating boss", () => {
   test("at 0 hitpoints dies on the next ticks, and the swing is refused", () => {
@@ -22,37 +23,30 @@ describe("a melee player targeting the levitating boss", () => {
     trainer.mount(document.createElement("canvas"), document.createElement("div"));
     region.world.getReadyTimer = 0;
     Viewport.viewport.resize(800, 600);
-    const fight = region.fight;
-    if (!fight) throw new Error("the region built no fight");
-    const shouts: [number, string][] = [];
-    const say = fight.say.bind(fight);
-    vi.spyOn(fight, "say").mockImplementation((text: string, ticks?: number) => {
-      shouts.push([fight.tick, text]);
-      say(text, ticks);
-    });
+    const p3 = region.p3.mounted;
+    const player = region.players[0];
+    if (!p3 || !(player instanceof FightPlayer)) throw new Error("the region did not start phase 3");
+    const said = (text: string) => region.rows("p3").flatMap((row) => row.events.flatMap((e) => (e.kind === "boss-changed" && e.change.kind === "said" && e.change.text === text ? [row.tick] : [])));
     let untether = -1;
     for (let guard = 0; untether < 0 && guard < 400; guard++) {
       region.world.tickWorld();
-      const line = shouts.find(([, text]) => text === "Untether...");
-      if (line) untether = line[0];
+      untether = said("Untether...")[0] ?? -1;
     }
-    const boss = fight.boss;
-    if (!boss || untether < 0) throw new Error("Untether did not start");
-    const player = fight.player;
+    if (untether < 0) throw new Error("Untether did not start");
+    const { boss } = p3;
     player.setAggro(boss);
     player.attackDelay = 0;
     for (let step = 0; step < 9; step++) region.world.tickWorld();
-    const flying = fight.chat.filter((line) => line.text.startsWith("It's flying too high")).map((line) => line.tick);
+    const flying = region.chat().filter((line) => line.text.startsWith("It's flying too high")).map((line) => line.tick);
     player.setAggro(boss);
-    fight.practice = false;
+    region.setPractice(false);
     player.currentStats.hitpoint = 0;
     const after: [number, number, number, string][] = [];
     for (let step = 0; step < 3; step++) {
       region.world.tickWorld();
-      after.push([fight.tick, player.currentStats.hitpoint, player.dying, fight.outcome.kind]);
+      after.push([p3.now(), player.currentStats.hitpoint, player.dying, p3.script.outcome.kind]);
     }
     trainer.dispose();
-    vi.restoreAllMocks();
     expect({ weapon: player.equipment.weapon?.itemName ?? null, untether, flying, after }).toEqual({
       weapon: "Scythe of Vitur",
       untether: 59,
