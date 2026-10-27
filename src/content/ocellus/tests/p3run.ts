@@ -6,19 +6,20 @@ import { dressFullFight } from "../fight/blowpipe";
 import { FightPlayer } from "../fight/units";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { P3 } from "../full/data/p3";
+import type { StartPhase } from "../full/options";
 import type { FullFightOptions } from "../full/prefix";
 import { FightRegion } from "../full/prefix";
 import type { P3Cause, P3Look, P3Row, P3Types } from "../full/p3/types";
 
-export type P3RunOptions = Readonly<{ seed?: number; practice?: boolean; soloVine?: boolean; setup?: "ranged" | "melee" | null }>;
+export type P3RunOptions = Readonly<{ seed?: number; practice?: boolean; soloVine?: boolean; setup?: "ranged" | "melee" | null; startPhase?: StartPhase }>;
 
-/** The full fight's own region started at phase 3, as `?mode=full&phase=3` starts it, ticked by hand. */
+/** The full fight's own region, ticked by hand. It starts at phase 3 unless `startPhase` says otherwise. */
 export function startP3(options: P3RunOptions = {}) {
   Settings.readFromStorage();
   const fight: FullFightOptions = {
     seed: options.seed ?? 1,
     party: 1,
-    startPhase: 3,
+    startPhase: options.startPhase ?? 3,
     hazardTiles: true,
     videoMarkers: false,
     skipMarkers: false,
