@@ -793,10 +793,10 @@ const EXPLOSION: ExplosionSeriesRecipe = {
     owner("the void shards come in high over the player's head at the start of each mark, not at the feet", "2026-10-24"),
   ),
   spin: selected(
-    { count: 7, radius: 0.3, lean: 0.12, halfWidth: 0.15, height: 0.85, radiansPerSecond: 3, flareSeconds: 0.6, colour: "#5e317b" },
+    { count: 7, radius: 0.3, lean: 0.12, halfWidth: 0.05, height: 0.85, radiansPerSecond: 3, flareSeconds: 0.6, colour: "#5e317b" },
     "assumption",
     "unscaled",
-    "seven dark purple shards stand in a ring on the marked tile, tips 0.85 tiles up, and spin at 3 radians a second for the whole mark, then scale out over the impact tick. The strategies page says void particles spin around every player to warn that the explosion attack is starting and the player has to keep moving. The cache spotanim on the tile still plays. These shards are the cue that stays readable until the impact. The colour is his median of the shards on four mark ticks. His drill draws them 0.05 tiles wide, which is about a pixel at this camera, so the drawn half width is 0.15",
+    "seven shards stand in a ring of radius 0.3 and half width 0.05, tips 0.85 tiles up, and spin at 3 radians a second, then scale out over 0.6 seconds. The strategies page says void particles spin around every player to warn that the explosion attack is starting and the player has to keep moving. The colour is the median of the shards on four mark ticks",
     STRATEGIES_P4,
     ocellusSim("js/entities/P4Views.ts:343-349 BurstModel on the phase 4 drill; js/OcellusTimings.ts:538 explosion.shards #5e317b"),
   ),

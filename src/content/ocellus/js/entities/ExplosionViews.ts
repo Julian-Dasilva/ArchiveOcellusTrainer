@@ -29,14 +29,11 @@ function ringGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-// One buffer for every mark. Disposing it when a mark leaves would blank the next mark.
-const RING_GEOMETRY = ringGeometry();
-
 class MarkedTileModel implements Model {
   private readonly spot: SpotAnimModel;
   // A transparent double-sided material is two draw calls unless this is set.
   private readonly material = new THREE.MeshBasicMaterial({ color: RING.colour, side: THREE.DoubleSide, transparent: true, forceSinglePass: true });
-  private readonly mesh = new THREE.Mesh(RING_GEOMETRY, this.material);
+  private readonly mesh = new THREE.Mesh(ringGeometry(), this.material);
   private flare = 0;
 
   constructor(renderable: Renderable, private readonly blast: () => Blast) {
@@ -57,6 +54,7 @@ class MarkedTileModel implements Model {
   destroy(scene: THREE.Scene): void {
     this.spot.destroy(scene);
     scene.remove(this.mesh);
+    this.mesh.geometry.dispose();
     this.material.dispose();
   }
 
