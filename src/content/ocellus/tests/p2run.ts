@@ -2,8 +2,8 @@ import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import type { ScriptEvent } from "../../../sim/script";
 import type { ATile } from "../fight/geometry";
 import { FightPlayer } from "../fight/units";
-import type { FullFightOptions } from "../full/region";
-import { FightRegion } from "../full/region";
+import type { FullFightOptions } from "../full/prefix";
+import { FightRegion } from "../full/prefix";
 import type { P2Cause, P2Event, P2Look, P2Row, P2Types } from "../full/p2/types";
 
 export type P2RunOptions = Readonly<{ seed?: number; practice?: boolean; hazardTiles?: boolean; skipMarkers?: boolean }>;

@@ -1,6 +1,6 @@
 import { ImageLoader, Settings, TrainerInstance, Viewport } from "osrs-sdk";
-import type { FullFightOptions } from "../full/region";
-import { FightRegion } from "../full/region";
+import type { FullFightOptions } from "../full/prefix";
+import { FightRegion } from "../full/prefix";
 import { paintedImages } from "../../../../test/paintedTiles";
 
 describe("his overhead prayer", () => {

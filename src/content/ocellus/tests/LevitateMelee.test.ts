@@ -2,8 +2,8 @@ import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import { dress } from "../js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
 import { FightPlayer } from "../fight/units";
-import type { FullFightOptions } from "../full/region";
-import { FightRegion } from "../full/region";
+import type { FullFightOptions } from "../full/prefix";
+import { FightRegion } from "../full/prefix";
 
 describe("a melee player targeting the levitating boss", () => {
   test("at 0 hitpoints dies on the next ticks, and the swing is refused", () => {

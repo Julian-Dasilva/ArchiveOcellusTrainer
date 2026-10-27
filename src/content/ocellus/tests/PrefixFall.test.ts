@@ -2,8 +2,8 @@ import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import { QUADRANTS, quadrantOf, quadrantTiles } from "../fight/geometry";
 import { FightPlayer } from "../fight/units";
 import type { StartPhase } from "../full/options";
-import type { FightRegion, FullFightOptions } from "../full/region";
-import { fullFightStaged } from "../full/region";
+import type { FightRegion, FullFightOptions } from "../full/prefix";
+import { fullFightStaged } from "../full/prefix";
 import { dress } from "../js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
 
@@ -74,7 +74,7 @@ function toThirdFall(region: FightRegion, each: () => void = () => undefined): n
     region.world.tickWorld();
     if (region.floorState().destroyed.length === 3) return region.world.globalTickCounter;
     each();
-    const boss = region.p1.mounted?.boss;
+    const boss = region.p1?.mounted?.boss;
     if (region.current === "p1" && boss && boss.form === "p1" && boss.currentStats.hitpoint > 0) boss.currentStats.hitpoint = 0;
     if (region.current === "p3") {
       const { boss: his, script } = mountedP3(region);
