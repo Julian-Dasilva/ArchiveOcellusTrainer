@@ -452,52 +452,6 @@ export const P3 = {
   jumpTicks: 2,
 } as const;
 
-export const P4 = {
-  /**
-   * "End..." 1 tick into the phase, then a 60-tick cycle from his first Deflect, 4 ticks in. He takes hits from 3 ticks
-   * in, so he is back with the shout. [K] (was 5 and 8 from [R] [T])
-   */
-  hiddenFor: 1,
-  shoutAt: 1,
-  firstCycleAt: 4,
-  cycle: 60,
-  innerVoid: { from: 0, until: 22 },
-  outerVoid: { from: 31, until: 51 },
-  winds: [4, 35],
-  /** Ready 16 and 42 ticks into the cycle: the first raiders took theirs back then, in both of [K]'s cycles. */
-  orbReadyAfterWind: [12, 7],
-  orbExpiresAfterReady: 13,
-  orbFirstTickBonus: 8,
-  explosionMarks: [
-    [9, 11, 13, 15, 17, 19],
-    [40, 42, 44, 46, 48, 50],
-  ],
-  explosionDamage: range(14, 16),
-  /** A mark that explodes a tile from you resets your attack timer: 2-tick attacks with any weapon. [M] 12:50 */
-  explosionResetReach: 1,
-  hybrids: [24, 52],
-  hybridHitAfter: 5,
-  hybridProtected: range(5, 10),
-  hybridUnprotected: range(43, 50),
-  floorDamage: range(9, 11),
-  floorGraceInner: 2,
-  floorGraceOuter: 5,
-  /**
-   * Rifts detonate 30 ticks after they appear unless killed, as in phase 3 (P3.riftDetonatesAfter); [K]'s one
-   * phase 4 detonation hit its raider for 3 twice. [T]'s charge (14, 11 ticks after they appear) is the next cycle's
-   * first explosion, which lands at +10; upstream's later 23 ticks was an estimate.
-   */
-  riftsAt: 59,
-  riftDetonationHits: [3, 3],
-  /** Overheads: Deflect Melee in the inner void, Soul Split around hybrids, Deflect Range in the outer void. */
-  overheads: [
-    { from: 0, to: 25, overhead: "deflect-melee" },
-    { from: 25, to: 30, overhead: "soul-split" },
-    { from: 31, to: 53, overhead: "deflect-range" },
-    { from: 53, to: 59, overhead: "soul-split" },
-  ],
-} as const;
-
 export type BossOverhead = "protect-melee" | "deflect-melee" | "deflect-range" | "soul-split";
 
 /** [G] His Protect from Melee overhead: sprite 440 (headicons_prayer), frame 0. */
