@@ -2,6 +2,7 @@ import type { DrillConfig, Loadout } from "./OcellusTimings";
 import { OCELLUS_P4, defaultLoadout } from "./OcellusTimings";
 import { loadoutSnapshot } from "./OcellusLoadout";
 import type { FightLog, FightSnapshot } from "./P4Types";
+import { warmSpotAnim } from "./entities/P4Views";
 import { EncounterRegion } from "../../../sim/sdk/EncounterRegion";
 import type { P4Entry, P4Watch } from "./p4/phase";
 import { p4Phase } from "./p4/phase";
@@ -21,6 +22,13 @@ export class OcellusRegion extends EncounterRegion<DrillEntries, DrillPhases> {
 
   override getName(): string {
     return "Ocellus";
+  }
+
+  override async preload(): Promise<void> {
+    await super.preload();
+    const anchor = this.entities[0];
+    if (anchor === undefined) throw new Error("the explosion spotanim warms from a unit that exists before the splash clears");
+    await warmSpotAnim(anchor, OCELLUS_P4.explosion.spotAnim.value);
   }
 
   get invincible(): boolean {

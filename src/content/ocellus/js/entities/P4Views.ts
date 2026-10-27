@@ -306,6 +306,11 @@ export class SpotAnimModel implements Model {
 // The SDK keeps one instance pool per look and draws every slot it ever handed out, so two views building a look at once would leave a hidden instance drawn.
 const builtLooks = new Map<number, Promise<void>>();
 
+/** The one-shot clock stays at zero until the frame after its pool is ready, so the pool is built before the mark tick. */
+export function warmSpotAnim(renderable: Renderable, spotAnim: number): Promise<void> {
+  return buildLook(renderable, spotAnim);
+}
+
 function buildLook(renderable: Renderable, spotAnim: number): Promise<void> {
   const built =
     builtLooks.get(spotAnim) ??
