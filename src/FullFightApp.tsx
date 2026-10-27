@@ -66,7 +66,6 @@ function readParams(): Params {
   };
 }
 
-/** A setting that applies live, kept in the URL so a reload keeps it too. */
 function rememberFlag(name: string, on: boolean): void {
   const url = new URL(window.location.href);
   url.searchParams.set(name, on ? "1" : "0");
@@ -108,11 +107,6 @@ function createTrainer() {
   return { trainer, region, params };
 }
 
-/**
- * Ocellus's later bodies are big (each animation is baked as vertex frames: 12 MB for phase 2, 34 MB for phase 3).
- * Fetch them one at a time once the fight has loaded (his first body loads behind the splash), so the transformations
- * do not stall; the hashed files are cached as immutable.
- */
 function prefetchLaterPhases(start: StartPhase): void {
   const later = START_PHASES.filter((phase) => phase > start).map((phase) => START_NPC[phase]);
   const ids = [...new Set(later)].filter((npc) => npc !== START_NPC[start]).map((npc) => `npc-${npc}`);
@@ -121,7 +115,7 @@ function prefetchLaterPhases(start: StartPhase): void {
       try {
         await bundle.fetchAsset(id);
       } catch {
-        // The model loader fetches it again when the phase begins.
+        continue;
       }
     }
   });
@@ -161,9 +155,7 @@ function useFirstDownload(start: StartPhase, active: boolean): Download | null {
       });
       observer.observe({ type: "resource", buffered: true });
       setDownload({ done, total });
-    }).catch(() => {
-      // The trainer splash reports a failed manifest. This counter only adds byte progress.
-    });
+    }).catch(() => undefined);
     return () => {
       stopped = true;
       observer?.disconnect();
@@ -196,7 +188,6 @@ function useFight(region: FightRegion): Fight | null {
   const [fight, setFight] = useState<Fight | null>(region.fight);
   useEffect(() => {
     const unsubscribe = region.onFightChange(() => setFight(region.fight));
-    // The trainer may have built the region before this effect ran.
     setFight(region.fight);
     const poll = window.setInterval(() => setFight(region.fight), 500);
     return () => {

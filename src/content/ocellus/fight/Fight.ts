@@ -129,7 +129,6 @@ export class Fight implements BossHooks, PlayerHooks {
   private markerEntities: Entity[] = [];
   private skipEntities: Entity[] = [];
   private skipTiles: boolean;
-  /** Hazard highlights, copied from the options so the sidebar can switch them during the fight. */
   private showHazardTiles: boolean;
   private voidLayers = new Map<string, readonly ATile[]>();
   private voidVersion = 0;
