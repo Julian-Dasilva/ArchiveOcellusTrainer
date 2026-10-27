@@ -229,6 +229,7 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
     const result = super.reset(false);
     this.dress(result.player);
     if (startWorld) this.world.startTicking();
+    this.listeners.forEach((listener) => listener());
     return result;
   }
 
