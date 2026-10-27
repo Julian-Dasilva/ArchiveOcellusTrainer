@@ -296,6 +296,12 @@ export const P2 = {
   skipRunOut: 4,
   skipMarkerColour: "#FF3DE0",
   poolDamage: range(3, 5),
+  /** One tick, for a beat that follows another by a tick. */
+  oneTick: 1,
+  /** The sword's repair graphic: first at tick 3, then every 3 until enough. */
+  repairEvery: 3,
+  /** How many ticks an overhead line stays up. */
+  shoutLasts: 4,
 } as const;
 
 const NO_TICKS: readonly number[] = [];
