@@ -233,6 +233,7 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
       this.preloadHeldGraphics();
       this.world.startTicking();
     }
+    this.listeners.forEach((listener) => listener());
     return result;
   }
 
