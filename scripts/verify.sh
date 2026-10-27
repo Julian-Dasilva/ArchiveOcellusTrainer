@@ -1080,7 +1080,7 @@ open_ticking() {
 
 tile_pixel() {
   local page="$1" tile="$2" after="$3" read
-  # The read, and the click when the fourth argument is click, both run on the first frame of tick $after. The eval stays under agent-browser's 25 s timeout.
+  # The read, and the click when the fourth argument is click, none, or control, both run on the first frame of tick $after. The eval stays under agent-browser's 25 s timeout.
   [[ "$after" == now ]] || fight_tick_at_least $((after - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((after - 1))"; return 1; }
   read="$(ab --json eval "new Promise((done) => {
     const probe = window.__archiveOcellusProbe, ready = () => '${after}' === 'now' || (probe.snapshot().fight?.run.tick ?? -1) >= Number('${after}');
@@ -1089,10 +1089,10 @@ tile_pixel() {
       const at = probe.tileCentre(${tile}), box = document.querySelector('#world').getBoundingClientRect();
       const point = at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y) };
       let hit = true;
-      if (point && '${4:-}' === 'click') {
+      if (point && ('${4:-}' === 'click' || '${4:-}' === 'none' || '${4:-}' === 'control')) {
         const world = document.querySelector('#world');
         hit = document.elementFromPoint(point.x, point.y) === world;
-        if (hit) for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: point.x, clientY: point.y }));
+        if (hit) for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: point.x, clientY: point.y, ctrlKey: '${4:-}' === 'control' }));
       }
       done({ at: point, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length, hit });
     };
@@ -1105,11 +1105,15 @@ tile_pixel() {
 
 click_tile() {
   local page="$1" tile="$2" modifier="${4:-none}"
-  tile_pixel "$page" "$tile" "$3" || return 1
-  case "$modifier" in
-    none) printf '[["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"]]' "$CLICK_X" "$CLICK_Y" | ab batch --bail >/dev/null ;;
-    control) control_click_at "$CLICK_X" "$CLICK_Y" ;;
-  esac || { log "${page}: the click on ${tile} was not sent"; return 1; }
+  if [[ "$3" != now ]]; then
+    tile_pixel "$page" "$tile" "$3" "$modifier" || return 1
+  else
+    tile_pixel "$page" "$tile" now || return 1
+    case "$modifier" in
+      none) printf '[["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"]]' "$CLICK_X" "$CLICK_Y" | ab batch --bail >/dev/null ;;
+      control) control_click_at "$CLICK_X" "$CLICK_Y" ;;
+    esac || { log "${page}: the click on ${tile} was not sent"; return 1; }
+  fi
   ab wait --fn "window.__archiveOcellusProbe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length > ${WALK_ORDERS}" --timeout 5000 >/dev/null ||
     log "${page}: the click on ${tile} ordered no walk"
   ab --json eval "(() => {
