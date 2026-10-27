@@ -1,7 +1,10 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { ControlPanelController, Trainer } from "osrs-sdk";
+import { ControlPanelController, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
+import type { TrainerLoadingState } from "osrs-sdk";
 import { CHANGELOG } from "../changelog";
+import { QUADRANTS, quadrantOf, quadrantTiles } from "../fight/geometry";
+import { FightPlayer } from "../fight/units";
 import { FightRegion } from "../full/prefix";
 import { FullFightApp } from "../../../FullFightApp";
 
@@ -27,6 +30,7 @@ function loadFullFight(url: string) {
       return box.checked;
     },
     click: (id: string) => act(() => element(id).click()),
+    press: (key: string) => act(() => void document.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }))),
     close: () => {
       act(() => root.unmount());
       container.remove();
@@ -214,6 +218,173 @@ describe("the full fight page", () => {
     expect({ death, victory }).toEqual({
       death: { heading: "Oh dear, you are dead!", ...line },
       victory: { heading: "Ocellus defeated", ...line },
+    });
+  });
+});
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+const FRAME_MS = 50;
+const TICK_MS = 600;
+const READY: TrainerLoadingState = { assetProgress: 1, assetsLoaded: 0, assetsReady: true, assetsTotal: 0, imagesReady: true, status: "ready", viewportReady: true };
+
+let clock = 0;
+
+function play(region: FightRegion, ms: number) {
+  act(() => {
+    for (let left = ms; left > 0; left -= FRAME_MS) region.world.browserLoop((clock += FRAME_MS));
+  });
+}
+
+function gate() {
+  const region = fightRegion();
+  return {
+    start: document.getElementById("start")?.textContent ?? null,
+    pause: document.getElementById("pause")?.textContent ?? null,
+    resume: document.getElementById("resume")?.textContent ?? null,
+    world: region.world.globalTickCounter,
+    held: region.world.isPaused,
+    hud: document.querySelector(".fight-hud-tick")?.textContent ?? null,
+    phase: region.current,
+  };
+}
+
+/** Drops each pool to its floor and leaves a crumbling quadrant, so phase 3 reaches P4 without a death. */
+function reachP4(region: FightRegion): void {
+  const you = () => {
+    const first = region.players[0];
+    if (!(first instanceof FightPlayer)) throw new Error("the region has no full-fight player");
+    return first;
+  };
+  const leave = () => {
+    const crumbling = region.floorState().crumbling;
+    const here = quadrantOf(you().arenaTile());
+    if (crumbling[0] === undefined || here !== crumbling[0]) return;
+    const next = QUADRANTS.find((quadrant) => quadrant !== here && !region.floorState().destroyed.includes(quadrant));
+    if (!next) throw new Error("no quadrant left to stand on");
+    const floor = quadrantTiles(next).find((tile) => region.p3.mounted?.arena.isWalkable(tile));
+    if (!floor) throw new Error(`no floor in ${next}`);
+    you().hop(floor);
+  };
+  act(() => {
+    for (let step = 0; step < 2500 && region.floorState().destroyed.length < 3; step++) {
+      region.world.tickWorld();
+      const boss = region.p1.mounted?.boss;
+      if (region.current === "p1" && boss && boss.form === "p1" && boss.currentStats.hitpoint > 0) boss.currentStats.hitpoint = 0;
+      const p3 = region.p3.mounted;
+      if (region.current === "p3" && p3) {
+        p3.boss.currentStats.hitpoint = Math.min(p3.boss.currentStats.hitpoint, p3.script.hpFloor(p3.boss.stats.hitpoint));
+        leave();
+      }
+    }
+    for (let step = 0; step < 30 && region.current !== "p4"; step++) region.world.tickWorld();
+  });
+  if (region.current !== "p4") throw new Error(`the third fall left the fight in ${region.current}`);
+}
+
+describe("full fight pause", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    clock = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => clock);
+    vi.spyOn(window, "requestAnimationFrame").mockReturnValue(0);
+    vi.spyOn(TrainerInstance.prototype, "load").mockImplementation(async (options) => options?.onStateChange?.(READY));
+    vi.spyOn(Viewport.prototype, "draw").mockReturnValue(undefined);
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  test("phases 1, 2 and 3 wait on Start, and pause holds the tick until resume", async () => {
+    const held: Record<number, ReturnType<typeof gate>> = {};
+    for (const phase of [1, 2, 3] as const) {
+      const page = loadFullFight(`/?mode=full&phase=${phase}&seed=1&practice=1`);
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      held[phase] = gate();
+      page.close();
+    }
+
+    expect(held).toEqual({
+      1: { start: "Start", pause: null, resume: null, world: 0, held: true, hud: "tick 0", phase: "p1" },
+      2: { start: "Start", pause: null, resume: null, world: 0, held: true, hud: "tick 0", phase: "p2" },
+      3: { start: "Start", pause: null, resume: null, world: 0, held: true, hud: "tick 0", phase: "p3" },
+    });
+
+    const page = loadFullFight("/?mode=full&phase=1&seed=1&practice=1");
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    play(fightRegion(), 10_000);
+    const waiting = gate();
+    page.click("start");
+    play(fightRegion(), 8 * TICK_MS + FRAME_MS);
+    const running = gate();
+    page.click("pause");
+    play(fightRegion(), 10_000);
+    const paused = gate();
+    page.click("resume");
+    play(fightRegion(), TICK_MS + FRAME_MS);
+    const resumed = gate();
+    page.press("p");
+    play(fightRegion(), 10_000);
+    const pausedByKey = gate();
+    page.press("p");
+    play(fightRegion(), TICK_MS + FRAME_MS);
+    const resumedByKey = gate();
+    page.close();
+
+    const shown = (row: ReturnType<typeof gate>) => ({ start: row.start, pause: row.pause, resume: row.resume, world: row.world, held: row.held, phase: row.phase });
+    expect({
+      waiting: shown(waiting),
+      running: shown(running),
+      paused: shown(paused),
+      resumed: shown(resumed),
+      pausedByKey: shown(pausedByKey),
+      resumedByKey: shown(resumedByKey),
+      hudWhilePaused: paused.hud,
+      hudWhileKeyPaused: pausedByKey.hud,
+    }).toEqual({
+      waiting: { start: "Start", pause: null, resume: null, world: 0, held: true, phase: "p1" },
+      running: { start: null, pause: "Pause (P)", resume: null, world: 8, held: false, phase: "p1" },
+      paused: { start: null, pause: null, resume: "Resume (P)", world: 8, held: true, phase: "p1" },
+      resumed: { start: null, pause: "Pause (P)", resume: null, world: 9, held: false, phase: "p1" },
+      pausedByKey: { start: null, pause: null, resume: "Resume (P)", world: 9, held: true, phase: "p1" },
+      resumedByKey: { start: null, pause: "Pause (P)", resume: null, world: 10, held: false, phase: "p1" },
+      hudWhilePaused: running.hud,
+      hudWhileKeyPaused: resumed.hud,
+    });
+  });
+
+  test("pause after the third fall holds phase 4 on that tick", async () => {
+    const page = loadFullFight("/?mode=full&phase=3&seed=1&practice=1");
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const waiting = gate();
+    expect(waiting).toEqual({ start: "Start", pause: null, resume: null, world: 0, held: true, hud: "tick 0", phase: "p3" });
+    page.click("start");
+    reachP4(fightRegion());
+    const atP4 = gate();
+    page.click("pause");
+    play(fightRegion(), 10_000);
+    const paused = gate();
+    page.click("resume");
+    play(fightRegion(), TICK_MS + FRAME_MS);
+    const resumed = gate();
+    page.close();
+
+    expect({
+      arrived: { pause: atP4.pause, held: atP4.held, phase: atP4.phase },
+      paused: { resume: paused.resume, held: paused.held, world: paused.world, hud: paused.hud, phase: paused.phase },
+      resumed: { world: resumed.world, phase: resumed.phase, held: resumed.held },
+    }).toEqual({
+      arrived: { pause: "Pause (P)", held: false, phase: "p4" },
+      paused: { resume: "Resume (P)", held: true, world: atP4.world, hud: atP4.hud, phase: "p4" },
+      resumed: { world: atP4.world + 1, phase: "p4", held: false },
     });
   });
 });
