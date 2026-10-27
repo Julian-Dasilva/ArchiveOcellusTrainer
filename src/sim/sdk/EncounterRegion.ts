@@ -111,9 +111,9 @@ export class EncounterRegion<E extends Entries, Ph extends Phases<E, EncounterHo
       region: this,
       player,
       bind: (start, hooks) => {
-        const moved = hooks["player-moved"];
-        const local = { ...hooks, "player-moved": (frame: Parameters<typeof moved>[0]) => moved({ ...frame, steps: frame.steps.map((at) => player.local(at)), at: player.local(frame.at) }) };
-        const binding = new EncounterBinding(director.seed, start, player, local);
+        // The binding reads the player's steps off the SDK in room tiles; the phase reasons in its own.
+        const inPhaseTiles: typeof hooks = { ...hooks, "player-moved": (moved) => hooks["player-moved"]({ ...moved, steps: moved.steps.map((at) => player.local(at)), at: player.local(moved.at) }) };
+        const binding = new EncounterBinding(director.seed, start, player, inPhaseTiles);
         this.bound = binding;
         return binding;
       },
