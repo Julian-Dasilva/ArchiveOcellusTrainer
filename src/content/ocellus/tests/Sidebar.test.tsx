@@ -164,8 +164,8 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
         return this.id === "policy_footer" ? 96 : 0;
       },
     });
+    const page = await loadSidebarPage("/?seed=1");
     try {
-      const page = await loadSidebarPage("/?seed=1");
       const panel = document.querySelector("#right_panel");
       const menu = page.element("phone_menu");
       if (!(panel instanceof HTMLElement)) throw new Error("the page has no #right_panel");
@@ -174,7 +174,6 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
       const opened = { menu: page.element("phone_menu").textContent, expanded: page.element("phone_menu").getAttribute("aria-expanded"), panel: panel.style.display, fullFight: panel.contains(page.element("full_fight")) };
       page.click("phone_menu");
       const again = { menu: page.element("phone_menu").textContent, panel: panel.style.display };
-      page.close();
 
       expect({ closed, opened, again }).toEqual({
         closed: { menu: "Menu", expanded: "false", panel: "none", overlay: true, aboveFooter: "96px" },
@@ -182,7 +181,9 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
         again: { menu: "Menu", panel: "none" },
       });
     } finally {
+      page.close();
       if (previousHeight) Object.defineProperty(HTMLElement.prototype, "offsetHeight", previousHeight);
+      else Reflect.deleteProperty(HTMLElement.prototype, "offsetHeight");
     }
   });
 
