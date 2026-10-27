@@ -143,7 +143,7 @@ describe("the third fall enters P4 in the same world", () => {
     });
   });
 
-  test("a Defence drained below P4's floor in phase 3 comes into P4 at the floor", () => {
+  test("guard: phase 3's drained Defence, which his own floor holds at 150, crosses into P4 as it is", () => {
     const { region, fight } = fullFight(3);
     toThirdFall(region, fight, () => {
       if (fight.boss) fight.boss.currentStats.defence = 40;
@@ -154,9 +154,9 @@ describe("the third fall enters P4 in the same world", () => {
 });
 
 /** P4 carried into one quadrant of his arena: the room is his 29-tile grid and the fall is given. */
-function carriedP4(standing: Quadrant, voids: readonly Readonly<{ tile: Readonly<{ x: number; z: number }>; placed: number }>[] = []) {
+function carriedP4(standing: Quadrant, voids: readonly Readonly<{ tile: Readonly<{ x: number; z: number }>; placed: number }>[] = [], defence = 250) {
   Settings.readFromStorage();
-  const entry: P4Entry = carriedEntry({ tick: 100, standing, boss: { hp: 1313, defence: 250 }, voids }, fullFightConfig(seed(1)));
+  const entry: P4Entry = carriedEntry({ tick: 100, standing, boss: { hp: 1313, defence }, voids }, fullFightConfig(seed(1)));
   const frame = quadrantFrame(standing);
   const watch: P4Watch = { invincible: true, mounted: null };
   const region = new EncounterRegion({
@@ -208,6 +208,13 @@ describe("P4 in his arena", () => {
       ["SW", 85, 84, [[12, 16]]],
       ["NW", 85, 84, [[12, 12]]],
     ]);
+  });
+
+  test("a carried Defence below P4's floor enters at the floor, and one above it as carried", () => {
+    const drained = carriedP4("SE", [], 40).p4.ocellus.currentStats.defence;
+    close?.();
+    const kept = carriedP4("SE", [], 200).p4.ocellus.currentStats.defence;
+    expect([drained, kept]).toEqual([150, 200]);
   });
 
   test("phase 3's voids hurt in P4 on every second tick counted from when they dropped", () => {
