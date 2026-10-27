@@ -12,7 +12,7 @@ const SIM_SDK = path.join(SIM, "sdk");
 const SDK_PACKAGE = /^osrs-sdk(-[a-z]+)?(\/|$)/;
 const REACT_PACKAGE = /^(react|react-dom)(\/|$)/;
 const OCELUS = path.join(root, "src/content/ocellus");
-const PHASE_SCRIPTS = [path.join(OCELUS, "full/p3")];
+const PHASE_SCRIPTS = [path.join(OCELUS, "full/p2"), path.join(OCELUS, "full/p3")];
 const ENGINE_PAGE_BAN = new Set(["director.ts", "sdk/EncounterRegion.ts", "sdk/EncounterPlayer.ts"]);
 
 function engineFile(target) {
