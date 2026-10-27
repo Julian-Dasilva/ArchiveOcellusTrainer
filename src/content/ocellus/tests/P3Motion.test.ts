@@ -1,30 +1,6 @@
-import type { Location3, Unit } from "osrs-sdk";
 import { at } from "../fight/geometry";
 import { S, startP3 } from "./p3run";
-
-type Run = ReturnType<typeof startP3>;
-
-/**
- * Where the SDK draws a unit at each fortieth of a tick through `ticks` world ticks, client-ticking the region before
- * each frame as the page's render loop does, and the largest move between two frames.
- */
-function drawnThrough(f: Run, unit: () => Unit, ticks: number) {
-  const points: Location3[] = [];
-  let ms = 0;
-  for (let t = 0; t < ticks; t++) {
-    f.tickOnce();
-    for (let i = 0; i < 40; i++) {
-      ms += 15;
-      f.region.world.clientTick(f.region, i / 40, ms);
-      points.push(unit().getPerceivedLocation(i / 40));
-    }
-  }
-  const round = (n: number) => Math.round(n * 100) / 100;
-  const largestStep = points.slice(1).reduce((most, p, i) => Math.max(most, Math.hypot(p.x - points[i].x, p.y - points[i].y)), 0);
-  const highest = points.reduce((most, p) => Math.max(most, p.z), 0);
-  const where = (i: number) => ({ x: round(points[i].x), y: round(points[i].y), z: round(points[i].z) });
-  return { points, largestStep: round(largestStep), highest: round(highest), where };
-}
+import { drawnThrough } from "./drawn";
 
 describe("phase 3 moves on screen without a jump", () => {
   let close: (() => void) | null = null;
