@@ -3,10 +3,12 @@ import { BossForm, FightPlayer } from "../fight/units";
 import type { StartPhase } from "../full/options";
 import type { FightRegion } from "../full/prefix";
 import { fullFightStaged } from "../full/prefix";
-import { PHASE_RANGED_DEFENCE, dressFullFight } from "../fight/blowpipe";
+import { BLOWPIPE, PHASE_RANGED_DEFENCE, dressFullFight } from "../fight/blowpipe";
+import { QUADRANTS, quadrantOf } from "../fight/geometry";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { OCELLUS_P1 } from "../js/OcellusTimingsP1";
 import { OCELLUS_P2 } from "../js/OcellusTimingsP2";
+import { startP3 } from "./p3run";
 
 let close: (() => void) | null = null;
 afterEach(() => {
@@ -120,5 +122,86 @@ describe("the full fight's toxic blowpipe", () => {
       delays: [2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
       hit: true,
     });
+  });
+
+  const RANGED_BAG = [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, 12695, 22461, 6685, 3024, 12695, 22461, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 20997];
+  const MELEE_BAG = [28922, 20997, 27235, 27238, 27241, 26235, 28951, 33639, 28310, 12695, 22461, 6685, 3024, 12695, 22461, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 22325];
+
+  function carried(you: FightPlayer): (number | null)[] {
+    return you.inventory.map((item) => (typeof item?.cacheItemId === "number" ? item.cacheItemId : null));
+  }
+
+  test("phase 1 starts with the blowpipe worn and the twisted bow still in the bag", () => {
+    const dressed = (setup: "ranged" | "melee") => {
+      const region = open(1, setup);
+      try {
+        const you = player(region);
+        return { worn: you.equipment.weapon?.cacheItemId ?? null, inventory: carried(you) };
+      } finally {
+        close?.();
+        close = null;
+      }
+    };
+    expect(dressed("ranged")).toEqual({ worn: BLOWPIPE.value.itemId, inventory: RANGED_BAG });
+    expect(dressed("melee")).toEqual({ worn: BLOWPIPE.value.itemId, inventory: MELEE_BAG });
+  });
+
+  test("a click swaps the blowpipe and the twisted bow, and the next click swaps them back", () => {
+    const region = open(1, "ranged");
+    const you = player(region);
+    const slot = you.inventory.findIndex((item) => item?.cacheItemId === 20997);
+    const bow = slot >= 0 ? you.inventory[slot] : null;
+    expect(bow?.itemName ?? null).toBe("Twisted Bow");
+    if (!bow) return;
+    bow.inventoryLeftClick(you);
+    const stowed = you.inventory[slot];
+    expect({ worn: you.equipment.weapon?.itemName ?? null, stowed: stowed?.itemName ?? null }).toEqual({
+      worn: "Twisted Bow",
+      stowed: "Toxic Blowpipe",
+    });
+    if (!stowed) return;
+    stowed.inventoryLeftClick(you);
+    expect({ worn: you.equipment.weapon?.itemName ?? null, stowed: you.inventory[slot]?.itemName ?? null }).toEqual({
+      worn: "Toxic Blowpipe",
+      stowed: "Twisted Bow",
+    });
+  });
+
+  test("the blowpipe and the twisted bow are both still carried after the fall into phase 4", () => {
+    const run = startP3({ setup: "ranged" });
+    try {
+      const fallTo = (count: number) => {
+        for (let guard = 0; run.live().arena.destroyed.size < count; guard++) {
+          if (guard > 100) throw new Error(`quadrant ${count} never fell`);
+          run.tickOnce();
+          if (run.region.current !== "p3") return;
+          const crumbling = run.live().arena.floorState().crumbling;
+          if (crumbling.length > 0 && quadrantOf(run.here()) === crumbling[0]) run.stepOff();
+        }
+      };
+      for (const [floor, count] of [[75, 1], [50, 2]] as const) {
+        run.tickTo(run.now() + 2, run.stayInReach);
+        run.bossAt(floor);
+        fallTo(count);
+      }
+      run.tickTo(run.now() + 2, run.stayInReach);
+      run.bossAt(25);
+      while (run.live().arena.floorState().crumbling.length === 0) run.tickOnce();
+      const left = QUADRANTS.filter((quadrant) => !run.live().arena.destroyed.has(quadrant) && !run.live().arena.floorState().crumbling.includes(quadrant));
+      const standing = left[0];
+      if (!standing) throw new Error("no quadrant was left to stand on");
+      run.standOn(standing);
+      fallTo(3);
+      const you = run.player();
+      const ids = carried(you);
+      expect({
+        phase: run.region.current,
+        worn: you.equipment.weapon?.cacheItemId ?? null,
+        bow: ids.includes(20997),
+        pipe: you.equipment.weapon?.cacheItemId === BLOWPIPE.value.itemId || ids.includes(BLOWPIPE.value.itemId),
+      }).toEqual({ phase: "p4", worn: BLOWPIPE.value.itemId, bow: true, pipe: true });
+    } finally {
+      run.close();
+    }
   });
 });
