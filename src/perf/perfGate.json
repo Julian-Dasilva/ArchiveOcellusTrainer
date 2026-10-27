@@ -23,7 +23,7 @@
     "entityGrowth3d": 0,
     "projectileGrowth3d": 0,
     "sceneObjectGrowth3d": 0,
-    "bundleKiB": 1756
+    "bundleKiB": 1732
   },
   "timing": {
     "pairs": 5,
@@ -34,7 +34,6 @@
   },
   "exceptions": [
     {"budget": "drawCallsMax3d", "from": 27, "to": 28, "reason": "spotanim 4316, the levitation the game plays on the boss at each inner lifeforce hit (L2 and L6, S+4), adds one mesh; at P4 tick 72 it is the only new effect, drawn beside the two cycle 2 rifts and the new orb, the window's busiest render", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40382815660"},
-    {"budget": "trianglesMax3d", "from": 15962, "to": 16172, "reason": "spotanim 4316, the levitation the game plays on the boss at each inner lifeforce hit (L2 and L6, S+4), adds one mesh; at P4 tick 72 it is the only new effect, drawn beside the two cycle 2 rifts and the new orb, the window's busiest render", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40382815660"},
-    {"budget": "bundleKiB", "from": 1753, "to": 1756, "reason": "the mark ring and its timing row add 2541 bytes to the drill entry, from 1795054 bytes (1753 KiB, 18 under the ceiling) to 1797595 bytes (1756 KiB). The release build counts that entry", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40544941433"}
+    {"budget": "trianglesMax3d", "from": 15962, "to": 16172, "reason": "spotanim 4316, the levitation the game plays on the boss at each inner lifeforce hit (L2 and L6, S+4), adds one mesh; at P4 tick 72 it is the only new effect, drawn beside the two cycle 2 rifts and the new orb, the window's busiest render", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40382815660"}
   ]
 }

@@ -51,7 +51,11 @@ export type Source =
 export type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
 
 export function selected<T>(value: T, basis: Basis, scale: Scale, note: string, ...sources: Citations<Source>): Selected<T> {
-  return { kind: "selected", value, evidence: { status: "unverified", basis, scale, note, sources } };
+  return {
+    kind: "selected",
+    value,
+    evidence: { status: "unverified", basis, scale, note: process.env.NODE_ENV === "production" ? "" : note, sources },
+  };
 }
 
 type Options = Readonly<Record<string, Selected<unknown>>>;
