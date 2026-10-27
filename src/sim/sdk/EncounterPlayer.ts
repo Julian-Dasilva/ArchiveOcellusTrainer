@@ -1,9 +1,10 @@
 import { Collision, MagicWeapon, MeleeWeapon, Player } from "osrs-sdk";
 import type { MovePace, Unit } from "osrs-sdk";
 import type { Style } from "../combat";
-import { tile } from "../brands";
 import type { Tile } from "../brands";
 import type { AttackTarget, Rules, Walk } from "../encounter";
+import type { Frame } from "../frame";
+import { toLocal } from "../frame";
 import { protectionOf } from "./EncounterBinding";
 
 export type PlayerInput =
@@ -21,7 +22,8 @@ export interface EncounterPlayerHooks {
   /** Null while the mounted phase has no binding. */
   host(): PlayerHost | null;
   rules(): Rules<AttackTarget>;
-  hop(to: Readonly<{ x: number; y: number }>): void;
+  frame(): Frame;
+  hop(to: Tile): void;
   canMelee(target: Unit): boolean;
 }
 
@@ -42,8 +44,13 @@ export class EncounterPlayer extends Player {
     super(region, location);
   }
 
+  /** The mounted phase reasons in its own tiles; the SDK moves the player in room tiles. */
+  local(at: Readonly<{ x: number; y: number }>): Tile {
+    return toLocal(this.hooks().frame(), at);
+  }
+
   tile(): Tile {
-    return tile(this.location.x, this.location.y);
+    return this.local(this.location);
   }
 
   protection(): Style | null {
@@ -69,9 +76,10 @@ export class EncounterPlayer extends Player {
   }
 
   override moveTo(x: number, y: number, pace: MovePace = "run-setting"): void {
-    const decision = this.hooks().rules().walk(tile(x, y));
+    const destination = this.local({ x, y });
+    const decision = this.hooks().rules().walk(destination);
     this.applyWalk(decision, x, y, pace);
-    this.hooks().host()?.input({ kind: "walk-ordered", destination: tile(x, y), pace });
+    this.hooks().host()?.input({ kind: "walk-ordered", destination, pace });
   }
 
   /** The SDK redirects a blocked tile only when it is ordered, and a walk stops dead when its tile becomes blocked later. */

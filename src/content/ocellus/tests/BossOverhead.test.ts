@@ -1,6 +1,6 @@
 import { ImageLoader, Settings, TrainerInstance, Viewport } from "osrs-sdk";
-import type { FightOptions } from "../fight/Fight";
-import { FightRegion } from "../fight/FightRegion";
+import type { FullFightOptions } from "../full/prefix";
+import { FightRegion } from "../full/prefix";
 import { paintedImages } from "../../../../test/paintedTiles";
 
 describe("his overhead prayer", () => {
@@ -26,8 +26,8 @@ describe("his overhead prayer", () => {
     });
 
     Settings.readFromStorage();
-    const options: FightOptions = {
-      seed: 1, party: 1, startPhase: 3, hazardTiles: false, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true, onHandOver: () => undefined,
+    const options: FullFightOptions = {
+      seed: 1, party: 1, startPhase: 3, hazardTiles: false, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true,
     };
     const region = new FightRegion(options, () => undefined);
     const trainer = new TrainerInstance(region, { force2d: true });
@@ -35,11 +35,10 @@ describe("his overhead prayer", () => {
     close = () => trainer.dispose();
     region.world.getReadyTimer = 0;
     Viewport.viewport.resize(800, 600);
-    const fight = region.fight;
-    if (!fight) throw new Error("the region built no fight");
-    while (fight.boss?.overhead !== "protect-melee" && fight.tick < 200) region.world.tickWorld();
-    const boss = fight.boss;
-    if (!boss) throw new Error("no boss");
+    const p3 = region.p3.mounted;
+    if (!p3) throw new Error("the region did not start phase 3");
+    const { boss } = p3;
+    while (boss.overhead !== "protect-melee" && p3.now() < 200) region.world.tickWorld();
 
     const failed = paintedImages((context) => boss.drawOverheadPrayers(context, 30));
     loadedWidth = 30;

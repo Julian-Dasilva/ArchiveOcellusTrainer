@@ -2,7 +2,7 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { ControlPanelController, Trainer } from "osrs-sdk";
 import { CHANGELOG } from "../changelog";
-import { FightRegion } from "../fight/FightRegion";
+import { FightRegion } from "../full/prefix";
 import { FullFightApp } from "../../../FullFightApp";
 
 const POLICY = "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.";

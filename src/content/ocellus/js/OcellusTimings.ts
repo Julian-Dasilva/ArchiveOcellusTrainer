@@ -1262,6 +1262,11 @@ function rejectUnknownKeys(url: URL, known: (key: string) => boolean, rejected: 
   }
 }
 
+/** P4 as the full fight enters it: every choice at its default, on the fight's seed. */
+export function fullFightConfig(runSeed: Seed): DrillConfig {
+  return { seed: runSeed, choices: resolveChoices(() => undefined, [], runSeed), bossEntryHp: null };
+}
+
 export function parseDrillRequest(url: URL, freshSeed: () => number): ParsedDrill {
   const rejected: string[] = [];
   rejectUnknownKeys(url, isChoiceName, rejected);

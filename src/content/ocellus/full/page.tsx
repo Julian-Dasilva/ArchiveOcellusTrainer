@@ -1,21 +1,27 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { CacheRender, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
-import type { Player, Region, TrainerLoadingState } from "osrs-sdk";
+import type { Location3, Player, Region, TrainerLoadingState } from "osrs-sdk";
 import { GameOverlay, RuneScapeButton, TrainerApp } from "osrs-sdk-react";
 import { readSettings } from "../../../ArchiveOcellusApp";
-import { handOverToP4 } from "../js/carry";
 import type { CreditLink } from "../../../menu/credits";
 import { CONTRIBUTOR, MAKER_LINKS } from "../../../menu/credits";
 import Sidebar from "../../../menu/Sidebar";
 import { dress } from "../js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
 import { installBossBar } from "../fight/bossBar";
-import type { ChatLine, Fight, FightOptions, StartPhase } from "../fight/Fight";
-import { START_PHASES, formatTicks } from "../fight/Fight";
+import type { ChatLine, Fight, StartPhase } from "../fight/Fight";
+import { CHAT, START_PHASES, formatTicks } from "../fight/Fight";
 import type { ATile, Quadrant } from "../fight/geometry";
 import { toSdk } from "../fight/geometry";
 import { warmLaterPhases } from "../fight/warmup";
 import { FULL_FIGHT_CSS } from "../../../fullFightStyles";
+import type { P4Mount } from "../js/p4/phase";
+import type { RunState } from "../js/P4Types";
+import type { BossForm } from "../fight/units";
+import { FightPlayer } from "../fight/units";
+import type { P2Mount } from "./p2/sdk/phase";
+import type { P3Mount } from "./p3/sdk/phase";
+import type { FullFightOptions } from "./prefix";
 import { FightRegion, START_NPC, fullFightStaged } from "./prefix";
 
 declare global {
@@ -24,6 +30,10 @@ declare global {
       snapshot(): FullFightSnapshot;
       tileCentre(at: ATile): Readonly<{ x: number; y: number }> | null;
       die(): void;
+      /** Sets his HP to a whole-number percentage of the pool, so a check reaches each quadrant's fall without the damage. */
+      bossTo(percent: number): void;
+      /** Where this frame draws him and the player, for a capture that times their movement frame by frame. */
+      drawn(): Drawn;
     }>;
   }
 }
@@ -40,7 +50,7 @@ const UPDATE_LINKS: readonly CreditLink[] = [
 ];
 
 type Setup = "ranged" | "melee";
-type Params = Omit<FightOptions, "onHandOver"> & Readonly<{ setup: Setup }>;
+type Params = FullFightOptions & Readonly<{ setup: Setup }>;
 
 function readParams(): Params {
   const url = new URL(window.location.href);
@@ -91,15 +101,8 @@ function createTrainer() {
   readSettings();
   const params = readParams();
   const worn = OCELLUS_P4.choices.setup.options[params.setup].value;
-  const options: FightOptions = {
-    ...params,
-    onHandOver: (state) => {
-      const practice = region.fight?.practice ?? params.invincible;
-      handOverToP4(state, practice);
-    },
-  };
-  const region = fullFightStaged(options, (player: Player) => dress(player, defaultLoadout(worn)));
-  installBossBar((r: Region) => (r instanceof FightRegion ? r.fight : null));
+  const region = fullFightStaged(params, (player: Player) => dress(player, defaultLoadout(worn)));
+  installBossBar((r: Region) => (r instanceof FightRegion && r.current === "prefix" ? r.fight : null));
   const trainer = new TrainerInstance(region, { readyTimer: 5 });
   return { trainer, region, params };
 }
@@ -181,18 +184,94 @@ function LoadingSplash({ state, download }: { state?: TrainerLoadingState; downl
   );
 }
 
-function useFight(region: FightRegion): Fight | null {
-  const [fight, setFight] = useState<Fight | null>(region.fight);
+/** His fight through phase 1, then phases 2 and 3 on the engine, then our P4 in the same world. `from` is the fight clock on the phase's tick 0. */
+type Stage =
+  | Readonly<{ phase: "prefix"; fight: Fight }>
+  | Readonly<{ phase: "p2"; p2: P2Mount; from: number }>
+  | Readonly<{ phase: "p3"; p3: P3Mount; from: number }>
+  | Readonly<{ phase: "p4"; p4: P4Mount; from: number }>;
+
+/** Read from what is mounted, latest phase first: the page renders before the region opens its run. */
+function stageOf(region: FightRegion): Stage | null {
+  const p4 = region.p4.mounted;
+  if (p4) return { phase: "p4", p4, from: region.startOf("p4") };
+  const p3 = region.p3.mounted;
+  if (p3) return { phase: "p3", p3, from: region.startOf("p3") };
+  const p2 = region.p2.mounted;
+  if (p2) return { phase: "p2", p2, from: region.startOf("p2") };
+  const fight = region.fight;
+  return fight && { phase: "prefix", fight };
+}
+
+function useStage(region: FightRegion): Stage | null {
+  const [stage, setStage] = useState<Stage | null>(() => stageOf(region));
   useEffect(() => {
-    const unsubscribe = region.onFightChange(() => setFight(region.fight));
-    setFight(region.fight);
-    const poll = window.setInterval(() => setFight(region.fight), 500);
+    const unsubscribe = region.onFightChange(() => setStage(stageOf(region)));
+    setStage(stageOf(region));
+    const poll = window.setInterval(() => setStage(stageOf(region)), 500);
     return () => {
       unsubscribe();
       window.clearInterval(poll);
     };
   }, [region]);
-  return fight;
+  return stage;
+}
+
+/** Phases 3 and 4 change on world ticks, and his fight has stopped stepping, so the page follows the region's ticks. */
+function useRegionTicks(region: FightRegion): number {
+  return useSyncExternalStore(
+    (listener) => region.onTick(listener),
+    () => region.ticks(),
+  );
+}
+
+function p4Ticks(run: RunState): number {
+  switch (run.kind) {
+    case "waiting":
+      return 0;
+    case "running":
+      return run.tick;
+    case "ended":
+      return run.at;
+    default: {
+      const unhandled: never = run;
+      return unhandled;
+    }
+  }
+}
+
+function stageTicks(stage: Stage): number {
+  switch (stage.phase) {
+    case "prefix":
+      return stage.fight.tick;
+    case "p2":
+      return stage.from + stage.p2.now();
+    case "p3":
+      return stage.from + stage.p3.now();
+    case "p4":
+      return stage.from + p4Ticks(stage.p4.ocellus.runState());
+    default: {
+      const unhandled: never = stage;
+      return unhandled;
+    }
+  }
+}
+
+function stageLabel(stage: Stage): string {
+  switch (stage.phase) {
+    case "prefix":
+      return stage.fight.started ? stage.fight.label() : "Get ready";
+    case "p2":
+      return stage.p2.started() ? "Phase 2" : "Get ready";
+    case "p3":
+      return stage.p3.started() ? "Phase 3" : "Get ready";
+    case "p4":
+      return "Phase 4";
+    default: {
+      const unhandled: never = stage;
+      return unhandled;
+    }
+  }
 }
 
 function useFightVersion(fight: Fight | null): number {
@@ -202,20 +281,25 @@ function useFightVersion(fight: Fight | null): number {
   );
 }
 
-function Hud({ fight }: Readonly<{ fight: Fight }>) {
-  useFightVersion(fight);
+function Hud({ stage, region }: Readonly<{ stage: Stage; region: FightRegion }>) {
+  useFightVersion(region.fight);
+  useRegionTicks(region);
+  const ticks = stageTicks(stage);
+  const label = stageLabel(stage);
   return (
     <div className="fight-hud">
-      <div className="fight-hud-phase">{fight.started ? fight.label() : "Get ready"}</div>
-      <div className="fight-hud-timer">{formatTicks(fight.tick)}</div>
-      <div className="fight-hud-tick">tick {fight.tick}</div>
+      <div className="fight-hud-phase">{label}</div>
+      <div className="fight-hud-timer">{formatTicks(ticks)}</div>
+      <div className="fight-hud-tick">tick {ticks}</div>
     </div>
   );
 }
 
-function Chatbox({ fight }: Readonly<{ fight: Fight | null }>) {
-  useFightVersion(fight);
-  const lines: readonly ChatLine[] = fight?.chat.slice(-CHAT_LINES_SHOWN) ?? [];
+function Chatbox({ stage, region }: Readonly<{ stage: Stage | null; region: FightRegion }>) {
+  useFightVersion(region.fight);
+  useRegionTicks(region);
+  const p4: readonly ChatLine[] = stage?.phase === "p4" ? stage.p4.views.chat.map((text) => ({ text, colour: CHAT.game, tick: stage.from })) : [];
+  const lines = [...region.chat(), ...p4].slice(-CHAT_LINES_SHOWN);
   return (
     <ol id="game_chat">
       {lines.map((line, index) => (
@@ -225,19 +309,49 @@ function Chatbox({ fight }: Readonly<{ fight: Fight | null }>) {
   );
 }
 
-function Result({ fight, params }: Readonly<{ fight: Fight; params: Params }>) {
-  useFightVersion(fight);
-  const outcome = fight.outcome;
-  if (outcome.kind === "running") return null;
+type Ending = Readonly<{ won: boolean; ticks: number; phase: string }>;
+
+function endingOf(stage: Stage): Ending | null {
+  switch (stage.phase) {
+    case "prefix": {
+      const outcome = stage.fight.outcome;
+      return outcome.kind === "running" ? null : { won: outcome.kind === "won", ticks: outcome.ticks, phase: stage.fight.label() };
+    }
+    case "p2": {
+      const outcome = stage.p2.script.outcome;
+      return outcome.kind === "running" ? null : { won: false, ticks: stage.from + outcome.at, phase: "Phase 2" };
+    }
+    case "p3": {
+      const outcome = stage.p3.script.outcome;
+      return outcome.kind === "running" ? null : { won: false, ticks: stage.from + outcome.at, phase: "Phase 3" };
+    }
+    case "p4": {
+      const run = stage.p4.ocellus.runState();
+      return run.kind === "ended" ? { won: run.reason === "kill", ticks: stage.from + run.at, phase: "Phase 4" } : null;
+    }
+    default: {
+      const unhandled: never = stage;
+      return unhandled;
+    }
+  }
+}
+
+function Result({ stage, region, params }: Readonly<{ stage: Stage; region: FightRegion; params: Params }>) {
+  useFightVersion(region.fight);
+  useRegionTicks(region);
+  const ending = endingOf(stage);
+  if (ending === null) return null;
+  const now = region.currentOptions();
+  const again = (fresh: boolean) => writeParams({ ...params, hazardTiles: now.hazardTiles, invincible: now.invincible, skipMarkers: now.skipMarkers }, fresh);
   return (
     <div className="fight-result">
-      <h2>{outcome.kind === "won" ? "Ocellus defeated" : "Oh dear, you are dead!"}</h2>
+      <h2>{ending.won ? "Ocellus defeated" : "Oh dear, you are dead!"}</h2>
       <p>
-        {outcome.kind === "won" ? "Challenge complete" : "You fell"} after <b>{formatTicks(outcome.ticks)}</b> ({outcome.ticks} ticks), in {fight.label().toLowerCase()}.
+        {ending.won ? "Challenge complete" : "You fell"} after <b>{formatTicks(ending.ticks)}</b> ({ending.ticks} ticks), in {ending.phase.toLowerCase()}.
       </p>
       <div className="fight-result-buttons">
-        <RuneScapeButton type="button" onClick={() => writeParams({ ...params, hazardTiles: fight.hazardTiles, invincible: fight.practice, skipMarkers: fight.skipMarkers })}>Try again</RuneScapeButton>
-        <RuneScapeButton type="button" onClick={() => writeParams({ ...params, hazardTiles: fight.hazardTiles, invincible: fight.practice, skipMarkers: fight.skipMarkers }, false)}>Same seed</RuneScapeButton>
+        <RuneScapeButton type="button" onClick={() => again(true)}>Try again</RuneScapeButton>
+        <RuneScapeButton type="button" onClick={() => again(false)}>Same seed</RuneScapeButton>
       </div>
       <p className="fight-result-follow">
         Updates and new sims:{" "}
@@ -253,7 +367,7 @@ function Result({ fight, params }: Readonly<{ fight: Fight; params: Params }>) {
   );
 }
 
-const TIPS: Readonly<Record<StartPhase, readonly string[]>> = {
+const TIPS: Readonly<Record<StartPhase | 4, readonly string[]>> = {
   1: [
     "Pray Missiles for the orange fire volleys, Magic for the blue water ones. Prayer is checked when the shot lands.",
     "At each corner 7 cracks grow toward him. Stand on a closing crack to block it: it heals you instead of him. Unblocked, it feeds his yellow meter and heals him.",
@@ -273,9 +387,15 @@ const TIPS: Readonly<Record<StartPhase, readonly string[]>> = {
     "The void vine holds you until it dies: cut it (solo, your attack switches to it when it roots you). Kill rifts within 30 ticks or they detonate on you. Untether: pray Magic, get under his 3x3 (purple) by the eruption, and step one tile out when it glows brightest. The slam hits anyone not under him; the aftershock a tick later hits anyone still under.",
     "After Obliteration, cross the stones (click a stone or the next quadrant) before the quadrant falls. Right-click a censer to light it.",
   ],
+  4: [
+    "Phase 4 is on the quadrant left standing. Phase 3's voids stay on it and still hurt.",
+    "The inner void floods the 5x5 around him: wait outside it. The outer void floods the rest of the floor: step into the 5x5.",
+    "Step off each explosion mark, pray against each transition attack, and kill void rifts before they burst.",
+    "A Deflect overhead turns that style back on you: attack with another.",
+  ],
 };
 
-function FullFightSidebar({ params, region, fight }: Readonly<{ params: Params; region: FightRegion; fight: Fight | null }>) {
+function FullFightSidebar({ params, region, stage }: Readonly<{ params: Params; region: FightRegion; stage: Stage | null }>) {
   const [draft, setDraft] = useState<Params>(params);
   const set = (patch: Partial<Params>) => setDraft((current) => ({ ...current, ...patch }));
   const changedAtLoad = (["startPhase", "setup", "videoMarkers", "soloVine"] as const).some((key) => draft[key] !== params[key]);
@@ -346,14 +466,33 @@ function FullFightSidebar({ params, region, fight }: Readonly<{ params: Params; 
         </>
       }
       about={null}
-      after={<PhaseTips params={params} fight={fight} />}
+      after={<PhaseTips params={params} stage={stage} region={region} />}
     />
   );
 }
 
-function PhaseTips({ params, fight }: Readonly<{ params: Params; fight: Fight | null }>) {
-  useFightVersion(fight);
-  const phaseNow = START_PHASES.find((phase) => fight?.label() === `Phase ${phase}`) ?? params.startPhase;
+function tipsPhase(stage: Stage | null, start: StartPhase): StartPhase | 4 {
+  switch (stage?.phase) {
+    case undefined:
+      return start;
+    case "prefix":
+      return START_PHASES.find((phase) => stage.fight.label() === `Phase ${phase}`) ?? start;
+    case "p2":
+      return 2;
+    case "p3":
+      return 3;
+    case "p4":
+      return 4;
+    default: {
+      const unhandled: never = stage;
+      return unhandled;
+    }
+  }
+}
+
+function PhaseTips({ params, stage, region }: Readonly<{ params: Params; stage: Stage | null; region: FightRegion }>) {
+  useFightVersion(region.fight);
+  const phaseNow = tipsPhase(stage, params.startPhase);
   return (
     <section id="phase_tips">
       <div className="sidebar_title">{`Phase ${phaseNow}`}</div>
@@ -365,40 +504,101 @@ function PhaseTips({ params, fight }: Readonly<{ params: Params; fight: Fight | 
 type FullFightSnapshot = Readonly<{
   tick: number;
   phase: string;
+  url: string;
+  getReady: number;
+  p4: Readonly<{ run: RunState; boss: Readonly<{ hp: number; maxHp: number; defence: number; visible: boolean; at: Readonly<{ x: number; y: number }> }>; events: readonly string[] }> | null;
   outcome: Fight["outcome"]["kind"];
   player: ATile | null;
   hp: number;
   boss: Readonly<{ tile: ATile; hp: number; hidden: boolean }> | null;
   fallen: readonly Quadrant[];
   crumbling: readonly Quadrant[];
+  stones: readonly ATile[];
   chat: readonly string[];
 }>;
 
+type Drawn = Readonly<{ tickPercent: number; boss: Location3 | null; player: Location3 | null }>;
+
+/** His body through phase 3, with the pool its HP is a share of. P4's boss has its own block in the snapshot. */
+function bossOf(stage: Stage | null): Readonly<{ unit: BossForm; pool: number }> | null {
+  switch (stage?.phase) {
+    case undefined:
+    case "p4":
+      return null;
+    case "prefix":
+      return stage.fight.boss && { unit: stage.fight.boss, pool: stage.fight.poolMax };
+    case "p2":
+      return { unit: stage.p2.boss, pool: stage.p2.boss.stats.hitpoint };
+    case "p3":
+      return { unit: stage.p3.boss, pool: stage.p3.boss.stats.hitpoint };
+    default: {
+      const unhandled: never = stage;
+      return unhandled;
+    }
+  }
+}
+
+function outcomeOf(stage: Stage | null): Fight["outcome"]["kind"] {
+  const ending = stage && endingOf(stage);
+  return ending === null ? "running" : ending.won ? "won" : "lost";
+}
+
 function exposeProbe(trainer: TrainerInstance, region: FightRegion): void {
+  const player = () => {
+    const first = region.players[0];
+    return first instanceof FightPlayer ? first : null;
+  };
   window.__fullFightProbe = Object.freeze({
     snapshot(): FullFightSnapshot {
-      const fight = region.fight;
+      const stage = stageOf(region);
+      const p4 = stage?.phase === "p4" ? stage.p4 : null;
+      const boss = bossOf(stage)?.unit ?? null;
+      const you = player();
+      const floor = region.floorState();
       return {
-        tick: fight?.tick ?? 0,
-        phase: fight?.label() ?? "",
-        outcome: fight?.outcome.kind ?? "running",
-        player: fight ? fight.playerTile : null,
-        hp: fight?.player.currentStats.hitpoint ?? 0,
-        boss: fight?.boss ? { tile: fight.boss.tile, hp: fight.boss.currentStats.hitpoint, hidden: fight.boss.hidden } : null,
-        fallen: fight ? [...fight.destroyed] : [],
-        crumbling: fight ? fight.floorState().crumbling : [],
-        chat: fight?.chat.slice(-6).map((line) => line.text) ?? [],
+        tick: stage ? stageTicks(stage) : 0,
+        phase: stage ? stageLabel(stage) : "",
+        url: window.location.href,
+        getReady: trainer.getSnapshot().world.getReadyTimer,
+        p4: p4 && {
+          run: p4.ocellus.runState(),
+          boss: { hp: p4.ocellus.currentStats.hitpoint, maxHp: p4.ocellus.stats.hitpoint, defence: p4.ocellus.currentStats.defence, visible: p4.ocellus.visible(), at: { ...p4.ocellus.location } },
+          events: region.rows("p4").flatMap((row) => row.events.map((event) => `${event.at} ${event.kind}${"overhead" in event ? ` ${event.overhead}` : ""}`)),
+        },
+        outcome: outcomeOf(stage),
+        player: you && you.arenaTile(),
+        hp: you?.currentStats.hitpoint ?? 0,
+        boss: boss && { tile: boss.tile, hp: boss.currentStats.hitpoint, hidden: boss.hidden },
+        fallen: floor.destroyed,
+        crumbling: floor.crumbling,
+        stones: floor.stones,
+        chat: region.chat().slice(-6).map((line) => line.text),
       };
     },
     tileCentre: (at) => Viewport.viewport.projectTile(toSdk(at), trainer.getSnapshot().world),
-    die: () => region.fight?.lose("fell"),
+    die: () => {
+      const stage = stageOf(region);
+      if (stage?.phase === "prefix") stage.fight.lose("fell");
+      if (stage?.phase === "p2") stage.p2.script.lose();
+      if (stage?.phase === "p3") stage.p3.script.lose();
+    },
+    bossTo: (percent) => {
+      const boss = bossOf(stageOf(region));
+      if (boss) boss.unit.currentStats.hitpoint = Math.ceil((boss.pool * percent) / 100);
+    },
+    drawn: () => {
+      const tickPercent = trainer.getSnapshot().world.tickPercent;
+      const boss = region.primaryBoss;
+      const you = player();
+      return { tickPercent, boss: boss ? boss.getPerceivedLocation(tickPercent) : null, player: you ? you.getPerceivedLocation(tickPercent) : null };
+    },
   });
 }
 
 export function FullFightPage() {
   const [{ trainer, region, params }] = useState(createTrainer);
   const [loading, setLoading] = useState<TrainerLoadingState>();
-  const fight = useFight(region);
+  const stage = useStage(region);
   const ready = loading?.status === "ready";
   const download = useFirstDownload(params.startPhase, !ready);
 
@@ -421,13 +621,13 @@ export function FullFightPage() {
     <TrainerApp trainer={trainer} onLoadingStateChange={setLoading}>
       <GameOverlay>
         <LoadingSplash state={loading} download={download} />
-        {fight && <Hud fight={fight} />}
+        {stage && <Hud stage={stage} region={region} />}
         <div id="hud_corner">
-          <Chatbox fight={fight} />
+          <Chatbox stage={stage} region={region} />
         </div>
-        {fight && <Result fight={fight} params={params} />}
+        {stage && <Result stage={stage} region={region} params={params} />}
       </GameOverlay>
-      <FullFightSidebar params={params} region={region} fight={fight} />
+      <FullFightSidebar params={params} region={region} stage={stage} />
     </TrainerApp>
   );
 }

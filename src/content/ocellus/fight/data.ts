@@ -296,6 +296,12 @@ export const P2 = {
   skipRunOut: 4,
   skipMarkerColour: "#FF3DE0",
   poolDamage: range(3, 5),
+  /** One tick, for a beat that follows another by a tick. */
+  oneTick: 1,
+  /** The sword's repair graphic: first at tick 3, then every 3 until enough. */
+  repairEvery: 3,
+  /** How many ticks an overhead line stays up. */
+  shoutLasts: 4,
 } as const;
 
 const NO_TICKS: readonly number[] = [];
@@ -352,9 +358,13 @@ export const P3 = {
   spinOpeningDamage: range(0, 18),
   /** "Severing your prayer!" locks protection prayers this long: back on 3 ticks later in [V] duo 18:53-18:55. */
   severTicks: 3,
+  /** The overhead severed is the one up on the tick before each cut. ocellus-sim phase3.ts:351 */
+  severBefore: 1,
   panicLands: 2,
   volleyDamage: range(20, 26),
   patchDamage: range(6, 7),
+  /** A void hurts whoever stands on it every second tick from the tick it dropped. */
+  patchEvery: 2,
   patchLasts: range(21, 51),
   /**
    * Void bombs fall on every raider but the tank (solo: you), and on the same tile turned into each other standing
@@ -450,52 +460,51 @@ export const P3 = {
    */
   hpFloors: [0.75, 0.5, 0.25],
   jumpTicks: 2,
-} as const;
-
-export const P4 = {
-  /**
-   * "End..." 1 tick into the phase, then a 60-tick cycle from his first Deflect, 4 ticks in. He takes hits from 3 ticks
-   * in, so he is back with the shout. [K] (was 5 and 8 from [R] [T])
-   */
-  hiddenFor: 1,
-  shoutAt: 1,
-  firstCycleAt: 4,
-  cycle: 60,
-  innerVoid: { from: 0, until: 22 },
-  outerVoid: { from: 31, until: 51 },
-  winds: [4, 35],
-  /** Ready 16 and 42 ticks into the cycle: the first raiders took theirs back then, in both of [K]'s cycles. */
-  orbReadyAfterWind: [12, 7],
-  orbExpiresAfterReady: 13,
-  orbFirstTickBonus: 8,
-  explosionMarks: [
-    [9, 11, 13, 15, 17, 19],
-    [40, 42, 44, 46, 48, 50],
-  ],
-  explosionDamage: range(14, 16),
-  /** A mark that explodes a tile from you resets your attack timer: 2-tick attacks with any weapon. [M] 12:50 */
-  explosionResetReach: 1,
-  hybrids: [24, 52],
-  hybridHitAfter: 5,
-  hybridProtected: range(5, 10),
-  hybridUnprotected: range(43, 50),
-  floorDamage: range(9, 11),
-  floorGraceInner: 2,
-  floorGraceOuter: 5,
-  /**
-   * Rifts detonate 30 ticks after they appear unless killed, as in phase 3 (P3.riftDetonatesAfter); [K]'s one
-   * phase 4 detonation hit its raider for 3 twice. [T]'s charge (14, 11 ticks after they appear) is the next cycle's
-   * first explosion, which lands at +10; upstream's later 23 ticks was an estimate.
-   */
-  riftsAt: 59,
-  riftDetonationHits: [3, 3],
-  /** Overheads: Deflect Melee in the inner void, Soul Split around hybrids, Deflect Range in the outer void. */
-  overheads: [
-    { from: 0, to: 25, overhead: "deflect-melee" },
-    { from: 25, to: 30, overhead: "soul-split" },
-    { from: 31, to: 53, overhead: "deflect-range" },
-    { from: 53, to: 59, overhead: "soul-split" },
-  ],
+  shoutLasts: {
+    /** Untether, panic, Insolence and the escape line stay over his head 3 ticks. ocellus-sim phase3.ts:380, 501, 593, 715 */
+    short: 3,
+    /** The vine's and the fall's shouts stay 4 ticks. ocellus-sim phase3.ts:452, 699 */
+    long: 4,
+  },
+  /** He says either of his two vine shouts, and either of his two fall shouts, evenly. ocellus-sim phase3.ts:452, 699 */
+  shoutChance: 0.5,
+  /** His Untether and fall loops take over 2 ticks into their opening animations. ocellus-sim phase3.ts:602, 704 */
+  poseLoopAfter: 2,
+  /** The collapsing quadrant bursts every 2 ticks, 4 bursts at a time, until it falls. ocellus-sim phase3.ts:709-711 */
+  collapseBurstEvery: 2,
+  collapseBursts: 4,
+  /** The spin's hits reach 8 tiles from his south-west tile. ocellus-sim phase3.ts:362 */
+  spinReach: 8,
+  /** The shadow slash's band shows a tick before his animation, the last tick to click out of it. ocellus-sim phase3.ts:253 */
+  slashShowsBefore: 1,
+  /** The vine's hold, renewed on every tick it lives. ocellus-sim phase3.ts:469, 772 */
+  vineHolds: 2,
+  /** Each stepping-stone hop holds you a tick. ocellus-sim phase3.ts:867 */
+  hopHolds: 1,
+  /** The vine's grip and the over-head bomb each turn to their idle look a tick after they start. ocellus-sim phase3.ts:471; [K] 4302 then 4299 a tick later */
+  idleAfter: 1,
+  /** "It's flying too high to hit using melee." shows at most once in this many ticks. ocellus-sim phase3.ts:935 */
+  flyingMessageEvery: 3,
+  /** Insolence leaves debris at these fractions along each band, nearest him first. ocellus-sim phase3.ts:528 */
+  insolenceDebrisAt: [0.2, 0.5, 0.85],
+  /** A rift spawns at least 2 tiles clear of his body. ocellus-sim phase3.ts:538 */
+  riftClearance: 2,
+  censer: {
+    /** The Zarosian censer gives 50 special energy. ocellus-sim phase3.ts:893 */
+    special: 50,
+    /** Special energy stops at 100. ocellus-sim phase3.ts:893 */
+    specialMax: 100,
+    /** The Saradomin censer gives 50 hitpoints, past your maximum. ocellus-sim phase3.ts:896 */
+    hitpoints: 50,
+    /** The Saradomin censer gives 50 prayer, up to your maximum. ocellus-sim phase3.ts:897 */
+    prayer: 50,
+  },
+  practiceRefill: {
+    /** Practice refills hitpoints that fall under 30 and are not 0. ocellus-sim Fight.ts:169 */
+    hitpoints: 30,
+    /** Practice refills prayer that falls under 10. ocellus-sim Fight.ts:172 */
+    prayer: 10,
+  },
 } as const;
 
 export type BossOverhead = "protect-melee" | "deflect-melee" | "deflect-range" | "soul-split";

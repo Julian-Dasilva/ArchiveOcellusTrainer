@@ -1981,10 +1981,19 @@ drive_setup_pause() {
   replace_run restart restart-paused
 }
 
+# A sprite started with new Image() holds agent-browser's open on the load event. The set-up panel does not need that event.
+open_setup_page() {
+  local cdp target
+  ab open about:blank >/dev/null || return 1
+  cdp="$(ab get cdp-url)" || return 1
+  target="$(ab --json tab list | json data.tabs.0.targetId)" || return 1
+  node --import tsx src/perf/devtools.ts open "$cdp" "$target" "$1"
+}
+
 saved_loadout_page() {
   local seen
   seen="$(ab --json errors | json data.errors.length)" || return 1
-  ab open "${URL}$(json "$1" <<<"$SAVED_LOADOUT_PAGES")" >/dev/null || return 1
+  open_setup_page "${URL}$(json "$1" <<<"$SAVED_LOADOUT_PAGES")" || return 1
   ab wait --fn "document.getElementById('start')?.checkVisibility() === true || (window.__archiveOcellusProbe?.snapshot().tick ?? 0) >= 1" --timeout 60000 >/dev/null ||
     log "the ${1} page with the ${2} store never showed Start" >&2
   printf '{"page":%s,"errors":%s}\n' \
@@ -1994,7 +2003,7 @@ saved_loadout_page() {
 
 drive_saved_loadouts() {
   local START_ON_LOAD=0 store phase
-  ab open "${URL}$(json p4 <<<"$SAVED_LOADOUT_PAGES")" >/dev/null || return 1
+  open_setup_page "${URL}$(json p4 <<<"$SAVED_LOADOUT_PAGES")" || return 1
   for store in saved $SAVED_LOADOUT_UNREADABLE; do
     ab eval "localStorage.setItem(\"${SAVED_LOADOUTS_KEY}\", ${SAVED_LOADOUT_STORES_JS}(${SAVED_LOADOUT_LAYOUT})[\"${store}\"])" >/dev/null || { log "the ${store} store was not saved"; return 1; }
     for phase in p4 p3; do
@@ -2587,7 +2596,14 @@ production_port_free() {
 }
 
 serve_static() {
-  python3 -m http.server "$PRODUCTION_PORT" --bind 127.0.0.1 --directory "$1" >"$2" 2>&1 &
+  # `python3 -m http.server` listens with a queue of 5, and macOS resets the connections past it when the page fetches
+  # its payloads in one burst. 128 is the most macOS grants.
+  python3 -c '
+import functools, http.server, sys
+class Server(http.server.ThreadingHTTPServer):
+    request_queue_size = 128
+Server(("127.0.0.1", int(sys.argv[1])), functools.partial(http.server.SimpleHTTPRequestHandler, directory=sys.argv[2])).serve_forever()
+' "$PRODUCTION_PORT" "$1" >"$2" 2>&1 &
   PRODUCTION_PID=$!
   log "started static server PID ${PRODUCTION_PID} on http://127.0.0.1:${PRODUCTION_PORT}/"
   for _ in $(seq 1 30); do

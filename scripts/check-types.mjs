@@ -12,6 +12,7 @@ const SIM_SDK = path.join(SIM, "sdk");
 const SDK_PACKAGE = /^osrs-sdk(-[a-z]+)?(\/|$)/;
 const REACT_PACKAGE = /^(react|react-dom)(\/|$)/;
 const OCELUS = path.join(root, "src/content/ocellus");
+const PHASE_SCRIPTS = [path.join(OCELUS, "full/p2"), path.join(OCELUS, "full/p3")];
 const ENGINE_PAGE_BAN = new Set(["director.ts", "sdk/EncounterRegion.ts", "sdk/EncounterPlayer.ts"]);
 
 function engineFile(target) {
@@ -20,7 +21,7 @@ function engineFile(target) {
   const file = rel.endsWith(".ts") || rel.endsWith(".tsx") ? rel : `${rel}.ts`;
   return ENGINE_PAGE_BAN.has(file) ? file : null;
 }
-const PUBLIC = new Set(["OcellusRegion.ts", "OcellusLoadout.ts", "OcellusTimings.ts", "OcellusTimingsP1.ts", "OcellusTimingsP2.ts", "OcellusTimingsP3.ts", "P4Types.ts", "P3Region.ts", "P3Types.ts", "P2Region.ts", "P2Types.ts", "P1Region.ts", "P1Types.ts", "carry.ts"].map((file) => path.join(FIGHT, file)));
+const PUBLIC = new Set(["OcellusRegion.ts", "OcellusLoadout.ts", "OcellusTimings.ts", "OcellusTimingsP1.ts", "OcellusTimingsP2.ts", "OcellusTimingsP3.ts", "P4Types.ts", "P3Region.ts", "P3Types.ts", "P2Region.ts", "P2Types.ts", "P1Region.ts", "P1Types.ts", "p4/phase.ts"].map((file) => path.join(FIGHT, file)));
 const SUPPRESSION = /@ts-(ignore|expect-error|nocheck)\b/;
 const TEST_FILE = /(^|[/\\])__tests__[/\\]|\.(test|spec)(-d)?\.[cm]?[jt]sx?$/;
 
@@ -198,6 +199,7 @@ for (const file of [...sources(path.join(root, "src")), ...sources(path.join(roo
   const insideFight = file.startsWith(FIGHT + path.sep);
   const insideSim = file.startsWith(SIM + path.sep);
   const insideSimCore = insideSim && !file.startsWith(SIM_SDK + path.sep);
+  const insidePhaseScript = PHASE_SCRIPTS.some((dir) => file.startsWith(dir + path.sep) && !file.startsWith(path.join(dir, "sdk") + path.sep));
   const report = (pos, rule) => {
     const { line, character } = sf.getLineAndCharacterOfPosition(pos);
     findings.push(`${path.relative(root, file)}:${line + 1}:${character + 1} ${rule}`);
@@ -240,6 +242,9 @@ for (const file of [...sources(path.join(root, "src")), ...sources(path.join(roo
       }
       if (insideSimCore && target && target.startsWith(SIM_SDK + path.sep)) {
         report(node.getStart(sf), `sim core import of src/sim/sdk ${path.relative(root, target)}`);
+      }
+      if (insidePhaseScript && SDK_PACKAGE.test(node.text)) {
+        report(node.getStart(sf), `phase script import of the SDK ${node.text}`);
       }
       if (insideSim && REACT_PACKAGE.test(node.text)) {
         report(node.getStart(sf), `sim import of React ${node.text}`);

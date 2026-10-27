@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { CacheRenderInstancedModel, CacheRenderReferences, CollisionType, Entity, LineOfSightMask, Settings } from "osrs-sdk";
 import type { Location3, Model, Region } from "osrs-sdk";
-import { PORTAL } from "./data";
+import { PORTAL } from "../full/data/looks";
 import type { ATile } from "./geometry";
 import { key, toSdk } from "./geometry";
 

@@ -1,7 +1,7 @@
 import type { MovePace } from "osrs-sdk";
 import type { Brand, Cycle, Seed, Tick, TickSpan, Tile, Unbranded, WorldTick } from "../../../sim/brands";
 import type { HitReceipt, IncomingStyle, Style } from "../../../sim/combat";
-import type { GearSlot, ResolvedChoices, SpecialStyle, TransitionCue } from "./OcellusTimings";
+import type { DamageRange, GearSlot, ResolvedChoices, SpecialStyle, TransitionCue } from "./OcellusTimings";
 import { isCount } from "../../../sim/brands";
 
 export type Ordinal = Brand<"Ordinal">;
@@ -74,11 +74,15 @@ export type PlayerHit =
   | Readonly<{ kind: "deflect-reflected"; at: Tick; style: Style }>
   | Readonly<{ kind: "floor-hit"; at: Tick; void: VoidKind; tile: Tile }>
   | Readonly<{ kind: "hole-hit"; at: Tick; tile: Tile }>
+  | Readonly<{ kind: "void-hit"; at: Tick; tile: Tile }>
   | Readonly<{ kind: "lifeforce-drained"; at: Tick; void: VoidKind; orb: Tile }>
   | Readonly<{ kind: "explosion-resolved"; at: Tick; void: VoidKind; pulse: number; tile: Tile; underBoss: boolean }>
   | (Readonly<{ kind: "special-hit" }> & SpecialAttack)
   | Readonly<{ kind: "rift-burst"; at: Tick; rifts: Burst }>;
 export type PlayerHitSource = PlayerHit["kind"];
+
+/** A phase 3 void left on the last quadrant. It hurts the player standing on it every `period` ticks, in step with when it dropped. */
+export type LingeringVoid = Readonly<{ tile: Tile; sincePlaced: TickSpan; period: TickSpan; damage: DamageRange }>;
 
 export type FightEvent =
   | Readonly<{ kind: "stage-entered"; at: Tick; stage: Stage }>
@@ -90,6 +94,7 @@ export type FightEvent =
   | Readonly<{ kind: "deflect-reflected"; at: Tick; style: Style; receipt: HitReceipt }>
   | Readonly<{ kind: "floor-hit"; at: Tick; void: VoidKind; tile: Tile; receipt: HitReceipt }>
   | Readonly<{ kind: "hole-hit"; at: Tick; tile: Tile; receipt: HitReceipt }>
+  | Readonly<{ kind: "void-hit"; at: Tick; tile: Tile; receipt: HitReceipt }>
   | Readonly<{ kind: "lifeforce-told"; at: Tick; void: VoidKind }>
   | Readonly<{ kind: "lifeforce-drained"; at: Tick; void: VoidKind; receipt: HitReceipt }>
   | Readonly<{ kind: "orb-spawned"; at: Tick; void: VoidKind; tile: Tile; credit: number }>
