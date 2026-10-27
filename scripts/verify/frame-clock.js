@@ -19,6 +19,28 @@
     return { at: at(kind, tick, now), box: world.getBoundingClientRect(), layers: layers.map((layer) => ({ bitmap: createImageBitmap(layer), box: layer.getBoundingClientRect() })) };
   };
   const release = (shot) => shot?.layers.forEach(({ bitmap }) => bitmap.then((copy) => copy.close()));
+  // preserveDrawingBuffer is off, so this canvas is blank on a frame the 3D view did not draw.
+  // The read has to be the default framebuffer. A bound target can hold color while the canvas itself is empty.
+  const sceneDrawn = () => {
+    const world = document.querySelector("#world");
+    const canvas = world?.parentElement && [...world.parentElement.querySelectorAll(":scope > canvas")].find((layer) => layer !== world && !layer.hidden && layer.getContext("webgl2"));
+    if (!canvas) return true;
+    const gl = canvas.getContext("webgl2");
+    if (!gl || gl.isContextLost() || canvas.width < 2 || canvas.height < 2) return false;
+    const bound = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    const pixel = new Uint8Array(4);
+    let drawn = false;
+    for (const y of [0.38, 0.48, 0.58]) {
+      for (const x of [0.42, 0.5, 0.58]) {
+        gl.readPixels(Math.floor(canvas.width * x), Math.floor(canvas.height * y), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        if (pixel[0] + pixel[1] + pixel[2] > 12) { drawn = true; break; }
+      }
+      if (drawn) break;
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, bound);
+    return drawn;
+  };
   const encode = ({ name, shot }) =>
     Promise.all(shot.layers.map(({ bitmap }) => bitmap))
       .then((bitmaps) => {
@@ -38,37 +60,61 @@
 
   const click = ({ x, y }) => {
     const world = document.querySelector("#world");
+    if (document.elementFromPoint(x, y) !== world) return false;
     for (const type of ["mousedown", "mouseup"]) {
       world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === "mousedown" ? 1 : 0, clientX: x, clientY: y }));
     }
+    return true;
   };
 
   // The world loop starts each tick at its animation frame's timestamp, so the frames that follow it read the tick's start on the same clock.
   const watch = (now) => {
     requestAnimationFrame(watch);
     const ticks = ticksAt(now);
+    const shotReady = clock.due.some((due) => due.action.kind === "shot" && (ticks[due.when.kind] ?? -1) >= due.when.tick);
+    const drawn = shotReady && sceneDrawn();
     clock.due = clock.due.filter((due) => {
       const { when, action } = due, t = ticks[when.kind];
       if (t === null || t < when.tick) return true;
-      if (t === when.tick && into(when.kind, t, now) < when.fraction) {
-        if (action.kind === "shot") {
-          release(due.onScreenAtFraction);
-          due.onScreenAtFraction = frame(when.kind, t, now);
-        }
-        return true;
-      }
-      switch (action.kind) {
-        case "shot":
-          if (t > when.tick && due.onScreenAtFraction) copied.push({ name: action.name, when, shot: due.onScreenAtFraction });
-          else {
-            release(due.onScreenAtFraction);
-            copied.push({ name: action.name, when, shot: frame(when.kind, t, now) });
+      const phase = into(when.kind, t, now);
+      if (action.kind === "shot") {
+        if (!drawn) {
+          if (t > when.tick && due.onScreenAtFraction) {
+            copied.push({ name: action.name, when, shot: due.onScreenAtFraction });
+            return false;
           }
-          break;
+          if (t > when.tick + 1) {
+            clock.done[action.name] = { dropped: "no-drawn-frame" };
+            return false;
+          }
+          return true;
+        }
+        const shot = frame(when.kind, t, now);
+        if (t === when.tick && phase < when.fraction) {
+          release(due.onScreenAtFraction);
+          due.onScreenAtFraction = shot;
+          return true;
+        }
+        const early = due.onScreenAtFraction;
+        const earlyCloser = early && t === when.tick && Math.abs(early.at.into - when.fraction) < Math.abs(shot.at.into - when.fraction);
+        const chosen = early && (earlyCloser || t !== when.tick) ? early : shot;
+        release(chosen === early ? shot : early);
+        copied.push({ name: action.name, when, shot: chosen });
+        return false;
+      }
+      if (t === when.tick && phase < when.fraction) return true;
+      switch (action.kind) {
         case "click":
-          click(action);
-          clock.done[action.name] = at(when.kind, t, now);
+          if (click(action)) clock.done[action.name] = at(when.kind, t, now);
+          else clock.done[action.name] = { hit: false, reason: "covered" };
           break;
+        case "log":
+          clock.done[action.name] = { log: window.__archiveOcellusProbe.log() };
+          break;
+        default: {
+          const unhandled = action.kind;
+          throw new Error(`frame clock cannot run ${unhandled}`);
+        }
       }
       return false;
     });

@@ -1,7 +1,8 @@
 import { Settings, Viewport } from "osrs-sdk";
 import type { Region } from "osrs-sdk";
 import { P1 } from "../full/data/p1";
-import type { Fight } from "./Fight";
+
+export type BossBarReading = Readonly<{ meter: number | null; teal: boolean }>;
 
 const WIDTH = 300;
 const HEIGHT = 50;
@@ -13,15 +14,15 @@ const PAD = 2;
  * Ocellus's bar as the game draws it: "Ocellus" in teal over phase 1's own pool with the yellow meter beneath,
  * then green over red for the shared pool of phases 2 to 4.
  */
-export function installBossBar(fightOf: (region: Region) => Fight | null): void {
+export function installBossBar(read: (region: Region) => BossBarReading | null): void {
   Object.defineProperty(Viewport.prototype, "drawBossHealthBar", {
     configurable: true,
     value(this: Viewport, region: Region, viewportWidth: number) {
       const boss = region.primaryBoss;
       if (!boss || !Settings.displayBossHealthBar) return;
-      const fight = fightOf(region);
+      const reading = read(region);
       const ctx = this.context;
-      const meter = fight?.meter() ?? null;
+      const meter = reading?.meter ?? null;
       const width = Math.min(WIDTH, viewportWidth - 16);
       const x = Math.round(Math.max(8, Math.min((viewportWidth - width) / 2 + OFFSET, viewportWidth - width - 8)));
       const y = TOP;
@@ -29,7 +30,7 @@ export function installBossBar(fightOf: (region: Region) => Fight | null): void 
       const current = Math.max(0, boss.currentStats.hitpoint);
       const maximum = Math.max(1, boss.stats.hitpoint);
       const ratio = Math.min(1, current / maximum);
-      const teal = fight?.barColour === "#00b4b4";
+      const teal = reading?.teal ?? false;
 
       ctx.save();
       ctx.fillStyle = "#090806";

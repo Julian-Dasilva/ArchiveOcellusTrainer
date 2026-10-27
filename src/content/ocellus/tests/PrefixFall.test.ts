@@ -1,7 +1,7 @@
 import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
-import type { StartPhase } from "../fight/Fight";
 import { QUADRANTS, quadrantOf, quadrantTiles } from "../fight/geometry";
 import { FightPlayer } from "../fight/units";
+import type { StartPhase } from "../full/options";
 import type { FightRegion, FullFightOptions } from "../full/prefix";
 import { fullFightStaged } from "../full/prefix";
 import { dress } from "../js/OcellusLoadout";
@@ -42,8 +42,8 @@ function mountedP3(region: FightRegion) {
 /** The running phase's name as the HUD shows it. */
 function label(region: FightRegion): string {
   switch (region.current) {
-    case "prefix":
-      return region.fight?.label() ?? "";
+    case "p1":
+      return region.p1.mounted?.started() ? "Phase 1" : "";
     case "p2":
       return "Phase 2";
     case "p3":
@@ -74,8 +74,8 @@ function toThirdFall(region: FightRegion, each: () => void = () => undefined): n
     region.world.tickWorld();
     if (region.floorState().destroyed.length === 3) return region.world.globalTickCounter;
     each();
-    const boss = region.fight?.boss;
-    if (region.current === "prefix" && boss && label(region) === "Phase 1" && boss.form === "p1" && boss.currentStats.hitpoint > 0) boss.currentStats.hitpoint = 0;
+    const boss = region.p1?.mounted?.boss;
+    if (region.current === "p1" && boss && boss.form === "p1" && boss.currentStats.hitpoint > 0) boss.currentStats.hitpoint = 0;
     if (region.current === "p3") {
       const { boss: his, script } = mountedP3(region);
       his.currentStats.hitpoint = Math.min(his.currentStats.hitpoint, script.hpFloor(his.stats.hitpoint));
@@ -135,7 +135,7 @@ describe("the third fall enters P4 in the same world", () => {
       run: p4?.ocellus.runState().kind ?? null,
       end: region.rows("p4").flatMap((row) => row.events.flatMap((event) => (event.kind === "run-ended" ? [event.reason] : []))),
       reflected: reflected(),
-    }).toEqual({ labels: ["Phase 1", "Phase 2", "Phase 3"], phases: ["prefix", "p2", "p3", "p4"], run: "ended", end: ["kill"], reflected: true });
+    }).toEqual({ labels: ["Phase 1", "Phase 2", "Phase 3"], phases: ["p1", "p2", "p3", "p4"], run: "ended", end: ["kill"], reflected: true });
   }, 120000);
 
   test("P4 opens on the next world tick with no GET READY, and the boss is hidden for the 4 ticks from the fall", () => {

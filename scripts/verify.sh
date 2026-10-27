@@ -567,14 +567,50 @@ stop() {
 
 START_ON_LOAD=1
 
+BROWSER_SESSIONS_BEGUN=
+
+session_listed() {
+  local list status=0
+  list="$(agent-browser session list 2>&1)" || status=$?
+  [[ $status -eq 0 ]] || { printf '%s\n' "$list" >&2; return 2; }
+  grep -qxF "  $1" <<<"$list"
+}
+
+begin_browser_session() {
+  local begun waited listed
+  [[ -n "${BROWSER_SESSION:-}" ]] || return 1
+  while IFS= read -r begun; do
+    [[ "$begun" == "$BROWSER_SESSION" ]] && return 0
+  done <<<"${BROWSER_SESSIONS_BEGUN}"
+  # A daemon already bound to this name ignores a later --init-script and keeps the previous page errors.
+  session_listed "$BROWSER_SESSION"
+  listed=$?
+  [[ $listed -ne 2 ]] || return 1
+  if [[ $listed -eq 0 ]]; then
+    agent-browser --session "$BROWSER_SESSION" close || return 1
+    waited=0
+    while true; do
+      session_listed "$BROWSER_SESSION"
+      listed=$?
+      [[ $listed -ne 2 ]] || return 1
+      [[ $listed -ne 0 ]] && break
+      (( waited >= 100 )) && { log "browser session ${BROWSER_SESSION} stayed listed after close"; return 1; }
+      sleep 0.1
+      waited=$((waited + 1))
+    done
+  fi
+  BROWSER_SESSIONS_BEGUN="${BROWSER_SESSIONS_BEGUN}"$'\n'"${BROWSER_SESSION}"
+}
+
 ab() {
+  begin_browser_session || return
   agent-browser --session "$BROWSER_SESSION" "$@" || return
   [[ "$START_ON_LOAD" == 1 && ( "$1" == open || "$1" == reload ) && "${2:-}" != about:blank ]] || return 0
   start_run
 }
 
 wait_for_start() {
-  ab wait --fn "document.getElementById('start')?.checkVisibility() === true" --timeout 120000 >/dev/null
+  ab wait --fn "document.getElementById('start')?.checkVisibility() === true && document.getElementById('trainer-loading') === null" --timeout 120000 >/dev/null
 }
 
 start_run() {
@@ -582,7 +618,7 @@ start_run() {
 }
 
 reloaded_from() {
-  ab wait --fn "performance.timeOrigin !== $1 && document.getElementById('start')?.checkVisibility() === true" --timeout 120000 >/dev/null || return 1
+  ab wait --fn "performance.timeOrigin !== $1 && document.getElementById('start')?.checkVisibility() === true && document.getElementById('trainer-loading') === null" --timeout 120000 >/dev/null || return 1
   [[ "$START_ON_LOAD" == 1 ]] || return 0
   start_run && fight_tick_at_least 0 120000
 }
@@ -603,8 +639,21 @@ canvas_centre() {
 }
 
 click_after_tick() {
-  printf '[["wait","--fn","(window.__archiveOcellusProbe?.snapshot().fight?.run.tick ?? -1) >= %d","--timeout","90000"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"]]' \
-    "$1" $((CX + $2)) $((CY + $3)) | ab batch --bail >/dev/null
+  local tick=$1 x=$((CX + $2)) y=$((CY + $3)) hit
+  # Arm on the previous tick. The click then runs in the page on the first frame of this tick, before another CDP turn can land it a tick late.
+  if (( tick > 0 )); then fight_tick_at_least $((tick - 1)) 90000 || return 1; fi
+  hit="$(ab eval "new Promise((done) => {
+    const tick = ${tick}, x = ${x}, y = ${y};
+    const fire = () => {
+      const world = document.querySelector('#world');
+      if (document.elementFromPoint(x, y) !== world) return done(false);
+      for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: x, clientY: y }));
+      done(true);
+    };
+    const wait = () => ((window.__archiveOcellusProbe?.snapshot().fight?.run.tick ?? -1) >= tick ? fire() : requestAnimationFrame(wait));
+    wait();
+  })")" || return 1
+  [[ "$hit" == true ]] || { [[ "$hit" == false ]] && log "click after tick ${tick} covered"; return 1; }
 }
 
 shot_after_tick() {
@@ -622,8 +671,9 @@ arm_shot() {
 
 take_shot() {
   local name=$1 tick=$2 taken
-  ab wait --fn "typeof window.__frameClock.done['${name}']?.png === 'string'" --timeout 30000 >/dev/null || return 1
-  taken="$(ab --json eval "window.__frameClock.done['${name}']" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const { png, ...at } = JSON.parse(s).data.result;require("fs").writeFileSync(process.argv[1],Buffer.from(png.replace(/^data:image\/png;base64,/,""),"base64"));process.stdout.write(JSON.stringify(at))})' "$VERIFY_DIR/$name")" || return 1
+  ab wait --fn "window.__frameClock.done['${name}'] != null" --timeout 30000 >/dev/null || return 1
+  taken="$(ab --json eval "window.__frameClock.done['${name}']" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{const record=JSON.parse(s).data.result; if (record.dropped==="no-drawn-frame") { process.stdout.write("dropped"); return; } const { png, ...at } = record; require("fs").writeFileSync(process.argv[1],Buffer.from(png.replace(/^data:image\/png;base64,/,""),"base64")); process.stdout.write(JSON.stringify(at)); })' "$VERIFY_DIR/$name")" || return 1
+  [[ "$taken" != dropped ]] || { log "${name} dropped: no-drawn-frame"; return 1; }
   log "${name} copied at ${taken}"
   [[ "$(json tick <<<"$taken")" == "$tick" ]] || { log "${name} missed tick ${tick}"; return 1; }
 }
@@ -1030,28 +1080,40 @@ open_ticking() {
 
 tile_pixel() {
   local page="$1" tile="$2" after="$3" read
-  # The eval reads the first frame of tick $after so the next click lands in that tick; it stays under agent-browser's 25 s timeout.
+  # The read, and the click when the fourth argument is click, none, or control, both run on the first frame of tick $after. The eval stays under agent-browser's 25 s timeout.
   [[ "$after" == now ]] || fight_tick_at_least $((after - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((after - 1))"; return 1; }
   read="$(ab --json eval "new Promise((done) => {
     const probe = window.__archiveOcellusProbe, ready = () => '${after}' === 'now' || (probe.snapshot().fight?.run.tick ?? -1) >= Number('${after}');
     const read = () => {
       if (!ready()) return requestAnimationFrame(read);
       const at = probe.tileCentre(${tile}), box = document.querySelector('#world').getBoundingClientRect();
-      done({ at: at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y) }, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length });
+      const point = at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y) };
+      let hit = true;
+      if (point && ('${4:-}' === 'click' || '${4:-}' === 'none' || '${4:-}' === 'control')) {
+        const world = document.querySelector('#world');
+        hit = document.elementFromPoint(point.x, point.y) === world;
+        if (hit) for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: point.x, clientY: point.y, ctrlKey: '${4:-}' === 'control' }));
+      }
+      done({ at: point, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length, hit });
     };
     read();
   })" | json data.result)" || { log "${page}: tile ${tile} was not read"; return 1; }
   [[ "$(json at <<<"$read")" != null ]] || { log "${page}: tile ${tile} is not on the canvas"; return 1; }
+  [[ "$(json hit <<<"$read")" != false ]] || { log "${page}: the click on ${tile} was covered"; return 1; }
   CLICK_X="$(json at.x <<<"$read")" CLICK_Y="$(json at.y <<<"$read")" WALK_ORDERS="$(json orders <<<"$read")"
 }
 
 click_tile() {
   local page="$1" tile="$2" modifier="${4:-none}"
-  tile_pixel "$page" "$tile" "$3" || return 1
-  case "$modifier" in
-    none) printf '[["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"]]' "$CLICK_X" "$CLICK_Y" | ab batch --bail >/dev/null ;;
-    control) control_click_at "$CLICK_X" "$CLICK_Y" ;;
-  esac || { log "${page}: the click on ${tile} was not sent"; return 1; }
+  if [[ "$3" != now ]]; then
+    tile_pixel "$page" "$tile" "$3" "$modifier" || return 1
+  else
+    tile_pixel "$page" "$tile" now || return 1
+    case "$modifier" in
+      none) printf '[["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"]]' "$CLICK_X" "$CLICK_Y" | ab batch --bail >/dev/null ;;
+      control) control_click_at "$CLICK_X" "$CLICK_Y" ;;
+    esac || { log "${page}: the click on ${tile} was not sent"; return 1; }
+  fi
   ab wait --fn "window.__archiveOcellusProbe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length > ${WALK_ORDERS}" --timeout 5000 >/dev/null ||
     log "${page}: the click on ${tile} ordered no walk"
   ab --json eval "(() => {
@@ -1144,12 +1206,18 @@ drive_control_walk() {
 }
 
 click_twice_in_one_tick() {
-  local first=($1) last=($2)
+  local first=($1) last=($2) hits
   ab eval "(() => {
     const clock = window.__frameClock, tick = window.__archiveOcellusProbe.snapshot().tick + 1;
     clock.at({ kind: 'world', tick, fraction: ${CORRECTION_FIRST_MS} / clock.tickMs }, { kind: 'click', name: 'correction-first', x: ${first[0]}, y: ${first[1]} });
     clock.at({ kind: 'world', tick, fraction: ${CORRECTION_LATE_MS} / clock.tickMs }, { kind: 'click', name: 'correction-last', x: ${last[0]}, y: ${last[1]} });
-  })()" >/dev/null && ab wait --fn "window.__frameClock.done['correction-last'] !== undefined" --timeout 10000 >/dev/null
+  })()" >/dev/null || return 1
+  if ab wait --fn "window.__frameClock.done['correction-first'] !== undefined && window.__frameClock.done['correction-last'] !== undefined && window.__frameClock.done['correction-first'].hit !== false && window.__frameClock.done['correction-last'].hit !== false" --timeout 10000 >/dev/null; then
+    return 0
+  fi
+  hits="$(ab --json eval "({ first: window.__frameClock.done['correction-first']?.hit ?? null, last: window.__frameClock.done['correction-last']?.hit ?? null })" | json data.result)" || return 1
+  [[ "$(json first <<<"$hits")" == false || "$(json last <<<"$hits")" == false ]] && log "correction click covered"
+  return 1
 }
 
 drive_click_correction() {
@@ -1322,29 +1390,38 @@ drive_void_floor() {
 }
 
 drive_lifeforce_orb() {
-  local box ox oy frame
+  local ox oy frame armed
   open_ticking "$DRILL_QUERY" || return 1
   choose_focus "$ORB_DRILL" "$ORB_SEED" || return 1
+  start_frame_clock || { log "the frame clock was not installed"; return 1; }
+  canvas_centre || { log "canvas box unreadable"; return 1; }
+  ox=$((CX + ORB_CLICK_RIGHT_PX))
+  oy=$((CY - ORB_CLICK_UP_PX))
+  armed="$(probe "snapshot().fight.run.tick")" || return 1
+  [[ "$armed" -lt "$ORB_DORMANT_TICK" ]] || { log "the orb frames were armed at P4 tick ${armed}"; return 1; }
+  # The glow samples finish before the click, so the player is still on spawn in those frames. The log is the one copied on ORB_LAST_TICK, not whatever the world has reached when CDP returns.
+  ab eval "
+    for (let i = 1; i <= ${ORB_FRAMES}; i++) {
+      const fraction = i / (${ORB_FRAMES} + 1);
+      window.__frameClock.at({ kind: 'fight', tick: ${ORB_DORMANT_TICK}, fraction }, { kind: 'shot', name: 'orb-dormant-' + i + '.png' });
+      window.__frameClock.at({ kind: 'fight', tick: ${ORB_GLOW_TICK}, fraction }, { kind: 'shot', name: 'orb-glow-' + i + '.png' });
+    }
+    window.__frameClock.at({ kind: 'fight', tick: ${ORB_GLOW_TICK}, fraction: 0.95 }, { kind: 'click', name: 'orb-click', x: ${ox}, y: ${oy} });
+    window.__frameClock.at({ kind: 'fight', tick: ${ORB_LAST_TICK}, fraction: 0 }, { kind: 'log', name: 'orb-log' });
+  " >/dev/null || { log "the orb frames were not armed"; return 1; }
   fight_tick_at_least 12 120000 || { log "the orb drill never reached the lifeforce hit"; return 1; }
   ab screenshot "$VERIFY_DIR/orb-hit.png" >/dev/null || { log "lifeforce hit screenshot failed"; return 1; }
-  box="$(ab --json get box "#world")"
-  ox=$(( $(json data.x <<<"$box") + $(json data.width <<<"$box") / 2 + ORB_CLICK_RIGHT_PX ))
-  oy=$(( $(json data.y <<<"$box") + $(json data.height <<<"$box") / 2 - ORB_CLICK_UP_PX ))
-  # The orb's teal pulses within a tick, so each look is a burst of frames. The player stays on spawn until the glow burst, because on the orb it hides the glow.
-  fight_tick_at_least "$ORB_DORMANT_TICK" 30000 || { log "the boss never stepped to P4 tick ${ORB_DORMANT_TICK}"; return 1; }
   for frame in $(seq 1 "$ORB_FRAMES"); do
-    ab screenshot "$VERIFY_DIR/orb-dormant-${frame}.png" >/dev/null || { log "dormant orb screenshot failed"; return 1; }
+    take_shot "orb-dormant-${frame}.png" "$ORB_DORMANT_TICK" || { log "dormant orb frame ${frame} missed tick ${ORB_DORMANT_TICK}"; return 1; }
+    take_shot "orb-glow-${frame}.png" "$ORB_GLOW_TICK" || { log "glowing orb frame ${frame} missed tick ${ORB_GLOW_TICK}"; return 1; }
   done
-  fight_tick_at_least "$ORB_GLOW_TICK" 30000 || { log "the boss never stepped to P4 tick ${ORB_GLOW_TICK}"; return 1; }
-  for frame in $(seq 1 "$ORB_FRAMES"); do
-    ab screenshot "$VERIFY_DIR/orb-glow-${frame}.png" >/dev/null || { log "glowing orb screenshot failed"; return 1; }
-  done
-  click_at "$ox" "$oy" || return 1
+  ab wait --fn "window.__frameClock.done['orb-click'] != null" --timeout 30000 >/dev/null || { log "orb-click missed its tick"; return 1; }
+  [[ "$(ab --json eval "window.__frameClock.done['orb-click'].reason ?? ''" | json data.result)" != covered ]] || { log "orb-click covered"; return 1; }
   ab wait --fn "(() => { const d = window.__archiveOcellusProbe.snapshot().destination, spawn = ${SPAWN_TILE}; return d !== null && (d.x !== spawn.x || d.y !== spawn.y); })()" \
-    --timeout 5000 >/dev/null || log "the orb click set no new destination"
+    --timeout 30000 >/dev/null || log "the orb click set no new destination"
   echo "{\"x\":${ox},\"y\":${oy},\"snapshot\":$(probe "snapshot()")}" >"$VERIFY_DIR/orb-click.json"
-  fight_tick_at_least "$ORB_LAST_TICK" 30000 || { log "the boss never stepped to P4 tick ${ORB_LAST_TICK}"; return 1; }
-  probe "log()" >"$VERIFY_DIR/orb.json"
+  ab wait --fn "window.__frameClock.done['orb-log']?.log" --timeout 30000 >/dev/null || { log "the orb log was not sampled at P4 tick ${ORB_LAST_TICK}"; return 1; }
+  ab --json eval "window.__frameClock.done['orb-log'].log" | json data.result >"$VERIFY_DIR/orb.json" || { log "orb log capture failed"; return 1; }
   ab console >"$VERIFY_DIR/orb-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/orb-page-errors.json" || { log "page error capture failed"; return 1; }
 
@@ -2305,9 +2382,7 @@ rift_tile() {
 }
 
 click_tile_after_tick() {
-  tile_pixel "$1" "$2" "$3" || return 1
-  canvas_centre || { log "$1: canvas box unreadable"; return 1; }
-  click_after_tick "$3" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "$1: the click on $2 after P4 tick $3 was not sent"; return 1; }
+  tile_pixel "$1" "$2" "$3" click || { log "$1: the click on $2 after P4 tick $3 was not sent"; return 1; }
 }
 
 drive_recorded_fights() {
@@ -2480,7 +2555,7 @@ drive_production_hidden_p3() {
       return fillText.call(this, text, ...rest);
     };
   })()' >/dev/null || { log "the production boss bar probe was not installed"; return 1; }
-  ab wait --fn "window.__bossBars.length > 0" --timeout 90000 >/dev/null || log "the production page never drew a boss bar"
+  ab wait --fn "window.__bossBars.length > 0 && document.getElementById('trainer-loading') === null" --timeout 90000 >/dev/null || { log "the production page never settled behind the loading splash"; return 1; }
   ab click "#settings" >/dev/null && ab wait 300 >/dev/null || { log "the production Settings button was not clicked"; return 1; }
   ab --json eval "(() => {
     const box = (id) => { const r = document.getElementById(id)?.getBoundingClientRect(); return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null; };

@@ -9,8 +9,8 @@ import Sidebar from "../../../menu/Sidebar";
 import { dress } from "../js/OcellusLoadout";
 import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
 import { installBossBar } from "../fight/bossBar";
-import type { ChatLine, Fight, StartPhase } from "../fight/Fight";
-import { CHAT, START_PHASES, formatTicks } from "../fight/Fight";
+import type { ChatLine, StartPhase } from "./options";
+import { CHAT, START_PHASES, formatTicks } from "./options";
 import type { ATile, Quadrant } from "../fight/geometry";
 import { toSdk } from "../fight/geometry";
 import { warmLaterPhases } from "../fight/warmup";
@@ -20,10 +20,11 @@ import type { P4Mount } from "../js/p4/phase";
 import type { RunState } from "../js/P4Types";
 import type { BossForm } from "../fight/units";
 import { FightPlayer } from "../fight/units";
+import type { P1Mount } from "./p1/sdk/phase";
 import type { P2Mount } from "./p2/sdk/phase";
 import type { P3Mount } from "./p3/sdk/phase";
-import type { FullFightOptions } from "./prefix";
-import { FightRegion, START_NPC, fullFightStaged } from "./prefix";
+import type { FullFightOptions } from "./region";
+import { FightRegion, START_NPC, fullFightStaged } from "./region";
 
 declare global {
   interface Window {
@@ -33,6 +34,8 @@ declare global {
       die(): void;
       /** Sets his HP to a whole-number percentage of the pool, so a check reaches each quadrant's fall without the damage. */
       bossTo(percent: number): void;
+      /** Puts the player on a tile. A click does not move them once a quadrant is collapsing. */
+      place(at: ATile): void;
       /** Where this frame draws him and the player, for a capture that times their movement frame by frame. */
       drawn(): Drawn;
     }>;
@@ -103,7 +106,11 @@ function createTrainer() {
   const params = readParams();
   const worn = OCELLUS_P4.choices.setup.options[params.setup].value;
   const region = fullFightStaged(params, (player: Player) => dress(player, defaultLoadout(worn)));
-  installBossBar((r: Region) => (r instanceof FightRegion && r.current === "prefix" ? r.fight : null));
+  installBossBar((r: Region) => {
+    if (!(r instanceof FightRegion)) return null;
+    const p1 = r.current === "p1" ? r.p1.mounted : null;
+    return { meter: p1 ? p1.script.meter : null, teal: p1 !== null };
+  });
   const trainer = new TrainerInstance(region, { readyTimer: 5 });
   return { trainer, region, params };
 }
@@ -185,9 +192,9 @@ function LoadingSplash({ state, download }: { state?: TrainerLoadingState; downl
   );
 }
 
-/** His fight through phase 1, then phases 2 and 3 on the engine, then our P4 in the same world. `from` is the fight clock on the phase's tick 0. */
+/** Phase 1, then 2 and 3, then phase 4, in one world. `from` is the fight clock on the phase's tick 0. */
 type Stage =
-  | Readonly<{ phase: "prefix"; fight: Fight }>
+  | Readonly<{ phase: "p1"; p1: P1Mount; from: number }>
   | Readonly<{ phase: "p2"; p2: P2Mount; from: number }>
   | Readonly<{ phase: "p3"; p3: P3Mount; from: number }>
   | Readonly<{ phase: "p4"; p4: P4Mount; from: number }>;
@@ -200,8 +207,8 @@ function stageOf(region: FightRegion): Stage | null {
   if (p3) return { phase: "p3", p3, from: region.startOf("p3") };
   const p2 = region.p2.mounted;
   if (p2) return { phase: "p2", p2, from: region.startOf("p2") };
-  const fight = region.fight;
-  return fight && { phase: "prefix", fight };
+  const p1 = region.p1.mounted;
+  return p1 && { phase: "p1", p1, from: 0 };
 }
 
 function useStage(region: FightRegion): Stage | null {
@@ -243,8 +250,8 @@ function p4Ticks(run: RunState): number {
 
 function stageTicks(stage: Stage): number {
   switch (stage.phase) {
-    case "prefix":
-      return stage.fight.tick;
+    case "p1":
+      return stage.from + stage.p1.now();
     case "p2":
       return stage.from + stage.p2.now();
     case "p3":
@@ -260,8 +267,8 @@ function stageTicks(stage: Stage): number {
 
 function stageLabel(stage: Stage): string {
   switch (stage.phase) {
-    case "prefix":
-      return stage.fight.started ? stage.fight.label() : "Get ready";
+    case "p1":
+      return stage.p1.started() ? "Phase 1" : "Get ready";
     case "p2":
       return stage.p2.started() ? "Phase 2" : "Get ready";
     case "p3":
@@ -275,15 +282,7 @@ function stageLabel(stage: Stage): string {
   }
 }
 
-function useFightVersion(fight: Fight | null): number {
-  return useSyncExternalStore(
-    (listener) => (fight ? fight.subscribe(listener) : () => undefined),
-    () => (fight ? fight.snapshotVersion() : 0),
-  );
-}
-
 function Hud({ stage, region }: Readonly<{ stage: Stage; region: FightRegion }>) {
-  useFightVersion(region.fight);
   useRegionTicks(region);
   const ticks = stageTicks(stage);
   const label = stageLabel(stage);
@@ -297,7 +296,6 @@ function Hud({ stage, region }: Readonly<{ stage: Stage; region: FightRegion }>)
 }
 
 function Chatbox({ stage, region }: Readonly<{ stage: Stage | null; region: FightRegion }>) {
-  useFightVersion(region.fight);
   useRegionTicks(region);
   const p4: readonly ChatLine[] = stage?.phase === "p4" ? stage.p4.views.chat.map((text) => ({ text, colour: CHAT.game, tick: stage.from })) : [];
   const lines = [...region.chat(), ...p4].slice(-CHAT_LINES_SHOWN);
@@ -315,9 +313,9 @@ type Ending = Readonly<{ won: boolean; ticks: number; phase: string }>;
 
 function endingOf(stage: Stage): Ending | null {
   switch (stage.phase) {
-    case "prefix": {
-      const outcome = stage.fight.outcome;
-      return outcome.kind === "running" ? null : { won: outcome.kind === "won", ticks: outcome.ticks, phase: stage.fight.label() };
+    case "p1": {
+      const outcome = stage.p1.script.outcome;
+      return outcome.kind === "running" ? null : { won: outcome.kind === "won", ticks: stage.from + outcome.at, phase: "Phase 1" };
     }
     case "p2": {
       const outcome = stage.p2.script.outcome;
@@ -339,7 +337,6 @@ function endingOf(stage: Stage): Ending | null {
 }
 
 function Result({ stage, region, params }: Readonly<{ stage: Stage; region: FightRegion; params: Params }>) {
-  useFightVersion(region.fight);
   useRegionTicks(region);
   const ending = endingOf(stage);
   if (ending === null) return null;
@@ -477,8 +474,8 @@ function tipsPhase(stage: Stage | null, start: StartPhase): StartPhase | 4 {
   switch (stage?.phase) {
     case undefined:
       return start;
-    case "prefix":
-      return START_PHASES.find((phase) => stage.fight.label() === `Phase ${phase}`) ?? start;
+    case "p1":
+      return 1;
     case "p2":
       return 2;
     case "p3":
@@ -492,8 +489,7 @@ function tipsPhase(stage: Stage | null, start: StartPhase): StartPhase | 4 {
   }
 }
 
-function PhaseTips({ params, stage, region }: Readonly<{ params: Params; stage: Stage | null; region: FightRegion }>) {
-  useFightVersion(region.fight);
+function PhaseTips({ params, stage }: Readonly<{ params: Params; stage: Stage | null; region: FightRegion }>) {
   const phaseNow = tipsPhase(stage, params.startPhase);
   return (
     <section id="phase_tips">
@@ -509,7 +505,7 @@ type FullFightSnapshot = Readonly<{
   url: string;
   getReady: number;
   p4: Readonly<{ run: RunState; boss: Readonly<{ hp: number; maxHp: number; defence: number; visible: boolean; at: Readonly<{ x: number; y: number }> }>; events: readonly string[] }> | null;
-  outcome: Fight["outcome"]["kind"];
+  outcome: "running" | "won" | "lost";
   player: ATile | null;
   hp: number;
   boss: Readonly<{ tile: ATile; hp: number; hidden: boolean }> | null;
@@ -527,8 +523,8 @@ function bossOf(stage: Stage | null): Readonly<{ unit: BossForm; pool: number }>
     case undefined:
     case "p4":
       return null;
-    case "prefix":
-      return stage.fight.boss && { unit: stage.fight.boss, pool: stage.fight.poolMax };
+    case "p1":
+      return { unit: stage.p1.boss, pool: stage.p1.boss.stats.hitpoint };
     case "p2":
       return { unit: stage.p2.boss, pool: stage.p2.boss.stats.hitpoint };
     case "p3":
@@ -540,7 +536,7 @@ function bossOf(stage: Stage | null): Readonly<{ unit: BossForm; pool: number }>
   }
 }
 
-function outcomeOf(stage: Stage | null): Fight["outcome"]["kind"] {
+function outcomeOf(stage: Stage | null): "running" | "won" | "lost" {
   const ending = stage && endingOf(stage);
   return ending === null ? "running" : ending.won ? "won" : "lost";
 }
@@ -580,13 +576,17 @@ function exposeProbe(trainer: TrainerInstance, region: FightRegion): void {
     tileCentre: (at) => Viewport.viewport.projectTile(toSdk(at), trainer.getSnapshot().world),
     die: () => {
       const stage = stageOf(region);
-      if (stage?.phase === "prefix") stage.fight.lose("fell");
+      if (stage?.phase === "p1") stage.p1.script.lose();
       if (stage?.phase === "p2") stage.p2.script.lose();
       if (stage?.phase === "p3") stage.p3.script.lose();
     },
     bossTo: (percent) => {
       const boss = bossOf(stageOf(region));
       if (boss) boss.unit.currentStats.hitpoint = Math.ceil((boss.pool * percent) / 100);
+    },
+    place: (at) => {
+      const you = player();
+      if (you) you.hop(at);
     },
     drawn: () => {
       const tickPercent = trainer.getSnapshot().world.tickPercent;
