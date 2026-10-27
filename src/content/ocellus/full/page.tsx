@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { CacheRender, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
-import type { Location3, Player, Region, TrainerLoadingState } from "osrs-sdk";
+import type { Location3, Region, TrainerLoadingState } from "osrs-sdk";
 import { GameOverlay, RuneScapeButton, TrainerApp } from "osrs-sdk-react";
-import { readSettings } from "../../../ArchiveOcellusApp";
+import { readSettings, RunGate, RunPauseButton } from "../../../ArchiveOcellusApp";
+import { RunClock } from "../../../sim/sdk/RunClock";
 import type { CreditLink } from "../../../menu/credits";
 import { CONTRIBUTOR, MAKER_LINKS } from "../../../menu/credits";
 import Sidebar from "../../../menu/Sidebar";
-import { dress } from "../js/OcellusLoadout";
-import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
+import { dressFullFight } from "../fight/blowpipe";
+import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { installBossBar } from "../fight/bossBar";
 import type { ChatLine, StartPhase } from "./options";
 import { CHAT, START_PHASES, formatTicks } from "./options";
@@ -105,14 +106,15 @@ function createTrainer() {
   readSettings();
   const params = readParams();
   const worn = OCELLUS_P4.choices.setup.options[params.setup].value;
-  const region = fullFightStaged(params, (player: Player) => dress(player, defaultLoadout(worn)));
+  const region = fullFightStaged(params, (player) => dressFullFight(player, worn));
   installBossBar((r: Region) => {
     if (!(r instanceof FightRegion)) return null;
     const p1 = r.current === "p1" ? r.p1.mounted : null;
     return { meter: p1 ? p1.script.meter : null, teal: p1 !== null };
   });
   const trainer = new TrainerInstance(region, { readyTimer: 5 });
-  return { trainer, region, params };
+  const clock = new RunClock(trainer);
+  return { trainer, region, params, clock };
 }
 
 function prefetchLaterPhases(start: StartPhase): void {
@@ -126,7 +128,7 @@ function prefetchLaterPhases(start: StartPhase): void {
         continue;
       }
     }
-  });
+  }).catch(() => undefined);
 }
 
 type Download = Readonly<{ done: number; total: number }>;
@@ -394,7 +396,7 @@ const TIPS: Readonly<Record<StartPhase | 4, readonly string[]>> = {
   ],
 };
 
-function FullFightSidebar({ params, region, stage }: Readonly<{ params: Params; region: FightRegion; stage: Stage | null }>) {
+function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: Params; region: FightRegion; stage: Stage | null; clock: RunClock }>) {
   const [draft, setDraft] = useState<Params>(params);
   const set = (patch: Partial<Params>) => setDraft((current) => ({ ...current, ...patch }));
   const changedAtLoad = (["startPhase", "setup", "videoMarkers", "soloVine"] as const).some((key) => draft[key] !== params[key]);
@@ -414,8 +416,8 @@ function FullFightSidebar({ params, region, stage }: Readonly<{ params: Params; 
           <label>
             Setup
             <select id="setup" value={draft.setup} onChange={(event) => set({ setup: event.target.value === "melee" ? "melee" : "ranged" })}>
-              <option value="ranged">Ranged (Twisted bow, Masori)</option>
-              <option value="melee">Melee (Scythe, Inquisitor's)</option>
+              <option value="ranged">Ranged (Toxic blowpipe, Masori)</option>
+              <option value="melee">Inquisitor's (Toxic blowpipe)</option>
             </select>
           </label>
           <label>
@@ -439,7 +441,14 @@ function FullFightSidebar({ params, region, stage }: Readonly<{ params: Params; 
             />
           </label>
           <RuneScapeButton id="start_fight" type="button" onClick={() => writeParams(draft)}>Start fight</RuneScapeButton>
-          <RuneScapeButton id="restart_fight" type="button" onClick={() => (changedAtLoad ? writeParams(draft, false) : Trainer.reset())}>Restart</RuneScapeButton>
+          <RuneScapeButton id="restart_fight" type="button" onClick={() => {
+            if (changedAtLoad) writeParams(draft, false);
+            else {
+              Trainer.reset();
+              clock.holdAtStart();
+            }
+          }}>Restart</RuneScapeButton>
+          {(stage === null || endingOf(stage) === null) && <RunPauseButton clock={clock} />}
         </>
       }
       aids={
@@ -598,11 +607,12 @@ function exposeProbe(trainer: TrainerInstance, region: FightRegion): void {
 }
 
 export function FullFightPage() {
-  const [{ trainer, region, params }] = useState(createTrainer);
+  const [{ trainer, region, params, clock }] = useState(createTrainer);
   const [loading, setLoading] = useState<TrainerLoadingState>();
   const stage = useStage(region);
   const ready = loading?.status === "ready";
   const download = useFirstDownload(params.startPhase, !ready);
+  const ended = stage !== null && endingOf(stage) !== null;
 
   useEffect(() => {
     const style = document.createElement("style");
@@ -620,7 +630,7 @@ export function FullFightPage() {
   }, [ready, params.startPhase, region]);
 
   return (
-    <TrainerApp trainer={trainer} onLoadingStateChange={setLoading}>
+    <TrainerApp trainer={trainer} autoStart={false} onLoadingStateChange={setLoading}>
       <GameOverlay>
         <LoadingSplash state={loading} download={download} />
         {stage && <Hud stage={stage} region={region} />}
@@ -628,8 +638,9 @@ export function FullFightPage() {
           <Chatbox stage={stage} region={region} />
         </div>
         {stage && <Result stage={stage} region={region} params={params} />}
+        {!ended && <RunGate clock={clock} ready={ready} unreadableLoadout={null} />}
       </GameOverlay>
-      <FullFightSidebar params={params} region={region} stage={stage} />
+      <FullFightSidebar params={params} region={region} stage={stage} clock={clock} />
     </TrainerApp>
   );
 }

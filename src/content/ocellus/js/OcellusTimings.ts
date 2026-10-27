@@ -36,7 +36,7 @@ const FIGHT_LOGS: Readonly<Record<FightLog, FightLogEntry>> = {
   L8: { recorded: "2026-10-23", fight: "raid", players: 7, reached: "a wipe in phase 3, after one quadrant fell", records: "as L6" },
 };
 
-type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24";
+type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24" | "2026-10-27";
 
 export type Source =
   | Readonly<{ kind: "fight-log"; log: FightLog; at: string }>

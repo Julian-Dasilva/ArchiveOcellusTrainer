@@ -373,7 +373,8 @@ function DrillControls({ drill, flags, clock, Sidebar }: Readonly<{ drill: Drill
     </section>
   );
 
-  if (process.env.ARCHIVE_FULL === "on" && Sidebar !== null) {
+  if (process.env.ARCHIVE_FULL === "on") {
+    if (Sidebar === null) return null;
     return (
       <Sidebar
         home="full-fight"
@@ -385,7 +386,7 @@ function DrillControls({ drill, flags, clock, Sidebar }: Readonly<{ drill: Drill
             {seedField}
             {invincibleField}
             <RuneScapeButton id="restart" type="submit">Restart</RuneScapeButton>
-            {running && <RuneScapeButton id="pause" type="button" onClick={() => clock.pause()}>Pause (P)</RuneScapeButton>}
+            <RunPauseButton clock={clock} />
           </form>
         }
         aids={skipTilesField}
@@ -450,7 +451,13 @@ function isPauseKey(event: KeyboardEvent): boolean {
   return !isTyping(event.target) && !tabKeys().some((key) => key.toLowerCase() === PAUSE_KEY);
 }
 
-function RunGate({ clock, ready, unreadableLoadout }: Readonly<{ clock: RunClock; ready: boolean; unreadableLoadout: string | null }>) {
+export function RunPauseButton({ clock }: Readonly<{ clock: RunClock }>) {
+  const running = useClockState(clock).kind === "running";
+  if (!running) return null;
+  return <RuneScapeButton id="pause" type="button" onClick={() => clock.pause()}>Pause (P)</RuneScapeButton>;
+}
+
+export function RunGate({ clock, ready, unreadableLoadout }: Readonly<{ clock: RunClock; ready: boolean; unreadableLoadout: string | null }>) {
   const state = useClockState(clock);
   useEffect(() => {
     const togglePause = (event: KeyboardEvent) => {
