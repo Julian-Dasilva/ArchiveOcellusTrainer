@@ -51,11 +51,11 @@ function stepOff(fight: Fight): void {
   fight.player.hop(floor);
 }
 
-/** Phases 1 to 3 at speed: each pool drops to its floor at once, and the player leaves every crumbling quadrant. Returns the fall's world tick. */
+/** Phases 1 to 3 at speed: each pool drops to its floor at once, and the player leaves every crumbling quadrant. Returns the third fall's world tick. */
 function toThirdFall(region: FightRegion, fight: Fight, each: () => void = () => undefined): number {
   for (let step = 0; step < 2500; step++) {
     region.world.tickWorld();
-    if (region.current === "p4") return region.world.globalTickCounter;
+    if (fight.destroyed.size === 3) return region.world.globalTickCounter;
     each();
     const boss = fight.boss;
     const label = fight.label();
@@ -65,7 +65,7 @@ function toThirdFall(region: FightRegion, fight: Fight, each: () => void = () =>
     const crumbling = fight.floorState().crumbling;
     if (crumbling.length > 0 && quadrantOf(fight.playerTile) === crumbling[0]) stepOff(fight);
   }
-  throw new Error("phase 3 never fell into P4");
+  throw new Error("phase 3 never fell for the third time");
 }
 
 function mountedP4(region: FightRegion) {
@@ -82,9 +82,10 @@ describe("the third fall enters P4 in the same world", () => {
       const label = fight.label();
       if (label !== "" && labels[labels.length - 1] !== label) labels.push(label);
     });
-    const { ocellus, player } = mountedP4(region);
+    const p4 = region.p4.mounted;
     const reflected = () => region.rows("p4").some((row) => row.events.some((event) => event.kind === "deflect-reflected"));
-    for (let step = 0; step < 3000 && ocellus.runState().kind !== "ended"; step++) {
+    for (let step = 0; p4 && step < 3000 && p4.ocellus.runState().kind !== "ended"; step++) {
+      const { ocellus, player } = p4;
       if (!player.aggro && ocellus.canBeAttacked()) player.setAggro(ocellus);
       // A player who neither prays nor takes the orbs loses ground to his heals, so once a hit has been deflected the next landed hit is the kill.
       if (reflected() && ocellus.currentStats.hitpoint > 1) ocellus.currentStats.hitpoint = 1;
@@ -93,7 +94,7 @@ describe("the third fall enters P4 in the same world", () => {
     expect({
       labels,
       phases: region.sections().map((section) => section.phase),
-      run: ocellus.runState().kind,
+      run: p4?.ocellus.runState().kind ?? null,
       end: region.rows("p4").flatMap((row) => row.events.flatMap((event) => (event.kind === "run-ended" ? [event.reason] : []))),
       reflected: reflected(),
     }).toEqual({ labels: ["Phase 1", "Phase 2", "Phase 3"], phases: ["prefix", "p4"], run: "ended", end: ["kill"], reflected: true });
