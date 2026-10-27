@@ -1,8 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BaseLimits, Capture, Line, Pair, Timing } from "./gate";
 import { PAIRS_ONLY, SIDES, budgetRaises, judge, parseBaseLimits, parseCapture, parseConfig, passes, runMetrics } from "./gate";
+import { builtScripts, kib, pageBytes } from "./pageScripts";
 
 const USAGE = "usage: VERIFY_PERF_BASE=<rev> check.ts <perfGate.json> <captures directory> <head build directory> <pairs|no-pairs>";
 const GATE_PATH = "src/perf/perfGate.json";
@@ -19,9 +20,9 @@ function baseLimits(rev: string): BaseLimits | null {
 }
 
 function scriptBytes(dir: string): number {
-  return readdirSync(dir, { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".js"))
-    .reduce((sum, entry) => sum + statSync(join(entry.parentPath, entry.name)).size, 0);
+  const scripts = builtScripts(dir);
+  if (scripts.some((script) => script.role === "full-fight")) console.error(`perf: ?mode=full ${kib(pageBytes(scripts, "full"))} KiB`);
+  return pageBytes(scripts, "drill");
 }
 
 function describe(line: Line): string {

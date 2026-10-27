@@ -2,6 +2,14 @@ import type { Changelog } from "../../releases";
 
 export const CHANGELOG: Changelog = [
   {
+    version: "2026.10.27",
+    notes: [
+      "The full fight is in beta. Full fight (beta) on the drill page opens it, and the phase selector starts you in phase 1, 2, or 3.",
+      "The credit line sits under the game, so it no longer covers the tabs on a phone.",
+      "Chat stays above the inventory on a narrow screen, so the lines no longer cover it.",
+    ],
+  },
+  {
     version: "2026.10.26.2",
     notes: [
       "Before each run of void explosions, a ring of dark ovals forms around your feet, as in game, three ticks before the first mark.",

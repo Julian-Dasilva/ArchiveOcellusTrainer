@@ -15,6 +15,7 @@ import type { ATile, Quadrant } from "../fight/geometry";
 import { toSdk } from "../fight/geometry";
 import { warmLaterPhases } from "../fight/warmup";
 import { FULL_FIGHT_CSS } from "../../../fullFightStyles";
+import { useKeepChatAboveInventory } from "../../../placeChat";
 import type { P4Mount } from "../js/p4/phase";
 import type { RunState } from "../js/P4Types";
 import type { BossForm } from "../fight/units";
@@ -298,6 +299,7 @@ function Chatbox({ stage, region }: Readonly<{ stage: Stage | null; region: Figh
   useRegionTicks(region);
   const p4: readonly ChatLine[] = stage?.phase === "p4" ? stage.p4.views.chat.map((text) => ({ text, colour: CHAT.game, tick: stage.from })) : [];
   const lines = [...region.chat(), ...p4].slice(-CHAT_LINES_SHOWN);
+  useKeepChatAboveInventory(lines.map((line) => line.text).join("\n"));
   return (
     <ol id="game_chat">
       {lines.map((line, index) => (

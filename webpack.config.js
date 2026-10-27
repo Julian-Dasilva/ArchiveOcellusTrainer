@@ -12,6 +12,7 @@ module.exports = {
   entry: "./src/index.ts",
   output: {
     filename: "assets/main.[contenthash].js",
+    chunkFilename: "assets/[name].[contenthash].js",
     assetModuleFilename: "assets/[contenthash][ext]",
     path: path.resolve(__dirname, "dist"),
     publicPath: "",
@@ -49,6 +50,16 @@ module.exports = {
   module: {
     rules: [
       {
+        test: /load(?:FullChunks|Attempts)\.ts$/,
+        use: [
+          {
+            loader: "ts-loader",
+            options: { transpileOnly: true, compilerOptions: { module: "es2020" } },
+          },
+        ],
+        exclude: /node_modules/,
+      },
+      {
         test: /\.tsx?$/,
         use: [
           {
@@ -56,7 +67,7 @@ module.exports = {
             options: { transpileOnly: true },
           },
         ],
-        exclude: /node_modules/,
+        exclude: [/node_modules/, /loadFullChunks\.ts$/, /loadAttempts\.ts$/],
       },
       {
         test: /\.(png|svg|jpg|jpeg|gif|ogg|gltf|glb)$/i,

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useLayoutEffect } from "react";
 import type { ReactNode } from "react";
 import { ControlPanelController, Settings, SoundCache } from "osrs-sdk";
 import type { SettingsState } from "osrs-sdk";
@@ -67,6 +67,21 @@ function HomeButton({ home }: Readonly<{ home: SidebarHome }>) {
   }
 }
 
+function phoneLayout(): boolean {
+  const mobile: unknown = Settings.mobileCheck();
+  return mobile === true;
+}
+
+function PhoneMenuButton() {
+  const { menuVisible } = useSettingsSnapshot();
+  if (!phoneLayout()) return null;
+  return (
+    <button id="phone_menu" type="button" aria-expanded={menuVisible} onClick={() => Settings.setMenuVisible(!menuVisible)}>
+      {menuVisible ? "Close" : "Menu"}
+    </button>
+  );
+}
+
 function Credits() {
   return (
     <ul id="sidebar_credits">
@@ -86,6 +101,38 @@ function Credits() {
   );
 }
 
+function openKeybinds() {
+  ControlPanelController.controller.setActiveControl("SETTINGS");
+  if (phoneLayout()) Settings.setMenuVisible(false);
+}
+
+function PolicyFooter({ menu }: Readonly<{ menu: ReactNode }>) {
+  return (
+    <footer id="policy_footer">
+      <Credits />
+      <p id="credit_line">{CREDIT_LINE}</p>
+      <p id="app_version">v{LATEST_RELEASE.version}</p>
+      {menu}
+    </footer>
+  );
+}
+
+export function FightLoadNotice({ failed }: Readonly<{ failed: boolean }>) {
+  return (
+    <>
+      <style>{SIDEBAR_CSS}</style>
+      {failed && (
+        <main id="fight_load_error">
+          <p>The full fight didn't load.</p>
+          <button id="fight_reload" type="button" onClick={() => window.location.reload()}>Reload</button>
+          <a id="fight_back_to_drill" href={window.location.pathname}>Back to the drill</a>
+        </main>
+      )}
+      <PolicyFooter menu={null} />
+    </>
+  );
+}
+
 function Section({ id, title, children }: Readonly<{ id: string; title: string; children: ReactNode }>) {
   return (
     <section id={id}>
@@ -97,12 +144,19 @@ function Section({ id, title, children }: Readonly<{ id: string; title: string; 
 
 // #right_panel is the SDK's only scroll container; nothing inside may scroll, or its scrollbar narrows the panel and clips the rows.
 // The drill's What's new panel keeps its popup id, so the sidebar resets that popup styling in place.
-// The SDK draws its tabs and inventory on the canvas, so the policy strip takes a grid row under the canvas and the panel; TrainerApp sets display inline, hence !important.
+// The SDK draws its tabs and inventory on the canvas, so the policy strip takes a grid row under the canvas and the panel. TrainerApp sets display inline and DefaultSidebar sets the panel width inline, hence !important.
+// #trainer-loading is z-index 1000 and takes hits. The phone panel paints above it, and the footer above the panel.
 const SIDEBAR_CSS = `
 div:has(> #right_panel) { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto; }
-#policy_footer { grid-column: 1 / -1; display: flex; align-items: flex-end; gap: 8px; padding: 3px 6px; background: #1b160f; border-top: 1px solid #3e3529; color: #c8b88a; font-size: 11px; }
+#policy_footer { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 8px; padding: 3px 6px; background: #1b160f; border-top: 1px solid #3e3529; color: #c8b88a; font-size: 11px; }
+#policy_footer #sidebar_credits { flex: 1 1 100%; margin: 0; padding-left: 16px; color: #e8dcc0; font-size: 13px; line-height: 15px; }
+#policy_footer #sidebar_credits a { color: #ff981f; }
 #policy_footer #credit_line { flex: 1 1 0; max-width: none; margin: 0; }
 #policy_footer #app_version { margin: 0; white-space: nowrap; opacity: 0.8; }
+#policy_footer #phone_menu { flex: 0 0 auto; margin: 0 0 0 auto; padding: 2px 8px; border: 1px solid #6b5b3e; background: #2b2418; color: #ff981f; font: inherit; }
+html.phone-overlay div:has(> #right_panel) { grid-template-columns: minmax(0, 1fr); }
+html.phone-overlay #right_panel { position: fixed; top: 0; right: 0; width: min(280px, 92vw) !important; height: auto !important; max-height: 100%; z-index: 1001; }
+html.phone-overlay #policy_footer { position: relative; z-index: 1002; }
 #right_panel { overflow-x: hidden; }
 #sidebar { display: flex; flex-direction: column; gap: 10px; min-width: 0; font-size: 14px; color: #ff981f; overflow-wrap: anywhere; }
 #sidebar h3 { margin: 2px 0 0; font-weight: normal; font-size: 24px; text-align: center; }
@@ -120,11 +174,34 @@ div:has(> #right_panel) { display: grid !important; grid-template-columns: minma
 #sidebar ul { margin: 0; padding-left: 16px; color: #e8dcc0; font-size: 13px; line-height: 15px; }
 #sidebar li { margin-bottom: 5px; }
 #sidebar a { color: #ff981f; }
+#fight_load_error { padding: 24px 16px; color: #ff981f; }
+#fight_load_error button, #fight_load_error a { display: inline-block; min-height: 24px; margin: 0; border: 0; background: none; color: #ff981f; }
+#fight_load_error a { margin-left: 12px; }
 `;
 
 export type SidebarSlots = Readonly<{ home: SidebarHome; fight: ReactNode; aids: ReactNode; about: ReactNode; after: ReactNode }>;
 
 export default function Sidebar({ home, fight, aids, about, after }: SidebarSlots) {
+  useLayoutEffect(() => {
+    if (!phoneLayout()) return;
+    const root = document.documentElement;
+    const footer = document.getElementById("policy_footer");
+    const panel = document.getElementById("right_panel");
+    root.classList.add("phone-overlay");
+    // The footer paints above this overlay, so the panel ends at the footer's top.
+    const fit = () => {
+      if (!(footer instanceof HTMLElement) || !(panel instanceof HTMLElement)) return;
+      panel.style.bottom = `${footer.offsetHeight}px`;
+    };
+    fit();
+    const observer = typeof ResizeObserver === "undefined" || !(footer instanceof HTMLElement) ? null : new ResizeObserver(fit);
+    if (observer !== null && footer instanceof HTMLElement) observer.observe(footer);
+    return () => {
+      observer?.disconnect();
+      if (panel instanceof HTMLElement) panel.style.bottom = "";
+      root.classList.remove("phone-overlay");
+    };
+  }, []);
   return (
     <>
       <DefaultSidebar>
@@ -142,19 +219,15 @@ export default function Sidebar({ home, fight, aids, about, after }: SidebarSlot
             <SettingToggles toggles={SOUNDS} />
           </Section>
           <Section id="sidebar_controls" title="Controls">
-            <RuneScapeButton id="keybinds" type="button" onClick={() => ControlPanelController.controller.setActiveControl("SETTINGS")}>Keybinds</RuneScapeButton>
+            <RuneScapeButton id="keybinds" type="button" onClick={openKeybinds}>Keybinds</RuneScapeButton>
           </Section>
           <Section id="sidebar_about" title="About">
             {about}
-            <Credits />
           </Section>
           {after}
         </div>
       </DefaultSidebar>
-      <footer id="policy_footer">
-        <p id="credit_line">{CREDIT_LINE}</p>
-        <p id="app_version">v{LATEST_RELEASE.version}</p>
-      </footer>
+      <PolicyFooter menu={<PhoneMenuButton />} />
     </>
   );
 }

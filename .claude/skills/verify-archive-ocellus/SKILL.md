@@ -1,6 +1,6 @@
 ---
 name: verify-archive-ocellus
-description: Verify Archive Ocellus Trainer, a browser trainer built on osrs-sdk, by building it, running Vitest, extracting cache assets and driving the real app in headless Chrome through the agent-browser CLI. Use before calling any change to the trainer done, and to prove a mapped feature still works.
+description: Verify Archive Ocellus Trainer. Run scripts/verify.sh t0 on every iteration. Run scripts/verify.sh t1 before handoff so only the browser scenarios the diff affects run on the laptop. Read the full CI run with scripts/verify.sh ci. Run scripts/verify.sh t2 only to reproduce a CI failure locally, and scripts/verify.sh chrome before a browser tier.
 ---
 
 # Verify Archive Ocellus Trainer
@@ -9,9 +9,13 @@ The trainer is a web page: the osrs-sdk canvas `#world` with the HUD around it. 
 
 ```sh
 source ~/osrs-sims/env.sh            # Node 22 on this machine; elsewhere use any Node 22
-scripts/verify.sh t0                 # bundle build types test parity: the browserless proof for every iteration
+scripts/verify.sh t0                 # every iteration: bundle, build, types, the unit tests the diff affects, parity
+scripts/verify.sh t1                 # before handoff: t0, then the browser scenarios the diff affects
+scripts/verify.sh t2                 # the full run on this machine, to reproduce a CI failure
+scripts/verify.sh ci                 # the head's CI verdict, instead of a local t2
+scripts/verify.sh chrome             # fail in seconds when Chrome does not launch
 scripts/verify.sh plan               # the browser units a change selects, and the command that runs them
-scripts/verify.sh                    # assets build types test browser production
+scripts/verify.sh                    # same stages as t2: assets build types test browser production
 scripts/verify.sh test browser       # any subset, in the order given
 scripts/verify.sh browser --unit seed  # one browser unit; repeat --unit for more
 scripts/verify.sh units              # the browser units
@@ -20,9 +24,9 @@ scripts/verify.sh perf               # the performance budgets and timing pairs;
 scripts/verify.sh perfbudgets        # the budgets alone, unthrottled, with no base build
 ```
 
-Run it from the repository root or a worktree. A passing run prints six `PASS` lines and ends with `verify: stop: PID <n> is gone; evidence kept in <dir>`.
+Run it from the repository root or a worktree. A passing full run prints six `PASS` lines and ends with `verify: stop: PID <n> is gone; evidence kept in <dir>`.
 
-A maker runs T0 on every iteration and the plan's units before handoff. CI runs every unit on each pull request, and the lead reads that run's `t2-verdict` artifact instead of rerunning the full verify on a laptop. `CODE_REVIEW.md` describes the three tiers.
+Run `scripts/verify.sh t0` on every iteration. Run `scripts/verify.sh t1` before handoff. When the diff selects every unit, t1 runs t0 and stops, and the log says CI runs the browser units. Read that run with `scripts/verify.sh ci`. Run `scripts/verify.sh t2` only to reproduce a CI failure on this machine. Run `scripts/verify.sh chrome` before a browser tier. CI runs every unit on each pull request. The summary job writes the `t2-verdict` artifact and a pull request comment that starts with `<!-- t2-verdict -->`. On a laptop Vitest uses at most 2 workers. `VITEST_MAX_WORKERS` raises that cap. CI leaves the runner default. `CODE_REVIEW.md` describes the three tiers.
 
 The `browser` stage runs its units in one browser session, one after another. A unit is a module in `scripts/verify/units/`, which lists the unit's captures and judges them, and the `drive_<unit>` function in `scripts/verify.sh` that makes them. Before each unit the stage sets the 1280x800 viewport, lifts every network route, and clears the origin's storage, the console and the page errors; the unit then opens its own page. A unit passes when its drive finishes, every capture it lists is non-empty, every `*page-errors.json` capture it lists is an empty list, and every check holds. A recorded page error fails its unit as `noPageErrors`, whichever other units ran. A failed unit does not stop the units after it, and the stage prints one line per unit. `floodDrawn`, `hoverTextOnCanvas` and `projectedClicksOrderTheirTiles` read more than one unit. The stage judges each once all its units have run, and lists it as not judged when `--unit` leaves one out.
 

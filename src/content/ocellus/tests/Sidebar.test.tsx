@@ -1,7 +1,9 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import { ControlPanelController } from "osrs-sdk";
+import { ControlPanelController, Settings } from "osrs-sdk";
 import { FullFightApp } from "../../../FullFightApp";
+import { creditLines } from "../../../menu/credits";
+import { FightLoadNotice } from "../../../menu/Sidebar";
 import { captureNavigation, loadPage } from "./page";
 
 const SAVED_SETTINGS = "osrs-sdk:settings";
@@ -69,13 +71,20 @@ const POLICY_BELOW_GAME = {
 
 const openTab = () => Object.entries(ControlPanelController.controls).find(([, control]) => control === ControlPanelController.controller.selectedControl)?.[0] ?? null;
 
+const PHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+
 describe("the sidebar behind ARCHIVE_FULL", () => {
   beforeEach(() => localStorage.removeItem(SAVED_SETTINGS));
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+    Settings._isMobileResult = null;
+    document.documentElement.classList.remove("phone-overlay");
+  });
 
   test.each([
-    { full: "off", expected: { sidebar: false, fullFight: false, settingsButton: true, footerMaker: true } },
-    { full: "on", expected: { sidebar: true, fullFight: true, settingsButton: false, footerMaker: false } },
+    { full: "off", expected: { sidebar: false, fullFight: false, settingsButton: true, footerMaker: true, comingSoon: "Phases 1 to 3 coming soon." } },
+    { full: "on", expected: { sidebar: true, fullFight: true, settingsButton: false, footerMaker: false, comingSoon: null } },
   ])("with ARCHIVE_FULL $full, the drill's controls sit in the sidebar with the Full fight (beta) entry only when the flag is on", async ({ full, expected }) => {
     vi.stubEnv("ARCHIVE_FULL", full);
     const page = await loadSidebarPage("/?seed=1");
@@ -85,6 +94,7 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
       fullFight: document.querySelector("#full_fight")?.textContent === "Full fight (beta)",
       settingsButton: document.querySelector("#settings") !== null,
       footerMaker: document.querySelector("#credits #maker_credit") !== null,
+      comingSoon: document.getElementById("coming_soon")?.textContent ?? null,
     };
     page.close();
     expect(shown).toEqual(expected);
@@ -121,6 +131,54 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
     expect({ navigation: navigation.assigned, tab }).toEqual({ navigation: ["http://localhost/?mode=full"], tab: "SETTINGS" });
   });
 
+  test("on a phone, Keybinds closes the menu and opens the key bindings", async () => {
+    vi.stubEnv("ARCHIVE_FULL", "on");
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(PHONE);
+    Settings._isMobileResult = null;
+    const page = await loadSidebarPage("/?seed=1");
+    try {
+      const panel = document.querySelector("#right_panel");
+      if (!(panel instanceof HTMLElement)) throw new Error("the page has no #right_panel");
+      page.click("phone_menu");
+      page.click("keybinds");
+      const menu = page.element("phone_menu");
+      expect({
+        menu: menu.textContent,
+        expanded: menu.getAttribute("aria-expanded"),
+        panel: panel.style.display,
+        tab: openTab(),
+      }).toEqual({ menu: "Menu", expanded: "false", panel: "none", tab: "SETTINGS" });
+    } finally {
+      page.close();
+    }
+  });
+
+  test("a failed full fight shows the reload message, the drill link, and both credit lines", () => {
+    window.history.replaceState(null, "", "/?mode=full&seed=1");
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    act(() => root.render(<FightLoadNotice failed />));
+    const shown = {
+      message: document.querySelector("#fight_load_error p")?.textContent ?? null,
+      reload: document.querySelector("#fight_reload")?.textContent ?? null,
+      back: document.querySelector("#fight_back_to_drill")?.textContent ?? null,
+      href: document.querySelector("#fight_back_to_drill")?.getAttribute("href") ?? null,
+      lines: [...document.querySelectorAll("#policy_footer li")].map((line) => line.textContent),
+    };
+    act(() => root.unmount());
+    container.remove();
+
+    expect(shown).toEqual({
+      message: "The full fight didn't load.",
+      reload: "Reload",
+      back: "Back to the drill",
+      href: "/",
+      lines: ["Made by Julian Dasilva / Moarhots: GitHub · @ShadowJdas", "With help from Alessandro Rodi"],
+    });
+    expect(creditLines()).toEqual(shown.lines);
+  });
+
   test("the sidebar credits the makers first, then Alessandro Rodi on X, and the footer keeps the Jagex credit line", async () => {
     vi.stubEnv("ARCHIVE_FULL", "on");
     const page = await loadSidebarPage("/?seed=1");
@@ -129,6 +187,7 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
       lines: [...credits.querySelectorAll("li")].map((line) => line.textContent),
       links: [...credits.querySelectorAll("a")].map((link) => [link.textContent, link.href, link.target, link.rel]),
       jagex: page.element("credit_line").textContent,
+      inFooter: credits.closest("#policy_footer") !== null && credits.closest("#right_panel") === null,
     };
     page.close();
 
@@ -140,7 +199,42 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
         ["Alessandro Rodi", "https://x.com/alrodi", "_blank", "noopener noreferrer"],
       ],
       jagex: "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.",
+      inFooter: true,
     });
+  });
+
+  test("on a phone, Menu opens the sidebar over the game and Close puts it away", async () => {
+    vi.stubEnv("ARCHIVE_FULL", "on");
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(PHONE);
+    Settings._isMobileResult = null;
+    const previousHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.id === "policy_footer" ? 96 : 0;
+      },
+    });
+    const page = await loadSidebarPage("/?seed=1");
+    try {
+      const panel = document.querySelector("#right_panel");
+      const menu = page.element("phone_menu");
+      if (!(panel instanceof HTMLElement)) throw new Error("the page has no #right_panel");
+      const closed = { menu: menu.textContent, expanded: menu.getAttribute("aria-expanded"), panel: panel.style.display, overlay: document.documentElement.classList.contains("phone-overlay"), aboveFooter: panel.style.bottom };
+      page.click("phone_menu");
+      const opened = { menu: page.element("phone_menu").textContent, expanded: page.element("phone_menu").getAttribute("aria-expanded"), panel: panel.style.display, fullFight: panel.contains(page.element("full_fight")) };
+      page.click("phone_menu");
+      const again = { menu: page.element("phone_menu").textContent, panel: panel.style.display };
+
+      expect({ closed, opened, again }).toEqual({
+        closed: { menu: "Menu", expanded: "false", panel: "none", overlay: true, aboveFooter: "96px" },
+        opened: { menu: "Close", expanded: "true", panel: "flex", fullFight: true },
+        again: { menu: "Menu", panel: "none" },
+      });
+    } finally {
+      page.close();
+      if (previousHeight) Object.defineProperty(HTMLElement.prototype, "offsetHeight", previousHeight);
+      else Reflect.deleteProperty(HTMLElement.prototype, "offsetHeight");
+    }
   });
 
   test("on the drill and the full fight, the side panel is the only scroll container, never scrolls sideways, and lists the same sections, and the policy line sits below the game canvas", async () => {
