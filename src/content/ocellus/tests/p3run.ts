@@ -3,8 +3,8 @@ import type { ScriptEvent } from "../../../sim/script";
 import type { ATile, Body, Quadrant } from "../fight/geometry";
 import { QUADRANTS, at, distanceToBody, quadrantOf, quadrantTiles } from "../fight/geometry";
 import { FightPlayer } from "../fight/units";
-import { dressFullFight } from "../fight/blowpipe";
-import { OCELLUS_P4 } from "../js/OcellusTimings";
+import { dress } from "../js/OcellusLoadout";
+import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
 import { P3 } from "../full/data/p3";
 import type { FullFightOptions } from "../full/prefix";
 import { FightRegion } from "../full/prefix";
@@ -26,7 +26,7 @@ export function startP3(options: P3RunOptions = {}) {
     invincible: options.practice ?? true,
   };
   const region = new FightRegion(fight, (player) => {
-    if (options.setup) dressFullFight(player, OCELLUS_P4.choices.setup.options[options.setup].value);
+    if (options.setup) dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options[options.setup].value));
   });
   const trainer = new TrainerInstance(region, { force2d: true });
   trainer.mount(document.createElement("canvas"), document.createElement("div"));
