@@ -3,7 +3,7 @@ import type { ScriptEvent } from "../../../sim/script";
 import type { ATile, Body, Quadrant } from "../fight/geometry";
 import { QUADRANTS, at, distanceToBody, quadrantOf, quadrantTiles } from "../fight/geometry";
 import { FightPlayer } from "../fight/units";
-import { dressFullFight } from "../js/OcellusLoadout";
+import { dressFullFight } from "../fight/blowpipe";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { P3 } from "../full/data/p3";
 import type { FullFightOptions } from "../full/prefix";

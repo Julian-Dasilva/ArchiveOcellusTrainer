@@ -1,7 +1,7 @@
 import { CacheRenderModel, CacheRenderReferences, Mob } from "osrs-sdk";
 import type { Model, Projectile, Region, UnitBonuses } from "osrs-sdk";
 import type { P2Config } from "../OcellusTimings";
-import { OCELLUS_P4, ammunitionAgainst } from "../OcellusTimings";
+import { OCELLUS_P4 } from "../OcellusTimings";
 import { OCELLUS_P2 } from "../OcellusTimingsP2";
 import type { OcellusPlayer } from "../OcellusPlayer";
 import type { Tick, Tile } from "../../../../sim/brands";
@@ -14,6 +14,7 @@ import type { P2Fight, TurnStep } from "../p2/fight";
 import { startFight, turn } from "../p2/fight";
 import { withDefenceFloor } from "../bossStats";
 import { drawHealSplats } from "../entities/P4Views";
+import { TonalzticsOfRalos } from "../gear/OcellusGear";
 
 type BossStep = Readonly<{ player: PlayerObservation; bossHp: number; bladeHits: number }>;
 type P2Run = Readonly<{ input: InputObservation; event: P2Event; cause: P2Hit; snapshot: BossStep; row: P2Row; end: P2End }>;
@@ -22,6 +23,7 @@ type P2Run = Readonly<{ input: InputObservation; event: P2Event; cause: P2Hit; s
 export type P2Boundary = Readonly<{ raiseWalls(): void; relocate(to: Tile): void }>;
 
 const { blade, bossPoses, ocellusNpcId } = OCELLUS_P2;
+const { ammunition } = OCELLUS_P4.gear;
 /** The SDK keeps a delay-1 hitsplat drawn for the tick it lands and the next. */
 const SPLAT_TICKS = 1;
 
@@ -73,7 +75,7 @@ export class OcellusP2 extends Mob {
 
   /** The Blade's ranged defence depends on the ammunition, and the SDK holds one value, so it is read for the weapon attacking now. */
   override get bonuses(): UnitBonuses {
-    const ranged = ammunitionAgainst(this.target.equipment.weapon?.cacheItemId);
+    const ranged = this.target.equipment.weapon instanceof TonalzticsOfRalos ? ammunition.value.tonalzticsOfRalos : ammunition.value.twistedBow;
     return {
       attack: { stab: 0, slash: 0, crush: 0, magic: 0, range: 0 },
       defence: { ...blade.defenceBonuses.value, range: blade.rangedDefence.value[ranged] },

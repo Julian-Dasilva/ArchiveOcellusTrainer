@@ -5,7 +5,7 @@ import { noWiki, wiki } from "../../../sim/provenance";
 import type { Corner, CornerTurn, Direction, Element, Tendril } from "./P1Types";
 import type { Side } from "../../../sim/tiles";
 import type { AmmunitionClass, DamageRange, FightLog, Selected, Source, SpriteFrame } from "./OcellusTimings";
-import { BOSS_PAGE_P1, HOTFIX_NEWS, NO_WIKI_PRESENTATION, P1_MAX_HP, PHASE_RANGED_DEFENCE, analysis, cache, fightLog, guide, pose, selected, spotAnim } from "./OcellusTimings";
+import { BOSS_PAGE_P1, HOTFIX_NEWS, NO_WIKI_PRESENTATION, P1_MAX_HP, analysis, cache, fightLog, guide, pose, selected, spotAnim } from "./OcellusTimings";
 
 const STRATEGIES_P1 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381731);
 const NO_WIKI_P1_TICKS = noWiki("the wiki's phase 1 text gives the order of the attacks but no tick counts (Strategies rev 15381731, Ocellus rev 15381739)");
@@ -139,7 +139,7 @@ const P1: P1Recipe = {
     maxHp: P1_MAX_HP,
     stats: selected({ attack: 1, strength: 1, defence: 215, range: 250, magic: 350 }, "spec-confirmed", "unscaled", "the phase 1 infobox lists the cache's levels", BOSS_PAGE_P1, cache("npc 16674 stats [1, 215, 1, 2500, 250, 350]")),
     defenceBonuses: selected({ stab: 150, slash: 95, crush: 60, magic: 100 }, "spec-confirmed", "unscaled", "cache params 5 to 8 match the phase 1 infobox", BOSS_PAGE_P1, cache("npc 16674 params 5, 6, 7, 8")),
-    rangedDefence: selected(PHASE_RANGED_DEFENCE.p1, "spec-single", "unscaled", "the phase 1 infobox; the Strategies page: weakest to light and heavy ranged attacks; the cache decode has no ranged defence param", BOSS_PAGE_P1, STRATEGIES_P1),
+    rangedDefence: selected({ light: 50, standard: 135, heavy: 50 }, "spec-single", "unscaled", "the phase 1 infobox; the Strategies page: weakest to light and heavy ranged attacks; the cache decode has no ranged defence param", BOSS_PAGE_P1, STRATEGIES_P1),
     lowestDefencePercent: selected(60, "spec-single", "unscaled", "the 21 October hotfix caps Defence reduction at 60% of the level: phase 1 Defence stops at 129 of 215, as the Strategies table lists; rounded up, as in phase 3 (inferred)", BOSS_PAGE_P1, STRATEGIES_P1, HOTFIX_NEWS),
   },
   room: {

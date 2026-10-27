@@ -3,8 +3,10 @@ import { BossForm, FightPlayer } from "../fight/units";
 import type { StartPhase } from "../full/options";
 import type { FightRegion } from "../full/prefix";
 import { fullFightStaged } from "../full/prefix";
-import { dressFullFight } from "../js/OcellusLoadout";
+import { PHASE_RANGED_DEFENCE, dressFullFight } from "../fight/blowpipe";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
+import { OCELLUS_P1 } from "../js/OcellusTimingsP1";
+import { OCELLUS_P2 } from "../js/OcellusTimingsP2";
 
 let close: (() => void) | null = null;
 afterEach(() => {
@@ -39,6 +41,11 @@ function boss(region: FightRegion, phase: StartPhase): BossForm {
 }
 
 describe("the full fight's toxic blowpipe", () => {
+  test("phase 1 and the blade keep the drill's ranged defence", () => {
+    expect(PHASE_RANGED_DEFENCE.p1).toEqual(OCELLUS_P1.boss.rangedDefence.value);
+    expect(PHASE_RANGED_DEFENCE.blade).toEqual(OCELLUS_P2.blade.rangedDefence.value);
+  });
+
   test("Rapid is 2 ticks at 5 tiles, and Accurate and Longrange are 3, with the charged dragon-dart bonuses", () => {
     const region = open(1, "ranged");
     const weapon = player(region).equipment.weapon;

@@ -1,7 +1,6 @@
 import {
   AttackStyle,
   AttackStyleTypes,
-  Blowpipe,
   Chest,
   Helmet,
   ImageLoader,
@@ -131,38 +130,6 @@ export class OcellusTwistedBow extends TwistedBow {
 
   override attack(from: Unit, to: Unit, bonuses: AttackBonuses = {}, options: ProjectileOptions = {}): boolean {
     return super.attack(from, to, rangedBonuses(this, bonuses), options);
-  }
-}
-
-export class OcellusBlowpipe extends Blowpipe {
-  constructor() {
-    super();
-    this.setStats();
-  }
-
-  override get cacheItemId(): number {
-    return gear.toxicBlowpipe.value.itemId;
-  }
-
-  override setStats(): void {
-    const { rangedAttack, rangedStrength } = gear.toxicBlowpipe.value;
-    this.bonuses = {
-      attack: { stab: 0, slash: 0, crush: 0, magic: 0, range: rangedAttack },
-      defence: { stab: 0, slash: 0, crush: 0, magic: 0, range: 0 },
-      other: { meleeStrength: 0, rangedStrength, magicDamage: 0, prayer: 0 },
-      targetSpecific: { undead: 0, slayer: 0 },
-    };
-  }
-
-  override get attackSpeed(): 2 | 3 {
-    const { rapidSpeed, otherSpeed } = gear.toxicBlowpipe.value;
-    const speeds: StanceSpeeds<2 | 3> = { rapidSpeed, otherSpeed };
-    return stanceSpeed(this, speeds);
-  }
-
-  override get attackRange(): 5 | 7 {
-    const { range, longrangeRange } = gear.toxicBlowpipe.value;
-    return this.attackStyle() === AttackStyle.LONGRANGE ? longrangeRange : range;
   }
 }
 

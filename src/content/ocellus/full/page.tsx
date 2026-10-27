@@ -6,7 +6,7 @@ import { readSettings } from "../../../ArchiveOcellusApp";
 import type { CreditLink } from "../../../menu/credits";
 import { CONTRIBUTOR, MAKER_LINKS } from "../../../menu/credits";
 import Sidebar from "../../../menu/Sidebar";
-import { dressFullFight } from "../js/OcellusLoadout";
+import { dressFullFight } from "../fight/blowpipe";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { installBossBar } from "../fight/bossBar";
 import type { ChatLine, StartPhase } from "./options";

@@ -16,13 +16,12 @@ import {
 } from "osrs-sdk";
 import type { Item, Player, UnitEquipment } from "osrs-sdk";
 import type { CarryKey, GearKeys, GearSlot, Loadout, Setup, SupplyKey } from "./OcellusTimings";
-import { GEAR_SLOTS, OCELLUS_P4, defaultLoadout } from "./OcellusTimings";
+import { GEAR_SLOTS, OCELLUS_P4 } from "./OcellusTimings";
 import type { LoadoutSnapshot } from "./P4Types";
 import {
   InquisitorsGreatHelm,
   InquisitorsHauberk,
   InquisitorsPlateskirt,
-  OcellusBlowpipe,
   OcellusMasoriBodyF,
   OcellusMasoriChapsF,
   OcellusMasoriMaskF,
@@ -89,14 +88,6 @@ export function dress(player: Player, { worn, inventory }: Loadout): void {
   });
   player.equipmentChanged();
   AttackStylesController.controller.setWeaponAttackStyle(new OcellusScythe(), STANCES[OCELLUS_P4.gear.scytheStance.value]);
-}
-
-export function dressFullFight(player: Player, worn: Setup): void {
-  dress(player, defaultLoadout(worn));
-  const blowpipe = new OcellusBlowpipe();
-  player.equipment.weapon = blowpipe;
-  player.equipmentChanged();
-  AttackStylesController.controller.setWeaponAttackStyle(blowpipe, AttackStyle.RAPID);
 }
 
 function itemId(item: Item | null | undefined): number | null {

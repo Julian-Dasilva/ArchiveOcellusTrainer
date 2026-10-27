@@ -2,7 +2,7 @@ import { CacheRenderModel, CacheRenderReferences, LocationUtils, Mob } from "osr
 import type { Model, Projectile, Region, UnitBonuses } from "osrs-sdk";
 import { spriteFile } from "../../../../servedAssets";
 import type { P1Config } from "../OcellusTimings";
-import { OCELLUS_P4, ammunitionAgainst } from "../OcellusTimings";
+import { OCELLUS_P4 } from "../OcellusTimings";
 import { OCELLUS_P1 } from "../OcellusTimingsP1";
 import type { OcellusPlayer } from "../OcellusPlayer";
 import { withDefenceFloor } from "../bossStats";
@@ -13,6 +13,7 @@ import { EncounterBinding } from "../../../../sim/sdk/EncounterBinding";
 import type { HitJudgement, P1End, P1Event, P1Hit, P1Phase, P1Row, P1RunState } from "../P1Types";
 import type { InputObservation, PlayerObservation } from "../P4Types";
 import { drawHealSplats } from "../entities/P4Views";
+import { TonalzticsOfRalos } from "../gear/OcellusGear";
 import type { P1Fight, TurnOutput } from "../p1/fight";
 import { landed, momentAt, startFight, turn } from "../p1/fight";
 
@@ -20,6 +21,7 @@ type BossStep = Readonly<{ player: PlayerObservation; bossHp: number }>;
 type P1Run = Readonly<{ input: InputObservation; event: P1Event; cause: P1Hit; snapshot: BossStep; row: P1Row; end: P1End }>;
 
 const { boss, crackBlock, presentation } = OCELLUS_P1;
+const { ammunition } = OCELLUS_P4.gear;
 /** The SDK keeps a delay-1 hitsplat drawn for the tick it lands and the next. */
 const HEAL_SPLAT_TICKS = span(1);
 const HP_BAR_HEIGHT = 5;
@@ -84,10 +86,10 @@ export class OcellusP1 extends Mob {
 
   /** The SDK holds one ranged defence, so it is read for the ammunition of the weapon the player attacks with. */
   override get bonuses(): UnitBonuses {
-    const ammunition = ammunitionAgainst(this.target.equipment.weapon?.cacheItemId);
+    const weapon = this.target.equipment.weapon instanceof TonalzticsOfRalos ? "tonalzticsOfRalos" : "twistedBow";
     return {
       attack: { stab: 0, slash: 0, crush: 0, magic: 0, range: 0 },
-      defence: { ...boss.defenceBonuses.value, range: boss.rangedDefence.value[ammunition] },
+      defence: { ...boss.defenceBonuses.value, range: boss.rangedDefence.value[ammunition.value[weapon]] },
       other: { meleeStrength: 0, rangedStrength: 0, magicDamage: 0, prayer: 0 },
     };
   }
