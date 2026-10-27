@@ -60,6 +60,16 @@ zero_suffix_is_rejected() {
   expect_rejected 'newest version "2026.11.02.0" is not YYYY.MM.DD or YYYY.MM.DD.N'
 }
 
+notes_since_a_version_include_every_later_release() {
+  changelog '{ version: "2026.10.27", notes: ["Full fight."] },
+{ version: "2026.10.26.2", notes: ["Explosions."] },
+{ version: "2026.10.26.1", notes: ["Start panel."] },
+{ version: "2026.10.26", notes: ["3D view."] },'
+  ready
+  node "$SCRIPT" --since 2026.10.26 "$CHANGELOG" >"$WORK/out.txt" 2>"$WORK/err.txt" || { cat "$WORK/err.txt"; fail "release-notes rejected --since"; }
+  [[ "$(cat "$WORK/out.txt")" == $'## 2026.10.27\n\n- Full fight.\n\n## 2026.10.26.2\n\n- Explosions.\n\n## 2026.10.26.1\n\n- Start panel.' ]] || { cat "$WORK/out.txt"; fail "notes since 2026.10.26"; }
+}
+
 repeated_version_is_rejected() {
   changelog '{ version: "2026.11.02", notes: ["A fix.", "Another fix."] },
 { version: "2026.10.30", notes: ["Old fix.", "Older fix."] },
@@ -74,6 +84,7 @@ for t in \
   dashed_date_is_rejected \
   short_year_is_rejected \
   zero_suffix_is_rejected \
+  notes_since_a_version_include_every_later_release \
   repeated_version_is_rejected; do
   if ("$t") >"$WORK/$t.log" 2>&1; then
     echo "PASS $t"

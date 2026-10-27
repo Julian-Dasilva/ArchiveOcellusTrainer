@@ -255,6 +255,28 @@ jobs:
             ${{ runner.temp }}/verify/production*.json
             ${{ runner.temp }}/verify/production*.png
 
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/netlify-cache
+          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+      - name: Install the cache the release build reads
+        env:
+          NETLIFY_CACHE_DIR: ${{ runner.temp }}/netlify-cache
+        run: bash scripts/netlify-build.sh
+      - name: Build with scripts/release-build.sh and check the bundle
+        env:
+          NETLIFY_CACHE_DIR: ${{ runner.temp }}/netlify-cache
+        run: scripts/release-build.sh
+
   summary:
     if: ${{ !cancelled() }}
     needs: [plan, assets, browser, production, perf, perf-timing]
