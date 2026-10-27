@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { CollisionType, Entity, GROUND_OVERLAY_Y, LineOfSightMask } from "osrs-sdk";
-import type { Location3, Model, Region, Renderable } from "osrs-sdk";
+import type { Location3, Model, Region } from "osrs-sdk";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import type { RoomTile } from "../../../../sim/frame";
 import type { VoidKind } from "../P4Types";
@@ -18,9 +18,11 @@ function ringGeometry(): THREE.BufferGeometry {
     const ox = Math.cos(angle);
     const oz = Math.sin(angle);
     const tip = RING.radius + RING.lean;
+    const half = RING.halfWidth;
+    const ring = RING.radius;
     positions.push(
-      ox * RING.radius - oz * RING.halfWidth, 0, oz * RING.radius + ox * RING.halfWidth,
-      ox * RING.radius + oz * RING.halfWidth, 0, oz * RING.radius - ox * RING.halfWidth,
+      ox * ring - oz * half, 0, oz * ring + ox * half,
+      ox * ring + oz * half, 0, oz * ring - ox * half,
       ox * tip, RING.height, oz * tip,
     );
   }
@@ -36,7 +38,7 @@ class MarkedTileModel implements Model {
   private readonly mesh = new THREE.Mesh(ringGeometry(), this.material);
   private flare = 0;
 
-  constructor(renderable: Renderable, private readonly blast: () => Blast) {
+  constructor(renderable: Entity, private readonly blast: () => Blast) {
     this.spot = new SpotAnimModel(renderable, () => CUE);
   }
 
@@ -46,7 +48,7 @@ class MarkedTileModel implements Model {
     this.flare = this.blast() === "detonated" ? Math.min(1, this.flare + clockDelta / RING.flareSeconds) : 0;
     this.mesh.visible = visible && this.flare < 1;
     this.mesh.position.set(location.x + 0.5, GROUND_OVERLAY_Y, location.y - 0.5);
-    this.mesh.rotation.y += clockDelta * RING.radiansPerSecond;
+    this.mesh.rotation.y += clockDelta * RING.radPerSec;
     this.mesh.scale.setScalar(1 + this.flare);
     this.material.opacity = 1 - this.flare;
   }
