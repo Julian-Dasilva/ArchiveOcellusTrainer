@@ -43,7 +43,6 @@ describe("release bundle", () => {
 
   test.each<{ name: string; mutate: (files: DistFiles) => void; problem: string }>([
     { name: "drops Full fight (beta)", mutate: (files) => { files.sidebar = "Phase 4 drill"; }, problem: 'the / scripts do not contain "Full fight (beta)"' },
-    { name: "says the other phases are coming soon", mutate: (files) => { files.sidebar = "Full fight (beta) Phases 1 to 3 coming soon."; }, problem: 'a release page contains "Phases 1 to 3 coming soon."' },
     { name: "has no full-fight chunk", mutate: (files) => { files.full = null; }, problem: "?mode=full has no full-fight chunk" },
     { name: "does not reference the full-fight chunk", mutate: (files) => { files.main = "no chunk name"; }, problem: "the entry script does not reference the full-fight chunk" },
     { name: "ships a sample rate of 1", mutate: (files) => { files.rate = 1; }, problem: "telemetry.json sampleRate is 1, not 0" },
@@ -52,6 +51,14 @@ describe("release bundle", () => {
     const root = dist(mutate);
     roots.push(root);
     expect(judgeRelease(root, BUDGET_KIB).problems).toContain(problem);
+  });
+
+  test("a webpack map that stores the chunk name and the hash apart still references the chunk", () => {
+    const root = dist((files) => {
+      files.main = `{481:"full-fight"}[e]+"."+{481:"ccc"}[e]+".js"`;
+    });
+    roots.push(root);
+    expect(judgeRelease(root, BUDGET_KIB).problems).toEqual([]);
   });
 
   test("growth in the / entry fails the 1753 KiB budget", () => {

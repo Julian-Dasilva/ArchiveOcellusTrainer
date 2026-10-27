@@ -1,4 +1,4 @@
-import { everyScriptBytes, kib, pageBytes, scriptRole } from "./pageScripts";
+import { everyScriptBytes, htmlEntryPaths, kib, pageBytes, scriptRole } from "./pageScripts";
 import type { BuiltScript } from "./pageScripts";
 
 const DRILL_BUDGET_KIB = 1753;
@@ -29,6 +29,13 @@ describe("page script bytes", () => {
     }).toEqual({ every: 1939, drill: 1749, full: 1933 });
     expect(kib(everyScriptBytes(RELEASE))).toBeGreaterThan(DRILL_BUDGET_KIB);
     expect(kib(pageBytes(RELEASE, "drill"))).toBeLessThanOrEqual(DRILL_BUDGET_KIB);
+  });
+
+  test("the minified page names its entry without quotes around the src", () => {
+    expect([...htmlEntryPaths(`<script src=assets/main.aaa.js></script><script src="assets/quoted.bbb.js"></script>`)].sort()).toEqual([
+      "assets/main.aaa.js",
+      "assets/quoted.bbb.js",
+    ]);
   });
 
   test("growth in the / entry still fails the 1753 KiB budget", () => {

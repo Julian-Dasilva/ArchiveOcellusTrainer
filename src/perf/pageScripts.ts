@@ -39,8 +39,8 @@ export function everyScriptBytes(scripts: readonly BuiltScript[]): number {
 }
 
 export function htmlEntryPaths(html: string): ReadonlySet<string> {
-  const paths = [...html.matchAll(/\bsrc="([^"]+\.js)"/g)].flatMap((match) => {
-    const path = match[1];
+  const paths = [...html.matchAll(/\bsrc=(?:"([^"]+\.js)"|'([^']+\.js)'|([^\s>]+\.js))/g)].flatMap((match) => {
+    const path = match[1] ?? match[2] ?? match[3];
     return path === undefined ? [] : [path.replace(/^\.\//, "")];
   });
   return new Set(paths);

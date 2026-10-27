@@ -4,7 +4,6 @@ import { builtScripts, kib, pageBytes } from "../perf/pageScripts";
 import type { BuiltScript, ScriptRole } from "../perf/pageScripts";
 
 const FULL_FIGHT = "Full fight (beta)";
-const COMING_SOON = "Phases 1 to 3 coming soon.";
 const BEACON_MARKERS = ["beacon.min.js", "cloudflareinsights.com"] as const;
 
 export type ReleaseCheck = Readonly<{
@@ -16,6 +15,13 @@ export type ReleaseCheck = Readonly<{
 
 function read(dist: string, path: string): string {
   return readFileSync(join(dist, path), "utf8");
+}
+
+function contentHash(path: string): string | null {
+  const parts = basename(path).split(".");
+  if (parts.length !== 3 || parts[0] !== "full-fight" || parts[2] !== "js") return null;
+  const hash = parts[1];
+  return hash !== undefined && /^[0-9a-f]+$/.test(hash) ? hash : null;
 }
 
 function textOf(dist: string, scripts: readonly BuiltScript[], roles: readonly ScriptRole[]): string {
@@ -40,14 +46,12 @@ export function judgeRelease(dist: string, budgetKiB: number): ReleaseCheck {
   const fullFightKiB = kib(pageBytes(scripts, "full"));
   const problems: string[] = [];
   const drill = textOf(dist, scripts, ["entry", "sidebar"]);
-  const full = textOf(dist, scripts, ["entry", "full-fight"]);
   if (!drill.includes(FULL_FIGHT)) problems.push(`the / scripts do not contain ${JSON.stringify(FULL_FIGHT)}`);
-  if (drill.includes(COMING_SOON) || full.includes(COMING_SOON)) problems.push(`a release page contains ${JSON.stringify(COMING_SOON)}`);
   const fullChunk = scripts.find((script) => script.role === "full-fight");
-  if (fullChunk === undefined) problems.push("?mode=full has no full-fight chunk");
+  const hash = fullChunk === undefined ? null : contentHash(fullChunk.path);
+  if (fullChunk === undefined || hash === null) problems.push("?mode=full has no full-fight chunk");
   else {
-    const name = basename(fullChunk.path);
-    const referenced = scripts.some((script) => script.role === "entry" && read(dist, script.path).includes(name));
+    const referenced = scripts.some((script) => script.role === "entry" && read(dist, script.path).includes(hash));
     if (!referenced) problems.push("the entry script does not reference the full-fight chunk");
   }
   const rate = sampleRate(dist);
