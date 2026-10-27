@@ -74,8 +74,8 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
   afterEach(() => vi.unstubAllEnvs());
 
   test.each([
-    { full: "off", expected: { sidebar: false, fullFight: false, settingsButton: true, footerMaker: true } },
-    { full: "on", expected: { sidebar: true, fullFight: true, settingsButton: false, footerMaker: false } },
+    { full: "off", expected: { sidebar: false, fullFight: false, settingsButton: true, footerMaker: true, comingSoon: "Phases 1 to 3 coming soon." } },
+    { full: "on", expected: { sidebar: true, fullFight: true, settingsButton: false, footerMaker: false, comingSoon: null } },
   ])("with ARCHIVE_FULL $full, the drill's controls sit in the sidebar with the Full fight (beta) entry only when the flag is on", async ({ full, expected }) => {
     vi.stubEnv("ARCHIVE_FULL", full);
     const page = await loadSidebarPage("/?seed=1");
@@ -85,6 +85,7 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
       fullFight: document.querySelector("#full_fight")?.textContent === "Full fight (beta)",
       settingsButton: document.querySelector("#settings") !== null,
       footerMaker: document.querySelector("#credits #maker_credit") !== null,
+      comingSoon: document.getElementById("coming_soon")?.textContent ?? null,
     };
     page.close();
     expect(shown).toEqual(expected);
