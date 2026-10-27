@@ -68,7 +68,6 @@ function place(corner: HTMLElement): void {
   const chat = corner.querySelector("#game_chat");
   if (blocked === null || !(chat instanceof HTMLElement) || chat.childElementCount === 0) {
     corner.style.bottom = "";
-    appendFileSync("/tmp/place-debug.txt", "cleared\n");
     return;
   }
   const bottom = chatCornerBottom(area.getBoundingClientRect(), corner.getBoundingClientRect(), blocked);
