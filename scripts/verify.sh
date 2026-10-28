@@ -995,13 +995,23 @@ open_ticking() {
 }
 
 tile_pixel() {
-  local page="$1" tile="$2" after="$3" read
-  # The read, and the click when the fourth argument is click, none, control, walk, or control-walk, both run on the first frame of tick $after, $5 pixels above the tile's centre. A click whose page is already past tick $after is not sent. The eval stays under agent-browser's 25 s timeout.
-  # When $5 is boss, the height is the lowest one where the right-click menu offers Attack first, which is what a left click there does. The SDK builds that menu inside mousedown, so the search runs in the frame that clicks, on the boss's pose and camera at that tick.
-  [[ "$after" == now ]] || fight_tick_at_least $((after - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((after - 1))"; return 1; }
+  click_plan "$1" "$3|$2|${4:-}|${5:-0}"
+}
+
+# Each argument is one entry, after|tile|mode|rise, and the entries run in order in one eval, so no CLI turn separates two timed clicks.
+# An entry reads, and clicks when its mode is click, none, control, walk, or control-walk, on the first frame of tick $after, $rise pixels above the tile's centre. A click whose page is already past its tick is not sent, and the plan stops there. The plan stays under agent-browser's 25 s eval timeout.
+# When $rise is boss, the height is the lowest one where the right-click menu offers Attack first, which is what a left click there does. The SDK builds that menu inside mousedown, so the search runs in the frame that clicks, on the boss's pose and camera at that tick.
+click_plan() {
+  local page="$1" entry after tile mode rise first="" tiles=() plan="" read
+  shift
+  for entry in "$@"; do
+    IFS='|' read -r after tile mode rise <<<"$entry"
+    first="${first:-$after}" tiles+=("$tile")
+    plan+="{ after: '${after}', tile: () => (${tile}), mode: '${mode}', rise: '${rise}' },"
+  done
+  [[ "$first" == now ]] || fight_tick_at_least $((first - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((first - 1))"; return 1; }
   read="$(ab --json eval "new Promise((done) => {
-    const probe = window.__archiveOcellusProbe, ready = () => '${after}' === 'now' || (probe.snapshot().fight?.run.tick ?? -1) >= Number('${after}');
-    const clicks = ['click', 'none', 'control', 'walk', 'control-walk'].includes('${4:-}');
+    const probe = window.__archiveOcellusProbe, plan = [${plan}], tick = () => probe.snapshot().fight?.run.tick ?? -1;
     const bossRise = (world, box, under) => {
       const fire = (type, x, y, button) => world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button, buttons: button === 2 ? 2 : 0, clientX: x, clientY: y }));
       for (let rise = 0; rise <= ${BOSS_POINT_MAX_RISE_PX}; rise += ${BOSS_POINT_STEP_PX}) {
@@ -1015,24 +1025,28 @@ tile_pixel() {
       }
       return null;
     };
+    let index = 0;
     const read = () => {
-      if (!ready()) return requestAnimationFrame(read);
-      const tick = probe.snapshot().fight?.run.tick ?? -1;
-      if (clicks && '${after}' !== 'now' && tick > Number('${after}')) return done({ late: tick });
-      const at = probe.tileCentre(${tile}), world = document.querySelector('#world'), box = world.getBoundingClientRect();
-      const rise = at && ('${5:-}' === 'boss' ? bossRise(world, box, at) : Number('${5:-0}'));
-      if (at && rise === null) return done({ late: null, at: null, boss: false });
-      const point = at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y - rise) };
+      const { after, tile, mode, rise } = plan[index], clicks = ['click', 'none', 'control', 'walk', 'control-walk'].includes(mode);
+      if (after !== 'now' && tick() < Number(after)) return requestAnimationFrame(read);
+      if (clicks && after !== 'now' && tick() > Number(after)) return done({ index, planned: after, late: tick() });
+      const at = probe.tileCentre(tile()), world = document.querySelector('#world'), box = world.getBoundingClientRect();
+      const lift = at && (rise === 'boss' ? bossRise(world, box, at) : Number(rise));
+      if (at && lift === null) return done({ index, late: null, at: null, boss: false });
+      const point = at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y - lift) };
       let hit = true;
       if (point && clicks) {
         hit = document.elementFromPoint(point.x, point.y) === world;
-        if (hit) for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: point.x, clientY: point.y, ctrlKey: '${4:-}'.startsWith('control'), shiftKey: '${4:-}'.endsWith('walk') }));
+        if (hit) for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: point.x, clientY: point.y, ctrlKey: mode.startsWith('control'), shiftKey: mode.endsWith('walk') }));
       }
-      done({ late: null, boss: true, at: point, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length, hit });
+      const result = { index, late: null, boss: true, at: point, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length, hit };
+      if (!point || !hit || ++index === plan.length) return done(result);
+      read();
     };
     read();
-  })" | json data.result)" || { log "${page}: tile ${tile} was not read"; return 1; }
-  [[ "$(json late <<<"$read")" == null ]] || { log "${page}: the click planned for P4 tick ${after} was armed on tick $(json late <<<"$read")"; return 1; }
+  })" | json data.result)" || { log "${page}: tile ${tiles[0]} was not read"; return 1; }
+  tile="${tiles[$(json index <<<"$read")]}"
+  [[ "$(json late <<<"$read")" == null ]] || { log "${page}: the click planned for P4 tick $(json planned <<<"$read") was armed on tick $(json late <<<"$read")"; return 1; }
   [[ "$(json boss <<<"$read")" != false ]] || { log "${page}: no point above ${tile} offered Attack"; return 1; }
   [[ "$(json at <<<"$read")" != null ]] || { log "${page}: tile ${tile} is not on the canvas"; return 1; }
   [[ "$(json hit <<<"$read")" != false ]] || { log "${page}: the click on ${tile} was covered"; return 1; }
@@ -1406,14 +1420,14 @@ drive_explosions() {
 
 # Each mark's step goes one row south and back, and the boss is clicked on the mark's tick.
 drive_dodge_speedup() {
-  local dy=1 mark
+  local dy=1 mark plan=()
   ab open "${URL}${DRILL_QUERY}" >/dev/null || return 1
   click_boss dodge-speedup "$DODGE_BOSS_CLICK_TICK" || { log "the hovering boss was not clicked"; return 1; }
   for mark in $EXPLOSION_INNER_MARKS; do
-    tile_pixel dodge-speedup "{ x: probe.snapshot().player.x, y: probe.snapshot().player.y + (${dy}) }" $((mark - 1)) click &&
-      click_boss dodge-speedup "$mark" || { log "the dodge on mark ${mark} was not clicked"; return 1; }
+    plan+=("$((mark - 1))|{ x: probe.snapshot().player.x, y: probe.snapshot().player.y + (${dy}) }|click|0" "${mark}|${UNDER_BOSS_TILE}|click|boss")
     dy=$((-dy))
   done
+  click_plan dodge-speedup "${plan[@]}" || { log "the dodges on marks ${EXPLOSION_INNER_MARKS} were not all clicked"; return 1; }
   fight_tick_at_least "$DODGE_SPEEDUP_LAST_TICK" 30000 || { log "the dodging drill never stepped to P4 tick ${DODGE_SPEEDUP_LAST_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/dodge-speedup.json"
   ab console >"$VERIFY_DIR/dodge-speedup-console.log" 2>&1 || { log "console capture failed"; return 1; }
