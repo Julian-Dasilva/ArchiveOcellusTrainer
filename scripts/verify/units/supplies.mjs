@@ -1,12 +1,12 @@
 import { hoverTextOf, pixels, sameJson } from "../lib.mjs";
 
 export const captures = () => [
-  "supplies-inventory.json", "item-menu.json", "item-menu.png", "item-menu-closed.json", "brew-click.json", "brew-hp.json", "brew-heal.png", "supplies-console.log", "supplies-page-errors.json",
+  "supplies-inventory.json", "item-menu.json", "item-menu.png", "item-menu-closed.json", "brew-click.json", "brew-hp.json", "brew-heal.png", "supplies-console.log", "supplies-page-errors.json", "canvas-centre.json",
 ];
 
 export function judge({ read, bytes, env }) {
   const { SUPPLY_INVENTORY: supplyInventory, SUPPLY_NAMED_MENU: namedMenu, SUPPLY_HP_AFTER_BREW: hpAfterBrew } = env;
-  const hoverText = hoverTextOf(pixels(bytes).decode, env);
+  const hoverText = hoverTextOf(pixels(bytes).decode, env, read("canvas-centre.json"));
   const [carried, itemMenu, itemMenuClosed, brewClick, brewHp] = ["supplies-inventory.json", "item-menu.json", "item-menu-closed.json", "brew-click.json", "brew-hp.json"].map(read);
   const observed = {
     supplies: {

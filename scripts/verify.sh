@@ -2118,7 +2118,7 @@ run_unit() {
   clear_browser || { log "the browser was not cleared before ${unit}"; status=1; }
   [[ $status -ne 0 ]] || "drive_${unit}" || status=$?
   [[ -n "$CX" ]] || canvas_centre >/dev/null 2>&1
-  [[ -z "$CX" ]] || printf '{"x":%d,"y":%d}\n' "$CX" "$CY" >"$VERIFY_DIR/canvas-centre.json"
+  [[ -z "$CX" ]] || printf '{"x":%d,"y":%d,"left":%d,"top":%d,"width":%d,"height":%d}\n' "$CX" "$CY" "$CL" "$CT" "$CW" "$CH" >"$VERIFY_DIR/canvas-centre.json"
   node scripts/verify/judge.mjs "$unit" "$VERIFY_DIR" "$status" $((SECONDS - started))
 }
 
