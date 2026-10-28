@@ -11,7 +11,8 @@ export function judge({ read, env }) {
   const checks = {
     getReadyRecordedFromWorldTickZero: ready.installedAt?.tick === 0,
     getReadyCountsDownOncePerWorldTick: JSON.stringify(overlay) === JSON.stringify(Array.from({ length: countdown }, (_, tick) => [tick, [countdown - tick]])),
-    firstBossStepEndsGetReady: JSON.stringify(firstBossStep) === JSON.stringify([0, countdown]),
+    // The full fight carries phase 4 in from its third fall, so its first row is P4 tick 1, on the world tick that ends GET READY.
+    firstBossStepEndsGetReady: JSON.stringify(firstBossStep) === JSON.stringify([1, countdown]),
     clickDuringGetReadyWalksBeforeItEnds: ready.clickTick !== null && ready.clickTick < countdown && firstStep !== null && firstStep > ready.clickTick && firstStep < countdown,
     noGetReadyPageErrors: errors.length === 0,
   };

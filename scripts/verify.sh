@@ -32,12 +32,8 @@ CYCLE_STAGE_ENTRIES='[[0,"lead-in"],[8,"inner-void"],[30,"after-inner"],[39,"out
 CYCLE_OVERHEAD_SWITCHES='[[8,"deflect-melee"],[33,"soul-split"],[38,null],[39,"deflect-range"],[61,"soul-split"],[67,null],[68,"deflect-melee"]]'
 CYCLE_SPECIAL_HITS='[[37,"vortex"],[65,"spike-disk"]]'
 FOCUS_DRILL="transition-attacks"
-FOCUS_LAST_TICK=40
-FOCUS_EXPECTED='{"start":27,"beats":["boss-landing-starts","soul-split-heal","special-hit","special-sound","special-tell"]}'
-FOCUS_ENTRY_TICKS='[27,29]'
-BOSS_POSE_SOUND_SAMPLES='{"rise":39690,"hover":44100}'
 LOADOUT_QUERY="?seed=6&setup=ranged"
-LOADOUT_RANGED_WORN='{"weapon":20997,"offhand":null,"helmet":27235,"chest":27238,"legs":27241,"gloves":26235,"cape":28951,"necklace":33639,"feet":31097,"ring":28310,"ammo":11212}'
+LOADOUT_RANGED_WORN='{"weapon":12926,"offhand":null,"helmet":27235,"chest":27238,"legs":27241,"gloves":26235,"cape":28951,"necklace":33639,"feet":31097,"ring":28310,"ammo":11212}'
 LOADOUT_MELEE_WORN='{"weapon":22325,"offhand":null,"helmet":24419,"chest":24420,"legs":24421,"gloves":22981,"cape":21295,"necklace":29801,"feet":31097,"ring":25485,"ammo":11212}'
 LOADOUT_INVENTORY_TAB_X=1164
 LOADOUT_INVENTORY_TAB_Y=745
@@ -209,7 +205,6 @@ SPECIAL_DRILL="transition-attacks"
 SPECIAL_QUERY="?seed=1&focus=${SPECIAL_DRILL}&specialSelection=replay-v2"
 PROTECT_MAGIC_RIGHT_PX=514
 PROTECT_RANGE_RIGHT_PX=551
-PROTECT_MELEE_RIGHT_PX=588
 PROTECT_DOWN_PX=218
 SPECIAL_PRAY_TICK=33
 SPECIAL_RANGE_PRAY_TICK=61
@@ -251,18 +246,22 @@ CHAT_POLL_WAIT_MS=600
 MENU_CONTROLS='["setup","focus","seed","keybinds","sound","area_sound","invincible","perf_data","whats_new"]'
 MENU_QUERY="?seed=1"
 MENU_SMALL_VIEWPORT="800 600"
-MENU_MOBILE_DEVICE="iPhone 14"
 WHATS_NEW_PHONE_VIEWPORT="390 844"
 DEATH_RESULT_QUERY="?seed=1&focus=void-floor"
 DEATH_RESULT_LINES='["You died","on P4 tick 54"]'
-KILL_RESULT_QUERY="?seed=4&bosshp=1"
+KILL_RESULT_QUERY="?seed=4"
 KILL_RESULT_BOSS_HP=1
 KILL_RESULT_CLICK_TICK=12
+UNDER_BOSS_TILE='{"x":5,"y":5}'
+BOSS_POINT_STEP_PX=6
+BOSS_POINT_MAX_RISE_PX=200
 KILL_RESULT_LINES='["Ocellus defeated","P4 time: 16 ticks (0:09.6)"]'
 RESULT_BUTTONS='["Restart","Retry seed"]'
 TELEMETRY_FIELDS='["version","view","gpu","browser","stage","end","sampleRate","frames","frameMedianMs","frameP95Ms","frameP99Ms","framesOver50Ms","runTicks","tickMedianMs","tickP95Ms","tickMaxMs","lateTicks","devicePixelRatio","canvasWidth","canvasHeight","cores"]'
 TELEMETRY_BEACON_WAIT_MS=1800
 TELEMETRY_PAUSE_MS=2500
+# The full fight's toxic blowpipe lands the kill clicked on P4 tick 12 later than the drill's bow did, so its sampled run is 20 ticks.
+TELEMETRY_KILL_RUN_TICKS=20
 SETUP_QUERY="?seed=1&invincible=on"
 SETUP_WATCH_MS=3000
 PAUSE_AT_TICK=10
@@ -270,14 +269,6 @@ PAUSE_HOLD_MS=3000
 PAUSE_REBIND_KEY=F7
 PRAYER_KEY=F3
 REPLACEMENT_HOLD_MS=1200
-SAVED_LOADOUTS_KEY="archive-ocellus:loadouts"
-SAVED_LOADOUT_PAGES='{"p4":"?seed=1","p3":"?phase=p3&seed=1"}'
-SAVED_LOADOUT_LAYOUT='{"worn":{"weapon":"scytheOfVitur","helmet":"inquisitorsGreatHelm","chest":"inquisitorsHauberk","legs":"inquisitorsPlateskirt","gloves":"ferociousGloves","cape":"infernalCape","necklace":"amuletOfRancour","feet":"avernicTreadsMax","ring":"ultorRing","ammo":"dragonArrows"},"inventory":["saradominBrew","superRestore","twistedBow","masoriMaskF","masoriBodyF","masoriChapsF","zaryteVambraces","dizanasQuiver","necklaceOfRupture","venatorRing","tonalzticsOfRalos",null,"bastionPotion","superCombatPotion",null,null,null,null,null,null,null,null,null,null,null,null,null,"saradominBrew"]}'
-SAVED_LOADOUT_INVENTORY='[6685,3024,20997,27235,27238,27241,26235,28951,33639,28310,28922,null,22461,12695,null,null,null,null,null,null,null,null,null,null,null,null,null,6685]'
-SAVED_LOADOUT_STORES_JS='((layout) => { const store = (ranged, version = 1) => JSON.stringify({ version, setups: { ranged } }); return { saved: store(layout), malformed: "{not json", "other-version": store(layout, 2), "unknown-item": store({ ...layout, inventory: ["dragonClaws", ...layout.inventory.slice(1)] }), "weapon-as-helmet": store({ ...layout, worn: { ...layout.worn, helmet: "twistedBow" } }), "27-slots": store({ ...layout, inventory: layout.inventory.slice(1) }) }; })'
-SAVED_LOADOUT_UNREADABLE="malformed other-version unknown-item weapon-as-helmet 27-slots"
-SAVED_LOADOUT_NOTE="Your saved Ranged loadout could not be read, so this run uses the default loadout."
-REFUSED_STORAGE_JS='Object.defineProperty(window, "localStorage", { configurable: true, get() { throw new DOMException("The user denied storage", "SecurityError"); } });'
 LOAD_RETRY_QUERY="?seed=1"
 GET_READY_QUERY="?seed=1"
 STORED_VIEW_QUERY="?seed=1"
@@ -323,29 +314,12 @@ AUTOPLAY_POLICY_JS='(() => { const Native = window.AudioContext; if (!Native) re
 VIEWPORT_RENDERS_JS='(() => { const renders = (window.__viewportRenders = { count: 0 }); window.__THREE_DEVTOOLS__ = new EventTarget(); window.__THREE_DEVTOOLS__.addEventListener("observe", ({ detail }) => { if (detail?.isWebGLRenderer !== true) return; const render = detail.render; detail.render = function (...args) { if (this.domElement.width * this.domElement.height > 1) renders.count++; return Reflect.apply(render, this, args); }; }); })();'
 PRODUCTION_PORT="${VERIFY_PRODUCTION_PORT:-8003}"
 PERF_GATE="src/perf/perfGate.json"
-PRODUCTION_QUERY="?seed=1&invincible=on"
+PRODUCTION_QUERY="?seed=1&practice=1"
 PRODUCTION_P3_QUERY="?phase=p3&seed=1"
 PRODUCTION_WATCH_SECONDS=20
 PRODUCTION_ORBS='["99","99","100","100"]'
 PRODUCTION_ORBS_JS='(() => { const orbs = { framesSinceFirst: 0, blankSinceFirst: 0, first: null, last: null }; window.__orbs = orbs; let frame = []; const fillText = CanvasRenderingContext2D.prototype.fillText; CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) { if (this.textAlign === "center" && this.font.endsWith("px Stats_11") && this.fillStyle !== "#000000" && /^\d+$/.test(String(text))) frame.push(String(text)); return fillText.call(this, text, ...rest); }; const close = () => { if (frame.length > 0) { orbs.first ??= frame; orbs.last = frame; } if (orbs.first) { orbs.framesSinceFirst++; if (frame.length === 0) orbs.blankSinceFirst++; } frame = []; requestAnimationFrame(close); }; requestAnimationFrame(close); })();'
-P3_QUERY="?phase=p3&seed=1"
-P3_CLEAR_QUERY="?phase=p3&seed=100&bosshp=3991"
-P3_ARENA_SHOT_TICK=3
 P3_ARENA_TILES='{"open":[{"x":25,"y":11},{"x":26,"y":11}],"closed":[{"x":16,"y":13},{"x":17,"y":13}],"rim":[{"x":28,"y":10}]}'
-P3_PRAY_TICK=1
-P3_SWINGS_LAST_TICK=18
-P3_SWINGS='[[4,"swing",2,2,"melee"],[7,"swing",5,5,"melee"],[14,"swing",4,4,"melee"],[17,"swing",1,1,"melee"]]'
-P3_FAR_EAST_TILE='{"x":27,"y":9}'
-P3_ESCAPE_TICK=3
-P3_PANIC_LAST_TICK=11
-P3_PANIC='[[4,"swing",2,2,"melee"],[9,"panic",25,25,"melee"]]'
-P3_BOSS_TILE='{"x":20,"y":7}'
-P3_BOSS_CLICK_TICK=2
-P3_CLEAR='{"panel":{"lines":["Quadrant 1 cleared (interim end)","P3 time: 6 ticks (0:03.6)"],"buttons":["Repeat P3","Retry seed","Start P4"]},"tick":6,"bossHp":3937}'
-P3_CHAIN_QUERY="?phase=p3&seed=1&invincible=on"
-P3_CHAIN_LAST_TICK=91
-P3_CHAIN='[[4,"swing"],[7,"swing"],[10,"shadow-slash"],[14,"swing"],[17,"swing"],[20,"shadow-slash"],[24,"spin"],[29,"last-saw"],[33,"swing"],[36,"swing"],[39,"shadow-slash"],[43,"swing"],[46,"swing"],[49,"shadow-slash"],[53,"untether"],[82,"slam"],[90,"swing"]]'
-P3_START_P4='{"search":"?phase=p4&setup=ranged","bossHp":1312}'
 PRESENT_QUERY="?seed=1&invincible=on"
 PRESENT_RESIZED_VIEWPORT="1000 700"
 PRESENT_DEVICE_SCALE=2
@@ -530,7 +504,7 @@ serve() {
   fi
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
 
-  ARCHIVE_P2=on ARCHIVE_P3=on node node_modules/.bin/webpack serve --mode development --no-color --host 127.0.0.1 --port "$VERIFY_PORT" \
+  node node_modules/.bin/webpack serve --mode development --no-color --host 127.0.0.1 --port "$VERIFY_PORT" \
     >"$VERIFY_DIR/server.log" 2>&1 &
   local pid=$!
   LAUNCHED_PID=$pid
@@ -678,8 +652,27 @@ fight_tick_at_least() {
 canvas_centre() {
   local box
   box="$(ab --json get box "#world")" || return 1
-  CX=$(( $(json data.x <<<"$box") + $(json data.width <<<"$box") / 2 ))
-  CY=$(( $(json data.y <<<"$box") + $(json data.height <<<"$box") / 2 ))
+  CL=$(json data.x <<<"$box") CT=$(json data.y <<<"$box") CW=$(json data.width <<<"$box") CH=$(json data.height <<<"$box")
+  CX=$(( CL + CW / 2 ))
+  CY=$(( CT + CH / 2 ))
+}
+
+# Panel coordinates were measured on a 1280x800 canvas at the page's top left. The SDK anchors its tabs, prayers and
+# inventory to the canvas's bottom right and its minimap orbs to the top right, so a point keeps its distance from those edges.
+panel_point() {
+  canvas_centre || return 1
+  PX=$(( CL + CW - (1280 - $1) ))
+  if (( $2 < 400 )); then PY=$(( CT + $2 )); else PY=$(( CT + CH - (800 - $2) )); fi
+}
+
+click_panel() {
+  panel_point "$1" "$2" && click_at "$PX" "$PY"
+}
+
+# Offsets from the canvas centre to a panel point that sat at (640 + $1, 400 + $2) on the measured canvas.
+panel_offset() {
+  panel_point $(( 640 + $1 )) $(( 400 + $2 )) || return 1
+  PDX=$(( PX - CX )) PDY=$(( PY - CY ))
 }
 
 click_after_tick() {
@@ -864,14 +857,14 @@ drive_cycle() {
   ab --json eval "window.__bossBar" | json data.result >"$VERIFY_DIR/boss-bar.json" || { log "boss bar capture failed"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
   step_south_and_back_on_marks $EXPLOSION_INNER_MARKS || { log "the steps on the inner explosion marks were not clicked"; return 1; }
-  click_after_tick "$SPECIAL_PRAY_TICK" "$PROTECT_MAGIC_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Magic was not clicked before the vortex"; return 1; }
+  panel_offset "$PROTECT_MAGIC_RIGHT_PX" "$PROTECT_DOWN_PX" && click_after_tick "$SPECIAL_PRAY_TICK" "$PDX" "$PDY" || { log "Protect from Magic was not clicked before the vortex"; return 1; }
   fight_tick_at_least "$CYCLE_RING_TICK" 60000 || { log "the boss never stepped to P4 tick ${CYCLE_RING_TICK}"; return 1; }
   cx=$((CX + RING_CLICK_RIGHT_PX))
   cy=$((CY - RING_CLICK_UP_PX))
   echo "{\"x\":${cx},\"y\":${cy}}" >"$VERIFY_DIR/cycle-ring-click.json"
   click_at "$cx" "$cy" || return 1
   step_on_marks "$STEP_CLICK_SIDE_PX" $EXPLOSION_OUTER_MARKS || { log "the steps on the outer explosion marks were not clicked"; return 1; }
-  click_after_tick "$SPECIAL_RANGE_PRAY_TICK" "$PROTECT_RANGE_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Range was not clicked before the spike disk"; return 1; }
+  panel_offset "$PROTECT_RANGE_RIGHT_PX" "$PROTECT_DOWN_PX" && click_after_tick "$SPECIAL_RANGE_PRAY_TICK" "$PDX" "$PDY" || { log "Protect from Range was not clicked before the spike disk"; return 1; }
   fight_tick_at_least "$CYCLE_LAST_TICK" 90000 || { log "the boss never stepped to P4 tick ${CYCLE_LAST_TICK}"; return 1; }
   probe "snapshot()" >"$VERIFY_DIR/cycle-snapshot.json"
   probe "log()" >"$VERIFY_DIR/cycle.json"
@@ -880,17 +873,7 @@ drive_cycle() {
 }
 
 open_settings() {
-  [[ "$(ab --json is visible "#settings_menu" | json data.visible)" == true ]] || ab click "#settings" >/dev/null || { log "the Settings button did not respond"; return 1; }
-}
-
-type_seed() {
-  open_settings || return 1
-  ab fill "#seed" "$1" >/dev/null || { log "the seed box did not take seed $1"; return 1; }
-}
-
-keep_seed() {
-  open_settings || return 1
-  type_seed "$(ab --json get value "#seed" | json data.value)"
+  [[ "$(ab --json eval "document.getElementById('phone_menu')?.getAttribute('aria-expanded') === 'false'" | json data.result)" != true ]] || ab click "#phone_menu" >/dev/null || { log "the phone Menu button did not respond"; return 1; }
 }
 
 choose_focus() {
@@ -900,19 +883,6 @@ choose_focus() {
   ab select "#focus" "$1" >/dev/null || { log "focus control did not accept $1"; return 1; }
   ab wait --fn "new URLSearchParams(location.search).get('focus') === '$1'" --timeout 30000 >/dev/null || { log "choosing $1 did not load focus=$1 without Restart"; return 1; }
   reloaded_from "$loaded" || { log "the focus=$1 page never started"; return 1; }
-}
-
-drive_focus() {
-  open_ticking "$DRILL_QUERY" || return 1
-  START_ON_LOAD=0 choose_focus "$FOCUS_DRILL" || return 1
-  record_audio_starts || { log "the audio probe was not installed"; return 1; }
-  start_run || return 1
-  fight_tick_at_least "$FOCUS_LAST_TICK" 120000 || { log "the reloaded boss never stepped to P4 tick ${FOCUS_LAST_TICK}"; return 1; }
-  probe "log()" >"$VERIFY_DIR/focus.json"
-  ab --json eval "window.__frameClock.audio" | json data.result >"$VERIFY_DIR/focus-audio.json" || { log "audio capture failed"; return 1; }
-  ab screenshot "$VERIFY_DIR/focus.png" >/dev/null || { log "focus screenshot failed"; return 1; }
-  ab console >"$VERIFY_DIR/focus-console.log" 2>&1 || { log "console capture failed"; return 1; }
-  ab --json errors | json data.errors >"$VERIFY_DIR/focus-page-errors.json" || { log "page error capture failed"; return 1; }
 }
 
 drive_void_shot() {
@@ -939,7 +909,7 @@ click_at() {
 }
 
 click_inventory_slot() {
-  click_at $((LOADOUT_SLOT_X + $1 % 4 * LOADOUT_SLOT_DX)) $((LOADOUT_SLOT_Y + $1 / 4 * LOADOUT_SLOT_DY))
+  click_panel $((LOADOUT_SLOT_X + $1 % 4 * LOADOUT_SLOT_DX)) $((LOADOUT_SLOT_Y + $1 / 4 * LOADOUT_SLOT_DY))
 }
 
 glaives_landed() {
@@ -952,14 +922,14 @@ drive_loadouts() {
   ab open "${URL}${LOADOUT_QUERY}" >/dev/null || return 1
   fight_tick_at_least 9 120000 || { log "the loadout drill never stepped to P4 tick 9"; return 1; }
   probe "snapshot().fight" >"$VERIFY_DIR/loadout-before.json"
-  click_at "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" || return 1
+  click_panel "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" || return 1
   ab wait 600 >/dev/null
   ab screenshot "$VERIFY_DIR/loadout-ranged.png" >/dev/null || { log "ranged setup screenshot failed"; return 1; }
   probe "snapshot().icons" >"$VERIFY_DIR/icons.json"
-  click_at "$LOADOUT_EQUIPMENT_TAB_X" "$LOADOUT_EQUIPMENT_TAB_Y" || return 1
+  click_panel "$LOADOUT_EQUIPMENT_TAB_X" "$LOADOUT_EQUIPMENT_TAB_Y" || return 1
   ab wait 600 >/dev/null
   ab screenshot "$VERIFY_DIR/equipment-ranged.png" >/dev/null || { log "ranged equipment tab screenshot failed"; return 1; }
-  click_at "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" || return 1
+  click_panel "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" || return 1
   ab wait 600 >/dev/null
 
   for slot in $(seq $((LOADOUT_SPECIAL_SLOT + 1)) "$LOADOUT_SWITCHES"); do
@@ -972,7 +942,7 @@ drive_loadouts() {
 
   click_inventory_slot "$LOADOUT_SPECIAL_SLOT" || return 1
   ab wait 700 >/dev/null
-  click_at "$LOADOUT_SPECIAL_ORB_X" "$LOADOUT_SPECIAL_ORB_Y" || return 1
+  click_panel "$LOADOUT_SPECIAL_ORB_X" "$LOADOUT_SPECIAL_ORB_Y" || return 1
   box="$(ab --json get box "#world")"
   click_at $(( $(json data.x <<<"$box") + $(json data.width <<<"$box") / 2 + RISEN_BOSS_CLICK_RIGHT_PX )) \
     $(( $(json data.y <<<"$box") + $(json data.height <<<"$box") / 2 + RISEN_BOSS_CLICK_DOWN_PX )) || return 1
@@ -982,7 +952,7 @@ drive_loadouts() {
   probe "log()" >"$VERIFY_DIR/loadout-spec-log.json"
   ab wait 1200 >/dev/null
   ab screenshot "$VERIFY_DIR/loadout-spec.png" >/dev/null || { log "special attack screenshot failed"; return 1; }
-  click_at "$LOADOUT_EQUIPMENT_TAB_X" "$LOADOUT_EQUIPMENT_TAB_Y" || return 1
+  click_panel "$LOADOUT_EQUIPMENT_TAB_X" "$LOADOUT_EQUIPMENT_TAB_Y" || return 1
   ab wait 600 >/dev/null
   ab screenshot "$VERIFY_DIR/equipment-melee.png" >/dev/null || { log "equipment tab screenshot failed"; return 1; }
   ab console >"$VERIFY_DIR/loadout-console.log" 2>&1 || { log "console capture failed"; return 1; }
@@ -1003,16 +973,16 @@ drive_defence_floor() {
   ab open "${URL}${DEFENCE_FLOOR_QUERY}" >/dev/null || return 1
   fight_tick_at_least 9 120000 || { log "the defence floor drill never stepped to P4 tick 9"; return 1; }
   probe "snapshot().fight" >"$VERIFY_DIR/defence-floor-start.json"
-  click_at "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" || return 1
+  click_panel "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" || return 1
   ab wait 600 >/dev/null
   click_inventory_slot "$LOADOUT_SPECIAL_SLOT" || return 1
   ab wait 700 >/dev/null
-  click_at "$LOADOUT_SPECIAL_ORB_X" "$LOADOUT_SPECIAL_ORB_Y" || return 1
+  click_panel "$LOADOUT_SPECIAL_ORB_X" "$LOADOUT_SPECIAL_ORB_Y" || return 1
   box="$(ab --json get box "#world")"
   click_at $(( $(json data.x <<<"$box") + $(json data.width <<<"$box") / 2 + RISEN_BOSS_CLICK_RIGHT_PX )) \
     $(( $(json data.y <<<"$box") + $(json data.height <<<"$box") / 2 + RISEN_BOSS_CLICK_DOWN_PX )) || return 1
   ab wait --fn "window.__archiveOcellusProbe.snapshot().fight.player.specialEnergy === 50" --timeout 15000 >/dev/null || log "the first Division was not spent"
-  click_at "$LOADOUT_SPECIAL_ORB_X" "$LOADOUT_SPECIAL_ORB_Y" || return 1
+  click_panel "$LOADOUT_SPECIAL_ORB_X" "$LOADOUT_SPECIAL_ORB_Y" || return 1
   glaives_landed 2 || log "the first Division's glaives never landed"
   probe "snapshot().fight" >"$VERIFY_DIR/defence-floor-first.json"
   glaives_landed 4 || log "the second Division's glaives never landed"
@@ -1024,16 +994,16 @@ drive_defence_floor() {
 }
 
 hover_inventory_slot() {
-  ab mouse move $((LOADOUT_SLOT_X + $1 % 4 * LOADOUT_SLOT_DX)) $((LOADOUT_SLOT_Y + $1 / 4 * LOADOUT_SLOT_DY)) >/dev/null
+  panel_point $((LOADOUT_SLOT_X + $1 % 4 * LOADOUT_SLOT_DX)) $((LOADOUT_SLOT_Y + $1 / 4 * LOADOUT_SLOT_DY)) && ab mouse move "$PX" "$PY" >/dev/null
 }
 right_click_inventory_slot() {
-  ab mouse move $((LOADOUT_SLOT_X + $1 % 4 * LOADOUT_SLOT_DX)) $((LOADOUT_SLOT_Y + $1 / 4 * LOADOUT_SLOT_DY)) >/dev/null && ab mouse down right >/dev/null && ab mouse up right >/dev/null
+  panel_point $((LOADOUT_SLOT_X + $1 % 4 * LOADOUT_SLOT_DX)) $((LOADOUT_SLOT_Y + $1 / 4 * LOADOUT_SLOT_DY)) && ab mouse move "$PX" "$PY" >/dev/null && ab mouse down right >/dev/null && ab mouse up right >/dev/null
 }
 
 drive_supplies() {
   ab open "${URL}${SUPPLY_QUERY}" >/dev/null || return 1
   fight_tick_at_least 1 120000 || { log "the supplies drill never stepped to P4 tick 1"; return 1; }
-  click_at "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" || return 1
+  click_panel "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" || return 1
   ab wait 600 >/dev/null
   probe "snapshot().fight.player.inventory" >"$VERIFY_DIR/supplies-inventory.json"
   right_click_inventory_slot "$SUPPLY_NAMED_SLOT" || return 1
@@ -1054,15 +1024,15 @@ drive_supplies() {
 }
 
 bind_inventory_key() {
-  open_settings && ab click "#keybinds" >/dev/null && ab wait 300 >/dev/null && click_at "$KEYBIND_INVENTORY_BUTTON_X" "$KEYBIND_INVENTORY_BUTTON_Y" && ab press "$1" >/dev/null && ab wait 300 >/dev/null
+  open_settings && ab scrollintoview "#keybinds" >/dev/null && ab click "#keybinds" >/dev/null && ab wait 300 >/dev/null && click_panel "$KEYBIND_INVENTORY_BUTTON_X" "$KEYBIND_INVENTORY_BUTTON_Y" && ab press "$1" >/dev/null && ab wait 300 >/dev/null
 }
 
 drive_keybinds() {
   ab open "${URL}${SUPPLY_QUERY}" >/dev/null || return 1
   fight_tick_at_least 1 120000 || { log "the keybinds drill never stepped to P4 tick 1"; return 1; }
-  click_at "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" && ab wait 600 >/dev/null || return 1
+  click_panel "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" && ab wait 600 >/dev/null || return 1
   hover_inventory_slot "$SUPPLY_BREW_SLOT" && ab wait 200 >/dev/null || return 1
-  open_settings && ab click "#keybinds" >/dev/null && ab wait 300 >/dev/null || { log "the Keybinds button did not respond"; return 1; }
+  open_settings && ab scrollintoview "#keybinds" >/dev/null && ab click "#keybinds" >/dev/null && ab wait 300 >/dev/null || { log "the Keybinds button did not respond"; return 1; }
   probe "snapshot().panel" >"$VERIFY_DIR/keybinds-open.json"
   ab screenshot "$VERIFY_DIR/keybinds.png" >/dev/null || { log "key bindings screenshot failed"; return 1; }
   bind_inventory_key "$KEYBIND_NEW_KEY" || { log "the inventory key was not bound"; return 1; }
@@ -1081,37 +1051,11 @@ drive_keybinds() {
   ab --json errors | json data.errors >"$VERIFY_DIR/keybinds-page-errors.json" || { log "page error capture failed"; return 1; }
 }
 
-seed_run() {
-  local box seed search
-  open_settings || return 1
-  box="$(ab --json get value "#seed" | json data.value)" || return 1
-  seed="$(probe "log().header.seed")" || return 1
-  search="$(ab --json eval "location.search" | json data.result)" || return 1
-  node -e 'console.log(JSON.stringify({ box: process.argv[1], seed: Number(process.argv[2]), search: process.argv[3] }))' "$box" "$seed" "$search"
-}
-
 restart_run() {
-  local loaded
-  loaded="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
-  ab click "#restart" >/dev/null || return 1
-  reloaded_from "$loaded" || { log "Restart never loaded a new run"; return 1; }
-}
-
-drive_seed() {
-  local fresh restarted typed
-  ab open "$URL" >/dev/null || return 1
-  fight_tick_at_least 0 120000 || { log "the unseeded run never took its first P4 step"; return 1; }
-  fresh="$(seed_run)" || return 1
-  ab screenshot "$VERIFY_DIR/seed-fresh.png" >/dev/null || { log "fresh seed screenshot failed"; return 1; }
-  restart_run || return 1
-  restarted="$(seed_run)" || return 1
-  ab fill "#seed" "$(json box <<<"$fresh")" >/dev/null || { log "the seed box did not take the typed seed"; return 1; }
-  restart_run || return 1
-  typed="$(seed_run)" || return 1
-  echo "{\"fresh\":${fresh},\"restarted\":${restarted},\"typed\":${typed}}" >"$VERIFY_DIR/seed.json"
-  ab screenshot "$VERIFY_DIR/seed.png" >/dev/null || { log "typed seed screenshot failed"; return 1; }
-  ab console >"$VERIFY_DIR/seed-console.log" 2>&1 || { log "console capture failed"; return 1; }
-  ab --json errors | json data.errors >"$VERIFY_DIR/seed-page-errors.json" || { log "page error capture failed"; return 1; }
+  ab click "#restart_fight" >/dev/null || return 1
+  wait_for_start || { log "Restart never held a new run at Start"; return 1; }
+  [[ "$START_ON_LOAD" == 1 ]] || return 0
+  start_run && fight_tick_at_least 0 120000
 }
 
 wait_until_ticking() {
@@ -1563,7 +1507,7 @@ drive_transition_attack() {
   ab open "${URL}${SPECIAL_QUERY}" >/dev/null || return 1
   canvas_centre || { log "canvas box unreadable"; return 1; }
   shot_after_tick "$SPECIAL_BEFORE_SHOT_TICK" 0 special-before.png || { log "pre-tell screenshot failed"; return 1; }
-  click_after_tick "$SPECIAL_PRAY_TICK" "$PROTECT_MAGIC_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Magic was not clicked before the landing"; return 1; }
+  panel_offset "$PROTECT_MAGIC_RIGHT_PX" "$PROTECT_DOWN_PX" && click_after_tick "$SPECIAL_PRAY_TICK" "$PDX" "$PDY" || { log "Protect from Magic was not clicked before the landing"; return 1; }
   shot_after_tick "$SPECIAL_VORTEX_SHOT_TICK" 0 special-vortex.png || { log "vortex screenshot failed"; return 1; }
   fight_tick_at_least "$SOUL_SPLIT_HEAL_TICK" 30000 || { log "the transition drill never stepped to the Soul Split heal at P4 tick ${SOUL_SPLIT_HEAL_TICK}"; return 1; }
   probe "log()" >"$VERIFY_DIR/special.json"
@@ -1571,10 +1515,10 @@ drive_transition_attack() {
   ab --json errors | json data.errors >"$VERIFY_DIR/special-page-errors.json" || { log "page error capture failed"; return 1; }
 
   save_sound_settings true || { log "the sound settings were not saved"; return 1; }
-  keep_seed && restart_run || { log "Restart did not reload the transition drill"; return 1; }
+  restart_run || { log "Restart did not reload the transition drill"; return 1; }
   fight_tick_at_least 0 120000 || { log "the late-prayer drill never started"; return 1; }
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
-  click_after_tick "$SPECIAL_HIT_TICK" "$PROTECT_MAGIC_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "the late Protect from Magic was not clicked"; return 1; }
+  panel_offset "$PROTECT_MAGIC_RIGHT_PX" "$PROTECT_DOWN_PX" && click_after_tick "$SPECIAL_HIT_TICK" "$PDX" "$PDY" || { log "the late Protect from Magic was not clicked"; return 1; }
   shot_after_tick "$SOUL_SPLIT_HEAL_TICK" 0 special-heal.png || { log "Soul Split heal screenshot failed"; return 1; }
   shot_after_tick "$SPECIAL_SPIKE_SHOT_TICK" 0 special-spike-disk.png || { log "spike disk screenshot failed"; return 1; }
   shot_after_tick "$SPECIAL_SEMICIRCLE_SHOT_TICK" 0 special-semicircle.png || { log "semicircle screenshot failed"; return 1; }
@@ -1593,7 +1537,7 @@ drive_overheads_rifts() {
   ab open "${URL}${RIFT_QUERY}" >/dev/null || return 1
   fight_tick_at_least 0 120000 || { log "the rifts drill never loaded"; return 1; }
   save_sound_settings true || { log "the sound settings were not saved"; return 1; }
-  keep_seed && restart_run || { log "Restart did not reload the rifts drill"; return 1; }
+  restart_run || { log "Restart did not reload the rifts drill"; return 1; }
   fight_tick_at_least 0 120000 || { log "the rifts drill never started"; return 1; }
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
   record_overhead_draws || { log "the overhead draw probe was not installed"; return 1; }
@@ -1621,7 +1565,7 @@ drive_overheads_rifts() {
 
   ab open "${URL}${RIFT_QUERY}" >/dev/null || return 1
   fight_tick_at_least 0 120000 || { log "the Ralos rifts drill never loaded"; return 1; }
-  click_at "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" || return 1
+  click_panel "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" || return 1
   ab wait 600 >/dev/null
   click_inventory_slot "$LOADOUT_SPECIAL_SLOT" || { log "Ralos was not wielded"; return 1; }
   canvas_centre || { log "canvas box unreadable"; return 1; }
@@ -1740,7 +1684,7 @@ drive_cues() {
   ab console >"$VERIFY_DIR/cue-fresh-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/cue-fresh-page-errors.json" || { log "page error capture failed"; return 1; }
 
-  keep_seed && restart_run || { log "Restart did not reload the fresh cue drill"; return 1; }
+  restart_run || { log "Restart did not reload the fresh cue drill"; return 1; }
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
   probe "snapshot().fight.run.tick ?? -1" >"$VERIFY_DIR/cue-recording-from.json"
   audio_contexts >"$VERIFY_DIR/cue-contexts-loaded.json" || { log "audio context capture failed"; return 1; }
@@ -1758,7 +1702,7 @@ drive_cues() {
   ab console >"$VERIFY_DIR/cue-toggle-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/cue-toggle-page-errors.json" || { log "page error capture failed"; return 1; }
 
-  keep_seed && restart_run || { log "Restart did not reload the cue drill"; return 1; }
+  restart_run || { log "Restart did not reload the cue drill"; return 1; }
   record_audio_starts || { log "the audio probe was not installed"; return 1; }
   audio_contexts >"$VERIFY_DIR/cue-contexts-reloaded.json" || { log "audio context capture failed"; return 1; }
   sound_toggles >"$VERIFY_DIR/cue-toggles-reloaded.json" || { log "sound toggle capture failed"; return 1; }
@@ -1778,64 +1722,6 @@ drive_cues() {
   ab console >"$VERIFY_DIR/cue-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/cue-page-errors.json" || { log "page error capture failed"; return 1; }
   ab close >/dev/null 2>&1
-}
-
-menu_state() {
-  ab --json eval "(() => {
-    const visible = (id) => document.getElementById(id)?.checkVisibility() === true;
-    const box = (id) => { const r = document.getElementById(id)?.getBoundingClientRect(); return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null; };
-    return {
-      expanded: document.getElementById('settings')?.getAttribute('aria-expanded') ?? null,
-      menu: visible('settings_menu'),
-      controls: Object.fromEntries(${MENU_CONTROLS}.map((id) => [id, visible(id)])),
-      buttons: { settings: visible('settings'), restart: visible('restart') },
-      controlsBox: box('drill_controls'),
-      footerBox: box('credits'),
-      credit: visible('credit_line'),
-      menuBox: box('settings_menu'),
-      viewport: { width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth },
-    };
-  })()" | json data.result
-}
-
-menu_open_close() {
-  local name=$1 closed opened second
-  ab open "${URL}${MENU_QUERY}" >/dev/null || return 1
-  fight_tick_at_least 0 120000 || { log "the ${name} menu page never took its first P4 step" >&2; return 1; }
-  closed="$(menu_state)" || return 1
-  ab screenshot "$VERIFY_DIR/menu-closed-${name}.png" >/dev/null || { log "closed ${name} menu screenshot failed" >&2; return 1; }
-  ab click "#settings" >/dev/null && ab wait 300 >/dev/null || { log "the ${name} Settings button was not clicked" >&2; return 1; }
-  opened="$(menu_state)" || return 1
-  ab screenshot "$VERIFY_DIR/menu-open-${name}.png" >/dev/null || { log "open ${name} menu screenshot failed" >&2; return 1; }
-  ab click "#settings" >/dev/null && ab wait 300 >/dev/null || { log "the ${name} Settings button was not clicked again" >&2; return 1; }
-  second="$(menu_state)" || return 1
-  printf '{"closed":%s,"open":%s,"secondClick":%s}\n' "$closed" "$opened" "$second"
-}
-
-drive_settings_menu() {
-  local desktop small mobile escape outside inside
-  desktop="$(menu_open_close desktop)" || return 1
-  open_settings && ab wait 300 >/dev/null && ab press Escape >/dev/null && ab wait 300 >/dev/null || { log "Escape was not pressed on the open menu"; return 1; }
-  escape="$(menu_state)" || return 1
-  open_settings && ab wait 300 >/dev/null && ab click "#seed" >/dev/null && ab wait 300 >/dev/null || { log "the seed box was not clicked in the open menu"; return 1; }
-  inside="$(menu_state)" || return 1
-  canvas_centre || { log "canvas box unreadable"; return 1; }
-  click_at "$CX" "$CY" && ab wait 300 >/dev/null || { log "the canvas was not clicked with the menu open"; return 1; }
-  outside="$(menu_state)" || return 1
-  ab --json errors | json data.errors >"$VERIFY_DIR/menu-page-errors.json" || { log "page error capture failed"; return 1; }
-
-  ab set viewport $MENU_SMALL_VIEWPORT >/dev/null || return 1
-  small="$(menu_open_close small)" || return 1
-  ab --json errors | json data.errors >"$VERIFY_DIR/menu-small-page-errors.json" || { log "page error capture failed"; return 1; }
-  ab set viewport 1280 800 >/dev/null || return 1
-
-  local BROWSER_SESSION="${BROWSER_SESSION}-mobile"
-  ab set device "$MENU_MOBILE_DEVICE" >/dev/null || { log "the mobile session did not start"; return 1; }
-  mobile="$(menu_open_close mobile)" || return 1
-  ab --json errors | json data.errors >"$VERIFY_DIR/menu-mobile-page-errors.json" || { log "page error capture failed"; return 1; }
-  ab close >/dev/null 2>&1
-
-  printf '{"desktop":%s,"small":%s,"mobile":%s,"escape":%s,"inside":%s,"outside":%s}\n' "$desktop" "$small" "$mobile" "$escape" "$inside" "$outside" >"$VERIFY_DIR/menu.json"
 }
 
 result_panel() {
@@ -1901,10 +1787,42 @@ telemetry_box() {
   ab --json eval "({ checked: document.getElementById('perf_data')?.checked ?? null, saved: localStorage.getItem('archive-ocellus:perf-data'), version: document.getElementById('app_version')?.textContent ?? null, search: location.search })" | json data.result
 }
 
+# His model hovers above the tile under him, so the click point is found by right-clicking up from that tile until
+# the SDK's menu offers Attack first, which is what a left click there does.
+boss_point() {
+  local page="$1" read
+  read="$(ab --json eval "new Promise((done) => {
+    const probe = window.__archiveOcellusProbe, world = document.querySelector('#world'), box = world.getBoundingClientRect();
+    const under = probe.tileCentre(${UNDER_BOSS_TILE});
+    if (!under) return done(null);
+    const fire = (type, x, y, button) => world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button, buttons: button === 2 ? 2 : 0, clientX: x, clientY: y }));
+    const away = () => fire('mousemove', box.x + 4, box.y + 4, 0);
+    let rise = 0;
+    const step = () => {
+      if (rise > ${BOSS_POINT_MAX_RISE_PX}) { away(); return done(null); }
+      const x = Math.round(box.x + under.x), y = Math.round(box.y + under.y - rise);
+      fire('mousemove', x, y, 0);
+      fire('mousedown', x, y, 2);
+      fire('mouseup', x, y, 2);
+      requestAnimationFrame(() => {
+        const first = probe.snapshot().menu?.[0] ?? '';
+        away();
+        if (first.startsWith('Attack')) return done({ x, y });
+        rise += ${BOSS_POINT_STEP_PX};
+        requestAnimationFrame(step);
+      });
+    };
+    step();
+  })" | json data.result)" || { log "${page}: the boss was not looked for"; return 1; }
+  [[ "$read" != null ]] || { log "${page}: no point above the boss's tile offered Attack"; return 1; }
+  BOSS_X="$(json x <<<"$read")" BOSS_Y="$(json y <<<"$read")"
+}
+
 kill_and_wait_for_beacon() {
-  fight_tick_at_least 0 120000 || { log "the telemetry page never took its first P4 step"; return 1; }
-  canvas_centre || { log "canvas box unreadable"; return 1; }
-  click_after_tick "$KILL_RESULT_CLICK_TICK" "$RISEN_BOSS_CLICK_RIGHT_PX" "$RISEN_BOSS_CLICK_DOWN_PX" || { log "the boss was not clicked on the telemetry page"; return 1; }
+  fight_tick_at_least 2 120000 || { log "the telemetry page never reached P4 tick 2"; return 1; }
+  ab eval "window.__archiveOcellusProbe.setBossHp(${KILL_RESULT_BOSS_HP})" >/dev/null || { log "the boss HP was not set"; return 1; }
+  fight_tick_at_least $((KILL_RESULT_CLICK_TICK - 2)) 60000 && boss_point telemetry && canvas_centre || return 1
+  click_after_tick "$KILL_RESULT_CLICK_TICK" $((BOSS_X - CX)) $((BOSS_Y - CY)) || { log "the boss was not clicked on the telemetry page"; return 1; }
   ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 60000 >/dev/null || { log "the telemetry run never ended"; return 1; }
   ab wait "$TELEMETRY_BEACON_WAIT_MS" >/dev/null
 }
@@ -1916,16 +1834,15 @@ drive_telemetry() {
   ab open "${URL}${KILL_RESULT_QUERY}" >/dev/null || return 1
   fight_tick_at_least 2 120000 && ab click "#pause" >/dev/null && ab wait "$TELEMETRY_PAUSE_MS" >/dev/null && ab click "#resume" >/dev/null || { log "the telemetry run was not paused and resumed"; ab network unroute >/dev/null; return 1; }
   kill_and_wait_for_beacon || { ab network unroute >/dev/null; return 1; }
-  open_settings && ab wait 300 >/dev/null || { ab network unroute >/dev/null; return 1; }
   before="$(telemetry_box)" || return 1
-  ab click "#perf_data" >/dev/null && ab press Escape >/dev/null || { log "the performance data box was not clicked"; ab network unroute >/dev/null; return 1; }
+  ab click "#perf_data" >/dev/null || { log "the performance data box was not clicked"; ab network unroute >/dev/null; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/telemetry-page-errors.json" || { log "page error capture failed"; return 1; }
   click_result result_retry || { ab network unroute >/dev/null; return 1; }
   after="$(telemetry_box)" || return 1
   kill_and_wait_for_beacon || { ab network unroute >/dev/null; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/telemetry-opted-out-page-errors.json" || { log "page error capture failed"; return 1; }
   ab --json network requests | json data.requests >"$VERIFY_DIR/telemetry-requests.json" || { log "telemetry request capture failed"; return 1; }
-  open_settings && ab wait 300 >/dev/null && ab click "#perf_data" >/dev/null && ab press Escape >/dev/null || { log "the performance data box was not ticked again"; ab network unroute >/dev/null; return 1; }
+  ab click "#perf_data" >/dev/null || { log "the performance data box was not ticked again"; ab network unroute >/dev/null; return 1; }
   restored="$(telemetry_box)" || return 1
   ab network unroute >/dev/null || { log "the telemetry routes were not lifted"; return 1; }
   printf '{"before":%s,"after":%s,"restored":%s}\n' "$before" "$after" "$restored" >"$VERIFY_DIR/telemetry-box.json"
@@ -1968,17 +1885,21 @@ gate_state() {
 }
 
 click_with_departing_input() {
-  canvas_centre || return 1
+  local slot_x slot_y
+  panel_point "$LOADOUT_SLOT_X" "$LOADOUT_SLOT_Y" || return 1
+  slot_x=$PX slot_y=$PY
+  panel_offset "$PROTECT_MAGIC_RIGHT_PX" "$PROTECT_DOWN_PX" || return 1
   printf '[["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["press","%s"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["press","%s"],["mouse","move","%d","%d"],["mouse","down","left"],["mouse","up","left"],["click","#%s"]]' \
-    $((CX - WALK_CLICK_LEFT_PX)) $((CY - WALK_CLICK_UP_PX)) "$PRAYER_KEY" $((CX + PROTECT_MAGIC_RIGHT_PX)) $((CY + PROTECT_DOWN_PX)) \
-    "$KEYBIND_DEFAULT_KEY" "$LOADOUT_SLOT_X" "$LOADOUT_SLOT_Y" "$1" | ab batch --bail >/dev/null
+    $((CX - WALK_CLICK_LEFT_PX)) $((CY - WALK_CLICK_UP_PX)) "$PRAYER_KEY" $((CX + PDX)) $((CY + PDY)) \
+    "$KEYBIND_DEFAULT_KEY" "$slot_x" "$slot_y" "$1" | ab batch --bail >/dev/null
 }
 
 replace_run() {
   local button="$1" name="$2" origin waiting first_tick first_row
   origin="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
   click_with_departing_input "$button" || { log "${name}: the walk, prayer and inventory clicks or #${button} were not sent"; return 1; }
-  ab wait --fn "performance.timeOrigin !== $origin && document.getElementById('start')?.checkVisibility() === true" --timeout 60000 >/dev/null || log "${name}: no new page showed Start"
+  # Restart with nothing changed resets the fight in place; Try again and Same seed load a new page.
+  ab wait --fn "document.getElementById('start')?.checkVisibility() === true && (performance.timeOrigin !== $origin || window.__archiveOcellusProbe.snapshot().tick === 0)" --timeout 60000 >/dev/null || log "${name}: no fresh run showed Start"
   ab wait "$REPLACEMENT_HOLD_MS" >/dev/null
   waiting="$(ab --json eval "(() => { const probe = window.__archiveOcellusProbe, snapshot = probe.snapshot(); return { reloaded: performance.timeOrigin !== $origin, search: location.search, start: document.getElementById('start')?.checkVisibility() === true, pause: document.getElementById('pause') !== null, tick: snapshot.tick, ticking: snapshot.ticking, rows: probe.log().rows.length }; })()" | json data.result)" || return 1
   [[ "$(json start <<<"$waiting")" != true ]] || ab click "#start" >/dev/null || { log "${name}: Start was not clicked"; return 1; }
@@ -2024,54 +1945,10 @@ drive_setup_pause() {
   bind_inventory_key "$KEYBIND_DEFAULT_KEY" || { log "the default inventory key was not restored"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/setup-pause-page-errors.json" || { log "page error capture failed"; return 1; }
   ab click "#pause" >/dev/null || { log "Pause was not clicked before Restart"; return 1; }
-  replace_run restart restart-paused
+  replace_run restart_fight restart-paused
 }
 
 # A sprite started with new Image() holds agent-browser's open on the load event. The set-up panel does not need that event.
-open_setup_page() {
-  local cdp target
-  ab open about:blank >/dev/null || return 1
-  cdp="$(ab get cdp-url)" || return 1
-  target="$(ab --json tab list | json data.tabs.0.targetId)" || return 1
-  node --import tsx src/perf/devtools.ts open "$cdp" "$target" "$1"
-}
-
-saved_loadout_page() {
-  local seen
-  seen="$(ab --json errors | json data.errors.length)" || return 1
-  open_setup_page "${URL}$(json "$1" <<<"$SAVED_LOADOUT_PAGES")" || return 1
-  ab wait --fn "document.getElementById('start')?.checkVisibility() === true || (window.__archiveOcellusProbe?.snapshot().tick ?? 0) >= 1" --timeout 60000 >/dev/null ||
-    log "the ${1} page with the ${2} store never showed Start" >&2
-  printf '{"page":%s,"errors":%s}\n' \
-    "$(ab --json eval "(() => { const carrier = window.__archiveOcellusProbe?.snapshot().fight?.player ?? null; return { start: document.getElementById('start')?.checkVisibility() === true, note: document.getElementById('loadout_note')?.textContent ?? null, worn: carrier?.equipped ?? null, inventory: carrier?.inventory ?? null }; })()" | json data.result)" \
-    "$(ab --json errors | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify(JSON.parse(s).data.errors.slice(Number(process.argv[1])))))' "$seen")"
-}
-
-drive_saved_loadouts() {
-  local START_ON_LOAD=0 store phase
-  open_setup_page "${URL}$(json p4 <<<"$SAVED_LOADOUT_PAGES")" || return 1
-  for store in saved $SAVED_LOADOUT_UNREADABLE; do
-    ab eval "localStorage.setItem(\"${SAVED_LOADOUTS_KEY}\", ${SAVED_LOADOUT_STORES_JS}(${SAVED_LOADOUT_LAYOUT})[\"${store}\"])" >/dev/null || { log "the ${store} store was not saved"; return 1; }
-    for phase in p4 p3; do
-      saved_loadout_page "$phase" "$store" >"$VERIFY_DIR/saved-loadout-${phase}-${store}.json" || { log "the ${phase} page with the ${store} store was not captured"; return 1; }
-    done
-  done
-
-  local BROWSER_SESSION="${BROWSER_SESSION}-refused" result=0
-  echo "$REFUSED_STORAGE_JS" >"$VERIFY_DIR/refused-storage.js"
-  if ab --init-script "$VERIFY_DIR/refused-storage.js" set viewport 1280 800 >/dev/null; then
-    for phase in p4 p3; do
-      saved_loadout_page "$phase" refused >"$VERIFY_DIR/saved-loadout-${phase}-refused.json" || { log "the ${phase} page with refused storage was not captured"; result=1; break; }
-    done
-  else
-    log "the refused-storage session did not start"
-    result=1
-  fi
-  # A set-up page redraws every frame, so a session left open slows the units after this one.
-  ab close >/dev/null 2>&1
-  return "$result"
-}
-
 record_get_ready() {
   ab eval '(() => {
     const now = () => window.__archiveOcellusProbe?.snapshot() ?? null;
@@ -2156,10 +2033,9 @@ whats_new_state() {
     const panel = document.getElementById('whats_new_panel');
     const version = document.getElementById('app_version');
     return {
-      settingsDot: visible(document.querySelector('#settings .unseen_dot')),
       menuDot: visible(document.querySelector('#whats_new .unseen_dot')),
       whatsNewButton: visible(document.getElementById('whats_new')),
-      menu: visible(document.getElementById('settings_menu')),
+      inAbout: document.getElementById('sidebar_about')?.contains(document.getElementById('whats_new')) === true,
       panel: visible(panel),
       releases: [...(panel?.querySelectorAll('article') ?? [])].map((release) => ({ version: release.querySelector('h3')?.textContent ?? null, notes: [...release.querySelectorAll('li')].map((note) => note.textContent) })),
       panelBox: box('whats_new_panel'),
@@ -2180,14 +2056,12 @@ open_whats_new_page() {
 }
 
 drive_whats_new() {
-  local notes first menu opened small phone closed escape key_menu key_opened key_closed key_escaped reloaded reopened
+  local notes first opened small phone closed escape key_opened key_closed key_escaped reloaded
   notes="$(node scripts/release-notes.mjs)" || { log "release-notes.mjs rejected the changelog"; return 1; }
   echo "$notes" >"$VERIFY_DIR/whats-new-notes.md"
   open_whats_new_page || return 1
   first="$(whats_new_state)" || return 1
-  ab screenshot "$VERIFY_DIR/whats-new-unseen.png" >/dev/null || { log "unseen What's new screenshot failed"; return 1; }
-  ab click "#settings" >/dev/null && ab wait 300 >/dev/null || { log "the Settings button was not clicked"; return 1; }
-  menu="$(whats_new_state)" || return 1
+  ab scrollintoview "#whats_new" >/dev/null && ab screenshot "$VERIFY_DIR/whats-new-unseen.png" >/dev/null || { log "unseen What's new screenshot failed"; return 1; }
   ab click "#whats_new" >/dev/null && ab wait 300 >/dev/null || { log "the What's new button was not clicked"; return 1; }
   opened="$(whats_new_state)" || return 1
   ab screenshot "$VERIFY_DIR/whats-new-open.png" >/dev/null || { log "open What's new screenshot failed"; return 1; }
@@ -2200,91 +2074,28 @@ drive_whats_new() {
   ab set viewport 1280 800 >/dev/null && ab wait 300 >/dev/null || return 1
   ab click "#whats_new_close" >/dev/null && ab wait 300 >/dev/null || { log "the What's new Close button was not clicked"; return 1; }
   closed="$(whats_new_state)" || return 1
-  open_settings && ab click "#whats_new" >/dev/null && ab wait 300 >/dev/null && ab press Escape >/dev/null && ab wait 300 >/dev/null || { log "Escape was not pressed on the open What's new panel"; return 1; }
+  ab click "#whats_new" >/dev/null && ab wait 300 >/dev/null && ab press Escape >/dev/null && ab wait 300 >/dev/null || { log "Escape was not pressed on the open What's new panel"; return 1; }
   escape="$(whats_new_state)" || return 1
-  ab focus "#settings" >/dev/null && ab press Enter >/dev/null && ab press Shift+Tab >/dev/null && ab wait 300 >/dev/null || { log "Settings was not opened from the keyboard"; return 1; }
-  key_menu="$(whats_new_state)" || return 1
-  ab press Enter >/dev/null && ab wait 300 >/dev/null || { log "Enter was not pressed on What's new"; return 1; }
+  ab focus "#whats_new" >/dev/null && ab press Enter >/dev/null && ab wait 300 >/dev/null || { log "Enter was not pressed on What's new"; return 1; }
   key_opened="$(whats_new_state)" || return 1
   ab focus "#whats_new_close" >/dev/null && ab press Enter >/dev/null && ab wait 300 >/dev/null || { log "Enter was not pressed on Close"; return 1; }
   key_closed="$(whats_new_state)" || return 1
-  ab focus "#settings" >/dev/null && ab press Enter >/dev/null && ab press Shift+Tab >/dev/null && ab press Enter >/dev/null && ab wait 300 >/dev/null && ab press Escape >/dev/null && ab wait 300 >/dev/null || { log "Escape was not pressed on the keyboard-opened panel"; return 1; }
+  ab focus "#whats_new" >/dev/null && ab press Enter >/dev/null && ab wait 300 >/dev/null && ab press Escape >/dev/null && ab wait 300 >/dev/null || { log "Escape was not pressed on the keyboard-opened panel"; return 1; }
   key_escaped="$(whats_new_state)" || return 1
   ab --json errors | json data.errors >"$VERIFY_DIR/whats-new-page-errors.json" || { log "page error capture failed"; return 1; }
   open_whats_new_page || return 1
   reloaded="$(whats_new_state)" || return 1
-  ab screenshot "$VERIFY_DIR/whats-new-seen.png" >/dev/null || { log "seen What's new screenshot failed"; return 1; }
-  ab click "#settings" >/dev/null && ab wait 300 >/dev/null || { log "the reloaded Settings button was not clicked"; return 1; }
-  reopened="$(whats_new_state)" || return 1
+  ab scrollintoview "#whats_new" >/dev/null && ab screenshot "$VERIFY_DIR/whats-new-seen.png" >/dev/null || { log "seen What's new screenshot failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/whats-new-reload-page-errors.json" || { log "page error capture failed"; return 1; }
-  ab press Escape >/dev/null
 
-  printf '{"first":%s,"menu":%s,"opened":%s,"small":%s,"phone":%s,"closed":%s,"escape":%s,"keyMenu":%s,"keyOpened":%s,"keyClosed":%s,"keyEscaped":%s,"reloaded":%s,"reopened":%s}\n' \
-    "$first" "$menu" "$opened" "$small" "$phone" "$closed" "$escape" "$key_menu" "$key_opened" "$key_closed" "$key_escaped" "$reloaded" "$reopened" >"$VERIFY_DIR/whats-new.json"
+  printf '{"first":%s,"opened":%s,"small":%s,"phone":%s,"closed":%s,"escape":%s,"keyOpened":%s,"keyClosed":%s,"keyEscaped":%s,"reloaded":%s}\n' \
+    "$first" "$opened" "$small" "$phone" "$closed" "$escape" "$key_opened" "$key_closed" "$key_escaped" "$reloaded" >"$VERIFY_DIR/whats-new.json"
 }
 
 p3_page_done() {
   probe "log()" >"$VERIFY_DIR/$1.json" || { log "$1: fight log capture failed"; return 1; }
   ab console >"$VERIFY_DIR/$1-console.log" 2>&1 || { log "$1: console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/$1-page-errors.json" || { log "$1: page error capture failed"; return 1; }
-}
-
-p3_tile_samples() {
-  ab --json eval "(() => {
-    const probe = window.__archiveOcellusProbe, box = document.querySelector('#world').getBoundingClientRect();
-    const at = (tile) => { const p = probe.tileCentre(tile); return p && { x: Math.round(box.x + p.x), y: Math.round(box.y + p.y) }; };
-    return Object.fromEntries(Object.entries(${P3_ARENA_TILES}).map(([kind, tiles]) => [kind, tiles.map((tile) => ({ tile, at: at(tile) }))]));
-  })()" | json data.result
-}
-
-p3_arena_shot() {
-  local samples
-  fight_tick_at_least "$P3_ARENA_SHOT_TICK" 30000 || { log "the P3 drill never reached P3 tick ${P3_ARENA_SHOT_TICK}"; return 1; }
-  samples="$(p3_tile_samples)" || { log "the P3 tile pixels were not read"; return 1; }
-  ab screenshot "$VERIFY_DIR/p3-arena.png" >/dev/null || { log "the P3 arena screenshot failed"; return 1; }
-  echo "$samples" >"$VERIFY_DIR/p3-arena-tiles.json"
-}
-
-drive_p3_drill() {
-  ab open "${URL}${P3_QUERY}" >/dev/null || return 1
-  fight_tick_at_least 0 120000 || { log "the P3 drill never started"; return 1; }
-  canvas_centre || { log "canvas box unreadable"; return 1; }
-  click_after_tick "$P3_PRAY_TICK" "$PROTECT_MELEE_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Melee was not clicked in P3"; return 1; }
-  p3_arena_shot || return 1
-  record_boss_bar || { log "the boss bar probe was not installed"; return 1; }
-  fight_tick_at_least "$P3_SWINGS_LAST_TICK" 60000 || { log "the P3 drill never reached P3 tick ${P3_SWINGS_LAST_TICK}"; return 1; }
-  probe "snapshot()" >"$VERIFY_DIR/p3-snapshot.json"
-  ab --json eval "window.__bossBar" | json data.result >"$VERIFY_DIR/p3-boss-bar.json" || { log "P3 boss bar capture failed"; return 1; }
-  p3_page_done p3-swings || return 1
-
-  ab open "${URL}${P3_QUERY}" >/dev/null || return 1
-  fight_tick_at_least 0 120000 || { log "the P3 panic page never started"; return 1; }
-  canvas_centre || { log "canvas box unreadable"; return 1; }
-  click_after_tick "$P3_PRAY_TICK" "$PROTECT_MELEE_RIGHT_PX" "$PROTECT_DOWN_PX" || { log "Protect from Melee was not clicked on the panic page"; return 1; }
-  if tile_pixel p3-panic "$P3_FAR_EAST_TILE" "$P3_ESCAPE_TICK"; then
-    click_after_tick "$P3_ESCAPE_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the run to the far east was not clicked"; return 1; }
-  fi
-  fight_tick_at_least "$P3_PANIC_LAST_TICK" 30000 || { log "the panic page never reached P3 tick ${P3_PANIC_LAST_TICK}"; return 1; }
-  p3_page_done p3-panic || return 1
-
-  ab open "${URL}${P3_CHAIN_QUERY}" >/dev/null || return 1
-  fight_tick_at_least "$P3_CHAIN_LAST_TICK" 180000 || { log "the P3 chain page never reached P3 tick ${P3_CHAIN_LAST_TICK}"; return 1; }
-  p3_page_done p3-chain || return 1
-
-  ab open "${URL}${P3_CLEAR_QUERY}" >/dev/null || return 1
-  fight_tick_at_least 0 120000 || { log "the P3 interim clear page never started"; return 1; }
-  tile_pixel p3-clear "$P3_BOSS_TILE" "$P3_BOSS_CLICK_TICK" || return 1
-  canvas_centre || { log "canvas box unreadable"; return 1; }
-  click_after_tick "$P3_BOSS_CLICK_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the P3 boss was not clicked"; return 1; }
-  ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 30000 >/dev/null || log "the P3 run never reached the 76% break"
-  ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
-  result_panel >"$VERIFY_DIR/p3-clear-panel.json" || { log "P3 result panel capture failed"; return 1; }
-  ab screenshot "$VERIFY_DIR/p3-clear.png" >/dev/null || { log "P3 result screenshot failed"; return 1; }
-  p3_page_done p3-clear || return 1
-  click_result result_start_p4 || log "Start P4 loaded no new run"
-  ab --json eval "(() => { const probe = window.__archiveOcellusProbe, box = document.getElementById('phase'); return { search: location.search, logPhase: probe.log().header.phase ?? null, bossHp: probe.snapshot().fight?.boss.hp ?? null, rejected: probe.snapshot().rejected, phaseBox: box ? box.value : null }; })()" |
-    json data.result >"$VERIFY_DIR/p3-start-p4.json" || { log "the P4 page after Start P4 was not read"; return 1; }
-  ab --json errors | json data.errors >"$VERIFY_DIR/p3-start-p4-page-errors.json" || { log "page error capture failed"; return 1; }
 }
 
 pause_by_tab_switch() {
@@ -2390,7 +2201,7 @@ drive_layered_present() {
   ab open "${URL}${PRESENT_QUERY}" >/dev/null && wait_until_ticking || return 1
 
   ab set viewport $PRESENT_RESIZED_VIEWPORT >/dev/null || return 1
-  ab wait --fn "(([width, height], world) => world.width === width && world.height === height)([${PRESENT_RESIZED_VIEWPORT// /,}], document.querySelector('#world'))" --timeout 5000 >/dev/null ||
+  ab wait --fn "(([width, height], world) => innerWidth === width && innerHeight === height && world.width === Math.round(world.getBoundingClientRect().width) && world.height === Math.round(world.getBoundingClientRect().height))([${PRESENT_RESIZED_VIEWPORT// /,}], document.querySelector('#world'))" --timeout 5000 >/dev/null ||
     { log "#world never took the ${PRESENT_RESIZED_VIEWPORT} viewport"; return 1; }
   camera_still "$PRESENT_RESIZED_TILE"
   walk_to_tile present-resized "$PRESENT_RESIZED_TILE" "$PRESENT_RESIZED_TILE" || return 1
@@ -2402,7 +2213,7 @@ drive_layered_present() {
   walk_to_tile present-scaled "$PRESENT_SCALED_TILE" "$PRESENT_SCALED_TILE" || return 1
   pause_by_tab_switch && frame_present present-scaled && click_resume || return 1
 
-  ab set viewport 1280 800 >/dev/null && ab wait --fn "devicePixelRatio === 1 && document.querySelector('#world').width === 1280" --timeout 5000 >/dev/null || return 1
+  ab set viewport 1280 800 >/dev/null && ab wait --fn "devicePixelRatio === 1 && innerWidth === 1280 && document.querySelector('#world').width === Math.round(document.querySelector('#world').getBoundingClientRect().width)" --timeout 5000 >/dev/null || return 1
   pause_by_tab_switch && frame_present present-paused || return 1
   ab wait "$PRESENT_HOLD_MS" >/dev/null && ab screenshot "$VERIFY_DIR/present-paused-held-screen.png" >/dev/null || { log "held pause screenshot failed"; return 1; }
   click_resume
@@ -2565,7 +2376,7 @@ watch_production_page() {
   ab wait --fn "window.__orbs?.first !== null" --timeout 90000 >/dev/null || log "${name}: the minimap orbs never drew their numbers"
   start_run || return 1
   sleep "$PRODUCTION_WATCH_SECONDS"
-  ab --json eval "({ text: document.body.innerText, orbs: window.__orbs })" | json data.result >"$VERIFY_DIR/${name}.json" || { log "${name}: page state capture failed"; return 1; }
+  ab --json eval "({ text: document.body.innerText, orbs: window.__orbs, cssImages: [...new Set([...document.querySelectorAll('*')].flatMap((el) => [...getComputedStyle(el).backgroundImage.matchAll(/url\\(\"?([^\")]+)\"?\\)/g)].map((m) => new URL(m[1], location.href).pathname)))] })" | json data.result >"$VERIFY_DIR/${name}.json" || { log "${name}: page state capture failed"; return 1; }
   ab screenshot "$VERIFY_DIR/${name}.png" >/dev/null || { log "${name}: screenshot failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/${name}-page-errors.json" || { log "${name}: page error capture failed"; return 1; }
 }
@@ -2599,7 +2410,11 @@ drive_production() {
     for (const { request, response } of read("production-dropped-images.har").log.entries) {
       if (new RegExp(`^http://127\\.0\\.0\\.1:${port}/[^/]+\\.png$`).test(request.url)) (statuses[request.url] ??= []).push(response.status);
     }
-    const dropped = Object.entries(statuses).filter(([, attempts]) => attempts[0] === 0);
+    // The panel draws its stone frames as CSS backgrounds, which a browser never retries; the check covers the SDK loader.
+    const cssImages = new Set(read("production.json").cssImages);
+    const failedFirst = Object.entries(statuses).filter(([, attempts]) => attempts[0] === 0);
+    const dropped = failedFirst.filter(([url]) => !cssImages.has(new URL(url).pathname));
+    const cssDropped = failedFirst.filter(([url]) => cssImages.has(new URL(url).pathname)).map(([url, attempts]) => ({ url, attempts }));
     const page = (name) => {
       const { text, orbs } = read(`${name}.json`);
       return {
@@ -2620,49 +2435,33 @@ drive_production() {
       orbsShowNumbersAfterDroppedImages: orbsDrawn(retried),
       noPageErrorsAfterDroppedImages: retried.errorCount === 0,
     };
-    console.log(JSON.stringify({ clean, retried, dropped: dropped.map(([url, attempts]) => ({ url, attempts })), checks }, null, 2));
+    console.log(JSON.stringify({ clean, retried, dropped: dropped.map(([url, attempts]) => ({ url, attempts })), cssDropped, checks }, null, 2));
     process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
   ' "$VERIFY_DIR" "$PRODUCTION_PORT" "$PRODUCTION_ORBS" >"$VERIFY_DIR/production-checks.json"
   local verdict=$?
   cat "$VERIFY_DIR/production-checks.json"
   [[ $verdict -eq 0 ]] || log "a production check failed"
-  drive_production_hidden_p3 || verdict=1
+  drive_production_old_link || verdict=1
   return $verdict
 }
 
-drive_production_hidden_p3() {
+drive_production_old_link() {
   ab open "http://127.0.0.1:${PRODUCTION_PORT}/${PRODUCTION_P3_QUERY}" >/dev/null || return 1
-  ab eval '(() => {
-    const bars = window.__bossBars = [];
-    const fillText = CanvasRenderingContext2D.prototype.fillText;
-    CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) {
-      if (/^\d+ \/ \d+ \(\d+\.\d%\)$/.test(String(text)) && !bars.includes(String(text))) bars.push(String(text));
-      return fillText.call(this, text, ...rest);
-    };
-  })()' >/dev/null || { log "the production boss bar probe was not installed"; return 1; }
-  ab wait --fn "window.__bossBars.length > 0 && document.getElementById('trainer-loading') === null" --timeout 90000 >/dev/null || { log "the production page never settled behind the loading splash"; return 1; }
-  ab click "#settings" >/dev/null && ab wait 300 >/dev/null || { log "the production Settings button was not clicked"; return 1; }
-  ab --json eval "(() => {
-    const box = (id) => { const r = document.getElementById(id)?.getBoundingClientRect(); return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null; };
-    return { search: location.search, bars: window.__bossBars, menuOpen: document.getElementById('settings_menu')?.checkVisibility() === true, setupBox: document.getElementById('setup') !== null, phaseBox: document.getElementById('phase') !== null, comingSoon: document.getElementById('coming_soon')?.textContent ?? null, controlsBox: box('drill_controls'), footerBox: box('credits') };
-  })()" |
+  ab wait --fn "document.getElementById('start')?.checkVisibility() === true && document.getElementById('trainer-loading') === null" --timeout 90000 >/dev/null || { log "the production page never settled behind the loading splash"; return 1; }
+  ab --json eval "({ search: location.search, startAt: document.getElementById('start_phase')?.value ?? null, drillControls: document.getElementById('drill_controls') !== null })" |
     json data.result >"$VERIFY_DIR/production-phase-p3.json" || { log "the production phase=p3 page was not read"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/production-phase-p3-page-errors.json" || { log "page error capture failed"; return 1; }
   node -e '
-    const fs = require("fs"), [dir, entryBar] = process.argv.slice(1);
+    const fs = require("fs"), [dir, query] = process.argv.slice(1);
     const page = JSON.parse(fs.readFileSync(`${dir}/production-phase-p3.json`, "utf8"));
     const errors = JSON.parse(fs.readFileSync(`${dir}/production-phase-p3-page-errors.json`, "utf8"));
-    const checks = {
-      phaseP3OpensP4: page.search === "?phase=p3&seed=1" && page.bars[0] === entryBar && errors.length === 0,
-      noPhaseBox: page.menuOpen && page.setupBox && !page.phaseBox,
-      comingSoonBelowClearButtons: page.comingSoon === "Phases 1 to 3 coming soon." && page.controlsBox.bottom <= page.footerBox.top,
-    };
+    const checks = { oldPhaseP3LinkOpensFullFightAtP4: page.search === query && page.startAt === "4" && !page.drillControls && errors.length === 0 };
     console.log(JSON.stringify({ page, errors: errors.length, checks }, null, 2));
     process.exit(Object.values(checks).every(Boolean) ? 0 : 1);
-  ' "$VERIFY_DIR" "$BOSS_BAR_AT_ENTRY" >"$VERIFY_DIR/production-phase-p3-checks.json"
+  ' "$VERIFY_DIR" "$PRODUCTION_P3_QUERY" >"$VERIFY_DIR/production-phase-p3-checks.json"
   local verdict=$?
   cat "$VERIFY_DIR/production-phase-p3-checks.json"
-  [[ $verdict -eq 0 ]] || log "a hidden P3 production check failed"
+  [[ $verdict -eq 0 ]] || log "the old phase=p3 link check failed"
   return $verdict
 }
 
@@ -2707,7 +2506,7 @@ stage_production() {
   chrome_launch || return 1
   production_port_free || return 1
   manifest_ready || { log "assets missing: run scripts/verify.sh assets"; return 1; }
-  ARCHIVE_P2=off ARCHIVE_P3=off node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/production" >"$VERIFY_DIR/production-build.log" 2>&1 || { log "the production build failed"; return 1; }
+  node node_modules/.bin/webpack --mode production --output-path "$VERIFY_DIR/production" >"$VERIFY_DIR/production-build.log" 2>&1 || { log "the production build failed"; return 1; }
 
   local BROWSER_SESSION="archive-ocellus-verify-$(basename "$VERIFY_DIR")-production" PRODUCTION_PID= START_ON_LOAD=0 result=1
   trap 'release_production; exit 130' INT TERM

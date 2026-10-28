@@ -67,7 +67,8 @@ export function judge({ read, text, bytes, env }) {
   const [width, height] = resizedViewport.split(" ").map(Number);
   const linedUp = (frame) => frame.ticking === false && frame.layersShareWorldBox && frame.offShare <= Number(maxOff) && frame.centreLitShare >= Number(drawnMin);
   const checks = {
-    resizedLayersLineUp: linedUp(observed.resized) && observed.resized.world.backing.join() === [width, height].join() && observed.resized.devicePixelRatio === 1,
+    // The canvas fills the space beside the side panel and above the credit strip, so its backing matches its own box.
+    resizedLayersLineUp: linedUp(observed.resized) && observed.resized.screen.join() === [width, height].join() && observed.resized.world.backing.join() === [observed.resized.world.width, observed.resized.world.height].join() && observed.resized.devicePixelRatio === 1,
     scaledLayersLineUp: linedUp(observed.scaled) && observed.scaled.devicePixelRatio === Number(deviceScale) && observed.scaled.screen.join() === [width * deviceScale, height * deviceScale].join(),
     clicksAfterResizeOrderTheirTiles: observed.clicks.length === 2 && observed.clicks.every(({ tile, ordered }) => ordered?.x === tile.x && ordered?.y === tile.y),
     pausedFrameStaysDrawn: linedUp(observed.paused) && linedUp(observed.held) && observed.resumed === true,
