@@ -130,4 +130,22 @@ describe("phase 4's floor in the full room", () => {
       stayed: `${player.location.x},${player.location.y}` === before,
     }).toEqual({ beforeOnFloor: true, stayed: true });
   });
+
+  test("no room tile outside the platform is walkable after the fall", () => {
+    const region = fullFight();
+    ontoStone(region);
+    const platform = platformRooms(standingOf(region));
+    const open: string[] = [];
+    let openPlatform = 0;
+    for (let x = 0; x < region.width; x++) {
+      for (let y = 0; y < region.height; y++) {
+        const key = `${x},${y}`;
+        const walkable = !blocked(region, x, y);
+        if (platform.has(key)) {
+          if (walkable) openPlatform += 1;
+        } else if (walkable) open.push(key);
+      }
+    }
+    expect({ open, openPlatform }).toEqual({ open: [], openPlatform: platform.size });
+  });
 });
