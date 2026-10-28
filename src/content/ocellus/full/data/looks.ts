@@ -444,6 +444,14 @@ export const seqSourced = {
     cache("seq 14872"),
     ocellusSim("data.ts:70"),
   ),
+  humanYamaShortJump: selected(
+    12196,
+    "spec-confirmed",
+    "unscaled",
+    "HUMAN_YAMA_SHORTJUMP01, the player's jump onto and off each stepping stone",
+    noWiki("a cache id, not a rule the wiki states"),
+    cache("seq 12196"),
+  ),
 };
 
 export const SEQ = {
@@ -485,6 +493,7 @@ export const SEQ = {
   p3PrayerLoop: seqSourced.p3PrayerLoop.value,
   p3PrayerOut: seqSourced.p3PrayerOut.value,
   p3Death: seqSourced.p3Death.value,
+  humanYamaShortJump: seqSourced.humanYamaShortJump.value,
 };
 
 export const portalSourced = {

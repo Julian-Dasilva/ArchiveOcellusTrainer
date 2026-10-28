@@ -63,18 +63,27 @@ const PHASE1_WARM = warmPlacements(PHASE1_ACTOR_GRAPHICS);
 
 type Job = () => Promise<unknown>;
 
-/** Run jobs one at a time in the browser's idle time, so warming never takes a frame the fight needs. */
-function whenIdle(jobs: Job[]): void {
-  const idle = (run: () => void) =>
-    typeof window.requestIdleCallback === "function" ? window.requestIdleCallback(run, { timeout: 1500 }) : window.setTimeout(run, 30);
+/**
+ * Run jobs one at a time in the browser's idle time, so warming never takes a frame the fight needs. The returned
+ * cancel drops every job not yet started; a job already loading finishes without scheduling another.
+ */
+function whenIdle(jobs: Job[]): () => void {
+  const idleCallbacks = typeof window.requestIdleCallback === "function";
+  let pending = 0;
   const next = () => {
     const job = jobs.shift();
     if (!job) return;
-    idle(() => {
+    const run = () => {
       job().catch(() => undefined).finally(next);
-    });
+    };
+    pending = idleCallbacks ? window.requestIdleCallback(run, { timeout: 1500 }) : window.setTimeout(run, 30);
   };
   next();
+  return () => {
+    jobs.length = 0;
+    if (idleCallbacks) window.cancelIdleCallback(pending);
+    else window.clearTimeout(pending);
+  };
 }
 
 const scratch = new THREE.Scene();
@@ -134,7 +143,7 @@ export function p4WarmSpotIds(): readonly number[] {
  * phases before them, then the sounds (a cold sound only synthesizes on its first play). Anything still cold
  * builds on first use, as before.
  */
-export function warmLaterPhases(anchor: Renderable, start: StartPhase): void {
+export function warmLaterPhases(anchor: Renderable, start: StartPhase): () => void {
   const later = START_PHASES.filter((phase) => phase > start);
   const done = new Set(startSpots(start));
   const spots = [...new Set(later.flatMap((phase) => FLOOR_SPOTS[phase]))].filter((id) => !done.has(id));
@@ -142,5 +151,5 @@ export function warmLaterPhases(anchor: Renderable, start: StartPhase): void {
   const sounds: Job[] = [...new Set(Object.values(SOUND).flat())].map((id) => () => SoundCache.preload(cacheSound(id)));
   const p4Sounds: Job[] = Object.values(OCELLUS_P4.presentation.sounds).map((sound) => () => SoundCache.preload(cacheSound(sound.value)));
   const boss = () => CacheRenderModel.forRenderable(anchor, CacheRenderReferences.npc(OCELLUS_P4.boss.npcId.value)).preload();
-  whenIdle([boss, ...p4Spots.map((id) => floorSpot(anchor, id)), ...spots.map((id) => floorSpot(anchor, id)), ...sounds, ...p4Sounds]);
+  return whenIdle([boss, ...p4Spots.map((id) => floorSpot(anchor, id)), ...spots.map((id) => floorSpot(anchor, id)), ...sounds, ...p4Sounds]);
 }

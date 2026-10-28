@@ -687,7 +687,8 @@ export function FullFightPage() {
     if (!ready) return;
     const anchor = region.entities[0];
     prefetchLaterPhases(params.startPhase);
-    if (anchor) warmLaterPhases(anchor, params.startPhase);
+    if (!anchor) return;
+    return warmLaterPhases(anchor, params.startPhase);
   }, [ready, params.startPhase, region]);
 
   useLayoutEffect(() => {

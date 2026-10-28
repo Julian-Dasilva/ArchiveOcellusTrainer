@@ -1,3 +1,4 @@
+import type { ClientCycles } from "../../../../sim/brands";
 import type { Style } from "../../../../sim/combat";
 import type { ATile, Quadrant } from "../../fight/geometry";
 import type { AddKind, God } from "./types";
@@ -19,8 +20,8 @@ export interface Fighter {
   readonly stats: Readonly<{ hp: number; maxHp: number; prayer: number; maxPrayer: number; special: number }>;
   hop(to: ATile): void;
   walkTo(to: ATile): void;
-  /** One tile of a walk. The player is on `to` this tick, and the walk animation draws the step. */
-  step(to: ATile): void;
+  /** A stepping-stone jump: on `to` this tick, drawn moving there over `over` in the short-jump animation. */
+  jump(to: ATile, over: ClientCycles): void;
   freeze(ticks: number): void;
   unfreeze(): void;
   sever(ticks: number): void;

@@ -1,5 +1,5 @@
-import { CacheRenderModel, CacheRenderReferences, EmptyModel, ImageLoader, Mob, Player, Random, RangedWeapon } from "osrs-sdk";
-import type { IncomingAttackRoll, IncomingAttackRollModifiers, Location, Model, Projectile, Region, Unit, UnitBonuses, UnitStats } from "osrs-sdk";
+import { CacheRenderModel, CacheRenderReferences, EmptyModel, ImageLoader, Mob, Player, Random, RangedWeapon, Settings } from "osrs-sdk";
+import type { IncomingAttackRoll, IncomingAttackRollModifiers, Location, Location3, Model, Projectile, Region, Unit, UnitBonuses, UnitStats } from "osrs-sdk";
 import type { BossOverhead } from "../full/data/looks";
 import { LOWEST_DEFENCE_FRACTION, NPC, PROTECT_MELEE_ICON, SEQ, SPOT } from "../full/data/looks";
 import { P1 } from "../full/data/p1";
@@ -11,6 +11,7 @@ import type { SpriteFrame } from "../js/OcellusTimings";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { PHASE_RANGED_DEFENCE, ammunitionAgainst } from "./blowpipe";
 import { spriteFile } from "../../../servedAssets";
+import type { ClientCycles } from "../../../sim/brands";
 import { tile } from "../../../sim/brands";
 import { EncounterPlayer } from "../../../sim/sdk/EncounterPlayer";
 import type { EncounterPlayerHooks } from "../../../sim/sdk/EncounterPlayer";
@@ -404,8 +405,12 @@ export class Emitter extends Mob {
   override detectDeath(): void {}
 }
 
+type ExactMove = Readonly<{ from: Location; startTick: number; over: ClientCycles }>;
+
 /** The full fight's player. Arena tiles stay in the fight's frame. The engine player keeps room tiles. */
 export class FightPlayer extends EncounterPlayer {
+  private exact: ExactMove | null = null;
+
   constructor(region: Region, at: ATile, hooks: () => EncounterPlayerHooks) {
     super(region, toSdk(at), hooks);
   }
@@ -430,6 +435,26 @@ export class FightPlayer extends EncounterPlayer {
       return;
     }
     super.hop(to);
+  }
+
+  /** The client's exact move: on the tile now for the fight, drawn sliding there from where they were drawn over `over`. */
+  exactMove(to: ATile, over: ClientCycles): void {
+    const from = { ...this.perceivedLocation };
+    this.hop(to);
+    this.exact = { from, startTick: this.region.world?.globalTickCounter ?? 0, over };
+  }
+
+  override getPerceivedLocation(tickPercent: number): Location3 {
+    const drawn = super.getPerceivedLocation(tickPercent);
+    const exact = this.exact;
+    if (exact === null) return drawn;
+    const ticks = (this.region.world?.globalTickCounter ?? exact.startTick) - exact.startTick;
+    const progress = ((ticks + tickPercent) * (Settings.tickMs / 20)) / exact.over;
+    if (progress >= 1) {
+      this.exact = null;
+      return drawn;
+    }
+    return { x: exact.from.x + (drawn.x - exact.from.x) * progress, y: exact.from.y + (drawn.y - exact.from.y) * progress, z: drawn.z };
   }
 }
 
