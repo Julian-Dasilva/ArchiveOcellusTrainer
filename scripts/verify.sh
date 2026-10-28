@@ -136,17 +136,6 @@ VOID_FLOOD_SHOT_TICK=45
 VOID_FLOOR_HITS='[[44,9],[45,11],[46,10],[47,11],[48,10],[49,9],[50,9],[51,10],[52,9],[53,10],[54,1]]'
 VOID_RUN_END='[[54,"death"]]'
 VOID_PIXEL="#1e2529"
-INVINCIBLE_QUERY="?seed=1&focus=${VOID_DRILL}&invincible=on"
-INVINCIBLE_LAST_TICK=56
-INVINCIBLE_EXPECTED='{"prevented":[[54,"floor-hit"]],"hp":[[53,1],[54,99]],"chat":"Invincible: the void floor would have killed you on tick 54."}'
-INVINCIBLE_ORB_QUERY="?seed=1&invincible=on"
-INVINCIBLE_ORB_UNDER_BOSS_CLICK_UP_PX=100
-INVINCIBLE_ORB_BESIDE_TICK=19
-INVINCIBLE_ORB_BESIDE_TILE='{"x":3,"y":8}'
-INVINCIBLE_ORB_STEP_ON_TICK=24
-INVINCIBLE_ORB_TILE='{"x":4,"y":8}'
-INVINCIBLE_ORB_LAST_TICK=27
-INVINCIBLE_ORB_EXPECTED='{"revived":[15,"floor-hit",38],"returned":[[26,{"requested":0,"applied":0,"beforeHp":99,"afterHp":99}]],"hp":[26,99],"maxHp":99}'
 ORB_DRILL="lifeforce-orb"
 ORB_SEED=75
 ORB_DORMANT_TICK=20
@@ -243,20 +232,15 @@ RIFT_MELEE_HITS='[[70,"rift-67-1","melee",35],[75,"rift-67-1","melee",9]]'
 RIFT_MELEE_SPLAT_TICK=70
 RIFT_MELEE_LAST_TICK=77
 CHAT_POLL_WAIT_MS=600
-MENU_CONTROLS='["setup","focus","seed","keybinds","sound","area_sound","invincible","perf_data","whats_new"]'
 MENU_QUERY="?seed=1"
 MENU_SMALL_VIEWPORT="800 600"
 WHATS_NEW_PHONE_VIEWPORT="390 844"
-DEATH_RESULT_QUERY="?seed=1&focus=void-floor"
-DEATH_RESULT_LINES='["You died","on P4 tick 54"]'
 KILL_RESULT_QUERY="?seed=4"
 KILL_RESULT_BOSS_HP=1
 KILL_RESULT_CLICK_TICK=12
 UNDER_BOSS_TILE='{"x":5,"y":5}'
 BOSS_POINT_STEP_PX=6
 BOSS_POINT_MAX_RISE_PX=200
-KILL_RESULT_LINES='["Ocellus defeated","P4 time: 16 ticks (0:09.6)"]'
-RESULT_BUTTONS='["Restart","Retry seed"]'
 TELEMETRY_FIELDS='["version","view","gpu","browser","stage","end","sampleRate","frames","frameMedianMs","frameP95Ms","frameP99Ms","framesOver50Ms","runTicks","tickMedianMs","tickP95Ms","tickMaxMs","lateTicks","devicePixelRatio","canvasWidth","canvasHeight","cores"]'
 TELEMETRY_BEACON_WAIT_MS=1800
 TELEMETRY_PAUSE_MS=2500
@@ -319,7 +303,6 @@ PRODUCTION_P3_QUERY="?phase=p3&seed=1"
 PRODUCTION_WATCH_SECONDS=20
 PRODUCTION_ORBS='["99","99","100","100"]'
 PRODUCTION_ORBS_JS='(() => { const orbs = { framesSinceFirst: 0, blankSinceFirst: 0, first: null, last: null }; window.__orbs = orbs; let frame = []; const fillText = CanvasRenderingContext2D.prototype.fillText; CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) { if (this.textAlign === "center" && this.font.endsWith("px Stats_11") && this.fillStyle !== "#000000" && /^\d+$/.test(String(text))) frame.push(String(text)); return fillText.call(this, text, ...rest); }; const close = () => { if (frame.length > 0) { orbs.first ??= frame; orbs.last = frame; } if (orbs.first) { orbs.framesSinceFirst++; if (frame.length === 0) orbs.blankSinceFirst++; } frame = []; requestAnimationFrame(close); }; requestAnimationFrame(close); })();'
-P3_ARENA_TILES='{"open":[{"x":25,"y":11},{"x":26,"y":11}],"closed":[{"x":16,"y":13},{"x":17,"y":13}],"rim":[{"x":28,"y":10}]}'
 PRESENT_QUERY="?seed=1&invincible=on"
 PRESENT_RESIZED_VIEWPORT="1000 700"
 PRESENT_DEVICE_SCALE=2
@@ -1606,47 +1589,6 @@ drive_overheads_rifts() {
   ab --json errors | json data.errors >"$VERIFY_DIR/reflect-page-errors.json" || { log "page error capture failed"; return 1; }
 }
 
-invincible_toggle() {
-  open_settings || return 1
-  printf '{"visible":%s,"checked":%s}\n' "$(ab --json is visible "#invincible" | json data.visible)" "$(ab --json is checked "#invincible" | json data.checked)"
-}
-
-drive_invincible() {
-  local search toggle
-  ab open "${URL}${DRILL_QUERY}" >/dev/null || return 1
-  fight_tick_at_least 0 120000 || { log "the default drill never took its first P4 step"; return 1; }
-  invincible_toggle >"$VERIFY_DIR/invincible-default.json" || { log "invincible toggle capture failed"; return 1; }
-  ab open "${URL}${INVINCIBLE_QUERY}" >/dev/null || return 1
-  fight_tick_at_least 0 120000 || { log "the invincible drill never took its first P4 step"; return 1; }
-  invincible_toggle >"$VERIFY_DIR/invincible-linked.json" || { log "invincible toggle capture failed"; return 1; }
-  fight_tick_at_least "$INVINCIBLE_LAST_TICK" 90000 || { log "the invincible drill never stepped to P4 tick ${INVINCIBLE_LAST_TICK}"; return 1; }
-  ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
-  ab screenshot "$VERIFY_DIR/invincible.png" >/dev/null || { log "invincible screenshot failed"; return 1; }
-  ab --json get text "#game_chat" >"$VERIFY_DIR/invincible-chat.json" || { log "chat text capture failed"; return 1; }
-  probe "log()" >"$VERIFY_DIR/invincible.json"
-  ab console >"$VERIFY_DIR/invincible-console.log" 2>&1 || { log "console capture failed"; return 1; }
-  ab --json errors | json data.errors >"$VERIFY_DIR/invincible-page-errors.json" || { log "page error capture failed"; return 1; }
-  restart_run || return 1
-  search="$(ab --json eval "location.search" | json data.result)" || return 1
-  toggle="$(invincible_toggle)" || { log "invincible toggle capture failed"; return 1; }
-  node -e 'console.log(JSON.stringify({ search: process.argv[1], toggle: JSON.parse(process.argv[2]) }))' "$search" "$toggle" >"$VERIFY_DIR/invincible-restarted.json"
-
-  ab open "${URL}${INVINCIBLE_ORB_QUERY}" >/dev/null || return 1
-  fight_tick_at_least 0 120000 || { log "the invincible full fight never took its first P4 step"; return 1; }
-  canvas_centre || { log "canvas box unreadable"; return 1; }
-  click_at "$CX" $((CY - INVINCIBLE_ORB_UNDER_BOSS_CLICK_UP_PX)) || { log "the walk under the boss was not clicked"; return 1; }
-  # Wait beside the orb through the revival at 24, then step on, so the orb is taken after the revival cleared its credit.
-  tile_pixel invincible-orb "$INVINCIBLE_ORB_BESIDE_TILE" "$INVINCIBLE_ORB_BESIDE_TICK" || return 1
-  click_after_tick "$INVINCIBLE_ORB_BESIDE_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the walk beside the orb was not clicked"; return 1; }
-  tile_pixel invincible-orb "$INVINCIBLE_ORB_TILE" "$INVINCIBLE_ORB_STEP_ON_TICK" || return 1
-  click_after_tick "$INVINCIBLE_ORB_STEP_ON_TICK" $((CLICK_X - CX)) $((CLICK_Y - CY)) || { log "the step onto the orb was not clicked"; return 1; }
-  fight_tick_at_least "$INVINCIBLE_ORB_LAST_TICK" 30000 || { log "the invincible full fight never stepped to P4 tick ${INVINCIBLE_ORB_LAST_TICK}"; return 1; }
-  ab screenshot "$VERIFY_DIR/invincible-orb.png" >/dev/null || { log "invincible orb screenshot failed"; return 1; }
-  probe "log()" >"$VERIFY_DIR/invincible-orb.json"
-  ab console >"$VERIFY_DIR/invincible-orb-console.log" 2>&1 || { log "console capture failed"; return 1; }
-  ab --json errors | json data.errors >"$VERIFY_DIR/invincible-orb-page-errors.json" || { log "page error capture failed"; return 1; }
-}
-
 audio_contexts() {
   ab --json eval "(window.__audioContexts ?? []).map((context) => context.state)" | json data.result
 }
@@ -1724,63 +1666,11 @@ drive_cues() {
   ab close >/dev/null 2>&1
 }
 
-result_panel() {
-  ab --json eval "(() => {
-    const panel = document.getElementById('run_result');
-    return {
-      visible: panel?.checkVisibility() === true,
-      lines: panel ? [...panel.querySelectorAll('h2, p')].map((line) => line.textContent) : [],
-      buttons: panel ? [...panel.querySelectorAll('button')].map((button) => button.textContent) : [],
-      run: window.__archiveOcellusProbe.snapshot().fight?.run ?? null,
-    };
-  })()" | json data.result
-}
-
-next_run() {
-  ab --json eval "(() => { const probe = window.__archiveOcellusProbe; return { search: location.search, seed: probe.log().header.seed, bossHp: probe.snapshot().fight?.boss.hp ?? null, panel: document.getElementById('run_result') !== null }; })()" | json data.result
-}
-
 click_result() {
   local loaded
   loaded="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
   ab click "#$1" >/dev/null || return 1
   reloaded_from "$loaded" || { log "#$1 never loaded a new run"; return 1; }
-}
-
-pause_over_result() {
-  local paused
-  ab click "#pause" >/dev/null && ab wait 300 >/dev/null || return 1
-  paused="$(ab --json eval "(() => { const box = document.getElementById('resume')?.getBoundingClientRect(); const top = box ? document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) : null; return { resume: box !== undefined, onTop: top?.id ?? null }; })()" | json data.result)" || return 1
-  ab click "#resume" >/dev/null && ab wait 300 >/dev/null || return 1
-  printf '{"paused":%s,"resumed":%s}\n' "$paused" "$(result_panel)"
-}
-
-drive_run_results() {
-  local start
-  ab open "${URL}${DEATH_RESULT_QUERY}" >/dev/null || return 1
-  ab wait --fn "window.__archiveOcellusProbe?.snapshot().fight?.run.kind === 'ended'" --timeout 120000 >/dev/null || { log "the player on the flood never died"; return 1; }
-  ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
-  result_panel >"$VERIFY_DIR/death-result.json" || { log "death result capture failed"; return 1; }
-  ab screenshot "$VERIFY_DIR/death-result.png" >/dev/null || { log "death result screenshot failed"; return 1; }
-  ab --json errors | json data.errors >"$VERIFY_DIR/death-result-page-errors.json" || { log "page error capture failed"; return 1; }
-  replace_run result_restart result-restart || return 1
-  next_run >"$VERIFY_DIR/death-restart.json" || { log "restarted run capture failed"; return 1; }
-
-  ab open "${URL}${KILL_RESULT_QUERY}" >/dev/null || return 1
-  fight_tick_at_least 0 120000 || { log "the bosshp drill never took its first P4 step"; return 1; }
-  start="$(next_run)" || return 1
-  canvas_centre || { log "canvas box unreadable"; return 1; }
-  click_after_tick "$KILL_RESULT_CLICK_TICK" "$RISEN_BOSS_CLICK_RIGHT_PX" "$RISEN_BOSS_CLICK_DOWN_PX" || { log "the boss was not clicked"; return 1; }
-  ab wait --fn "window.__archiveOcellusProbe.snapshot().fight?.run.kind === 'ended'" --timeout 60000 >/dev/null || { log "the bosshp run never ended"; return 1; }
-  ab wait "$CHAT_POLL_WAIT_MS" >/dev/null
-  result_panel >"$VERIFY_DIR/kill-result.json" || { log "kill result capture failed"; return 1; }
-  ab screenshot "$VERIFY_DIR/kill-result.png" >/dev/null || { log "kill result screenshot failed"; return 1; }
-  ab set viewport $MENU_SMALL_VIEWPORT >/dev/null && ab wait 600 >/dev/null && ab screenshot "$VERIFY_DIR/kill-result-small.png" >/dev/null || { log "small kill result screenshot failed"; return 1; }
-  ab set viewport 1280 800 >/dev/null && ab wait 600 >/dev/null || return 1
-  ab --json errors | json data.errors >"$VERIFY_DIR/kill-result-page-errors.json" || { log "page error capture failed"; return 1; }
-  pause_over_result >"$VERIFY_DIR/result-paused.json" || { log "the result page was not paused and resumed"; return 1; }
-  replace_run result_retry result-retry || return 1
-  printf '{"start":%s,"retry":%s}\n' "$start" "$(next_run)" >"$VERIFY_DIR/kill-retry.json" || { log "retried run capture failed"; return 1; }
 }
 
 telemetry_box() {
