@@ -749,12 +749,13 @@ export const p3Sourced = {
     "The vine's hold, renewed on every tick it lives. ocellus-sim phase3.ts:469, 772",
     noWiki("the wiki's phase 3 text does not state this count"),
   ),
-  stoneWalk: selected(
-    1,
-    "inferred",
+  stoneJumpCycles: selected(
+    27,
+    "spec-confirmed",
     "unscaled",
-    "You walk the stones, one tile a tick, and you do not hold on a stone. Julian, 2026-10-27: in p3 you dont really \"hop\" on thes tones you kinda \"walk\" on them.",
+    "[R] Each stone jump draws over 27 cc, inside its 30 cc tick, so the next jump starts on the next tick: \"Jump (op1) from the bank onto the near stone, stone to stone, off the far stone onto the bank it is named for; `human_yama_shortjump01`, a teleport and a 27-cycle exact move (4301 [1327..1338]: four hops a raider)\"",
     noWiki("the wiki's phase 3 text does not state this count"),
+    analysis("https://github.com/MRobertEvers/oldschool-clientc/blob/HEAD/docs/rsprox-analysis/guthixian_archive/ocellus_plan.md", "P3.stoneJumpCycles"),
   ),
   idleAfter: selected(
     1,
@@ -930,7 +931,7 @@ export const P3 = {
   spinReach: p3Sourced.spinReach.value,
   slashShowsBefore: p3Sourced.slashShowsBefore.value,
   vineHolds: p3Sourced.vineHolds.value,
-  stoneWalk: p3Sourced.stoneWalk.value,
+  stoneJumpCycles: p3Sourced.stoneJumpCycles.value,
   idleAfter: p3Sourced.idleAfter.value,
   flyingMessageEvery: p3Sourced.flyingMessageEvery.value,
   riftClearance: p3Sourced.riftClearance.value,

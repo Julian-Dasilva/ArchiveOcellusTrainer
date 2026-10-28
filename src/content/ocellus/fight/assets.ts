@@ -69,6 +69,7 @@ export const FIGHT_ASSETS = {
     fightVoidVine: { id: NPC.vine, animations: {} },
   },
   spotAnims: spots(),
+  playerAnimations: { fightHumanYamaShortJump: { id: SEQ.humanYamaShortJump } },
   sounds: sounds(),
 } satisfies CacheAssets;
 

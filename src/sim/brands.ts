@@ -7,6 +7,8 @@ export type Tick = Brand<"Tick">;
 export type TickSpan = Brand<"TickSpan">;
 export type WorldTick = Brand<"WorldTick">;
 export type Cycle = Brand<"Cycle">;
+/** 20 ms client cycles, 30 to a 600 ms tick. */
+export type ClientCycles = Brand<"ClientCycles">;
 export type Seed = Brand<"Seed">;
 export type TileX = Brand<"TileX">;
 export type TileY = Brand<"TileY">;
@@ -19,6 +21,7 @@ const isTick = (n: Unbranded): n is Unbranded & Tick => isCount(n);
 const isTickSpan = (n: Unbranded): n is Unbranded & TickSpan => isCount(n);
 const isWorldTick = (n: Unbranded): n is Unbranded & WorldTick => isCount(n);
 const isCycle = (n: Unbranded): n is Unbranded & Cycle => isCount(n) && n >= 1;
+const isClientCycles = (n: Unbranded): n is Unbranded & ClientCycles => isCount(n) && n >= 1;
 const isSeed = (n: Unbranded): n is Unbranded & Seed => isCount(n) && n <= 0xffffffff;
 const isTileX = (n: Unbranded): n is Unbranded & TileX => Number.isInteger(n);
 const isTileY = (n: Unbranded): n is Unbranded & TileY => Number.isInteger(n);
@@ -39,6 +42,10 @@ export function worldTick(n: Unbranded): WorldTick {
 }
 export function cycle(n: Unbranded): Cycle {
   if (!isCycle(n)) throw new RangeError(`not a cycle: ${n}`);
+  return n;
+}
+export function clientCycles(n: Unbranded): ClientCycles {
+  if (!isClientCycles(n)) throw new RangeError(`not a client cycle count: ${n}`);
   return n;
 }
 export function seed(n: Unbranded): Seed {

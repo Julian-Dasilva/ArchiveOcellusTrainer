@@ -27,6 +27,7 @@ export const ARCHIVE_OCELLUS_ASSETS = {
   models: { ...P4_ASSETS.models, ...FIGHT_MODELS },
   items: P4_ASSETS.items,
   spotAnims: { ...P4_ASSETS.spotAnims, ...FIGHT_ASSETS.spotAnims },
+  playerAnimations: FIGHT_ASSETS.playerAnimations,
   sounds: { ...P4_ASSETS.sounds, ...FIGHT_ASSETS.sounds },
 } as const satisfies CacheAssets;
 

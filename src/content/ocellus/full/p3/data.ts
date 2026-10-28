@@ -1,11 +1,15 @@
-import type { TickSpan } from "../../../../sim/brands";
-import { span } from "../../../../sim/brands";
+import type { ClientCycles, TickSpan } from "../../../../sim/brands";
+import { clientCycles, span } from "../../../../sim/brands";
 import type { Selected } from "../../../../sim/sourced";
 import { p3Sourced } from "../data/p3";
 
 /** A tick count from his data, checked once here as the span the engine's timers take. */
 function ticks(sourced: Selected<number>): Selected<TickSpan> {
   return { ...sourced, value: span(sourced.value) };
+}
+
+function cycles(sourced: Selected<number>): Selected<ClientCycles> {
+  return { ...sourced, value: clientCycles(sourced.value) };
 }
 
 function tickList(sourced: Selected<readonly number[]>): Selected<readonly TickSpan[]> {
@@ -41,7 +45,7 @@ export const T = {
   vineRootsAfter: ticks(D.vineRootsAfter),
   vineCutByTeammate: ticks(D.vineCutByTeammate),
   vineHolds: ticks(D.vineHolds),
-  stoneWalk: ticks(D.stoneWalk),
+  stoneJump: cycles(D.stoneJumpCycles),
   idleAfter: ticks(D.idleAfter),
   flyingMessageEvery: ticks(D.flyingMessageEvery),
   insolenceFirst: ticks(D.insolenceFirst),
