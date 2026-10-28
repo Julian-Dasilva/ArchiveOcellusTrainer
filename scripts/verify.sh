@@ -996,24 +996,28 @@ open_ticking() {
 
 tile_pixel() {
   local page="$1" tile="$2" after="$3" read
-  # The read, and the click when the fourth argument is click, none, control, walk, or control-walk, both run on the first frame of tick $after, $5 pixels above the tile's centre. The eval stays under agent-browser's 25 s timeout.
+  # The read, and the click when the fourth argument is click, none, control, walk, or control-walk, both run on the first frame of tick $after, $5 pixels above the tile's centre. A click whose page is already past tick $after is not sent. The eval stays under agent-browser's 25 s timeout.
   [[ "$after" == now ]] || fight_tick_at_least $((after - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((after - 1))"; return 1; }
   read="$(ab --json eval "new Promise((done) => {
     const probe = window.__archiveOcellusProbe, ready = () => '${after}' === 'now' || (probe.snapshot().fight?.run.tick ?? -1) >= Number('${after}');
+    const clicks = ['click', 'none', 'control', 'walk', 'control-walk'].includes('${4:-}');
     const read = () => {
       if (!ready()) return requestAnimationFrame(read);
+      const tick = probe.snapshot().fight?.run.tick ?? -1;
+      if (clicks && '${after}' !== 'now' && tick > Number('${after}')) return done({ late: tick });
       const at = probe.tileCentre(${tile}), box = document.querySelector('#world').getBoundingClientRect();
       const point = at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y - Number('${5:-0}')) };
       let hit = true;
-      if (point && ['click', 'none', 'control', 'walk', 'control-walk'].includes('${4:-}')) {
+      if (point && clicks) {
         const world = document.querySelector('#world');
         hit = document.elementFromPoint(point.x, point.y) === world;
         if (hit) for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: point.x, clientY: point.y, ctrlKey: '${4:-}'.startsWith('control'), shiftKey: '${4:-}'.endsWith('walk') }));
       }
-      done({ at: point, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length, hit });
+      done({ late: null, at: point, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length, hit });
     };
     read();
   })" | json data.result)" || { log "${page}: tile ${tile} was not read"; return 1; }
+  [[ "$(json late <<<"$read")" == null ]] || { log "${page}: the click planned for P4 tick ${after} was armed on tick $(json late <<<"$read")"; return 1; }
   [[ "$(json at <<<"$read")" != null ]] || { log "${page}: tile ${tile} is not on the canvas"; return 1; }
   [[ "$(json hit <<<"$read")" != false ]] || { log "${page}: the click on ${tile} was covered"; return 1; }
   CLICK_X="$(json at.x <<<"$read")" CLICK_Y="$(json at.y <<<"$read")" WALK_ORDERS="$(json orders <<<"$read")"
