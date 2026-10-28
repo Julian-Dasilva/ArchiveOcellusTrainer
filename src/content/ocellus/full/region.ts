@@ -12,7 +12,7 @@ import { LocField } from "../fight/locs";
 import { FightPlayer } from "../fight/units";
 import { releasePhase1Actors, warmPhase1Actors, warmStartPhase } from "../fight/warmup";
 import type { DrillConfig } from "../js/OcellusTimings";
-import { fullFightConfig } from "../js/OcellusTimings";
+import { OCELLUS_P4, fullFightConfig } from "../js/OcellusTimings";
 import type { P4Entry, P4Watch } from "../js/p4/phase";
 import { p4Phase } from "../js/p4/phase";
 import { seed, tile } from "../../../sim/brands";
@@ -21,7 +21,7 @@ import { identity, toRoom } from "../../../sim/frame";
 import type { EncounterPlayerHooks } from "../../../sim/sdk/EncounterPlayer";
 import { EncounterRegion } from "../../../sim/sdk/EncounterRegion";
 import { fence } from "../../../sim/sdk/fence";
-import { carriedEntry } from "./fall";
+import { carriedEntry, phase4Opening } from "./fall";
 import type { ChatLine, FullFightOptions, StartPhase } from "./options";
 import type { P1Entry } from "./p1/types";
 import type { P1Watch } from "./p1/sdk/phase";
@@ -33,10 +33,17 @@ import type { P3Watch } from "./p3/sdk/phase";
 import { p3Phase } from "./p3/sdk/phase";
 import type { Fall, P3Entry } from "./p3/types";
 
-/** The body he spawns in for each start phase. Phase 1's hooded intro wears the phase 1 model. */
-export const START_NPC: Readonly<Record<StartPhase, number>> = { 1: NPC.p1, 2: NPC.p2, 3: NPC.p3 };
+const PHASE_4 = phase4Opening();
 
-const SPAWN: Readonly<Record<StartPhase, ATile>> = { 1: at(0, -9), 2: at(5, -3), 3: at(5, -3) };
+/** The body he spawns in for each start phase. Phase 1's hooded intro wears the phase 1 model. */
+export const START_NPC: Readonly<Record<StartPhase, number>> = {
+  1: NPC.p1,
+  2: NPC.p2,
+  3: NPC.p3,
+  4: OCELLUS_P4.boss.npcId.value,
+};
+
+const SPAWN: Readonly<Record<StartPhase, ATile>> = { 1: at(0, -9), 2: at(5, -3), 3: at(5, -3), 4: PHASE_4.spawn };
 
 export type { FullFightOptions } from "./options";
 
@@ -135,8 +142,8 @@ function phasesOf(run: Run, p1: P1Watch, p2: P2Watch, p3: P3Watch, p4: P4Watch, 
   };
 }
 
-/** Which phase a fresh run opens on. */
-function opened(start: StartPhase): { phase: "p1"; entry: P1Entry } | { phase: "p2"; entry: P2Entry } | { phase: "p3"; entry: P3Entry } {
+/** Which phase a fresh run opens on. Phase 4 opens on the third fall. */
+function opened(start: StartPhase, config: DrillConfig): { phase: "p1"; entry: P1Entry } | { phase: "p2"; entry: P2Entry } | { phase: "p3"; entry: P3Entry } | { phase: "p4"; entry: P4Entry } {
   switch (start) {
     case 1:
       return { phase: "p1", entry: { kind: "fresh" } };
@@ -144,6 +151,8 @@ function opened(start: StartPhase): { phase: "p1"; entry: P1Entry } | { phase: "
       return { phase: "p2", entry: { kind: "opening" } };
     case 3:
       return { phase: "p3", entry: { kind: "fresh" } };
+    case 4:
+      return { phase: "p4", entry: carriedEntry(PHASE_4.fall, config) };
     default: {
       const unhandled: never = start;
       return unhandled;
@@ -180,11 +189,17 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
     const p3: P3Watch = { mounted: null };
     const p4: P4Watch = { invincible: options.invincible, mounted: null };
     const start = options.startPhase;
+    const fightSeed = seed(options.seed);
+    const config = fullFightConfig(fightSeed);
+    if (start === 4) {
+      run.floor = () => PHASE_4.floor;
+      run.voids = voidsOf(PHASE_4.fall);
+    }
     super({
       room: arenaRoom(start, run),
-      phases: phasesOf(run, p1, p2, p3, p4, fullFightConfig(seed(options.seed))),
-      start: opened(start),
-      seed: seed(options.seed),
+      phases: phasesOf(run, p1, p2, p3, p4, config),
+      start: opened(start, config),
+      seed: fightSeed,
     });
     this.run = run;
     this.p1 = p1;
