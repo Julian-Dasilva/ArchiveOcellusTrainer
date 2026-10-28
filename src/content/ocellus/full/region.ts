@@ -94,9 +94,9 @@ function arenaRoom(start: StartPhase, run: Run): Room<Region> {
   };
 }
 
-/** Phase 3's lingering voids, keyed as its views keyed them, so phase 4 keeps the same models. */
+/** Phase 3's lingering voids, carried into phase 4. */
 function voidsOf(fall: Fall): readonly LocView[] {
-  return fall.voids.map(({ tile: on, placed }) => ({ key: `bomb:${placed}:${on.x},${on.z}`, tile: on, models: VOID_LOC.bomb.models }));
+  return fall.voids.map(({ tile: on }) => ({ tile: on, models: VOID_LOC.bomb.models }));
 }
 
 function phasesOf(run: Run, p1: P1Watch, p2: P2Watch, p3: P3Watch, p4: P4Watch, p4Config: DrillConfig): FullPhases {
