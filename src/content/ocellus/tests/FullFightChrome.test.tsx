@@ -8,7 +8,7 @@ import { FightPlayer } from "../fight/units";
 import { p4CameraFacing } from "../full/fall";
 import { FightRegion } from "../full/prefix";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
-import { ArchiveOcellusApp } from "../../../ArchiveOcellusApp";
+import { FullFightPage } from "../full/page";
 
 const POLICY = "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.";
 const [LATEST_RELEASE] = CHANGELOG;
@@ -18,7 +18,7 @@ function loadFullFight(url: string) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
-  act(() => root.render(<ArchiveOcellusApp />));
+  act(() => root.render(<FullFightPage />));
   const element = (id: string): HTMLElement => {
     const found = container.querySelector<HTMLElement>(`#${id}`);
     if (!found) throw new Error(`the page has no #${id}`);

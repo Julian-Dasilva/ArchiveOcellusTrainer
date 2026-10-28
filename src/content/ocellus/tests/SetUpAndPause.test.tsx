@@ -1,10 +1,11 @@
-import { act } from "react";
+import React, { act } from "react";
 import { ControlPanelController, Settings, SettingsControls, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
 import type { TrainerLoadingState } from "osrs-sdk";
 import { FightRegion } from "../full/region";
+import { FullFightPage } from "../full/page";
 import { RING_NORTH, UNDER_BOSS } from "./drill";
 import type { At } from "./drill";
-import { loadPage } from "./page";
+import { mountPage } from "./page";
 
 const FRAME_MS = 50;
 const SAVED_SETTINGS = "osrs-sdk:settings";
@@ -31,7 +32,7 @@ async function clickTile(on: At): Promise<void> {
 }
 
 async function openRun(url: string) {
-  const page = loadPage(url);
+  const page = mountPage(url, <FullFightPage />);
   const region = Trainer.player.region;
   if (!(region instanceof FightRegion)) throw new Error("the page built no full fight");
   await act(() => Promise.resolve());
