@@ -2,6 +2,13 @@ import type { Changelog } from "../../releases";
 
 export const CHANGELOG: Changelog = [
   {
+    version: "2026.10.28",
+    notes: [
+      "Insolence's three waves now leave the damaging void field on every tile they hit, as in game.",
+      "About 1 run in 10 sends an anonymous performance summary, so we can find what causes lag. To turn it off, untick Performance data under About.",
+    ],
+  },
+  {
     version: "2026.10.27",
     notes: [
       "The full fight is in beta. Full fight (beta) on the drill page opens it, and the phase selector starts you in phase 1, 2, or 3.",

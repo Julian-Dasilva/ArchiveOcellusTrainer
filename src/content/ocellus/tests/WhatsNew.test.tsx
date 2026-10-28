@@ -14,14 +14,12 @@ const FIRST_RELEASE = {
 };
 
 const NEXT_RELEASE = {
-  version: "2026.10.26",
-  date: "2026-10-26",
+  version: "2026.10.27",
+  date: "2026-10-27",
   notes: [
-    "The 2D view is gone, and the 3D view draws each frame in about 14 draw calls instead of about 550. Gear switches after your first hitch far less. A typical switch's slowest frame drops from about 50 ms to one frame at 60 Hz.",
-    "The void shards of each explosion now come in high over your head, from the game's own effect, so you can see the cue to step while you move.",
-    "Change your mind before the tick, like in game. Whatever you click last before the tick is what you do, even a click made right before it.",
-    "Ocellus takes damage as soon as he is back on the platform, and standing on your lifeforce orb as it glows gives your HP back that tick.",
-    "A void rift left alive bursts 30 ticks after it appears and hits you once for 28 to 41, and destroying a rift resets your attack timer.",
+    "The full fight is in beta. Full fight (beta) on the drill page opens it, and the phase selector starts you in phase 1, 2, or 3.",
+    "The credit line sits under the game, so it no longer covers the tabs on a phone.",
+    "Chat stays above the inventory on a narrow screen, so the lines no longer cover it.",
   ],
 };
 
@@ -78,15 +76,15 @@ describe("What's new", () => {
   });
 
   test("a player who saw the last shipped release sees the dot again, and What's new opens on the unshipped releases, newest first, with the next shipped one below them", () => {
-    localStorage.setItem(SEEN_RELEASE_KEY, "2026.10.25.1");
+    localStorage.setItem(SEEN_RELEASE_KEY, "2026.10.27");
     const page = loadPage("/?seed=1");
     const { settingsDot, menuDot } = whatsNew(page);
     page.click("settings");
     page.click("whats_new");
     const { releases } = whatsNew(page);
     page.close();
-    expect({ settingsDot, menuDot, unshipped: releases.slice(0, 3).map((release) => release.version), next: releases[3] }).toEqual({
-      settingsDot: true, menuDot: true, unshipped: ["2026.10.27", "2026.10.26.2", "2026.10.26.1"], next: NEXT_RELEASE,
+    expect({ settingsDot, menuDot, unshipped: releases.slice(0, 1).map((release) => release.version), next: releases[1] }).toEqual({
+      settingsDot: true, menuDot: true, unshipped: ["2026.10.28"], next: NEXT_RELEASE,
     });
   });
 

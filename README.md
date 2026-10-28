@@ -35,7 +35,7 @@ To find what causes lag, a sample of runs sends one anonymous performance summar
 
 The share of runs that send a summary is `sampleRate` in `src/telemetry.json`, served as `/telemetry.json`. The Worker in `src/worker/worker.ts` accepts summaries at `/t` and writes each one to Workers Analytics Engine. `scripts/perf-report.mjs` summarises them.
 
-Until the Analytics Engine dataset and Web Analytics are set up, releases send nothing. `sampleRate` is 0, the build runs without `CF_WEB_ANALYTICS_TOKEN`, and `npx wrangler deploy --config wrangler.release.jsonc` deploys the Worker without its `PERF` binding, so `/t` answers 204 and stores nothing.
+Releases send the summary from about 1 run in 10. `sampleRate` is 0.1, and `wrangler.release.jsonc` binds `PERF` to the `archive_ocellus_perf` dataset. Web Analytics is not set up yet, so the release build refuses `CF_WEB_ANALYTICS_TOKEN` and pages load no Web Analytics script. In a release, the opt-out box is **Performance data** under **About** in the sidebar, which is in **Menu** on a phone.
 
 ## Credit
 

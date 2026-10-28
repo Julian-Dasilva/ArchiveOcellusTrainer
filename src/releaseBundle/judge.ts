@@ -5,6 +5,7 @@ import type { BuiltScript, ScriptRole } from "../perf/pageScripts";
 
 const FULL_FIGHT = "Full fight (beta)";
 const BEACON_MARKERS = ["beacon.min.js", "cloudflareinsights.com"] as const;
+const RELEASE_SAMPLE_RATE = 0.1;
 
 export type ReleaseCheck = Readonly<{
   problems: readonly string[];
@@ -56,7 +57,7 @@ export function judgeRelease(dist: string, budgetKiB: number): ReleaseCheck {
     if (!referenced) problems.push("the entry script does not reference the full-fight chunk");
   }
   const rate = sampleRate(dist);
-  if (rate !== 0) problems.push(`telemetry.json sampleRate is ${String(rate)}, not 0`);
+  if (rate !== RELEASE_SAMPLE_RATE) problems.push(`telemetry.json sampleRate is ${String(rate)}, not ${RELEASE_SAMPLE_RATE}`);
   for (const script of scripts) {
     const text = read(dist, script.path);
     for (const marker of BEACON_MARKERS) {
