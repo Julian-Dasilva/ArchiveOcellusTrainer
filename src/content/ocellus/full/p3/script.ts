@@ -33,7 +33,7 @@ import type { Fall, God, P3Cause, P3Ctx, P3Entry, P3Outcome, P3Stage, P3Types, P
 import type { Add, P3World } from "./world";
 
 type Patch = Readonly<{ tile: ATile; placed: Tick; end: PatchEnd }>;
-type Crossing = Readonly<{ from: Quadrant; to: Quadrant; bank: ATile; hops: readonly ATile[]; hopping: boolean }>;
+type Crossing = Readonly<{ from: Quadrant; to: Quadrant; bank: ATile; steps: readonly ATile[]; started: boolean }>;
 
 const RIFT_ORDER: readonly [RiftKind, ...RiftKind[]] = ["rift-buff", "rift-basic", "rift-heal"];
 const GOD_NAME: Readonly<Record<God, string>> = { bandos: "Bandosian", saradomin: "Saradomin", armadyl: "Armadylean", zaros: "Zarosian" };
@@ -74,6 +74,24 @@ function quadrantsOfArm(arm: Arm): readonly [Quadrant, Quadrant] {
 function bodyCentreTile(body: Body): ATile {
   const c = bodyCentre(body);
   return at(Math.round(c.x), Math.round(c.z));
+}
+
+/** Tiles strictly after `from`, through `to`, one chebyshev step at a time. */
+function walkSteps(from: ATile, to: ATile): ATile[] {
+  const count = Math.max(Math.abs(to.x - from.x), Math.abs(to.z - from.z));
+  const tiles: ATile[] = [];
+  for (let i = 1; i <= count; i++) tiles.push(at(Math.round(from.x + ((to.x - from.x) * i) / count), Math.round(from.z + ((to.z - from.z) * i) / count)));
+  return tiles;
+}
+
+function walkRoute(points: readonly ATile[]): ATile[] {
+  const tiles: ATile[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const from = points[i];
+    const to = points[i + 1];
+    if (from !== undefined && to !== undefined) tiles.push(...walkSteps(from, to));
+  }
+  return tiles;
 }
 
 function lineBetween(a: ATile, b: ATile): ATile[] {
@@ -679,7 +697,7 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
 
   /** The quadrant goes. Standing on it is a death; the third fall hands the fight on. */
   private fall(m: P3Ctx<E>, q: Quadrant, tiles: readonly ATile[]): void {
-    const onIt = quadrantOf(m.player.tile) === q && !(this.crossing?.hopping ?? false);
+    const onIt = quadrantOf(m.player.tile) === q && !(this.crossing?.started ?? false);
     this.world.removeFloor(tiles);
     this.world.destroy(q);
     this.world.setCrumbling([]);
@@ -774,20 +792,15 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     const crossing = this.crossing;
     if (crossing === null) return;
     const { fighter } = this.world;
-    if (!crossing.hopping) {
-      if (same(m.player.tile, crossing.bank)) this.crossing = { ...crossing, hopping: true };
-      else if (!fighter.walking) this.clearCrossing(m);
+    if (!crossing.started && !same(m.player.tile, crossing.bank)) {
+      if (!fighter.walking) this.clearCrossing(m);
       return;
     }
-    const [hop, ...rest] = crossing.hops;
-    if (hop === undefined) {
-      this.clearCrossing(m);
-      return;
-    }
-    fighter.hop(hop);
-    fighter.freeze(T.hopHolds.value);
+    const taken = crossing.steps.slice(0, T.stoneWalk.value);
+    const rest = crossing.steps.slice(T.stoneWalk.value);
+    for (const tile of taken) fighter.step(tile);
     if (rest.length === 0) this.clearCrossing(m);
-    else this.crossing = { ...crossing, hops: rest };
+    else this.crossing = { ...crossing, steps: rest, started: true };
   }
 
   private clearCrossing(m: P3Ctx<E>): void {
@@ -799,7 +812,7 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
   interceptWalk(to: ATile): boolean {
     const m = this.ctx;
     if (m === null) return false;
-    if (this.crossing?.hopping ?? false) return true;
+    if (this.crossing?.started ?? false) return true;
     for (const [q, censer] of this.world.censers) {
       if (reach(to, censer.tile) <= 1) {
         this.useCenser(m, q);
@@ -837,11 +850,12 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     const stones = stonesOf(arm);
     const bank = bankBeside(stones[0], arm, from);
     const landing = bankBeside(stones[2], arm, target);
-    const hopping = same(m.player.tile, bank);
-    this.crossing = { from, to: target, bank, hops: [...stones, landing], hopping };
+    const started = same(m.player.tile, bank);
+    const route = walkRoute([bank, ...stones, landing]);
+    this.crossing = { from, to: target, bank, steps: route, started };
     m.show({ kind: "crossing", bank, hops: [...stones, landing] });
     m.log({ kind: "crossing-started", at: m.now, from, to: target });
-    if (!hopping) this.world.fighter.walkTo(bank);
+    if (!started) this.world.fighter.walkTo(bank);
     return true;
   }
 

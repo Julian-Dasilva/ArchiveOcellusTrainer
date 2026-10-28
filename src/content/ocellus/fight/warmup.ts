@@ -20,6 +20,7 @@ const FLOOR_SPOTS: Readonly<Record<StartPhase, readonly number[]>> = {
     ...SPOT.collapsingExplosion, SPOT.bombIdle, SPOT.bombDrop, SPOT.bombImpact, SPOT.shadowSlash,
     SPOT.fallingDebris, SPOT.superiorSlash, SPOT.p2Pool, ...SPOT.unleashArena,
   ],
+  4: [],
 };
 
 type Actor = "boss" | "player";

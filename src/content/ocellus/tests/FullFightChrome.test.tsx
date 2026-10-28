@@ -5,7 +5,9 @@ import type { TrainerLoadingState } from "osrs-sdk";
 import { CHANGELOG } from "../changelog";
 import { QUADRANTS, quadrantOf, quadrantTiles } from "../fight/geometry";
 import { FightPlayer } from "../fight/units";
+import { p4CameraFacing } from "../full/fall";
 import { FightRegion } from "../full/prefix";
+import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { FullFightApp } from "../../../FullFightApp";
 
 const POLICY = "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.";
@@ -145,6 +147,36 @@ describe("the full fight page", () => {
         "http://localhost/?mode=full&phase=3&setup=ranged&practice=1&tiles=1&markers=0&skip=0&vine=1",
         "/",
       ],
+    });
+  });
+
+  test("offers phase 4 on Start at, and choosing it reloads the full fight at phase 4", () => {
+    const loaded = loadFullFight("/?mode=full&phase=4&setup=ranged");
+    const loadedSelect = loaded.element("start_phase");
+    if (!(loadedSelect instanceof HTMLSelectElement)) throw new Error("start phase is not a select");
+    const fromUrl = {
+      offered: [...loadedSelect.options].map((option) => option.value),
+      value: loadedSelect.value,
+      title: loaded.element("phase_tips").querySelector(".sidebar_title")?.textContent ?? null,
+    };
+    loaded.close();
+
+    const page = loadFullFight("/?mode=full&phase=1&setup=ranged");
+    const startPhase = page.element("start_phase");
+    if (!(startPhase instanceof HTMLSelectElement)) throw new Error("start phase is not a select");
+    act(() => {
+      startPhase.value = "4";
+      startPhase.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    const navigation = captureAssign();
+    page.click("start_fight");
+    const assigned = navigation.assigned;
+    navigation.restore();
+    page.close();
+
+    expect({ fromUrl, assigned }).toEqual({
+      fromUrl: { offered: ["1", "2", "3", "4"], value: "4", title: "Phase 4" },
+      assigned: ["http://localhost/?mode=full&phase=4&setup=ranged&tiles=1&markers=0&skip=0&vine=1&practice=0"],
     });
   });
 
@@ -386,6 +418,52 @@ describe("full fight pause", () => {
       paused: { resume: "Resume (P)", held: true, world: atP4.world, hud: atP4.hud, phase: "p4" },
       resumed: { world: atP4.world + 1, phase: "p4", held: false },
     });
+  });
+
+  test("phase 4 hides the fight clock, shows the drill chat, and turns the camera with the platform", async () => {
+    const faced: string[] = [];
+    const page = loadFullFight("/?mode=full&phase=3&seed=1&practice=1");
+    try {
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      const before = document.querySelector(".fight-hud") !== null;
+      const region = fightRegion();
+      page.click("start");
+      const viewport = Viewport.viewport;
+      vi.spyOn(viewport, "rotateSouth").mockImplementation(() => faced.push("south"));
+      vi.spyOn(viewport, "rotateWest").mockImplementation(() => faced.push("west"));
+      vi.spyOn(viewport, "rotateNorth").mockImplementation(() => faced.push("north"));
+      vi.spyOn(viewport, "rotateEast").mockImplementation(() => faced.push("east"));
+      reachP4(region);
+      const lifeforce = OCELLUS_P4.lifeforce.tellChat.value;
+      act(() => {
+        for (let step = 0; step < 40 && !region.p4.mounted?.views.chat.includes(lifeforce); step++) region.world.tickWorld();
+      });
+      const lines = [...document.querySelectorAll("#game_chat li")];
+      const shown = lines.map((line) => line.textContent);
+      const drillLines = region.p4.mounted?.views.chat.slice(-5) ?? [];
+      expect({
+        clockBefore: before,
+        clockDuring: document.querySelector(".fight-hud"),
+        aimed: faced,
+        historyKept: region.chat().some((line) => line.text.includes("Jump across the stones")),
+        shown,
+        lifeforceStyle: lines.find((line) => line.textContent === lifeforce)?.getAttribute("style") ?? null,
+      }).toEqual({
+        clockBefore: true,
+        clockDuring: null,
+        aimed: [p4CameraFacing(region.floorState().destroyed)],
+        historyKept: true,
+        shown: drillLines,
+        lifeforceStyle: null,
+      });
+      expect(drillLines).toContain(lifeforce);
+      expect(shown.some((text) => text?.includes("Jump across the stones"))).toBe(false);
+    } finally {
+      page.close();
+    }
   });
 });
 
