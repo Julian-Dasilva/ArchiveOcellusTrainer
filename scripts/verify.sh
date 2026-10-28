@@ -48,6 +48,7 @@ LOADOUT_EQUIPMENT_TAB_Y=745
 LOADOUT_TRAINER_ICONS='{"24419":"27x30","24420":"32x24","24421":"16x31","26235":"30x22","27235":"19x27","27238":"30x23","27241":"13x26","28922":"31x28"}'
 DEFENCE_FLOOR_QUERY="?seed=20&setup=ranged"
 DEFENCE_FLOOR_STEPS="[250,176,150]"
+DEFENCE_FLOOR_CLICK_TICK=12
 SUPPLY_QUERY="?seed=1&setup=ranged"
 SUPPLY_INVENTORY='[28922,22325,24419,24420,24421,22981,21295,29801,25485,12695,22461,6685,3024,12695,22461,6685,3024,6685,6685,6685,3024,6685,6685,6685,3024,6685,20997,3024]'
 SUPPLY_NAMED_SLOT=0
@@ -152,7 +153,9 @@ EXPLOSION_PIXEL="#5e317b"
 EXPLOSION_GLOW_BOX='{"minX":-128,"maxX":127,"minY":-16,"maxY":79}'
 EXPLOSION_GLOW_MIN_SHARE=1.5
 EXPLOSION_GLOW_MAX_SHARE=0.1
-# The player's own purple weapon draws about 0.15% of the glow box.
+# The player's own purple weapon draws about 0.15% of the glow box. On a slow software renderer the kill's tick can leave
+# one early frame of the mark, its shards over the player at about 0.9% before the floor glow grows.
+EXPLOSION_RUN_END_MIN_SHARE=0.6
 EXPLOSION_RUN_END_MAX_SHARE=0.2
 EXPLOSION_OVERHEAD_BOX='{"minX":-100,"maxX":99,"minY":-150,"maxY":-41}'
 EXPLOSION_OVERHEAD_MIN_SHARE=0.2
@@ -889,14 +892,15 @@ drive_loadouts() {
 
 drive_defence_floor() {
   ab open "${URL}${DEFENCE_FLOOR_QUERY}" >/dev/null || return 1
-  fight_tick_at_least 9 120000 || { log "the defence floor drill never stepped to P4 tick 9"; return 1; }
+  fight_tick_at_least 1 120000 || { log "the defence floor page never stepped to P4 tick 1"; return 1; }
   probe "snapshot().fight" >"$VERIFY_DIR/defence-floor-start.json"
   click_panel "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" || return 1
   ab wait 600 >/dev/null
   click_inventory_slot "$LOADOUT_SPECIAL_SLOT" || return 1
   ab wait 700 >/dev/null
   click_panel "$LOADOUT_SPECIAL_ORB_X" "$LOADOUT_SPECIAL_ORB_Y" || return 1
-  click_boss defence-floor now || { log "the boss was not clicked for the special attack"; return 1; }
+  # On a fixed tick, so both Divisions land on the same ticks, and the same side of the explosions' damage cut, on any machine.
+  click_boss defence-floor "$DEFENCE_FLOOR_CLICK_TICK" || { log "the boss was not clicked for the special attack"; return 1; }
   ab wait --fn "window.__archiveOcellusProbe.snapshot().fight.player.specialEnergy === 50" --timeout 15000 >/dev/null || log "the first Division was not spent"
   click_panel "$LOADOUT_SPECIAL_ORB_X" "$LOADOUT_SPECIAL_ORB_Y" || return 1
   glaives_landed 2 || log "the first Division's glaives never landed"
@@ -984,7 +988,7 @@ open_ticking() {
 
 tile_pixel() {
   local page="$1" tile="$2" after="$3" read
-  # The read, and the click when the fourth argument is click, none, control, or walk, both run on the first frame of tick $after, $5 pixels above the tile's centre. The eval stays under agent-browser's 25 s timeout.
+  # The read, and the click when the fourth argument is click, none, control, walk, or control-walk, both run on the first frame of tick $after, $5 pixels above the tile's centre. The eval stays under agent-browser's 25 s timeout.
   [[ "$after" == now ]] || fight_tick_at_least $((after - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((after - 1))"; return 1; }
   read="$(ab --json eval "new Promise((done) => {
     const probe = window.__archiveOcellusProbe, ready = () => '${after}' === 'now' || (probe.snapshot().fight?.run.tick ?? -1) >= Number('${after}');
@@ -993,10 +997,10 @@ tile_pixel() {
       const at = probe.tileCentre(${tile}), box = document.querySelector('#world').getBoundingClientRect();
       const point = at && { x: Math.round(box.x + at.x), y: Math.round(box.y + at.y - Number('${5:-0}')) };
       let hit = true;
-      if (point && ('${4:-}' === 'click' || '${4:-}' === 'none' || '${4:-}' === 'control' || '${4:-}' === 'walk')) {
+      if (point && ['click', 'none', 'control', 'walk', 'control-walk'].includes('${4:-}')) {
         const world = document.querySelector('#world');
         hit = document.elementFromPoint(point.x, point.y) === world;
-        if (hit) for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: point.x, clientY: point.y, ctrlKey: '${4:-}' === 'control', shiftKey: '${4:-}' === 'walk' }));
+        if (hit) for (const type of ['mousedown', 'mouseup']) world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: type === 'mousedown' ? 1 : 0, clientX: point.x, clientY: point.y, ctrlKey: '${4:-}'.startsWith('control'), shiftKey: '${4:-}'.endsWith('walk') }));
       }
       done({ at: point, orders: probe.log().rows.flatMap((row) => row.inputs).filter((i) => i.kind === 'walk-ordered').length, hit });
     };
@@ -1219,13 +1223,14 @@ drive_boss_pathing() {
   ab console >"$VERIFY_DIR/pathing-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/pathing-page-errors.json" || { log "page error capture failed"; return 1; }
   ab open "${URL}${PATHING_QUERY}" >/dev/null && fight_tick_at_least 0 120000 || return 1
-  click_tile pathing-reroute "$PATHING_EDGE_TILE" "$PATHING_REROUTE_TICK" || return 1
+  # Shift walks where a plain click would attack the landing boss, whose model can cover (5, 4) on a slow renderer.
+  click_tile pathing-reroute "$PATHING_EDGE_TILE" "$PATHING_REROUTE_TICK" walk || return 1
   fight_tick_at_least $((PATHING_REROUTE_TICK + 4)) 30000 || { log "the reroute drill never stepped to P4 tick $((PATHING_REROUTE_TICK + 4))"; return 1; }
   probe "log()" >"$VERIFY_DIR/pathing-reroute.json"
   ab console >"$VERIFY_DIR/pathing-reroute-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/pathing-reroute-page-errors.json" || { log "page error capture failed"; return 1; }
   ab open "${URL}${PATHING_QUERY}" >/dev/null && fight_tick_at_least 0 120000 || return 1
-  click_tile pathing-control "$PATHING_EDGE_TILE" "$PATHING_REROUTE_TICK" control || return 1
+  click_tile pathing-control "$PATHING_EDGE_TILE" "$PATHING_REROUTE_TICK" control-walk || return 1
   fight_tick_at_least $((PATHING_REROUTE_TICK + 4)) 30000 || { log "the Control-click reroute drill never stepped to P4 tick $((PATHING_REROUTE_TICK + 4))"; return 1; }
   probe "log()" >"$VERIFY_DIR/pathing-control.json"
   ab console >"$VERIFY_DIR/pathing-control-console.log" 2>&1 || { log "console capture failed"; return 1; }
