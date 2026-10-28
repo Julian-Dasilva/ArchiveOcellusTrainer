@@ -2,8 +2,12 @@ import React, { useEffect, useLayoutEffect, useState, useSyncExternalStore } fro
 import { CacheRender, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
 import type { Location3, Region, TrainerLoadingState } from "osrs-sdk";
 import { GameOverlay, RuneScapeButton, TrainerApp } from "osrs-sdk-react";
-import { readSettings, RunGate, RunPauseButton } from "../../../ArchiveOcellusApp";
+import { readSettings, RunGate, RunPauseButton } from "../../../runGate";
+import { keepStorageUsable } from "../../../browserStorage";
+import { reportUnservedAssets } from "../../../servedAssets";
+import { loadWebAnalytics, startPerfTelemetry } from "../../../telemetry/perfTelemetry";
 import { RunClock } from "../../../sim/sdk/RunClock";
+import type { Pause } from "../../../sim/sdk/RunClock";
 import type { CreditLink } from "../../../menu/credits";
 import { CONTRIBUTOR, MAKER_LINKS } from "../../../menu/credits";
 import Sidebar from "../../../menu/Sidebar";
@@ -28,6 +32,7 @@ import type { P2Mount } from "./p2/sdk/phase";
 import type { P3Mount } from "./p3/sdk/phase";
 import type { FullFightOptions } from "./region";
 import { FightRegion, START_NPC, fullFightStaged } from "./region";
+import { exposeP4Probe } from "./p4Probe";
 
 declare global {
   interface Window {
@@ -62,7 +67,7 @@ type Params = FullFightOptions & Readonly<{ setup: Setup }>;
 function readParams(): Params {
   const url = new URL(window.location.href);
   const get = (name: string) => url.searchParams.get(name);
-  const startPhase = START_PHASES.find((phase) => String(phase) === get("phase")) ?? 1;
+  const startPhase = START_PHASES.find((phase) => String(phase) === get("phase")) ?? 4;
   const rawSeed = get("seed");
   const seed = rawSeed !== null && /^\d{1,10}$/.test(rawSeed) ? Number(rawSeed) % 4294967296 : crypto.getRandomValues(new Uint32Array(1))[0];
   const flag = (name: string, fallback: boolean) => {
@@ -104,7 +109,9 @@ function writeParams(params: Params, fresh = true): void {
 }
 
 function createTrainer() {
+  keepStorageUsable();
   CacheRender.configure(new URL("osrs-assets/manifest.json", window.location.href).href);
+  void CacheRender.bundle().then(({ manifest }) => reportUnservedAssets(manifest), (error: unknown) => console.error("assets: osrs-assets/manifest.json did not load", error));
   readSettings();
   const params = readParams();
   const worn = OCELLUS_P4.choices.setup.options[params.setup].value;
@@ -116,6 +123,8 @@ function createTrainer() {
   });
   const trainer = new TrainerInstance(region, { readyTimer: 5 });
   const clock = new RunClock(trainer);
+  loadWebAnalytics();
+  void startPerfTelemetry({ world: region.world, run: () => region.p4.mounted?.ocellus.runState() ?? null, stage: () => region.rows("p4").at(-1)?.phase.stage ?? null }, clock);
   return { trainer, region, params, clock };
 }
 
@@ -371,7 +380,13 @@ function endingOf(stage: Stage): Ending | null {
   }
 }
 
-function Result({ stage, region, params }: Readonly<{ stage: Stage; region: FightRegion; params: Params }>) {
+function PausedNote({ pauses }: Readonly<{ pauses: readonly Pause[] }>) {
+  if (pauses.length === 0) return null;
+  const seconds = (pauses.reduce((total, pause) => total + pause.ms, 0) / 1000).toFixed(1);
+  return <p id="run_result_paused">Paused {pauses.length === 1 ? "once" : `${pauses.length} times`}, for {seconds} s in all.</p>;
+}
+
+function Result({ stage, region, params, clock }: Readonly<{ stage: Stage; region: FightRegion; params: Params; clock: RunClock }>) {
   useRegionTicks(region);
   const ending = endingOf(stage);
   if (ending === null) return null;
@@ -383,6 +398,7 @@ function Result({ stage, region, params }: Readonly<{ stage: Stage; region: Figh
       <p>
         {ending.won ? "Challenge complete" : "You fell"} after <b>{formatTicks(ending.ticks)}</b> ({ending.ticks} ticks), in {ending.phase.toLowerCase()}.
       </p>
+      <PausedNote pauses={clock.pauses()} />
       <div className="fight-result-buttons">
         <RuneScapeButton type="button" onClick={() => again(true)}>Try again</RuneScapeButton>
         <RuneScapeButton type="button" onClick={() => again(false)}>Same seed</RuneScapeButton>
@@ -442,7 +458,6 @@ function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: P
   const changedAtLoad = (["startPhase", "setup", "videoMarkers", "soloVine"] as const).some((key) => draft[key] !== params[key]);
   return (
     <Sidebar
-      home="phase-4-drill"
       fight={
         <>
           <label>
@@ -511,7 +526,6 @@ function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: P
           </label>
         </>
       }
-      about={null}
       after={<PhaseTips params={params} stage={stage} region={region} />}
     />
   );
@@ -657,9 +671,12 @@ export function FullFightPage() {
     const style = document.createElement("style");
     style.textContent = FULL_FIGHT_CSS;
     document.head.append(style);
-    if (process.env.NODE_ENV !== "production") exposeProbe(trainer, region);
+    if (process.env.NODE_ENV !== "production") {
+      exposeProbe(trainer, region);
+      exposeP4Probe(trainer, region, clock, region.p4Config);
+    }
     return () => style.remove();
-  }, [trainer, region]);
+  }, [trainer, region, clock]);
 
   useEffect(() => {
     if (!ready) return;
@@ -683,8 +700,8 @@ export function FullFightPage() {
         <div id="hud_corner">
           <Chatbox stage={stage} region={region} />
         </div>
-        {stage && <Result stage={stage} region={region} params={params} />}
-        {!ended && <RunGate clock={clock} ready={ready} unreadableLoadout={null} />}
+        {stage && <Result stage={stage} region={region} params={params} clock={clock} />}
+        {!ended && <RunGate clock={clock} ready={ready} />}
       </GameOverlay>
       <FullFightSidebar params={params} region={region} stage={stage} clock={clock} />
     </TrainerApp>

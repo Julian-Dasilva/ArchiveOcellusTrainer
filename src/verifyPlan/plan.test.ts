@@ -67,12 +67,12 @@ describe("verify plan", () => {
 
   test("two rules select the union of their units, browser units before stages", async () => {
     const { impact, plan } = await shipped();
-    expect(plan(impact, ["src/hoverText.ts", "src/flags.ts"]).units).toEqual(["keybinds", "p3_drill", "supplies", "production"]);
+    expect(plan(impact, ["src/hoverText.ts", "src/telemetry/perfTelemetry.ts"]).units).toEqual(["keybinds", "supplies", "telemetry", "production"]);
   });
 
   test("the run command names the selected units and stages", async () => {
     const { impact, plan, runCommand } = await shipped();
-    expect(runCommand(impact, plan(impact, ["src/flags.ts"]))).toBe("scripts/verify.sh t0 browser --unit p3_drill production");
+    expect(runCommand(impact, plan(impact, ["src/telemetry/perfTelemetry.ts"]))).toBe("scripts/verify.sh t0 browser --unit telemetry production");
     expect(runCommand(impact, plan(impact, ["src/perf/gate.ts"]))).toBe("scripts/verify.sh t0 perf");
     expect(runCommand(impact, plan(impact, ["README.md"]))).toBe("scripts/verify.sh t0");
     expect(runCommand(impact, plan(impact, ["src/sim/tiles.ts"]))).toBe("scripts/verify.sh t0 browser production perf");

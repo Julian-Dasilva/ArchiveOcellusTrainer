@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BaseLimits, Capture, Line, Pair, Timing } from "./gate";
 import { PAIRS_ONLY, SIDES, budgetRaises, judge, parseBaseLimits, parseCapture, parseConfig, passes, runMetrics } from "./gate";
-import { builtScripts, kib, pageBytes } from "./pageScripts";
+import { builtScripts, pageBytes } from "./pageScripts";
 
 const USAGE = "usage: VERIFY_PERF_BASE=<rev> check.ts <perfGate.json> <captures directory> <head build directory> <pairs|no-pairs>";
 const GATE_PATH = "src/perf/perfGate.json";
@@ -19,11 +19,6 @@ function baseLimits(rev: string): BaseLimits | null {
   return parseBaseLimits(JSON.parse(git("show", `${rev}^{commit}:${GATE_PATH}`)));
 }
 
-function scriptBytes(dir: string): number {
-  const scripts = builtScripts(dir);
-  if (scripts.some((script) => script.role === "full-fight")) console.error(`perf: ?mode=full ${kib(pageBytes(scripts, "full"))} KiB`);
-  return pageBytes(scripts, "drill");
-}
 
 function describe(line: Line): string {
   switch (line.kind) {
@@ -53,7 +48,7 @@ function main(args: readonly string[]): void {
   const pairs = mode === "pairs" ? Array.from({ length: config.timing.pairs }, (_, i): Pair => ({ base: capture(`base-${i + 1}`), head: capture(`head-${i + 1}`) })) : [];
   const timing: Timing = mode === "pairs" ? { kind: "pairs", pairs } : { kind: "not-run" };
   const long = capture("long");
-  const lines = [...budgetRaises(baseLimits(base), config), ...judge(config, { long, bundleBytes: scriptBytes(build), timing })];
+  const lines = [...budgetRaises(baseLimits(base), config), ...judge(config, { long, bundleBytes: pageBytes(builtScripts(build)), timing })];
   const measured = lines.every(({ kind }) => kind !== "measurement");
   const runs = measured
     ? Object.fromEntries([

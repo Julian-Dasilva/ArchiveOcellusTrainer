@@ -2,6 +2,13 @@ import type { Changelog } from "../../releases";
 
 export const CHANGELOG: Changelog = [
   {
+    version: "2026.10.28.1",
+    notes: [
+      "The site opens straight into the full fight, starting at phase 4, with every phase in the Start at selector. The separate phase 4 drill page is gone.",
+      "Settings is one panel: Fight, Learning aids, Sound, Controls, then About, which keeps What's new and the Performance data box.",
+    ],
+  },
+  {
     version: "2026.10.28",
     notes: [
       "Insolence's three waves now leave the damaging void field on every tile they hit, as in game.",

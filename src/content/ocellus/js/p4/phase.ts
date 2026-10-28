@@ -19,16 +19,16 @@ import type { Views } from "./present";
 import { presentRow } from "./present";
 
 /**
- * The drill dresses a fresh player on its own platform. The full fight's third fall carries the player as it stands, so
+ * A drill entry dresses a fresh player on P4's own platform, which only the mechanic tests run. The full fight's third fall carries the player as it stands, so
  * only the boss's HP and Defence, where the platform lies in the room, and phase 3's voids cross.
  */
 export type P4Entry =
   | Readonly<{ kind: "drill"; config: DrillConfig; loadout: Loadout }>
   | Readonly<{ kind: "carried"; config: DrillConfig; frame: Frame; boss: Readonly<{ hp: number; defence: number }>; voids: readonly LingeringVoid[] }>;
 
-export type P4Mount = Readonly<{ ocellus: Ocellus; player: EncounterPlayer; views: Views }>;
+export type P4Mount = Readonly<{ ocellus: Ocellus; player: EncounterPlayer; views: Views; frame: Frame }>;
 
-/** The page's hold on the running P4: its practice toggle, and the units the drill's snapshot and chat read. */
+/** The page's hold on the running P4: its practice toggle, and the units its probe and chat read. */
 export type P4Watch = { invincible: boolean; mounted: P4Mount | null };
 
 type Arrival = Readonly<{
@@ -119,7 +119,7 @@ export function p4Phase<E extends Entries & Readonly<{ p4: P4Entry }>>(watch: P4
       region.addEntity(new BossFootprint(region, ocellus));
       region.addMob(ocellus);
       region.setBoss(ocellus);
-      watch.mounted = { ocellus, player, views };
+      watch.mounted = { ocellus, player, views, frame };
       return {
         frame,
         rules: rules(player),

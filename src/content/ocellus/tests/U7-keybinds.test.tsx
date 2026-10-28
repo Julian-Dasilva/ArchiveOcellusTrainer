@@ -20,7 +20,7 @@ describe("U7 key bindings", () => {
   beforeEach(() => localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { inventory_key: "F4" } })));
 
   test("the Keybinds button opens the key bindings, and a key bound there opens its tab after a reload", async () => {
-    const first = loadPage("/?seed=1");
+    const first = loadPage("/");
     first.click("keybinds");
     const tabAfterButton = openTab();
     act(() => SettingsControls.instance?.startKeyBinding("inventory"));
@@ -30,7 +30,7 @@ describe("U7 key bindings", () => {
     first.close();
 
     Settings.inventory_key = "F4";
-    const reloaded = loadPage("/?seed=1");
+    const reloaded = loadPage("/");
     reloaded.click("keybinds");
     reloaded.press("F4");
     const tabAfterOldKey = openTab();
@@ -41,18 +41,16 @@ describe("U7 key bindings", () => {
     expect({ tabAfterButton, saved, tabAfterOldKey, tabAfterBoundKey }).toEqual({ tabAfterButton: "SETTINGS", saved: "q", tabAfterOldKey: "SETTINGS", tabAfterBoundKey: "INVENTORY" });
   });
 
-  test("a bound key typed into the seed field keeps the open tab, and pressed with the Keybinds button focused opens its tab", async () => {
-    const page = loadPage("/?seed=1");
+  test("a bound key pressed with the Keybinds button focused opens its tab", async () => {
+    const page = loadPage("/");
     page.click("keybinds");
     act(() => SettingsControls.instance?.startKeyBinding("inventory"));
     page.press("1");
     await bindingSettled();
-    page.press("1", page.element("seed"));
-    const tabAfterSeedKey = openTab();
     page.press("1", page.element("keybinds"));
     const tabAfterButtonKey = openTab();
     page.close();
 
-    expect({ tabAfterSeedKey, tabAfterButtonKey }).toEqual({ tabAfterSeedKey: "SETTINGS", tabAfterButtonKey: "INVENTORY" });
+    expect(tabAfterButtonKey).toEqual("INVENTORY");
   });
 });

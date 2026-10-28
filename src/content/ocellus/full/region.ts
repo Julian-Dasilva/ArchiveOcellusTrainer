@@ -177,6 +177,7 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
   readonly p2: P2Watch;
   readonly p3: P3Watch;
   readonly p4: P4Watch;
+  readonly p4Config: DrillConfig;
   private readonly run: Run;
   private readonly listeners = new Set<() => void>();
   private readonly tickListeners = new Set<() => void>();
@@ -206,6 +207,7 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
     this.p2 = p2;
     this.p3 = p3;
     this.p4 = p4;
+    this.p4Config = config;
     run.notify = () => this.listeners.forEach((listener) => listener());
     if (options.videoMarkers) this.showVideoMarkers();
   }
