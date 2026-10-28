@@ -1,9 +1,10 @@
 import * as THREE from "three";
-import { CacheRenderInstancedModel, CacheRenderReferences, SoundCache, cacheSound } from "osrs-sdk";
+import { CacheRenderInstancedModel, CacheRenderModel, CacheRenderReferences, SoundCache, cacheSound } from "osrs-sdk";
 import type { Renderable } from "osrs-sdk";
 import type { StartPhase } from "../full/options";
 import { START_PHASES } from "../full/options";
 import { SOUND, SPOT } from "../full/data/looks";
+import { OCELLUS_P4 } from "../js/OcellusTimings";
 
 /**
  * The floor effects (`fight.spot`) each phase draws. A floor effect builds its animation frames the first time it is
@@ -107,13 +108,33 @@ export function releasePhase1Actors(actors: Readonly<Record<Actor, SpotHost>>): 
 }
 
 /**
- * Once the fight is up: the later phases' floor effects in idle time, during the phases before them, then the
- * sounds (a cold sound only synthesizes on its first play). Anything still cold builds on first use, as before.
+ * Phase 4's spotanims build every posed frame and convert every vertex colour the first time they are drawn.
+ * The lifeforce tell and the boss's levitation do that on their first ticks, which is the stall after the fall.
+ */
+export function p4WarmSpotIds(): readonly number[] {
+  const orb = OCELLUS_P4.lifeforceOrb.look;
+  const { levitation, deflectWind, deathEffects } = OCELLUS_P4.presentation;
+  const { spotAnim, telegraph } = OCELLUS_P4.explosion;
+  return [
+    orb.innerSpawn.value, orb.outerSpawn.value, orb.idle.value, orb.despawn.value, orb.tell.value, orb.regain.value,
+    levitation.value.spotAnim, deflectWind.value,
+    deathEffects.burst.value, deathEffects.skirt.value, deathEffects.crack.value,
+    spotAnim.value, telegraph.value,
+  ];
+}
+
+/**
+ * Once the fight is up: phase 4's graphics first, then the later phases' floor effects, in idle time during the
+ * phases before them, then the sounds (a cold sound only synthesizes on its first play). Anything still cold
+ * builds on first use, as before.
  */
 export function warmLaterPhases(anchor: Renderable, start: StartPhase): void {
   const later = START_PHASES.filter((phase) => phase > start);
   const done = new Set(FLOOR_SPOTS[start]);
   const spots = [...new Set(later.flatMap((phase) => FLOOR_SPOTS[phase]))].filter((id) => !done.has(id));
+  const p4Spots = p4WarmSpotIds().filter((id) => !done.has(id));
   const sounds: Job[] = [...new Set(Object.values(SOUND).flat())].map((id) => () => SoundCache.preload(cacheSound(id)));
-  whenIdle([...spots.map((id) => floorSpot(anchor, id)), ...sounds]);
+  const p4Sounds: Job[] = Object.values(OCELLUS_P4.presentation.sounds).map((sound) => () => SoundCache.preload(cacheSound(sound.value)));
+  const boss = () => CacheRenderModel.forRenderable(anchor, CacheRenderReferences.npc(OCELLUS_P4.boss.npcId.value)).preload();
+  whenIdle([boss, ...p4Spots.map((id) => floorSpot(anchor, id)), ...spots.map((id) => floorSpot(anchor, id)), ...sounds, ...p4Sounds]);
 }
