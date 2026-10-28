@@ -70,19 +70,19 @@ describe("release browser walk", () => {
     ]);
   });
 
-  test("a phone page without the maker credit fails", () => {
+  test("with no Full fight toggle to reach, a phone page without the maker credit fails on that line alone", () => {
     expect(walkProblems({ ...HEALTHY_PHONE, creditLines: [LINES[1]] })).toEqual([`${LINES[0]} is not on screen`]);
   });
 
-  test("a phone page without the contributor credit fails", () => {
+  test("with no Full fight toggle to reach, a phone page without the contributor credit fails on that line alone", () => {
     expect(walkProblems({ ...HEALTHY_PHONE, creditLines: [LINES[0]] })).toEqual([`${LINES[1]} is not on screen`]);
   });
 
-  test("a phone page that leaves the menu open after Keybinds fails", () => {
+  test("with no Full fight toggle to reach, a phone page that leaves the menu open after Keybinds fails on that alone", () => {
     expect(walkProblems({ ...HEALTHY_PHONE, keybindsClosed: false })).toEqual(["Keybinds leaves the menu open"]);
   });
 
-  test("a desktop page that stays up after a chat line passes", () => {
+  test("with no Full fight toggle to reach, a desktop page that stays up after a chat line passes", () => {
     expect(walkProblems({ ...HEALTHY_PHONE, surface: "desktop", worldWidth: 1040, chatBottom: "76px" })).toEqual([]);
   });
 

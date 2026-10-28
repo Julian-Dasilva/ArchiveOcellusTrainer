@@ -70,7 +70,7 @@ describe("Set-up and pause", () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  test("the page opens with Start and no tick for as long as it waits, and Start begins GET READY", async () => {
+  test("the full fight page opens with Start, its probe reads no ticking for as long as it waits, and Start begins GET READY", async () => {
     const run = await openRun("/?seed=1");
     run.play(10_000);
     const setUp = { tick: run.world.globalTickCounter, ticking: probe().snapshot().ticking, start: shown("start"), pause: shown("pause") };
