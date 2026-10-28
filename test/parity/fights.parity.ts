@@ -1,7 +1,17 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { Settings, TrainerInstance } from "osrs-sdk";
+import type { Quadrant } from "../../src/content/ocellus/fight/geometry";
+import { carriedEntry, quadrantFrame } from "../../src/content/ocellus/full/fall";
 import type { DrillSelection } from "../../src/content/ocellus/js/OcellusTimings";
+import { OCELLUS_P4, fullFightConfig } from "../../src/content/ocellus/js/OcellusTimings";
+import type { P4Entry, P4Watch } from "../../src/content/ocellus/js/p4/phase";
+import { p4Phase } from "../../src/content/ocellus/js/p4/phase";
 import { startDrill } from "../../src/content/ocellus/tests/drill";
+import { seed, tick } from "../../src/sim/brands";
+import { toRoom } from "../../src/sim/frame";
+import { EncounterRegion } from "../../src/sim/sdk/EncounterRegion";
+import { fence } from "../../src/sim/sdk/fence";
 
 type Focus = NonNullable<DrillSelection["focus"]>;
 type Play = "correct" | "idle";
@@ -21,6 +31,35 @@ const RUNS: readonly FightRun[] = [
 ];
 
 const plain = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
+
+type CarriedRun = Readonly<{ name: string; seed: number; standing: Quadrant; to: number }>;
+
+/** Phase 4 as the full fight runs it with Practice on: carried into the quadrant left standing, every choice at its default. */
+const CARRIED: readonly CarriedRun[] = (["NW", "SE"] as const).flatMap((standing) => [1, 4].map((runSeed): CarriedRun => ({ name: `carried-${standing}-practice-${runSeed}`, seed: runSeed, standing, to: 200 })));
+
+function carriedFight(run: CarriedRun) {
+  Settings.readFromStorage();
+  const entry: P4Entry = carriedEntry({ tick: tick(0), standing: run.standing, boss: { hp: 1313, defence: 250 }, voids: [] }, fullFightConfig(seed(run.seed)));
+  const frame = quadrantFrame(run.standing);
+  const watch: P4Watch = { invincible: true, mounted: null };
+  const region = new EncounterRegion({
+    room: { size: frame.size, drawFloor() {}, mount: (on) => ({ dispose() {}, walkable: (tiles) => void fence(on, tiles) }), spawn: toRoom(frame, OCELLUS_P4.geometry.playerSpawn.value) },
+    phases: { p4: p4Phase<Readonly<{ p4: P4Entry }>>(watch) },
+    start: { phase: "p4", entry },
+    seed: seed(run.seed),
+  });
+  const trainer = new TrainerInstance(region);
+  trainer.mount(document.createElement("canvas"), document.createElement("div"));
+  region.world.getReadyTimer = 0;
+  for (let guard = 0; (region.rows("p4").at(-1)?.tick ?? 0) < run.to && watch.mounted?.ocellus.runState().kind !== "ended"; guard++) {
+    if (guard > run.to + 20) throw new Error(`${run.name} never reached P4 tick ${run.to}`);
+    region.world.tickWorld();
+  }
+  const log = JSON.stringify(region.rows("p4"));
+  const boss = watch.mounted && { hp: watch.mounted.ocellus.currentStats.hitpoint, run: watch.mounted.ocellus.runState() };
+  trainer.dispose();
+  return { log: JSON.parse(log), snapshot: plain(boss), bytes: createHash("sha256").update(log).digest("hex") };
+}
 
 test("seeded fights", async () => {
   const out = process.env.PARITY_OUT;
@@ -43,6 +82,7 @@ test("seeded fights", async () => {
     const log = JSON.stringify(drill.region.fightLog());
     fights[run.name] = { log: JSON.parse(log), snapshot: plain(drill.region.snapshot()), bytes: createHash("sha256").update(log).digest("hex") };
   }
+  for (const run of CARRIED) fights[run.name] = carriedFight(run);
   fs.writeFileSync(out, `${JSON.stringify(fights, null, 1)}\n`);
-  expect(Object.keys(fights)).toEqual(RUNS.map(({ name }) => name));
+  expect(Object.keys(fights)).toEqual([...RUNS, ...CARRIED].map(({ name }) => name));
 });
