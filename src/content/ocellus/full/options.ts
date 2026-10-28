@@ -1,5 +1,5 @@
-/** What a full-fight run is started with. Phase 4 is not a start: it follows phase 3. */
-export const START_PHASES = [1, 2, 3] as const;
+/** What a full-fight run is started with. Phase 4 opens where the third fall leaves the arena. */
+export const START_PHASES = [1, 2, 3, 4] as const;
 export type StartPhase = (typeof START_PHASES)[number];
 
 export type FullFightOptions = Readonly<{

@@ -150,6 +150,36 @@ describe("the full fight page", () => {
     });
   });
 
+  test("offers phase 4 on Start at, and choosing it reloads the full fight at phase 4", () => {
+    const loaded = loadFullFight("/?mode=full&phase=4&setup=ranged");
+    const loadedSelect = loaded.element("start_phase");
+    if (!(loadedSelect instanceof HTMLSelectElement)) throw new Error("start phase is not a select");
+    const fromUrl = {
+      offered: [...loadedSelect.options].map((option) => option.value),
+      value: loadedSelect.value,
+      title: loaded.element("phase_tips").querySelector(".sidebar_title")?.textContent ?? null,
+    };
+    loaded.close();
+
+    const page = loadFullFight("/?mode=full&phase=1&setup=ranged");
+    const startPhase = page.element("start_phase");
+    if (!(startPhase instanceof HTMLSelectElement)) throw new Error("start phase is not a select");
+    act(() => {
+      startPhase.value = "4";
+      startPhase.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    const navigation = captureAssign();
+    page.click("start_fight");
+    const assigned = navigation.assigned;
+    navigation.restore();
+    page.close();
+
+    expect({ fromUrl, assigned }).toEqual({
+      fromUrl: { offered: ["1", "2", "3", "4"], value: "4", title: "Phase 4" },
+      assigned: ["http://localhost/?mode=full&phase=4&setup=ranged&tiles=1&markers=0&skip=0&vine=1&practice=0"],
+    });
+  });
+
   test("danger tiles start on, the toggle hides them, and a reload keeps the choice", () => {
     const page = loadFullFight("/?mode=full&phase=1&seed=1");
     const region = fightRegion();

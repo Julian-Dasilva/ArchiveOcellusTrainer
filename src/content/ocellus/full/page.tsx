@@ -401,7 +401,14 @@ function Result({ stage, region, params }: Readonly<{ stage: Stage; region: Figh
   );
 }
 
-const TIPS: Readonly<Record<StartPhase | 4, readonly string[]>> = {
+const START_LABEL: Readonly<Record<StartPhase, string>> = {
+  1: "Phase 1 · Corners",
+  2: "Phase 2 · The Blade",
+  3: "Phase 3 · Quadrants",
+  4: "Phase 4",
+};
+
+const TIPS: Readonly<Record<StartPhase, readonly string[]>> = {
   1: [
     "Pray Missiles for the orange fire volleys, Magic for the blue water ones. Prayer is checked when the shot lands.",
     "At each corner 7 cracks grow toward him. Stand on a closing crack to block it: it heals you instead of him. Unblocked, it feeds his yellow meter and heals him.",
@@ -441,9 +448,7 @@ function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: P
           <label>
             Start at
             <select id="start_phase" value={draft.startPhase} onChange={(event) => set({ startPhase: START_PHASES.find((phase) => String(phase) === event.target.value) ?? 1 })}>
-              <option value={1}>Phase 1 · Corners</option>
-              <option value={2}>Phase 2 · The Blade</option>
-              <option value={3}>Phase 3 · Quadrants</option>
+              {START_PHASES.map((phase) => <option key={phase} value={phase}>{START_LABEL[phase]}</option>)}
             </select>
           </label>
           <label>
@@ -512,7 +517,7 @@ function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: P
   );
 }
 
-function tipsPhase(stage: Stage | null, start: StartPhase): StartPhase | 4 {
+function tipsPhase(stage: Stage | null, start: StartPhase): StartPhase {
   switch (stage?.phase) {
     case undefined:
       return start;
