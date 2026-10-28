@@ -14,7 +14,7 @@
   "budgets": {
     "drawCallsMedian3d": 31,
     "drawCallsMax3d": 45,
-    "trianglesMax3d": 13698,
+    "trianglesMax3d": 13933,
     "tickGapExcess3d": 300,
     "geometriesPerRetiredRift3d": 0.67,
     "texturesPerRetiredRift3d": 0,
@@ -23,7 +23,7 @@
     "entityGrowth3d": 0,
     "projectileGrowth3d": 0,
     "sceneObjectGrowth3d": 0,
-    "bundleKiB": 1947
+    "bundleKiB": 1949
   },
   "timing": {
     "pairs": 5,
@@ -35,6 +35,8 @@
   "exceptions": [
     {"budget": "drawCallsMedian3d", "from": 14, "to": 31, "reason": "`/` is now the full fight, whose phase 4 renders his arena around the platform the drill drew alone; the head measures a median of 31 and a most of 45 draw calls in the window", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"},
     {"budget": "drawCallsMax3d", "from": 28, "to": 45, "reason": "`/` is now the full fight, whose phase 4 renders his arena around the platform the drill drew alone; the head measures a median of 31 and a most of 45 draw calls in the window", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"},
-    {"budget": "bundleKiB", "from": 1753, "to": 1947, "reason": "`/` now loads the full fight, with phases 1 to 3 and his arena, in one 1947 KiB script instead of the drill page", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"}
+    {"budget": "bundleKiB", "from": 1753, "to": 1947, "reason": "`/` now loads the full fight, with phases 1 to 3 and his arena, in one 1947 KiB script instead of the drill page", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"},
+    {"budget": "trianglesMax3d", "from": 13698, "to": 13933, "reason": "the player now starts with the twisted bow in hand, whose model has 235 more triangles than the blowpipe's; the same head bundle measures 13698 with weapon=blowpipe and 13791 with weapon=melee", "evidence": "scripts/verify.sh perf at 4391297c against 45a2c4d2: base 13698, head 13933; frame p95 and tick-gap p95 ratios 1.000"},
+    {"budget": "bundleKiB", "from": 1947, "to": 1949, "reason": "the Start with and Defence drained controls and the start weapon table add 2 KiB to the one script", "evidence": "scripts/verify.sh perf at 4391297c against 45a2c4d2: 1949 KiB"}
   ]
 }
