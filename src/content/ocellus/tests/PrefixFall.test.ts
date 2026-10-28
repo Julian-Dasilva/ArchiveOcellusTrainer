@@ -1,5 +1,5 @@
 import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
-import { QUADRANTS, quadrantOf, quadrantTiles } from "../fight/geometry";
+import { QUADRANTS, GRID, quadrantOf, quadrantTiles } from "../fight/geometry";
 import { FightPlayer } from "../fight/units";
 import type { StartPhase } from "../full/options";
 import type { FightRegion, FullFightOptions } from "../full/prefix";
@@ -158,7 +158,7 @@ describe("the third fall enters P4 in the same world", () => {
     });
   });
 
-  test("phase 3's mobs and entities stay behind, and it opens no tick after its fall", () => {
+  test("phase 3's mobs stay behind, the tiles off the last floor are shut, and it opens no tick after its fall", () => {
     const region = fullFight(3);
     toThirdFall(region);
     const fellAt = region.rows("p3").at(-1)?.tick ?? -1;
@@ -166,12 +166,13 @@ describe("the third fall enters P4 in the same world", () => {
     const counts: Record<string, number> = {};
     for (const entity of region.entities) counts[entity.constructor.name] = (counts[entity.constructor.name] ?? 0) + 1;
     const mobs = [...region.mobs, ...region.newMobs].map((mob) => mob.constructor.name);
+    const floorTiles = [...OCELLUS_P4.geometry.platform.value.join("")].filter((cell) => cell === "#").length;
     expect({ p3Ticks: (region.rows("p3").at(-1)?.tick ?? -1) - fellAt, mounted: region.p3.mounted, fallen: region.floorState().destroyed.length, mobs, counts }).toEqual({
       p3Ticks: 0,
       mounted: null,
       fallen: 3,
       mobs: ["Ocellus"],
-      counts: { ArenaFloor: 1, LocField: 1, InvisibleMovementBlocker: 48, VoidField: 1, FloorHole: 3, OrbView: 2, FragmentFlash: 1, BossFootprint: 1 },
+      counts: { ArenaFloor: 1, LocField: 1, InvisibleMovementBlocker: GRID * GRID - floorTiles, VoidField: 1, FloorHole: 3, OrbView: 2, FragmentFlash: 1, BossFootprint: 1 },
     });
   });
 

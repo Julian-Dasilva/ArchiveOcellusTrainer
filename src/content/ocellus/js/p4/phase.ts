@@ -99,7 +99,9 @@ export function p4Phase<E extends Entries & Readonly<{ p4: P4Entry }>>(watch: P4
     enter({ region, room, player, bind }, entry) {
       const { config, frame, voids, passed, ...arrived } = arrival(entry);
       const ocellus = new Ocellus(region, config, player, () => watch.invincible, (start, hooks) => bind(after(start, passed), hooks), frame, voids);
-      room.walkable(PLATFORM.tiles().map((at) => toRoom(frame, at)));
+      const floor = PLATFORM.tiles().map((at) => toRoom(frame, at));
+      room.walkable(floor);
+      if (!floor.some((at) => at.x === player.location.x && at.y === player.location.y)) player.hop(toRoom(frame, OCELLUS_P4.geometry.playerSpawn.value));
       arrived.enter(player);
       Object.values(sounds).forEach((sound) => SoundCache.preload(cacheSound(sound.value)));
       const views: Views = {
