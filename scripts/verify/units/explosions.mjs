@@ -54,7 +54,9 @@ export function judge({ read, bytes, env }) {
     campingUnderBossHit: sameJson(under, JSON.stringify(expectedExplosions.under)),
     explosionSoundsOnSchedule: sameJson(sounds.heard, explosionSounds) && sameJson(sounds.contexts, JSON.stringify(["running"])),
     markGlowsBrightPurple: Object.values(observed.explosions.glow).every((g) => g.share >= Number(explosionGlowMinShare)),
-    markerStaysOnCapturedTile: leftGlow.dx !== null && leftGlow.dx <= -0.01 && standing.share >= Number(explosionOverheadMinShare) && standing.dx !== null && Math.abs(standing.dx) <= 0.016,
+    // The dodge's mark stays on the tile it captured, off the centre the camera follows; the mark on the tile under the boss, where the player stays, is centred.
+    markerStaysOnCapturedTile: leftGlow.dx !== null && Math.abs(leftGlow.dx) >= 0.01 && observed.explosions.glow["explosion-under.png"].dx !== null &&
+      Math.abs(observed.explosions.glow["explosion-under.png"].dx) <= 0.016 && standing.share >= Number(explosionOverheadMinShare),
     shardsOverTheHeadOnlyOnMarkTicks: standing.share >= Number(explosionOverheadMinShare) &&
       ["explosion-before.png", "explosion-after.png"].every((file) => overheadSpots[file].share <= Number(explosionGlowMaxShare)),
   };

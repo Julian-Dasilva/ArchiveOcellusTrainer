@@ -1,5 +1,4 @@
 import type { TwistedBow } from "osrs-sdk";
-import type { BuildFlags } from "../../../flags";
 import type { Cycle, Seed, SoundId, TickSpan, Tile } from "../../../sim/brands";
 import { cycle, seed, soundId, span, tick, tile } from "../../../sim/brands";
 import type { Style } from "../../../sim/combat";
@@ -7,7 +6,6 @@ import type { Basis, Citations, Evidence, WikiRef } from "../../../sim/provenanc
 import { noWiki, wiki } from "../../../sim/provenance";
 import type { DrillStart, Focus } from "../../../sim/schedule";
 import type { BossOverhead, HoveringBoss, Mechanic, Special, Stage, TransitionKind, VoidKind } from "./P4Types";
-import type { ReachRule } from "./P3Types";
 import { roll } from "./roll";
 
 type Scale = "unscaled" | "team-4" | "team-5" | "team-4-and-5" | "team-7" | "team-8" | "team-7-and-8" | "solo";
@@ -1120,25 +1118,6 @@ export const OCELLUS_P4 = {
   },
 } as const;
 
-export const STRATEGIES_P3 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381236);
-export const BOSS_PAGE_P3 = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15381233);
-export const ROBINHOOD_GUIDE = "https://www.youtube.com/watch?v=9sji2HBjI98";
-export const RSPROX_PLAN = "https://github.com/MRobertEvers/oldschool-clientc/blob/HEAD/docs/rsprox-analysis/guthixian_archive/ocellus_plan.md";
-const P3_URL_CHOICES = {
-  reach: choice("melee-range", {
-    "melee-range": selected<ReachRule>("melee-range", "community-tested", "team-4-and-5", "a swing becomes a panic shot when the player is not in the SDK's melee range of the boss's 3x3 after his step; the wiki's unable to reach read as melee range", STRATEGIES_P3, guide(ROBINHOOD_GUIDE, "0:02:26")),
-    "within-two": selected<ReachRule>("within-two", "spec-single", "unscaled", "a panic shot when the player is more than 2 tiles from the boss's 3x3", BOSS_PAGE_P3),
-  }),
-} as const;
-
-export const PORTAL_SKIP_GUIDE = "https://www.youtube.com/watch?v=c4PSUxjNUiY";
-const P2_URL_CHOICES = {
-  markers: choice("none", {
-    none: selected<"none" | "skip-tiles">("none", "assumption", "unscaled", "no tile markers", NO_WIKI_PRACTICE, PRACTICE),
-    "skip-tiles": selected<"none" | "skip-tiles">("skip-tiles", "assumption", "unscaled", "the portal skip's wait and run tiles marked in all four wedges, as the community's tile markers do; Settings switches them during the run", NO_WIKI_PRACTICE, guide(PORTAL_SKIP_GUIDE, "the tile markers")),
-  }),
-} as const;
-
 type Choices = typeof OCELLUS_P4.choices;
 type ChoiceName = keyof Choices;
 type OptionsOf<K extends ChoiceName> = Choices[K]["options"];
@@ -1160,44 +1139,6 @@ export function defaultLoadout(worn: Setup): Loadout {
   const slots = Array.from({ length: INVENTORY_SIZE }, (_, index) => carried[index] ?? null);
   if (!isInventory(slots)) throw new RangeError(`the default loadout fills ${carried.length} of ${INVENTORY_SIZE} slots`);
   return { worn, inventory: slots };
-}
-
-const KEYS_BY_SLOT: { readonly [S in GearSlot]: readonly GearKeys[S][] } = GEAR_KEYS;
-const CARRY_KEYS: readonly CarryKey[] = [...GEAR_SLOTS.flatMap((slot): readonly CarryKey[] => KEYS_BY_SLOT[slot]), ...SUPPLY_KEYS];
-
-function wornKey<S extends GearSlot>(worn: object, slot: S): GearKeys[S] | null {
-  const raw: unknown = Object.prototype.hasOwnProperty.call(worn, slot) ? Reflect.get(worn, slot) : undefined;
-  return KEYS_BY_SLOT[slot].find((key) => key === raw) ?? null;
-}
-
-function parseWorn(worn: object): Setup | null {
-  const weapon = wornKey(worn, "weapon");
-  const helmet = wornKey(worn, "helmet");
-  const chest = wornKey(worn, "chest");
-  const legs = wornKey(worn, "legs");
-  const gloves = wornKey(worn, "gloves");
-  const cape = wornKey(worn, "cape");
-  const necklace = wornKey(worn, "necklace");
-  const feet = wornKey(worn, "feet");
-  const ring = wornKey(worn, "ring");
-  const ammo = wornKey(worn, "ammo");
-  if (!weapon || !helmet || !chest || !legs || !gloves || !cape || !necklace || !feet || !ring || !ammo) return null;
-  return { weapon, helmet, chest, legs, gloves, cape, necklace, feet, ring, ammo };
-}
-
-export function parseLoadout(raw: unknown): Loadout | null {
-  if (typeof raw !== "object" || raw === null || !("worn" in raw) || !("inventory" in raw)) return null;
-  const { worn, inventory }: { worn: unknown; inventory: unknown } = raw;
-  if (typeof worn !== "object" || worn === null || !Array.isArray(inventory)) return null;
-  const setup = parseWorn(worn);
-  const listed: readonly unknown[] = inventory;
-  const slots: (CarryKey | null)[] = [];
-  for (const entry of listed) {
-    const key = entry === null ? null : CARRY_KEYS.find((known) => known === entry);
-    if (key === undefined) return null;
-    slots.push(key);
-  }
-  return setup && isInventory(slots) ? { worn: setup, inventory: slots } : null;
 }
 
 class ResolvedChoice<K extends ChoiceName> {
@@ -1300,132 +1241,4 @@ export function parseDrillRequest(url: URL, freshSeed: () => number): ParsedDril
   if (run.rejected !== null) rejected.push(run.rejected);
   const bossEntryHp = readBossHp(url, choices.bossMaxHp.option.value, rejected);
   return { config: { seed: run.seed, choices, bossEntryHp }, invincible, rejected };
-}
-
-type P3ChoiceName = keyof typeof P3_URL_CHOICES;
-type P3OptionsOf<K extends P3ChoiceName> = (typeof P3_URL_CHOICES)[K]["options"];
-type P3OptionKey<K extends P3ChoiceName> = keyof P3OptionsOf<K> & string;
-const P3_CHOICES: { readonly [K in P3ChoiceName]: Readonly<{ default: P3OptionKey<K>; options: P3OptionsOf<K> }> } = P3_URL_CHOICES;
-
-class ResolvedP3Choice<K extends P3ChoiceName> {
-  readonly #name: K;
-  readonly option: P3OptionsOf<K>[P3OptionKey<K>];
-
-  constructor(name: K, readonly key: P3OptionKey<K>) {
-    this.#name = name;
-    this.option = P3_CHOICES[name].options[key];
-  }
-}
-
-export type P3Choices = Readonly<{ setup: ResolvedChoice<"setup">; bossMaxHp: ResolvedChoice<"bossMaxHp">; reach: ResolvedP3Choice<"reach"> }>;
-export type P3Config = Readonly<{ seed: Seed; choices: P3Choices; bossEntryHp: number | null }>;
-type ParsedP3 = Readonly<{ config: P3Config; invincible: boolean; rejected: readonly string[] }>;
-
-const P3_KEYS: readonly string[] = ["setup", "bossMaxHp", ...Object.keys(P3_URL_CHOICES)];
-
-function parseP3Request(url: URL, freshSeed: () => number): ParsedP3 {
-  const rejected: string[] = [];
-  rejectUnknownKeys(url, (key) => P3_KEYS.includes(key), rejected);
-  const invincible = readInvincible(url, rejected);
-  const run = readSeed(url, freshSeed);
-  const p4Choice = <K extends "setup" | "bossMaxHp">(name: K): ResolvedChoice<K> => {
-    const raw = url.searchParams.get(name);
-    const { options } = CHOICES[name];
-    if (raw !== null && hasKey(options, raw)) return new ResolvedChoice(name, raw);
-    if (raw !== null) rejected.push(`${name}=${raw}`);
-    return new ResolvedChoice(name, CHOICES[name].default);
-  };
-  const p3Choice = <K extends P3ChoiceName>(name: K): ResolvedP3Choice<K> => {
-    const raw = url.searchParams.get(name);
-    const { options } = P3_CHOICES[name];
-    if (raw !== null && hasKey(options, raw)) return new ResolvedP3Choice(name, raw);
-    if (raw !== null) rejected.push(`${name}=${raw}`);
-    return new ResolvedP3Choice(name, P3_CHOICES[name].default);
-  };
-  const choices: P3Choices = { setup: p4Choice("setup"), bossMaxHp: p4Choice("bossMaxHp"), reach: p3Choice("reach") };
-  if (run.rejected !== null) rejected.push(run.rejected);
-  const bossEntryHp = readBossHp(url, choices.bossMaxHp.option.value, rejected);
-  return { config: { seed: run.seed, choices, bossEntryHp }, invincible, rejected };
-}
-
-type P2ChoiceName = keyof typeof P2_URL_CHOICES;
-type P2OptionsOf<K extends P2ChoiceName> = (typeof P2_URL_CHOICES)[K]["options"];
-type P2OptionKey<K extends P2ChoiceName> = keyof P2OptionsOf<K> & string;
-const P2_CHOICES: { readonly [K in P2ChoiceName]: Readonly<{ default: P2OptionKey<K>; options: P2OptionsOf<K> }> } = P2_URL_CHOICES;
-
-class ResolvedP2Choice<K extends P2ChoiceName> {
-  readonly #name: K;
-  readonly option: P2OptionsOf<K>[P2OptionKey<K>];
-
-  constructor(name: K, readonly key: P2OptionKey<K>) {
-    this.#name = name;
-    this.option = P2_CHOICES[name].options[key];
-  }
-}
-
-export type P2Choices = Readonly<{ setup: ResolvedChoice<"setup">; bossMaxHp: ResolvedChoice<"bossMaxHp">; markers: ResolvedP2Choice<"markers"> }>;
-export type P2Config = Readonly<{ seed: Seed; choices: P2Choices; bossEntryHp: number | null }>;
-type ParsedP2 = Readonly<{ config: P2Config; invincible: boolean; rejected: readonly string[] }>;
-
-const P2_KEYS: readonly string[] = ["setup", "bossMaxHp", ...Object.keys(P2_URL_CHOICES)];
-
-function parseP2Request(url: URL, freshSeed: () => number): ParsedP2 {
-  const rejected: string[] = [];
-  rejectUnknownKeys(url, (key) => P2_KEYS.includes(key), rejected);
-  const invincible = readInvincible(url, rejected);
-  const run = readSeed(url, freshSeed);
-  const p4Choice = <K extends "setup" | "bossMaxHp">(name: K): ResolvedChoice<K> => {
-    const raw = url.searchParams.get(name);
-    const { options } = CHOICES[name];
-    if (raw !== null && hasKey(options, raw)) return new ResolvedChoice(name, raw);
-    if (raw !== null) rejected.push(`${name}=${raw}`);
-    return new ResolvedChoice(name, CHOICES[name].default);
-  };
-  const p2Choice = <K extends P2ChoiceName>(name: K): ResolvedP2Choice<K> => {
-    const raw = url.searchParams.get(name);
-    const { options } = P2_CHOICES[name];
-    if (raw !== null && hasKey(options, raw)) return new ResolvedP2Choice(name, raw);
-    if (raw !== null) rejected.push(`${name}=${raw}`);
-    return new ResolvedP2Choice(name, P2_CHOICES[name].default);
-  };
-  const choices: P2Choices = { setup: p4Choice("setup"), bossMaxHp: p4Choice("bossMaxHp"), markers: p2Choice("markers") };
-  if (run.rejected !== null) rejected.push(run.rejected);
-  const bossEntryHp = readBossHp(url, choices.bossMaxHp.option.value, rejected);
-  return { config: { seed: run.seed, choices, bossEntryHp }, invincible, rejected };
-}
-
-export type DrillRequest = (Readonly<{ phase: "p4" }> & ParsedDrill) | (Readonly<{ phase: "p3" }> & ParsedP3) | (Readonly<{ phase: "p2" }> & ParsedP2) | (Readonly<{ phase: "p1" }> & ParsedP1);
-
-export function parseRequest(url: URL, freshSeed: () => number, flags: BuildFlags): DrillRequest {
-  if (!flags.p3 && !flags.p2 && !flags.p1) return { phase: "p4", ...parseDrillRequest(url, freshSeed) };
-  const phase = url.searchParams.get("phase");
-  const rest = new URL(url.href);
-  rest.searchParams.delete("phase");
-  if (phase === "p3" && flags.p3) return { phase: "p3", ...parseP3Request(rest, freshSeed) };
-  if (phase === "p2" && flags.p2) return { phase: "p2", ...parseP2Request(rest, freshSeed) };
-  if (phase === "p1" && flags.p1) return { phase: "p1", ...parseP1Request(rest, freshSeed) };
-  const p4 = parseDrillRequest(rest, freshSeed);
-  return { phase: "p4", ...p4, rejected: phase === null || phase === "p4" ? p4.rejected : [`phase=${phase}`, ...p4.rejected] };
-}
-
-export const BOSS_PAGE_P1 = wiki("https://oldschool.runescape.wiki/w/Ocellus", 15381739);
-export const P1_MAX_HP = selected(2500, "spec-confirmed", "unscaled", "the hitpoints table lists 2,500 in phase 1 for a team of 1 or 2, the size a solo trainer plays at, and the cache's hitpoints match", BOSS_PAGE_P1, cache("npc 16674 stats [1, 215, 1, 2500, 250, 350]"));
-
-export type P1Choices = Readonly<{ setup: ResolvedChoice<"setup"> }>;
-export type P1Config = Readonly<{ seed: Seed; choices: P1Choices; bossEntryHp: number | null }>;
-type ParsedP1 = Readonly<{ config: P1Config; invincible: boolean; rejected: readonly string[] }>;
-
-function parseP1Request(url: URL, freshSeed: () => number): ParsedP1 {
-  const rejected: string[] = [];
-  rejectUnknownKeys(url, (key) => key === "setup", rejected);
-  const invincible = readInvincible(url, rejected);
-  const run = readSeed(url, freshSeed);
-  const raw = url.searchParams.get("setup");
-  const { options } = CHOICES.setup;
-  const known = raw !== null && hasKey(options, raw) ? raw : null;
-  if (raw !== null && known === null) rejected.push(`setup=${raw}`);
-  const setup = new ResolvedChoice("setup", known ?? CHOICES.setup.default);
-  if (run.rejected !== null) rejected.push(run.rejected);
-  const bossEntryHp = readBossHp(url, P1_MAX_HP.value, rejected);
-  return { config: { seed: run.seed, choices: { setup }, bossEntryHp }, invincible, rejected };
 }

@@ -32,8 +32,7 @@ const soundPack = (soundIds) => {
 };
 const current = manifest("openrs2:" + cacheId);
 const { explosion, ...olderSpotAnims } = requirements.assets.spotAnims;
-const { swing, panic, shadowSlash, ...olderAnimations } = requirements.assets.npcs.ocellus.animations;
-const olderAssets = { ...requirements.assets, spotAnims: olderSpotAnims, npcs: { ...requirements.assets.npcs, ocellus: { ...requirements.assets.npcs.ocellus, animations: olderAnimations } } };
+const olderAssets = { ...requirements.assets, spotAnims: olderSpotAnims };
 const withoutExplosion = Object.fromEntries(Object.entries(keyed("spotAnims", (id) => id, (id) => "spotanim-" + id)).filter(([id]) => id !== String(explosion.id)));
 const complete = {
   "build-info.json": JSON.stringify({ cache: { openrs2: cacheId }, requirements }),

@@ -68,7 +68,8 @@
       self.tickWorld = function (...args) {
         const at = performance.now();
         const out = Reflect.apply(tickWorld, this, args);
-        const run = region.snapshot()?.run;
+        // The base build may be the retired drill page, whose region has a snapshot; the full fight's phase 4 reads its mount.
+        const run = typeof region.snapshot === "function" ? region.snapshot()?.run : region.p4?.mounted?.ocellus.runState();
         let sceneObjects = 0;
         scene?.traverse(() => sceneObjects++);
         ticks.push({
@@ -102,7 +103,7 @@
       heap,
       largestCanvas,
       // One tick per retired rift. A burst names every rift it retires; a base build before that logged one burst per rift.
-      retired: (region?.fightLog().rows ?? [])
+      retired: (typeof region?.fightLog === "function" ? region.fightLog().rows : region?.rows?.("p4") ?? [])
         .flatMap((row) => row.events)
         .flatMap((event) => (event.kind === "rift-destroyed" ? [event.at] : event.kind === "rift-burst" ? (event.rifts ?? [event.rift]).map(() => event.at) : [])),
       errors,

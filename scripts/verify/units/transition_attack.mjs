@@ -45,8 +45,8 @@ export function judge({ read, bytes, env }) {
     },
     soulSplit: {
       protectedRunReached: rowAt(specialLog.rows, expectedSpecial.protected[0] + 2) !== undefined,
-      protectedHeals: kindOf(specialLog.rows, "boss-healed").map((e) => [e.at, e.cause, e.receipt]),
-      lateHeals: kindOf(lateLog.rows, "boss-healed").map((e) => [e.at, e.cause, e.receipt]),
+      protectedHeals: kindOf(specialLog.rows, "boss-healed").filter((e) => e.cause.kind === "soul-split").map((e) => [e.at, e.cause, e.receipt]),
+      lateHeals: kindOf(lateLog.rows, "boss-healed").filter((e) => e.cause.kind === "soul-split").map((e) => [e.at, e.cause, e.receipt]),
     },
   };
   const { special, soulSplit } = observed;

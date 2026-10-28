@@ -1,5 +1,6 @@
 import { Viewport } from "osrs-sdk";
-import type { OcellusRegion } from "../content/ocellus/js/OcellusRegion";
+import type { World } from "osrs-sdk";
+import type { RunState, Stage } from "../content/ocellus/js/P4Types";
 import type { RunClock } from "../sim/sdk/RunClock";
 import { CHANGELOG } from "../content/ocellus/changelog";
 import { browserFamily, gpuFamily, webglRenderer } from "./device";
@@ -59,18 +60,20 @@ async function sampleRate(): Promise<number | null> {
 
 const roundTo = (value: number, step: number) => Math.round(value / step) * step;
 
-function summarise(region: OcellusRegion, recorder: RunRecorder, sampleRate: number): PerfSummary | null {
-  const run = region.snapshot()?.run;
-  const rows = region.fightLog().rows;
-  const last = rows[rows.length - 1];
-  if (!run || run.kind === "waiting" || !last) return null;
+/** Phase 4 as the sampler reads it: null until phase 4 opens. */
+export type PerfSource = Readonly<{ world: World; run(): RunState | null; stage(): Stage | null }>;
+
+function summarise(source: PerfSource, recorder: RunRecorder, sampleRate: number): PerfSummary | null {
+  const run = source.run();
+  const stage = source.stage();
+  if (!run || run.kind === "waiting" || !stage) return null;
   const { canvas } = Viewport.viewport;
   return {
     version: CHANGELOG[0].version,
     view: "3d",
     gpu: gpuFamily(webglRenderer()),
     browser: browserFamily(navigator.userAgent),
-    stage: last.phase.stage,
+    stage,
     end: run.kind === "ended" ? run.reason : "left",
     sampleRate,
     ...recorder.timings(),
@@ -83,11 +86,11 @@ function summarise(region: OcellusRegion, recorder: RunRecorder, sampleRate: num
 
 type Sampling = Readonly<{ kind: "waiting" }> | Readonly<{ kind: "measuring"; recorder: RunRecorder }> | Readonly<{ kind: "done" }>;
 
-export async function startPerfTelemetry(region: OcellusRegion, clock: RunClock): Promise<void> {
+export async function startPerfTelemetry(source: PerfSource, clock: RunClock): Promise<void> {
   if (!perfDataAllowed()) return;
   const rate = await sampleRate();
   if (rate === null || Math.random() >= rate) return;
-  const { world } = region;
+  const { world } = source;
   let sampling: Sampling = { kind: "waiting" };
   let seenTick = world.globalTickCounter;
   let pausedSince: number | null = null;
@@ -96,7 +99,7 @@ export async function startPerfTelemetry(region: OcellusRegion, clock: RunClock)
     if (sampling.kind !== "measuring") return;
     const { recorder } = sampling;
     sampling = { kind: "done" };
-    const summary = perfDataAllowed() ? summarise(region, recorder, rate) : null;
+    const summary = perfDataAllowed() ? summarise(source, recorder, rate) : null;
     if (summary) navigator.sendBeacon(new URL(BEACON_PATH, window.location.href).href, JSON.stringify(summary));
   };
 
@@ -113,7 +116,7 @@ export async function startPerfTelemetry(region: OcellusRegion, clock: RunClock)
     }
     if (world.globalTickCounter !== seenTick) {
       seenTick = world.globalTickCounter;
-      const run = region.snapshot()?.run;
+      const run = source.run();
       if (sampling.kind === "waiting" && run?.kind === "running") sampling = { kind: "measuring", recorder: new RunRecorder() };
       if (sampling.kind === "measuring") {
         sampling.recorder.tick(now);

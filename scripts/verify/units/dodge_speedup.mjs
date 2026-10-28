@@ -26,7 +26,7 @@ export function judge({ read, env }) {
       return speedup.bossHits.some(([at, , requested]) => during(at) && requested > 0 && kept(requested) < requested) &&
         speedup.bossHits.every(([at, outcome, requested, lost]) => (during(at) ? outcome === "reduced" && lost === kept(requested) : outcome === "passed" && lost === requested));
     })(),
-    bowTwoTicksOnOneTileDodges: sameJson(speedup.attacks, dodgeAttacks) && speedup.dodges.length === JSON.parse(innerMarks).length && speedup.dodges.every(([, , kind]) => kind === "dodged"),
+    oneTileDodgesKeepTheBlowpipeFiring: sameJson(speedup.attacks, dodgeAttacks) && speedup.dodges.length === JSON.parse(innerMarks).length && speedup.dodges.every(([, , kind]) => kind === "dodged"),
   };
   return { observed, checks };
 }

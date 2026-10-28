@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { Settings, TrainerInstance } from "osrs-sdk";
+import { dressFullFight } from "../../src/content/ocellus/fight/blowpipe";
+import { fullFightStaged } from "../../src/content/ocellus/full/prefix";
 import type { DrillSelection } from "../../src/content/ocellus/js/OcellusTimings";
+import { OCELLUS_P4 } from "../../src/content/ocellus/js/OcellusTimings";
 import { startDrill } from "../../src/content/ocellus/tests/drill";
 
 type Focus = NonNullable<DrillSelection["focus"]>;
@@ -21,6 +25,30 @@ const RUNS: readonly FightRun[] = [
 ];
 
 const plain = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
+
+type CarriedRun = Readonly<{ name: string; seed: number; to: number }>;
+
+/** Phase 4 as `/` starts it, carried from the third fall, with Practice on and every choice at its default. */
+const CARRIED: readonly CarriedRun[] = [1, 4, 14, 75].map((runSeed): CarriedRun => ({ name: `site-p4-practice-${runSeed}`, seed: runSeed, to: 200 }));
+
+function carriedFight(run: CarriedRun) {
+  Settings.readFromStorage();
+  const region = fullFightStaged(
+    { seed: run.seed, party: 1, startPhase: 4, hazardTiles: false, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true },
+    (player) => dressFullFight(player, OCELLUS_P4.choices.setup.options.ranged.value),
+  );
+  const trainer = new TrainerInstance(region);
+  trainer.mount(document.createElement("canvas"), document.createElement("div"));
+  region.world.getReadyTimer = 0;
+  for (let guard = 0; (region.rows("p4").at(-1)?.tick ?? 0) < run.to && region.p4.mounted?.ocellus.runState().kind !== "ended"; guard++) {
+    if (guard > run.to + 20) throw new Error(`${run.name} never reached P4 tick ${run.to}`);
+    region.world.tickWorld();
+  }
+  const log = JSON.stringify(region.rows("p4"));
+  const boss = region.p4.mounted && { hp: region.p4.mounted.ocellus.currentStats.hitpoint, run: region.p4.mounted.ocellus.runState() };
+  trainer.dispose();
+  return { log: JSON.parse(log), snapshot: plain(boss), bytes: createHash("sha256").update(log).digest("hex") };
+}
 
 test("seeded fights", async () => {
   const out = process.env.PARITY_OUT;
@@ -43,6 +71,7 @@ test("seeded fights", async () => {
     const log = JSON.stringify(drill.region.fightLog());
     fights[run.name] = { log: JSON.parse(log), snapshot: plain(drill.region.snapshot()), bytes: createHash("sha256").update(log).digest("hex") };
   }
+  for (const run of CARRIED) fights[run.name] = carriedFight(run);
   fs.writeFileSync(out, `${JSON.stringify(fights, null, 1)}\n`);
-  expect(Object.keys(fights)).toEqual(RUNS.map(({ name }) => name));
+  expect(Object.keys(fights)).toEqual([...RUNS, ...CARRIED].map(({ name }) => name));
 });

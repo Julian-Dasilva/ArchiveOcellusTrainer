@@ -1,10 +1,11 @@
-import { act } from "react";
-import { ControlPanelController, SettingsControls, TrainerInstance, Viewport } from "osrs-sdk";
+import React, { act } from "react";
+import { ControlPanelController, Settings, SettingsControls, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
 import type { TrainerLoadingState } from "osrs-sdk";
-import { OcellusRegion } from "../js/OcellusRegion";
-import { RING_NORTH, UNDER_BOSS, clickTile } from "./drill";
+import { FightRegion } from "../full/region";
+import { FullFightPage } from "../full/page";
+import { RING_NORTH, UNDER_BOSS } from "./drill";
 import type { At } from "./drill";
-import { loadPage } from "./page";
+import { mountPage } from "./page";
 
 const FRAME_MS = 50;
 const SAVED_SETTINGS = "osrs-sdk:settings";
@@ -21,12 +22,19 @@ const openTab = () => Object.entries(ControlPanelController.controls).find(([, c
 const bindingSettled = () => act(() => new Promise((resolve) => setTimeout(resolve, 30)));
 const shown = (id: string) => document.getElementById(id)?.textContent ?? null;
 
+async function clickTile(on: At): Promise<void> {
+  const at = probe().tileCentre(on);
+  if (!at) throw new Error(`tile (${on.x}, ${on.y}) is not on the canvas`);
+  const press = new MouseEvent("mousedown", { button: 0 });
+  Object.defineProperties(press, { offsetX: { value: at.x }, offsetY: { value: at.y } });
+  Viewport.viewport.canvas.dispatchEvent(press);
+  await new Promise((queued) => setTimeout(queued, Settings.inputDelay));
+}
+
 async function openRun(url: string) {
-  const built = vi.spyOn(OcellusRegion.prototype, "initialiseRegion");
-  const page = loadPage(url);
-  const region = built.mock.contexts.at(-1);
-  built.mockRestore();
-  if (!(region instanceof OcellusRegion)) throw new Error("the page built no region");
+  const page = mountPage(url, <FullFightPage />);
+  const region = Trainer.player.region;
+  if (!(region instanceof FightRegion)) throw new Error("the page built no full fight");
   await act(() => Promise.resolve());
   const { world } = region;
   const p4Tick = () => {
@@ -43,7 +51,7 @@ async function openRun(url: string) {
       play(FRAME_MS);
     }
   };
-  const click = async (on: At) => clickTile(world, on);
+  const click = async (on: At) => clickTile(on);
   return { page, region, world, p4Tick, play, playTo, click };
 }
 
@@ -62,23 +70,24 @@ describe("Set-up and pause", () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  test("the page opens with Start and no tick for as long as it waits, and Start begins GET READY", async () => {
+  test("the full fight page opens with Start, its probe reads no ticking for as long as it waits, and Start begins GET READY", async () => {
     const run = await openRun("/?seed=1");
     run.play(10_000);
-    const setUp = { tick: run.world.globalTickCounter, ticking: probe().snapshot().ticking, start: shown("start"), pause: shown("pause") };
+    const exposed = window.__archiveOcellusProbe;
+    const setUp = { probe: exposed !== undefined, tick: run.world.globalTickCounter, ticking: exposed?.snapshot().ticking ?? null, start: shown("start"), pause: shown("pause") };
     run.page.click("start");
     run.play(3 * 600 + FRAME_MS);
     const started = { tick: run.world.globalTickCounter, getReady: run.world.getReadyTimer, start: shown("start"), pause: shown("pause") };
     run.page.close();
 
     expect({ setUp, started }).toEqual({
-      setUp: { tick: 0, ticking: false, start: "Start", pause: null },
+      setUp: { probe: true, tick: 0, ticking: false, start: "Start", pause: null },
       started: { tick: 3, getReady: 3, start: null, pause: "Pause (P)" },
     });
   });
 
   async function playScript(pauseAt: number | null) {
-    const run = await openRun("/?seed=1&invincible=on");
+    const run = await openRun("/?seed=1&practice=1");
     run.page.click("start");
     run.playTo(4);
     await run.click(RING_NORTH);
@@ -98,7 +107,7 @@ describe("Set-up and pause", () => {
     run.playTo(15);
     await run.click(UNDER_BOSS);
     run.playTo(30);
-    const { rows } = run.region.fightLog();
+    const { rows } = probe().log();
     const { pauses } = probe().log();
     run.page.close();
     return { rows: JSON.stringify(rows), lastTick: rows.at(-1)?.tick, pauses, paused };
@@ -111,12 +120,12 @@ describe("Set-up and pause", () => {
     expect({ sameRows: pausedRun.rows === unpaused.rows, lastTicks: [unpaused.lastTick, pausedRun.lastTick], pauses: [unpaused.pauses, pausedRun.pauses], paused: [unpaused.paused, pausedRun.paused] }).toEqual({
       sameRows: true,
       lastTicks: [30, 30],
-      pauses: [[], [{ at: 15, ms: 60_000 }]],
+      pauses: [[], [{ at: 14, ms: 60_000 }]],
       paused: [null, { heldAt: 9, tabAfterResume: "INVENTORY" }],
     });
   });
 
-  test("P pauses and resumes, but not before Start, not in the seed field, not while binding a key, and not once a tab is bound to it", async () => {
+  test("P pauses and resumes, but not before Start, not in the Start at selector, not while binding a key, and not once a tab is bound to it", async () => {
     const run = await openRun("/?seed=1");
     const state = () => (shown("start") !== null ? "set-up" : shown("resume") !== null ? "paused" : "running");
     const states: string[] = [];
@@ -128,7 +137,7 @@ describe("Set-up and pause", () => {
     states.push(state());
     run.page.press("p");
     states.push(state());
-    run.page.press("p", run.page.element("seed"));
+    run.page.press("p", run.page.element("start_phase"));
     states.push(state());
     act(() => SettingsControls.instance?.startKeyBinding("prayer"));
     run.page.press("p");
@@ -137,14 +146,14 @@ describe("Set-up and pause", () => {
     run.page.press("p");
     states.push(state(), openTab() ?? "none");
     run.playTo(12);
-    const inputs = run.region.fightLog().rows.flatMap((row) => row.inputs);
+    const inputs = probe().log().rows.flatMap((row) => row.inputs);
     run.page.close();
 
     expect({ states, inputs }).toEqual({ states: ["set-up", "paused", "running", "running", "running", "running", "PRAYER"], inputs: [] });
   });
 
   test("hiding the tab mid-run pauses it through the SDK, and that pause is logged too", async () => {
-    const run = await openRun("/?seed=1&invincible=on");
+    const run = await openRun("/?seed=1&practice=1");
     const setVisibility = (state: DocumentVisibilityState) =>
       act(() => {
         Object.defineProperty(document, "visibilityState", { configurable: true, value: state });
@@ -162,11 +171,11 @@ describe("Set-up and pause", () => {
     const { pauses } = probe().log();
     run.page.close();
 
-    expect({ heldAt, whileHidden, pauses }).toEqual({ heldAt: 3, whileHidden: { tick: 3, resume: "Resume (P)" }, pauses: [{ at: 9, ms: 5000 }] });
+    expect({ heldAt, whileHidden, pauses }).toEqual({ heldAt: 3, whileHidden: { tick: 3, resume: "Resume (P)" }, pauses: [{ at: 8, ms: 5000 }] });
   });
 
   test("a run that was paused says so in its result", async () => {
-    const run = await openRun("/?seed=1&focus=void-floor");
+    const run = await openRun("/?seed=1");
     run.page.click("start");
     run.playTo(20);
     run.page.click("pause");
@@ -174,16 +183,16 @@ describe("Set-up and pause", () => {
     run.page.click("resume");
     run.playTo(60);
     await act(() => new Promise((resolve) => setTimeout(resolve, 400)));
-    const lines = [...document.querySelectorAll("#run_result h2, #run_result p")].map((line) => line.textContent);
+    const lines = [...document.querySelectorAll(".fight-result h2, #run_result_paused")].map((line) => line.textContent);
     run.page.close();
 
-    expect(lines).toEqual(["You died", "on P4 tick 54", "Paused once, for 12.5 s in all."]);
+    expect(lines).toEqual(["Oh dear, you are dead!", "Paused once, for 12.5 s in all."]);
   });
 
   test("a click still waiting out its input delay registers on the same P4 tick across a pause", async () => {
     async function walkOrders(pause: boolean) {
       localStorage.setItem(SAVED_SETTINGS, JSON.stringify({ version: 1, values: { inputDelay: 1000 } }));
-      const run = await openRun("/?seed=1&invincible=on");
+      const run = await openRun("/?seed=1&practice=1");
       run.page.click("start");
       run.playTo(9);
       await run.click(RING_NORTH);
@@ -194,7 +203,7 @@ describe("Set-up and pause", () => {
         run.page.click("resume");
       }
       run.playTo(14);
-      const orders = run.region.fightLog().rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered").map((input) => ({ tick: row.tick, input })));
+      const orders = probe().log().rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered").map((input) => ({ tick: row.tick, input })));
       run.page.close();
       return orders;
     }
@@ -206,7 +215,7 @@ describe("Set-up and pause", () => {
   });
 
   test("of nine clicks made while paused, the last decides where the player walks", async () => {
-    const run = await openRun("/?seed=1&invincible=on");
+    const run = await openRun("/?seed=1&practice=1");
     run.page.click("start");
     run.playTo(4);
     run.page.click("pause");
@@ -214,7 +223,7 @@ describe("Set-up and pause", () => {
     await run.click({ x: 3, y: 2 });
     run.page.click("resume");
     run.playTo(5);
-    const orders = run.region.fightLog().rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered"));
+    const orders = probe().log().rows.flatMap((row) => row.inputs.filter((input) => input.kind === "walk-ordered"));
     run.page.close();
 
     expect({ count: orders.length, last: orders.at(-1) }).toEqual({ count: 8, last: { kind: "walk-ordered", destination: { x: 3, y: 2 }, pace: "run-setting" } });

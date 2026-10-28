@@ -8,7 +8,7 @@ import { FightPlayer } from "../fight/units";
 import { p4CameraFacing } from "../full/fall";
 import { FightRegion } from "../full/prefix";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
-import { FullFightApp } from "../../../FullFightApp";
+import { FullFightPage } from "../full/page";
 
 const POLICY = "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.";
 const [LATEST_RELEASE] = CHANGELOG;
@@ -18,7 +18,7 @@ function loadFullFight(url: string) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
-  act(() => root.render(<FullFightApp />));
+  act(() => root.render(<FullFightPage />));
   const element = (id: string): HTMLElement => {
     const found = container.querySelector<HTMLElement>(`#${id}`);
     if (!found) throw new Error(`the page has no #${id}`);
@@ -63,7 +63,7 @@ function phaseValue(element: HTMLElement): string | null {
 describe("the full fight page", () => {
   beforeEach(() => localStorage.removeItem("osrs-sdk:settings"));
 
-  test("shows the drill chat and credits, our sidebar, and the fight controls", () => {
+  test("shows the chat and credits, our sidebar, and the fight controls, with no drill or full fight toggle", () => {
     const page = loadFullFight("/?mode=full&phase=1&seed=1");
     const corner = page.element("hud_corner");
     const credits = page.element("sidebar_credits");
@@ -75,8 +75,7 @@ describe("the full fight page", () => {
       policy: page.element("credit_line").textContent,
       version: page.element("app_version").textContent,
       footerMaker: document.querySelector("#credits #maker_credit"),
-      home: page.element("phase_4_drill").textContent,
-      fullFightButton: document.querySelector("#full_fight"),
+      toggles: ["phase_4_drill", "full_fight"].filter((id) => document.getElementById(id) !== null),
       follow: document.body.textContent?.includes("Follow @alrodi on X") ?? false,
       lines: [...credits.querySelectorAll("li")].map((line) => line.textContent),
       links: [...credits.querySelectorAll("a")].map((link) => [link.textContent, link.href]),
@@ -100,8 +99,7 @@ describe("the full fight page", () => {
       policy: POLICY,
       version: `v${LATEST_RELEASE.version}`,
       footerMaker: null,
-      home: "Phase 4 drill",
-      fullFightButton: null,
+      toggles: [],
       follow: false,
       lines: ["Made by Julian Dasilva / Moarhots: GitHub · @ShadowJdas", "With help from Alessandro Rodi"],
       links: [
@@ -121,7 +119,7 @@ describe("the full fight page", () => {
     });
   });
 
-  test("practice stays on without a reload, Keybinds opens the bindings, Start fight reloads the chosen phase, and Phase 4 drill leaves the full fight", () => {
+  test("practice stays on without a reload, Keybinds opens the bindings, and Start fight reloads the chosen phase", () => {
     const page = loadFullFight("/?mode=full&phase=1&seed=1&setup=ranged");
     page.click("practice");
     const practiced = { checked: page.checked("practice"), search: window.location.search };
@@ -135,7 +133,6 @@ describe("the full fight page", () => {
     });
     const navigation = captureAssign();
     page.click("start_fight");
-    page.click("phase_4_drill");
     const assigned = navigation.assigned;
     navigation.restore();
     page.close();
@@ -145,9 +142,32 @@ describe("the full fight page", () => {
       tab: "SETTINGS",
       assigned: [
         "http://localhost/?mode=full&phase=3&setup=ranged&practice=1&tiles=1&markers=0&skip=0&vine=1",
-        "/",
       ],
     });
+  });
+
+  test.each(["/", "/?seed=1&invincible=on", "/?seed=4&bosshp=1&focus=void-floor&drillStart=cycle-start", "/?phase=p3&seed=1"])("%s opens the full fight with Start at on phase 4 and phase 4 mounted", (link) => {
+    const page = loadFullFight(link);
+    const select = page.element("start_phase");
+    const shown = {
+      startAt: select instanceof HTMLSelectElement ? select.value : null,
+      tips: page.element("phase_tips").querySelector(".sidebar_title")?.textContent ?? null,
+      phase: fightRegion().current,
+    };
+    page.close();
+    expect(shown).toEqual({ startAt: "4", tips: "Phase 4", phase: "p4" });
+  });
+
+  test("Restart reloads the same seed with the toggles as they stand, so no click queued before it plays in the new run", () => {
+    const page = loadFullFight("/?seed=7&setup=melee");
+    page.click("practice");
+    const navigation = captureAssign();
+    page.click("restart_fight");
+    const assigned = navigation.assigned;
+    navigation.restore();
+    page.close();
+
+    expect(assigned).toEqual(["http://localhost/?seed=7&setup=melee&practice=1&phase=4&tiles=1&markers=0&skip=0&vine=1"]);
   });
 
   test("offers phase 4 on Start at, and choosing it reloads the full fight at phase 4", () => {

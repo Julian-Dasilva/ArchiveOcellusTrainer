@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { act } from "react";
-import { OcellusRegion } from "../content/ocellus/js/OcellusRegion";
+import { Trainer } from "osrs-sdk";
+import { FightRegion } from "../content/ocellus/full/region";
 import { loadPage } from "../content/ocellus/tests/page";
 
 const TICK_MS = 600;
-const DEATH_RUN = "/?seed=1&focus=void-floor";
+const DEATH_RUN = "/?seed=1";
 const TODAYS_DAILY_LOADS = 45_000;
 const DAILY_SUMMARY_BUDGET = 20_000;
 
@@ -42,25 +43,24 @@ async function play(ms: number) {
 }
 
 function openRun(url: string) {
-  const built = vi.spyOn(OcellusRegion.prototype, "initialiseRegion");
   const page = loadPage(url);
-  const region = built.mock.contexts.at(-1);
-  built.mockRestore();
-  if (!(region instanceof OcellusRegion)) throw new Error("the page built no region");
+  const region = Trainer.player.region;
+  if (!(region instanceof FightRegion)) throw new Error("the page built no full fight");
+  const run = () => region.p4.mounted?.ocellus.runState();
   // Models never load offline, so the SDK's frame loop never starts; a fixed 600 ms ticker stands in for its tick cadence.
   const ticker = window.setInterval(() => region.world.tickWorld(), TICK_MS);
   const playUntil = async (done: () => boolean) => {
     for (let guard = 0; guard < 200 && !done(); guard++) await play(TICK_MS);
-    if (!done()) throw new Error(`the run never got there: ${JSON.stringify({ run: region.snapshot()?.run, paused: region.world.isPaused, tick: region.world.globalTickCounter, now: performance.now(), raf: String(window.requestAnimationFrame).slice(0, 80) })}`);
+    if (!done()) throw new Error(`the run never got there: ${JSON.stringify({ run: run(), paused: region.world.isPaused, tick: region.world.globalTickCounter, now: performance.now(), raf: String(window.requestAnimationFrame).slice(0, 80) })}`);
   };
   const close = () => {
     window.clearInterval(ticker);
     page.close();
   };
-  const runEnded = () => region.snapshot()?.run.kind === "ended";
+  const runEnded = () => run()?.kind === "ended";
   const atTick = (t: number) => () => {
-    const run = region.snapshot()?.run;
-    return run?.kind === "running" && run.tick >= t;
+    const state = run();
+    return state?.kind === "running" && state.tick >= t;
   };
   return { page, region, playUntil, runEnded, atTick, close };
 }
@@ -105,11 +105,11 @@ describe("Performance telemetry", () => {
           view: "3d",
           gpu: "unavailable",
           browser: "other",
-          stage: "outer-void",
+          stage: "inner-void",
           end: "death",
           sampleRate: 1,
-          runTicks: 49,
-          frames: 1837,
+          runTicks: 23,
+          frames: 862,
           frameMedianMs: 16,
           frameP95Ms: 16,
           frameP99Ms: 16,
@@ -141,7 +141,6 @@ describe("Performance telemetry", () => {
     const { page, playUntil, runEnded, atTick, close } = openRun(DEATH_RUN);
     if (untickAt !== null) {
       await playUntil(atTick(untickAt));
-      page.click("settings");
       page.click("perf_data");
     }
     await playUntil(runEnded);
@@ -166,7 +165,7 @@ describe("Performance telemetry", () => {
     window.dispatchEvent(new Event("pagehide"));
     close();
     expect(beacons.map(({ summary }) => summary)).toEqual([
-      expect.objectContaining({ end: "left", stage: "inner-void", runTicks: 14, frames: 562, lateTicks: 0 }),
+      expect.objectContaining({ end: "left", stage: "inner-void", runTicks: 18, frames: 712, lateTicks: 0 }),
     ]);
     expect(shippedSampleRate() * TODAYS_DAILY_LOADS * beacons.length).toBeLessThanOrEqual(DAILY_SUMMARY_BUDGET);
   });

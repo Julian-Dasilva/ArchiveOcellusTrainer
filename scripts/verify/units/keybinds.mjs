@@ -2,12 +2,12 @@ import { hoverTextOf, pixels } from "../lib.mjs";
 
 export const captures = () => [
   "keybinds-open.json", "keybinds.png", "keybinds-bound.json", "keybinds-saved.json", "keybinds-old-key.json", "keybinds-reloaded.json", "keybinds-reloaded.png",
-  "keybinds-restored.json", "keybinds-console.log", "keybinds-page-errors.json",
+  "keybinds-restored.json", "keybinds-console.log", "keybinds-page-errors.json", "canvas-centre.json",
 ];
 
 export function judge({ read, bytes, env }) {
   const { KEYBIND_DEFAULT_KEY: defaultKey, KEYBIND_NEW_KEY: newKey } = env;
-  const hoverText = hoverTextOf(pixels(bytes).decode, env);
+  const hoverText = hoverTextOf(pixels(bytes).decode, env, read("canvas-centre.json"));
   const [keysOpen, keysBound, keysSaved, keysOldKey, keysReloaded, keysRestored] =
     ["keybinds-open.json", "keybinds-bound.json", "keybinds-saved.json", "keybinds-old-key.json", "keybinds-reloaded.json", "keybinds-restored.json"].map(read);
   const observed = {

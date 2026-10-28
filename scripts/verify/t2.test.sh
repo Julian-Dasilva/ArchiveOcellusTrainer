@@ -33,7 +33,7 @@ stages() {
   echo "PASS production" >"$WORK/t2/artifacts/t2-production/summary.txt"
   echo "PASS perfbudgets" >"$WORK/t2/artifacts/perf-evidence/summary.txt"
   mkdir -p "$WORK/t2/artifacts/t2-plan"
-  printf '{"tier":"t1","units":["seed"],"selections":[]}' >"$WORK/t2/artifacts/t2-plan/plan.json"
+  printf '{"tier":"t1","units":["click_correction"],"selections":[]}' >"$WORK/t2/artifacts/t2-plan/plan.json"
   printf 'assets: deleted spotAnims.1172\n{"deleted":["spotAnims.1172"],"added":[],"changed":[]}\n' >"$WORK/t2/artifacts/t2-assets/assets-diff.txt"
   echo "install-beta-sdk: installed osrs-sdk commit abc matches the pin" >"$WORK/t2/artifacts/t2-assets/sdk-pin.txt"
 }
@@ -55,10 +55,10 @@ every_unit_lands_in_one_shard() {
 
 passing_units_and_stages_pass() {
   stages
-  verdict seed passed
+  verdict click_correction passed
   verdict cues passed
   ready
-  summarize seed cues || { cat "$WORK/out.txt"; fail "a passing T2 failed"; }
+  summarize click_correction cues || { cat "$WORK/out.txt"; fail "a passing T2 failed"; }
   grep -qx "## T2 PASS at abc1234" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "no PASS heading"; }
   grep -qx "  - deleted spotAnims.1172" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the deleted asset is not listed"; }
   grep -qx -- "- SDK: install-beta-sdk: installed osrs-sdk commit abc matches the pin" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the SDK pin is not shown"; }
@@ -66,9 +66,9 @@ passing_units_and_stages_pass() {
 
 unit_lost_with_its_shard_fails() {
   stages
-  verdict seed passed
+  verdict click_correction passed
   ready
-  if summarize seed cues; then cat "$WORK/out.txt"; fail "T2 passed without the cues unit's verdict"; fi
+  if summarize click_correction cues; then cat "$WORK/out.txt"; fail "T2 passed without the cues unit's verdict"; fi
   grep -qx "  - cues missing" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the missing unit is not named"; }
   [[ "$(node -e 'console.log(require(process.argv[1]).passed)' "$WORK/t2/verdict.json")" == false ]] || fail "verdict.json does not record the failure"
 }
@@ -76,22 +76,22 @@ unit_lost_with_its_shard_fails() {
 failed_stage_fails() {
   stages
   echo "FAIL perfbudgets" >"$WORK/t2/artifacts/perf-evidence/summary.txt"
-  verdict seed passed
+  verdict click_correction passed
   ready
-  if summarize seed; then cat "$WORK/out.txt"; fail "T2 passed with failed perf budgets"; fi
+  if summarize click_correction; then cat "$WORK/out.txt"; fail "T2 passed with failed perf budgets"; fi
   grep -qx -- "- perf budgets: FAIL" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the failed stage is not shown"; }
 }
 
 timing_pairs_count_only_when_planned() {
   stages
-  verdict seed passed
+  verdict click_correction passed
   ready
-  summarize seed || { cat "$WORK/out.txt"; fail "T2 failed on timing pairs the plan did not select"; }
+  summarize click_correction || { cat "$WORK/out.txt"; fail "T2 failed on timing pairs the plan did not select"; }
   grep -qx -- "- perf timing pairs: not selected by the plan" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the unselected pairs are not shown"; }
-  printf '{"tier":"t2","units":["seed","perf_timing"],"selections":[]}' >"$WORK/t2/artifacts/t2-plan/plan.json"
+  printf '{"tier":"t2","units":["click_correction","perf_timing"],"selections":[]}' >"$WORK/t2/artifacts/t2-plan/plan.json"
   mkdir -p "$WORK/t2/artifacts/perf-timing-evidence"
   echo "FAIL perf" >"$WORK/t2/artifacts/perf-timing-evidence/summary.txt"
-  if summarize seed; then cat "$WORK/out.txt"; fail "T2 passed with failed timing pairs the plan selected"; fi
+  if summarize click_correction; then cat "$WORK/out.txt"; fail "T2 passed with failed timing pairs the plan selected"; fi
   grep -qx -- "- perf timing pairs: FAIL" "$WORK/out.txt" || { cat "$WORK/out.txt"; fail "the failed pairs are not shown"; }
 }
 

@@ -1,5 +1,5 @@
 const path = require("path");
-const { DefinePlugin, EnvironmentPlugin } = require("webpack");
+const { DefinePlugin } = require("webpack");
 const CopyPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 
@@ -34,7 +34,6 @@ module.exports = {
   },
   plugins: [
     new DefinePlugin({ "process.env.CF_WEB_ANALYTICS_TOKEN": JSON.stringify(WEB_ANALYTICS_TOKEN) }),
-    new EnvironmentPlugin({ ARCHIVE_P3: "off", ARCHIVE_P2: "off", ARCHIVE_P1: "off", ARCHIVE_FULL: "off" }),
     new HtmlWebpackPlugin({ template: "src/index.html", inject: "body", scriptLoading: "blocking" }),
     new CopyPlugin({
       patterns: [
@@ -50,16 +49,6 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /load(?:FullChunks|Attempts)\.ts$/,
-        use: [
-          {
-            loader: "ts-loader",
-            options: { transpileOnly: true, compilerOptions: { module: "es2020" } },
-          },
-        ],
-        exclude: /node_modules/,
-      },
-      {
         test: /\.tsx?$/,
         use: [
           {
@@ -67,7 +56,7 @@ module.exports = {
             options: { transpileOnly: true },
           },
         ],
-        exclude: [/node_modules/, /loadFullChunks\.ts$/, /loadAttempts\.ts$/],
+        exclude: /node_modules/,
       },
       {
         test: /\.(png|svg|jpg|jpeg|gif|ogg|gltf|glb)$/i,

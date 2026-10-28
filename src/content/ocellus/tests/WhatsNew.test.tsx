@@ -26,7 +26,6 @@ const NEXT_RELEASE = {
 function whatsNew(page: ReturnType<typeof loadPage>) {
   const panel = page.element("whats_new_panel");
   return {
-    settingsDot: page.element("settings").querySelector(".unseen_dot") !== null,
     menuDot: page.element("whats_new").querySelector(".unseen_dot") !== null,
     panelShown: panel.hidden === false,
     releases: [...panel.querySelectorAll("article")].map((article) => ({
@@ -42,33 +41,30 @@ describe("What's new", () => {
     localStorage.clear();
   });
 
-  test("a first visit shows the dot until What's new is opened from Settings, the panel lists the releases newest first, and a reload keeps the dot cleared", () => {
-    const page = loadPage("/?seed=1");
-    const firstVisit = whatsNew(page);
-    page.click("settings");
+  test("a first visit shows the dot until What's new is opened from About, the panel lists the releases newest first, and a reload keeps the dot cleared", () => {
+    const page = loadPage("/");
+    const firstVisit = { ...whatsNew(page), inAbout: page.element("sidebar_about").contains(page.element("whats_new")) };
     page.click("whats_new");
-    const opened = { ...whatsNew(page), menuShown: page.element("settings_menu").hidden === false, expanded: page.element("settings").getAttribute("aria-expanded") };
+    const opened = { ...whatsNew(page), expanded: page.element("whats_new").getAttribute("aria-expanded") };
     page.click("whats_new_close");
     const closed = whatsNew(page).panelShown;
     const version = page.element("app_version").textContent;
     page.close();
-    const reloaded = loadPage("/?seed=1");
+    const reloaded = loadPage("/");
     const afterReload = whatsNew(reloaded);
     reloaded.close();
     const versions = opened.releases.map((release) => release.version ?? "");
 
     expect({ firstVisit, opened, closed, afterReload, version, newestFirst: versions.join() === [...versions].sort().reverse().join() }).toEqual({
-      firstVisit: { settingsDot: true, menuDot: true, panelShown: false, releases: expect.any(Array) },
+      firstVisit: { menuDot: true, panelShown: false, releases: expect.any(Array), inAbout: true },
       opened: {
-        settingsDot: false,
         menuDot: false,
         panelShown: true,
-        menuShown: false,
         expanded: "true",
         releases: expect.arrayContaining([FIRST_RELEASE]),
       },
       closed: false,
-      afterReload: { settingsDot: false, menuDot: false, panelShown: false, releases: expect.any(Array) },
+      afterReload: { menuDot: false, panelShown: false, releases: expect.any(Array) },
       version: `v${versions[0]}`,
       newestFirst: true,
     });
@@ -77,20 +73,18 @@ describe("What's new", () => {
 
   test("a player who saw the last shipped release sees the dot again, and What's new opens on the unshipped releases, newest first, with the next shipped one below them", () => {
     localStorage.setItem(SEEN_RELEASE_KEY, "2026.10.27");
-    const page = loadPage("/?seed=1");
-    const { settingsDot, menuDot } = whatsNew(page);
-    page.click("settings");
+    const page = loadPage("/");
+    const { menuDot } = whatsNew(page);
     page.click("whats_new");
     const { releases } = whatsNew(page);
     page.close();
-    expect({ settingsDot, menuDot, unshipped: releases.slice(0, 1).map((release) => release.version), next: releases[1] }).toEqual({
-      settingsDot: true, menuDot: true, unshipped: ["2026.10.28"], next: NEXT_RELEASE,
+    expect({ menuDot, unshipped: releases.slice(0, 1).map((release) => release.version), next: releases[1] }).toEqual({
+      menuDot: true, unshipped: ["2026.10.28"], next: NEXT_RELEASE,
     });
   });
 
   test("opening What's new from the keyboard moves focus to the panel's title", () => {
-    const page = loadPage("/?seed=1");
-    page.click("settings");
+    const page = loadPage("/");
     page.element("whats_new").focus();
     page.click("whats_new");
     const focused = document.activeElement?.id;
@@ -101,15 +95,14 @@ describe("What's new", () => {
   test.each([
     ["Close", (page: ReturnType<typeof loadPage>) => page.click("whats_new_close")],
     ["Escape", (page: ReturnType<typeof loadPage>) => page.press("Escape", page.element("whats_new_close"))],
-  ])("closing What's new with %s returns focus to Settings", (_, close) => {
-    const page = loadPage("/?seed=1");
-    page.click("settings");
+  ])("closing What's new with %s returns focus to What's new", (_, close) => {
+    const page = loadPage("/");
     page.click("whats_new");
     page.element("whats_new_close").focus();
     close(page);
     const closed = { focused: document.activeElement?.id, panelShown: page.element("whats_new_panel").hidden === false };
     page.close();
-    expect(closed).toEqual({ focused: "settings", panelShown: false });
+    expect(closed).toEqual({ focused: "whats_new", panelShown: false });
   });
 
   test("storage that throws for the seen release still opens the panel and clears the dot for the visit", () => {
@@ -126,17 +119,16 @@ describe("What's new", () => {
       blocked(key);
       setItem.call(this, key, value);
     });
-    const page = loadPage("/?seed=1");
+    const page = loadPage("/");
     const onLoad = whatsNew(page);
-    page.click("settings");
     page.click("whats_new");
     const opened = whatsNew(page);
     page.close();
     read.mockRestore();
     write.mockRestore();
 
-    expect({ onLoad: [onLoad.settingsDot, onLoad.menuDot], opened: [opened.settingsDot, opened.panelShown, opened.releases.at(-1)] }).toEqual({
-      onLoad: [true, true],
+    expect({ onLoad: onLoad.menuDot, opened: [opened.menuDot, opened.panelShown, opened.releases.at(-1)] }).toEqual({
+      onLoad: true,
       opened: [false, true, FIRST_RELEASE],
     });
   });

@@ -11,6 +11,7 @@ import { PLATFORM_ROOM } from "./rooms/platform";
 type DrillEntries = Readonly<{ p4: P4Entry }>;
 type DrillPhases = Readonly<{ p4: ReturnType<typeof p4Phase<DrillEntries>> }>;
 
+/** Phase 4 alone on its flat platform: the in-process bed for P4's mechanic tests. The site enters phase 4 only from the full fight. */
 export class OcellusRegion extends EncounterRegion<DrillEntries, DrillPhases> {
   private readonly watch: P4Watch;
 

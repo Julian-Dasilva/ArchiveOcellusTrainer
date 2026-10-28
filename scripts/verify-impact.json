@@ -1,12 +1,11 @@
 {
   "stages": { "production": "production", "perf_timing": "perf" },
   "groups": {
-    "shell": ["stored_view", "load_retry", "get_ready", "setup_pause", "saved_loadouts", "settings_menu", "run_results", "whats_new", "telemetry", "seed", "invincible", "focus", "keybinds", "cues", "production"],
+    "shell": ["stored_view", "load_retry", "get_ready", "setup_pause", "whats_new", "telemetry", "keybinds", "cues", "production"],
     "walking": ["p4_cycle", "walkway", "control_walk", "click_correction", "back_wall", "corner", "boss_pathing"],
-    "orbs": ["lifeforce_orb", "orb_late_and_entry", "orb_off_holes", "invincible", "cues", "recorded_fights"],
+    "orbs": ["lifeforce_orb", "orb_late_and_entry", "cues", "recorded_fights"],
     "explosion_set": ["explosions", "dodge_speedup", "explosion_run_end"],
-    "combat": ["loadouts", "defence_floor", "supplies", "overheads_rifts", "dodge_speedup", "run_results", "telemetry", "recorded_fights"],
-    "p3": ["p3_drill", "production"]
+    "combat": ["loadouts", "defence_floor", "supplies", "overheads_rifts", "dodge_speedup", "telemetry", "recorded_fights"]
   },
   "everything": [
     "package.json",
@@ -20,8 +19,8 @@
     "src/sim/**",
     "src/index.ts",
     "src/assets.ts",
-    "src/content/ocellus/js/OcellusRegion.ts",
-    "src/content/ocellus/js/OcellusPlayer.ts",
+    "src/content/ocellus/full/**",
+    "src/content/ocellus/fight/**",
     "src/content/ocellus/js/OcellusTimings.ts",
     "src/content/ocellus/js/P4Types.ts",
     "src/content/ocellus/js/roll.ts",
@@ -66,22 +65,19 @@
   ],
   "rules": [
     { "paths": ["src/index.html"], "units": ["@shell", "p4_cycle", "layered_present"] },
-    { "paths": ["src/ArchiveOcellusApp.tsx"], "units": ["@shell", "loadouts", "p3_drill", "layered_present"] },
+    { "paths": ["src/ArchiveOcellusApp.tsx", "src/runGate.tsx"], "units": ["@shell", "loadouts", "layered_present"] },
     { "paths": ["src/browserStorage.ts"], "units": ["@shell"] },
-    { "paths": ["src/savedLoadouts.ts"], "units": ["saved_loadouts", "loadouts"] },
     { "paths": ["src/content/ocellus/changelog.ts", "src/releases.ts", "scripts/release-notes.mjs"], "units": ["whats_new", "production"] },
     { "paths": ["src/hoverText.ts"], "units": ["supplies", "keybinds"] },
     { "paths": ["src/telemetry/**", "src/telemetry.json"], "units": ["telemetry", "production"] },
-    { "paths": ["src/flags.ts"], "units": ["p3_drill", "production"] },
-    { "paths": ["src/menu/**"], "units": ["settings_menu", "production"] },
+    { "paths": ["src/menu/**"], "units": ["production"] },
     { "paths": ["src/itemIcons/**"], "units": ["loadouts", "supplies"] },
-    { "paths": ["src/cacheHeaders/**", "src/phaseCode/**", "src/_headers", "netlify.toml", "wrangler.jsonc", "scripts/netlify-build.sh"], "units": ["production"] },
+    { "paths": ["src/cacheHeaders/**", "src/_headers", "netlify.toml", "wrangler.jsonc", "scripts/netlify-build.sh"], "units": ["production"] },
     { "paths": ["src/perf/**"], "units": ["perf_timing"] },
-    { "paths": ["scripts/verify/frame-clock.js"], "units": ["focus", "click_correction", "explosions", "explosion_run_end", "transition_attack", "overheads_rifts", "cues"] },
+    { "paths": ["scripts/verify/frame-clock.js"], "units": ["click_correction", "explosions", "explosion_run_end", "transition_attack", "overheads_rifts", "cues"] },
     { "paths": ["src/content/ocellus/js/p4/orb.ts"], "units": ["@orbs"] },
     { "paths": ["src/content/ocellus/js/p4/explosions.ts"], "units": ["@explosion_set"] },
     { "paths": ["src/content/ocellus/js/mobs/VoidRift.ts"], "units": ["overheads_rifts", "recorded_fights"] },
-    { "paths": ["src/content/ocellus/js/gear/**", "src/content/ocellus/js/OcellusLoadout.ts", "src/content/ocellus/js/bossStats.ts"], "units": ["@combat"] },
-    { "paths": ["src/content/ocellus/js/P3Region.ts", "src/content/ocellus/js/P3Types.ts", "src/content/ocellus/js/OcellusTimingsP3.ts", "src/content/ocellus/js/entities/P3Marks.ts", "src/content/ocellus/js/mobs/OcellusP3.ts", "src/content/ocellus/js/p3/**"], "units": ["@p3"] }
+    { "paths": ["src/content/ocellus/js/gear/**", "src/content/ocellus/js/OcellusLoadout.ts", "src/content/ocellus/js/bossStats.ts"], "units": ["@combat"] }
   ]
 }

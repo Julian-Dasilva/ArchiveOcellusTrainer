@@ -68,31 +68,32 @@ export function pixels(bytes) {
         if (matches(px[i], px[i + 1], px[i + 2])) [hits, sumX] = [hits + 1, sumX + x];
       }
     }
-    return { share: Math.round((100000 * hits) / ((maxX - minX + 1) * (maxY - minY + 1))) / 1000, dx: hits ? Math.round((1000 * (sumX / hits - (width - 1) / 2)) / width) / 1000 : null };
+    return { share: Math.round((100000 * hits) / ((maxX - minX + 1) * (maxY - minY + 1))) / 1000, dx: hits ? Math.round((1000 * (sumX / hits - (minX + maxX) / 2)) / width) / 1000 : null };
   }
   return { decode, pixelShare, spot };
 }
 
-export function hoverTextOf(decode, { LOADOUT_SLOT_Y, SUPPLY_BREW_SLOT, LOADOUT_SLOT_DY, SUPPLY_HOVER_NAME_PIXEL: hoverNamePixel }) {
-  const brewY = Number(LOADOUT_SLOT_Y) + Math.floor(Number(SUPPLY_BREW_SLOT) / 4) * Number(LOADOUT_SLOT_DY);
+// The slot rows were measured on an 800-pixel canvas, and the SDK anchors the inventory to the canvas's bottom right.
+export function hoverTextOf(decode, { LOADOUT_SLOT_Y, SUPPLY_BREW_SLOT, LOADOUT_SLOT_DY, SUPPLY_HOVER_NAME_PIXEL: hoverNamePixel }, canvas) {
+  const brewY = canvas.top + canvas.height - (800 - (Number(LOADOUT_SLOT_Y) + Math.floor(Number(SUPPLY_BREW_SLOT) / 4) * Number(LOADOUT_SLOT_DY)));
   const nameRgb = [1, 3, 5].map((i) => parseInt(hoverNamePixel.slice(i, i + 2), 16));
   return function hoverText(file) {
     const { width, channels, px } = decode(file);
     const columns = (rgb) => {
       const xs = [];
       for (let y = Number(brewY) + 19; y <= Number(brewY) + 40; y++) {
-        for (let x = 0; x < width; x++) if (rgb.every((v, c) => px[(y * width + x) * channels + c] === v)) xs.push(x);
+        for (let x = canvas.left; x < canvas.left + canvas.width; x++) if (rgb.every((v, c) => px[(y * width + x) * channels + c] === v)) xs.push(x);
       }
       return xs.length ? [Math.min(...xs), Math.max(...xs)] : null;
     };
-    return { width, action: columns([255, 255, 255]), name: columns(nameRgb) };
+    return { width: canvas.left + canvas.width, action: columns([255, 255, 255]), name: columns(nameRgb) };
   };
 }
 
 export function replacedRun({ waiting, firstTick, firstRow }, { SPAWN_TILE: spawn, LOADOUT_RANGED_WORN: worn, SUPPLY_INVENTORY: inventory }) {
   const from = JSON.parse(spawn), at = (tile) => tile?.x === from.x && tile?.y === from.y;
   return {
-    waitsAtStart: waiting.reloaded && waiting.start && !waiting.pause && waiting.tick === 0 && waiting.ticking === false && waiting.rows === 0,
+    waitsAtStart: waiting.start && !waiting.pause && waiting.tick === 0 && waiting.ticking === false && waiting.rows === 0,
     carriesNoInput: firstTick.tick >= 1 && at(firstTick.player) && (firstTick.destination === null || at(firstTick.destination)) &&
       firstTick.weapon === JSON.parse(worn).weapon && firstTick.slot0 === JSON.parse(inventory)[0] &&
       firstRow !== null && firstRow.prayer === null && at(firstRow.tile) && firstRow.inputs.length === 0,
