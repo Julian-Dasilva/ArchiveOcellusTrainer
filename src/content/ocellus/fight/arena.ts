@@ -165,6 +165,25 @@ function octagon(): Corner[] {
   return pts.map(([x, z]) => ({ world: [x + C + 0.5, C - z - 0.5], quadrant: quadrantAt(x, z) }));
 }
 
+function placed(geometry: THREE.BufferGeometry, x: number, y: number, z: number, rotationY = 0): THREE.BufferGeometry {
+  return geometry.rotateY(rotationY).translate(x, y, z);
+}
+
+/**
+ * One geometry with every piece's triangles, for untextured materials. Three's own merge helper imports its ES module
+ * build, which would bundle a second copy of three beside the CommonJS one the app uses.
+ */
+function merged(pieces: readonly THREE.BufferGeometry[]): THREE.BufferGeometry {
+  const flat = pieces.map((piece) => (piece.index ? piece.toNonIndexed() : piece));
+  const geometry = new THREE.BufferGeometry();
+  for (const [name, size] of [["position", 3], ["normal", 3]] as const) {
+    geometry.setAttribute(name, new THREE.Float32BufferAttribute(flat.flatMap((piece) => [...piece.getAttribute(name).array]), size));
+  }
+  return geometry;
+}
+
+type Standing<T> = Readonly<{ piece: T; quadrants: readonly Quadrant[] }>;
+
 class ArenaModel implements Model {
   private readonly group = new THREE.Group();
   private readonly dynamic = new THREE.Group();
@@ -175,8 +194,12 @@ class ArenaModel implements Model {
   private readonly wallMaterial = new THREE.MeshLambertMaterial({ color: 0xb4b49c });
   private readonly bowlMaterial = new THREE.MeshLambertMaterial({ color: 0x6d5a3a });
   private readonly flames = new Map<string, THREE.Mesh>();
-  /** Parapet pieces and torches, with the quadrants they stand over; hidden once all of those have fallen. */
-  private readonly rim: { object: THREE.Object3D; quadrants: readonly Quadrant[] }[] = [];
+  /**
+   * Parapet walls and torch pillars in world space, with the quadrants they stand over; dropped once all of those have
+   * fallen. They share one material with the censer plinths, so the standing ones draw as one mesh.
+   */
+  private readonly masonry: Standing<THREE.BufferGeometry>[] = [];
+  private readonly torchFlames: Standing<THREE.Mesh>[] = [];
   private readonly crumbleMaterial = new THREE.MeshBasicMaterial({ color: 0x3a0612, transparent: true, opacity: 0.3, depthWrite: false });
   private built: string | null = null;
   private time = 0;
@@ -201,29 +224,28 @@ class ArenaModel implements Model {
       const [bx, bz] = corners[(i + 1) % corners.length].world;
       const edgeQuadrants = [...new Set([corners[i].quadrant, corners[(i + 1) % corners.length].quadrant])];
       const length = Math.hypot(bx - ax, bz - az);
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(length, wallHeight, thickness), this.wallMaterial);
-      wall.position.set((ax + bx) / 2, FLOOR_Y + wallHeight / 2, (az + bz) / 2);
-      wall.rotation.y = -Math.atan2(bz - az, bx - ax);
+      const midX = (ax + bx) / 2;
+      const midZ = (az + bz) / 2;
       // Push the wall outward by half its thickness so it sits outside the floor.
-      const centreX = C + 0.5;
-      const centreZ = C - 0.5;
-      const outX = wall.position.x - centreX;
-      const outZ = wall.position.z - centreZ;
+      const outX = midX - (C + 0.5);
+      const outZ = midZ - (C - 0.5);
       const outLength = Math.hypot(outX, outZ);
-      wall.position.x += (outX / outLength) * thickness / 2;
-      wall.position.z += (outZ / outLength) * thickness / 2;
-      this.group.add(wall);
-      this.rim.push({ object: wall, quadrants: edgeQuadrants });
+      const wall = placed(
+        new THREE.BoxGeometry(length, wallHeight, thickness),
+        midX + (outX / outLength) * thickness / 2,
+        FLOOR_Y + wallHeight / 2,
+        midZ + (outZ / outLength) * thickness / 2,
+        -Math.atan2(bz - az, bx - ax),
+      );
+      this.masonry.push({ piece: wall, quadrants: edgeQuadrants });
 
-      const torch = new THREE.Group();
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 1.6, 8), this.wallMaterial);
-      pillar.position.set(ax, FLOOR_Y + 0.8, az);
+      const pillar = placed(new THREE.CylinderGeometry(0.42, 0.5, 1.6, 8), ax, FLOOR_Y + 0.8, az);
+      this.masonry.push({ piece: pillar, quadrants: [corners[i].quadrant] });
       const flame = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 7), new THREE.MeshBasicMaterial({ color: 0xffa630 }));
       flame.position.set(ax, FLOOR_Y + 1.85, az);
       this.flames.set(`torch${i}`, flame);
-      torch.add(pillar, flame);
-      this.group.add(torch);
-      this.rim.push({ object: torch, quadrants: [corners[i].quadrant] });
+      this.group.add(flame);
+      this.torchFlames.push({ piece: flame, quadrants: [corners[i].quadrant] });
     }
   }
 
@@ -259,7 +281,8 @@ class ArenaModel implements Model {
     this.built = state.key;
     this.clearDynamic();
     const fallen = new Set(state.destroyed);
-    for (const { object, quadrants } of this.rim) object.visible = quadrants.some((q) => !fallen.has(q));
+    const stands = (quadrants: readonly Quadrant[]) => quadrants.some((q) => !fallen.has(q));
+    for (const { piece, quadrants } of this.torchFlames) piece.visible = stands(quadrants);
 
     // Floor top: one quad per tile, UVs into the room texture.
     const positions: number[] = [];
@@ -324,24 +347,22 @@ class ArenaModel implements Model {
     this.dynamic.add(new THREE.Mesh(cliffs, this.cliffMaterial));
 
     // Stepping stones: flat-topped rocks floating in the chasm, a little below the banks.
-    for (const stone of state.stones) {
+    const stones = state.stones.map((stone) => {
       const s = toSdk(stone);
-      const rock = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.18, 0.9, 7), this.stoneMaterial);
-      rock.position.set(s.x + 0.5, FLOOR_Y - 0.5, s.y - 0.5);
-      rock.rotation.y = hash(stone.x, stone.z) * Math.PI;
-      this.dynamic.add(rock);
-    }
+      return placed(new THREE.CylinderGeometry(0.5, 0.18, 0.9, 7), s.x + 0.5, FLOOR_Y - 0.5, s.y - 0.5, hash(stone.x, stone.z) * Math.PI);
+    });
+    this.addMerged(stones, this.stoneMaterial);
 
     // Censers: a bowl on a plinth, its fire lit in the god's colour once used.
+    const masonry = this.masonry.filter(({ quadrants }) => stands(quadrants)).map(({ piece }) => piece);
     for (const censer of state.censers) {
       const q = quadrantAt(censer.tile.x, censer.tile.z);
       if (fallen.has(q)) continue;
       const s = toSdk(censer.tile);
-      const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 1.1, 8), this.wallMaterial);
-      plinth.position.set(s.x + 0.5, FLOOR_Y + 0.55, s.y - 0.5);
+      masonry.push(placed(new THREE.CylinderGeometry(0.35, 0.45, 1.1, 8), s.x + 0.5, FLOOR_Y + 0.55, s.y - 0.5));
       const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.25, 0.3, 10), this.bowlMaterial);
       bowl.position.set(s.x + 0.5, FLOOR_Y + 1.25, s.y - 0.5);
-      this.dynamic.add(plinth, bowl);
+      this.dynamic.add(bowl);
       const flame = new THREE.Mesh(
         new THREE.ConeGeometry(censer.lit ? 0.3 : 0.12, censer.lit ? 0.8 : 0.25, 8),
         new THREE.MeshBasicMaterial({ color: censer.lit ? GOD_COLOUR[censer.god] : 0x3a3328 }),
@@ -350,6 +371,12 @@ class ArenaModel implements Model {
       this.flames.set(`censer${key(censer.tile)}`, flame);
       this.dynamic.add(flame);
     }
+    this.addMerged(masonry, this.wallMaterial);
+  }
+
+  /** The pieces are never drawn themselves, so only the merged geometry holds GPU buffers, and `clearDynamic` frees it. */
+  private addMerged(pieces: THREE.BufferGeometry[], material: THREE.Material): void {
+    if (pieces.length > 0) this.dynamic.add(new THREE.Mesh(merged(pieces), material));
   }
 
   destroy(scene: THREE.Scene): void {
@@ -362,6 +389,7 @@ class ArenaModel implements Model {
     this.wallMaterial.dispose();
     this.crumbleMaterial.dispose();
     this.bowlMaterial.dispose();
+    for (const { piece } of this.masonry) piece.dispose();
     for (const flame of this.flames.values()) {
       flame.geometry.dispose();
       if (!Array.isArray(flame.material)) flame.material.dispose();
