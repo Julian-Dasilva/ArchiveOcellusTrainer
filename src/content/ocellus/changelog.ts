@@ -8,6 +8,7 @@ export const CHANGELOG: Changelog = [
       "About 1 run in 10 sends an anonymous performance summary, so we can find what causes lag. To turn it off, untick Performance data under About.",
       "The site opens straight into the full fight, starting at phase 4, with every phase in the Start at selector. The separate phase 4 drill page is gone.",
       "Settings is one panel: Fight, Learning aids, Sound, Controls, then About, which keeps What's new and the Performance data box.",
+      "Start with picks the weapon in your hand: the twisted bow (the default), the toxic blowpipe, or the scythe in melee gear. Your inventory holds the same items either way. Tick Defence drained to start each phase with his Defence as low as it goes.",
     ],
   },
   {
