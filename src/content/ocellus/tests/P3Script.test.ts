@@ -1,7 +1,7 @@
 import { SEQ } from "../full/data/looks";
 import { P3 } from "../full/data/p3";
 import { Potion } from "osrs-sdk";
-import { QUADRANTS, at, covers, quadrantOf } from "../fight/geometry";
+import { QUADRANTS, at, covers, quadrantOf, quadrantTiles } from "../fight/geometry";
 import { S, startP3 } from "./p3run";
 
 const SWING = SEQ.p3MeleeBasic;
@@ -59,6 +59,25 @@ describe("phase 3 on the engine follows the recorded kill [K]", () => {
     // The quadrant's 1st and 3rd spins bring the vine with his next move, not the 2nd.
     expect(VINE_SHOUTS.flatMap((text) => f.said(text, S)).sort((a, b) => a - b)).toEqual([33, 188]);
     expect(f.chat("You've been rooted in place!", S)).toEqual([36, 191]);
+  });
+
+  test("each superior slash leaves its lasting field on every tile of its band, and only there", () => {
+    const f = open();
+    const L = S + 139 + P3.insolenceFirst + P3.insolenceLands;
+    f.tickTo(L, f.stayInReach);
+    const [band] = f.looks("danger").flatMap(([, look]) => (look.role === "superior-slash" ? [look.tiles] : []));
+    if (!band) throw new Error("no superior slash was shown");
+    const key = (t: { x: number; z: number }) => `${t.x},${t.z}`;
+    const field = f.looks("patch").flatMap(([t, look]) => (t === L && look.loc === "insolence" ? [key(look.tile)] : []));
+    expect(band.length).toBeGreaterThan(6);
+    expect(field.sort()).toEqual(band.map(key).sort());
+    const outside = quadrantTiles(quadrantOf(band[0]) ?? "SE").find((t) => f.live().arena.isWalkable(t) && !band.some((b) => b.x === t.x && b.z === t.z));
+    if (!outside) throw new Error("the band covers the whole quadrant");
+    expect(field).not.toContain(key(outside));
+    const farEnd = band[band.length - 1];
+    f.player().hop(farEnd);
+    f.tickTo(L + 4);
+    expect(f.landed(["void-patch"], L).filter(([t]) => t > 0)).toEqual([[2, "void-patch"], [4, "void-patch"]]);
   });
 
   test("a quadrant falls the tick after his HP reaches its floor, even mid-spin; the next opens with the other special", () => {

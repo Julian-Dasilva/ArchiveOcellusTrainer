@@ -24,7 +24,7 @@ export type ChatLine = Readonly<{ text: string; colour: string; tick: number }>;
 
 type Telegraph = Readonly<{ role: DangerRole; tiles: readonly ATile[]; until: Tick }>;
 type Zone = Readonly<{ body: Body; erupts: Tick; slams: Tick }>;
-type Patch = Readonly<{ key: string; tile: ATile; end: PatchEnd; loc: keyof typeof VOID_LOC }>;
+type Patch = Readonly<{ tile: ATile; end: PatchEnd; loc: keyof typeof VOID_LOC }>;
 
 class Shot extends Projectile {
   constructor(from: Unit, to: Unit | Location3, delay: number, visuals: ProjectileVisuals) {
@@ -152,7 +152,7 @@ export class P3Views {
         this.crossing = null;
         return;
       case "patch":
-        this.patches = [...this.patches.filter((p) => p.tile.x !== look.tile.x || p.tile.z !== look.tile.z), { key: `${look.loc}:${look.placed}:${look.tile.x},${look.tile.z}`, tile: look.tile, end: look.end, loc: look.loc }];
+        this.patches = [...this.patches.filter((p) => p.tile.x !== look.tile.x || p.tile.z !== look.tile.z), { tile: look.tile, end: look.end, loc: look.loc }];
         return;
       case "patches-cleared":
         this.patches = look.quadrant === "all" ? [] : this.patches.filter((p) => quadrantOf(p.tile) !== look.quadrant);
@@ -165,7 +165,7 @@ export class P3Views {
   }
 
   private patchViews(): readonly LocView[] {
-    return this.patches.map((p) => ({ key: p.key, tile: p.tile, models: VOID_LOC[p.loc].models }));
+    return this.patches.map((p) => ({ tile: p.tile, models: VOID_LOC[p.loc].models }));
   }
 
   private spot(tile: ATile, id: number, options: SpotOptions): void {

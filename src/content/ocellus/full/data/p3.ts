@@ -770,13 +770,6 @@ export const p3Sourced = {
     "\"It's flying too high to hit using melee.\" shows at most once in this many ticks. ocellus-sim phase3.ts:935",
     noWiki("the wiki's phase 3 text does not state this count"),
   ),
-  insolenceDebrisAt: selected(
-    [0.2, 0.5, 0.85] as const,
-    "inferred",
-    "unscaled",
-    "Insolence leaves debris at these fractions along each band, nearest him first. ocellus-sim phase3.ts:528",
-    noWiki("the wiki's phase 3 text does not state this count"),
-  ),
   riftClearance: selected(
     2,
     "inferred",
@@ -940,7 +933,6 @@ export const P3 = {
   stoneWalk: p3Sourced.stoneWalk.value,
   idleAfter: p3Sourced.idleAfter.value,
   flyingMessageEvery: p3Sourced.flyingMessageEvery.value,
-  insolenceDebrisAt: p3Sourced.insolenceDebrisAt.value,
   riftClearance: p3Sourced.riftClearance.value,
   censer: {
     special: p3Sourced.censer.special.value,

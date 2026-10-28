@@ -507,8 +507,6 @@ export const P3 = {
   idleAfter: 1,
   /** "It's flying too high to hit using melee." shows at most once in this many ticks. ocellus-sim phase3.ts:935 */
   flyingMessageEvery: 3,
-  /** Insolence leaves debris at these fractions along each band, nearest him first. ocellus-sim phase3.ts:528 */
-  insolenceDebrisAt: [0.2, 0.5, 0.85],
   /** A rift spawns at least 2 tiles clear of his body. ocellus-sim phase3.ts:538 */
   riftClearance: 2,
   censer: {

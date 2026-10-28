@@ -53,6 +53,28 @@ function drawnPositions(scene: THREE.Scene): number[] {
   return meshes.flatMap((mesh) => Array.from(mesh.geometry.getAttribute("position").array));
 }
 
+const isInstanced = (mesh: THREE.Mesh): mesh is THREE.InstancedMesh => "isInstancedMesh" in mesh;
+
+/** The world-space corners of each drawn triangle: one per plain mesh, one per instance of an instanced mesh. */
+function worldTriangles(scene: THREE.Scene): THREE.Vector3[][] {
+  scene.updateMatrixWorld(true);
+  const triangles: THREE.Vector3[][] = [];
+  const corners = (mesh: THREE.Mesh, matrix: THREE.Matrix4) => {
+    const position = mesh.geometry.getAttribute("position");
+    triangles.push([0, 1, 2].map((i) => new THREE.Vector3().fromBufferAttribute(position, i).applyMatrix4(matrix)));
+  };
+  scene.traverse((node) => {
+    if (!isMesh(node)) return;
+    if (!isInstanced(node)) return corners(node, node.matrixWorld);
+    for (let i = 0; i < node.count; i++) {
+      const instance = new THREE.Matrix4();
+      node.getMatrixAt(i, instance);
+      corners(node, instance.premultiply(node.matrixWorld));
+    }
+  });
+  return triangles;
+}
+
 describe("LocField", () => {
   // The bundle is static files the browser fetches; jsdom has no server, so the test serves them.
   beforeEach(() => {
@@ -71,7 +93,7 @@ describe("LocField", () => {
 
   it("draws each loc in its baked idle pose, not its bind mesh", async () => {
     const region = new TestRegion(20, 20);
-    const field = new LocField(region, () => [{ key: "aoe", tile: at(0, 0), models: [MODEL] }]);
+    const field = new LocField(region, () => [{ tile: at(0, 0), models: [MODEL] }]);
     const model = field.get3dModel();
     if (!model) throw new Error("the loc field made no model");
     const scene = new THREE.Scene();
@@ -83,5 +105,28 @@ describe("LocField", () => {
     frame();
 
     expect(drawnPositions(scene)).toEqual(IDLE);
+  });
+
+  it("draws the posed loc on every tile it covers", async () => {
+    const region = new TestRegion(20, 20);
+    const field = new LocField(region, () => [at(0, 0), at(2, 0), at(0, 3)].map((tile) => ({ tile, models: [MODEL] })));
+    const model = field.get3dModel();
+    if (!model) throw new Error("the loc field made no model");
+    const scene = new THREE.Scene();
+    const frame = () => model.draw(scene, 0, 0, { x: 0, y: 0, z: 0 }, 0, 0, true, []);
+
+    frame();
+    await vi.waitFor(() => expect(drawnPositions(scene).length).toBeGreaterThan(0));
+    model.clientTick?.();
+    frame();
+
+    const [first, ...others] = worldTriangles(scene);
+    if (!first) throw new Error("the loc field drew nothing");
+    const round = (v: THREE.Vector3) => v.toArray().map((n) => Math.round(n * 1000) / 1000 + 0);
+    // A tile east is +1 on world x; a tile north is -1 on world z.
+    expect(others.map((triangle) => triangle.map((v, k) => round(v.clone().sub(first[k]))))).toEqual([
+      [[2, 0, 0], [2, 0, 0], [2, 0, 0]],
+      [[0, 0, -3], [0, 0, -3], [0, 0, -3]],
+    ]);
   });
 });

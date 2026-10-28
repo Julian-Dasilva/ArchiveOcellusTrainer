@@ -527,7 +527,10 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     this.next(m, T.afterInsolence, (n) => this.swing(n, 0, 0));
   }
 
-  /** A band at you at any angle, landing 3 ticks after his animation. He turns only to the band. */
+  /**
+   * A band at you at any angle, landing 3 ticks after his animation. He turns only to the band. The wiki: Insolence's
+   * waves "leave a lasting damaging field where they impact", so every tile of the band gets the field.
+   */
   private superiorSlash(m: P3Ctx<E>): void {
     const band = this.bandTowardsPlayer(m, V.waveWidth.value);
     m.boss.play(SEQ.p3SuperiorSlash);
@@ -536,11 +539,7 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     m.afterPhase(T.insolenceLands, (n) => {
       n.show({ kind: "band-landed", role: "superior-slash", tiles: band });
       if (band.some((t) => same(t, n.player.tile))) n.hit({ kind: "superior-slash" }, V.insolenceDamage);
-      const sorted = [...band].sort((a, b) => reach(a, n.boss.at) - reach(b, n.boss.at));
-      for (const fraction of V.insolenceDebrisAt.value) {
-        const t = sorted[Math.floor(fraction * (sorted.length - 1))];
-        if (t) this.addPatch(n, t, { kind: "at", tick: after(n.now, T.insolenceDebrisLasts.value) }, "insolence");
-      }
+      for (const t of band) this.addPatch(n, t, { kind: "at", tick: after(n.now, T.insolenceDebrisLasts.value) }, "insolence");
     });
   }
 
