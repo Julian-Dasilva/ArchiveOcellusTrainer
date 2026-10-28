@@ -14,7 +14,7 @@
   "budgets": {
     "drawCallsMedian3d": 20,
     "drawCallsMax3d": 34,
-    "trianglesMax3d": 13838,
+    "trianglesMax3d": 14073,
     "tickGapExcess3d": 300,
     "geometriesPerRetiredRift3d": 0.67,
     "texturesPerRetiredRift3d": 0,
@@ -23,7 +23,7 @@
     "entityGrowth3d": 0,
     "projectileGrowth3d": 0,
     "sceneObjectGrowth3d": 0,
-    "bundleKiB": 1949
+    "bundleKiB": 1950
   },
   "timing": {
     "pairs": 5,
@@ -38,6 +38,8 @@
     {"budget": "bundleKiB", "from": 1753, "to": 1947, "reason": "`/` now loads the full fight, with phases 1 to 3 and his arena, in one 1947 KiB script instead of the drill page", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"},
     {"budget": "trianglesMax3d", "from": 13698, "to": 13838, "reason": "the arena's stepping stones draw as one mesh, which the camera culls as a whole, so the 5 stones off camera at phase 4 reach the GPU and are clipped there: 140 triangles in every frame, for 6 fewer draw calls", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"},
     {"budget": "bundleKiB", "from": 1947, "to": 1948, "reason": "merging the arena's walls, pillars, plinths and stones into two meshes adds 405 bytes to the script", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"},
-    {"budget": "bundleKiB", "from": 1948, "to": 1949, "reason": "phase 3's stone crossing adds the exact move and the sourced jump timing, 993 bytes, which takes the page script to 1,994,935 bytes, 183 over the 1948 KiB line", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/159"}
+    {"budget": "bundleKiB", "from": 1948, "to": 1949, "reason": "phase 3's stone crossing adds the exact move and the sourced jump timing, 993 bytes, which takes the page script to 1,994,935 bytes, 183 over the 1948 KiB line", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/159"},
+    {"budget": "trianglesMax3d", "from": 13838, "to": 14073, "reason": "the player now starts with the twisted bow in hand, whose model has 235 more triangles than the blowpipe's; the same head bundle measures 13838 with weapon=blowpipe and 13931 with weapon=melee", "evidence": "scripts/verify.sh perf at 3abee108 against 82710f64: base 13838, head 14073; frame p95 ratio 1.000, tick-gap p95 ratio 0.999"},
+    {"budget": "bundleKiB", "from": 1949, "to": 1950, "reason": "the Start with and Defence drained controls and the start weapon table", "evidence": "scripts/verify.sh perf at 3abee108 against 82710f64: 1950 KiB"}
   ]
 }
