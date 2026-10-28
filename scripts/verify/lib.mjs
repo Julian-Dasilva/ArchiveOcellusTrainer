@@ -68,7 +68,7 @@ export function pixels(bytes) {
         if (matches(px[i], px[i + 1], px[i + 2])) [hits, sumX] = [hits + 1, sumX + x];
       }
     }
-    return { share: Math.round((100000 * hits) / ((maxX - minX + 1) * (maxY - minY + 1))) / 1000, dx: hits ? Math.round((1000 * (sumX / hits - (width - 1) / 2)) / width) / 1000 : null };
+    return { share: Math.round((100000 * hits) / ((maxX - minX + 1) * (maxY - minY + 1))) / 1000, dx: hits ? Math.round((1000 * (sumX / hits - (minX + maxX) / 2)) / width) / 1000 : null };
   }
   return { decode, pixelShare, spot };
 }

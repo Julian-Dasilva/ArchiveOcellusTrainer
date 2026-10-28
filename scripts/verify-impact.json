@@ -3,7 +3,7 @@
   "groups": {
     "shell": ["stored_view", "load_retry", "get_ready", "setup_pause", "whats_new", "telemetry", "keybinds", "cues", "production"],
     "walking": ["p4_cycle", "walkway", "control_walk", "click_correction", "back_wall", "corner", "boss_pathing"],
-    "orbs": ["lifeforce_orb", "orb_late_and_entry", "orb_off_holes", "cues", "recorded_fights"],
+    "orbs": ["lifeforce_orb", "orb_late_and_entry", "cues", "recorded_fights"],
     "explosion_set": ["explosions", "dodge_speedup", "explosion_run_end"],
     "combat": ["loadouts", "defence_floor", "supplies", "overheads_rifts", "dodge_speedup", "telemetry", "recorded_fights"]
   },

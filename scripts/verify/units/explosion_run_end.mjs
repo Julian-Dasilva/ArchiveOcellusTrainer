@@ -7,7 +7,7 @@ export const captures = ({ EXPLOSION_RUN_END_FRAMES }) => [
 
 export function judge({ read, bytes, env }) {
   const { EXPLOSION_PIXEL: explosionPixel, EXPLOSION_GLOW_BOX: explosionGlowBox, EXPLOSION_RUN_END_EXPECTED: explosionRunEndExpected,
-    EXPLOSION_GLOW_MIN_SHARE: explosionGlowMinShare, EXPLOSION_GLOW_MAX_SHARE: explosionGlowMaxShare, EXPLOSION_RUN_END_FRAMES: explosionRunEndFrames } = env;
+    EXPLOSION_GLOW_MIN_SHARE: explosionGlowMinShare, EXPLOSION_RUN_END_MAX_SHARE: explosionRunEndMaxShare, EXPLOSION_RUN_END_FRAMES: explosionRunEndFrames } = env;
   const { x: centreX, y: centreY } = read("canvas-centre.json");
   const { spot } = pixels(bytes);
   const fromCentre = fromCentreOf(centreX, centreY);
@@ -28,7 +28,7 @@ export function judge({ read, bytes, env }) {
   };
   const checks = {
     markGoneWhenTheRunEnds: (({ marked, ended, resolved, drawnWhileMarked, drawnAfterTheEnd }) =>
-      sameJson({ marked, ended, resolved }, explosionRunEndExpected) && drawnWhileMarked >= Number(explosionGlowMinShare) && drawnAfterTheEnd.every((share) => share <= Number(explosionGlowMaxShare)))(observed.explosions.runEnd),
+      sameJson({ marked, ended, resolved }, explosionRunEndExpected) && drawnWhileMarked >= Number(explosionGlowMinShare) && drawnAfterTheEnd.every((share) => share <= Number(explosionRunEndMaxShare)))(observed.explosions.runEnd),
   };
   return { observed, checks };
 }

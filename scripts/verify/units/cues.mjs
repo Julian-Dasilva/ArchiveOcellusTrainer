@@ -9,7 +9,7 @@ export const captures = () => [
 ];
 
 export function judge({ read, env }) {
-  const { CUE_SOUND_SAMPLES: cueSoundSamples, CUE_SOUNDS: cueSounds, CUE_SOUND_WINDOW: cueSoundWindow, CUE_CHAT: cueChat, SOUND_TOLERANCE_TICKS: soundTolerance } = env;
+  const { CUE_SOUND_SAMPLES: cueSoundSamples, CUE_SOUNDS: cueSounds, CUE_SPAWN_HEARD_UNTIL: spawnHeardUntil, CUE_SOUND_WINDOW: cueSoundWindow, CUE_CHAT: cueChat, SOUND_TOLERANCE_TICKS: soundTolerance } = env;
   const onSchedule = onScheduleWithin(soundTolerance);
   const [cueLog, cueToggleAudio, cueAudio, cueSaved, cueChatBefore, cueChatAfter] =
     ["cues.json", "cue-toggle-audio.json", "cue-audio.json", "cue-sound-saved.json", "cue-chat-before.json", "cue-chat.json"].map(read);
@@ -54,7 +54,8 @@ export function judge({ read, env }) {
     soundOffChoiceSaved: cues.savedOff.playsAudio === false && cues.savedOff.playsAreaAudio === false,
     soundTogglesShownOff: cues.toggles.off.sound.visible && cues.toggles.off.areaSound.visible && !cues.toggles.off.sound.checked && !cues.toggles.off.areaSound.checked,
     soundTogglesTurnOnCues: recordingFrom < 5 && cues.beforeToggle.length === 0 && cues.toggles.on.sound.checked && cues.toggles.on.areaSound.checked &&
-      onSchedule(timedOnly(cues.afterToggle), cueExpected.filter(([at]) => at >= toggledAt)) && cues.afterToggle.every(([, , state]) => state === "running"),
+      // That page's player stays on spawn and hears no outer orb chimes, which the cue page's player, a tile in, does.
+      onSchedule(timedOnly(cues.afterToggle), cueExpected.filter(([at]) => at >= toggledAt && at < Number(spawnHeardUntil))) && cues.afterToggle.every(([, , state]) => state === "running"),
     soundChoiceSaved: cues.saved.playsAudio === true && cues.saved.playsAreaAudio === true && cues.toggles.reloaded.sound.checked && cues.toggles.reloaded.areaSound.checked,
     audioResumesOnFirstPointerdown: allIn(cues.contexts.loaded, "suspended") && allIn(cues.contexts.toggled, "running") && allIn(cues.contexts.reloaded, "suspended") && allIn(cues.contexts.clicked, "running"),
     cueSoundsOnSchedule: onSchedule(timedOnly(cues.heard), cueExpected) && cues.heard.every(([, , state]) => state === "running"),
