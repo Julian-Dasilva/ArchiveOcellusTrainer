@@ -12,9 +12,9 @@
     }
   },
   "budgets": {
-    "drawCallsMedian3d": 31,
-    "drawCallsMax3d": 45,
-    "trianglesMax3d": 13698,
+    "drawCallsMedian3d": 20,
+    "drawCallsMax3d": 34,
+    "trianglesMax3d": 13838,
     "tickGapExcess3d": 300,
     "geometriesPerRetiredRift3d": 0.67,
     "texturesPerRetiredRift3d": 0,
@@ -23,7 +23,7 @@
     "entityGrowth3d": 0,
     "projectileGrowth3d": 0,
     "sceneObjectGrowth3d": 0,
-    "bundleKiB": 1947
+    "bundleKiB": 1948
   },
   "timing": {
     "pairs": 5,
@@ -33,8 +33,10 @@
     "viewAllocationsPerFrame": 0
   },
   "exceptions": [
-    {"budget": "drawCallsMedian3d", "from": 14, "to": 31, "reason": "`/` is now the full fight, whose phase 4 renders his arena around the platform the drill drew alone; the head measures a median of 31 and a most of 45 draw calls in the window", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"},
-    {"budget": "drawCallsMax3d", "from": 28, "to": 45, "reason": "`/` is now the full fight, whose phase 4 renders his arena around the platform the drill drew alone; the head measures a median of 31 and a most of 45 draw calls in the window", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"},
-    {"budget": "bundleKiB", "from": 1753, "to": 1947, "reason": "`/` now loads the full fight, with phases 1 to 3 and his arena, in one 1947 KiB script instead of the drill page", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"}
+    {"budget": "drawCallsMedian3d", "from": 14, "to": 20, "reason": "`/` is now the full fight, whose phase 4 renders his arena around the platform the drill drew alone; with the arena's walls, torch pillars and censer plinths drawn as one mesh and its stepping stones as another, the head measures a median of 20 and a most of 34 draw calls in the window", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"},
+    {"budget": "drawCallsMax3d", "from": 28, "to": 34, "reason": "`/` is now the full fight, whose phase 4 renders his arena around the platform the drill drew alone; with the arena's walls, torch pillars and censer plinths drawn as one mesh and its stepping stones as another, the head measures a median of 20 and a most of 34 draw calls in the window", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"},
+    {"budget": "bundleKiB", "from": 1753, "to": 1947, "reason": "`/` now loads the full fight, with phases 1 to 3 and his arena, in one 1947 KiB script instead of the drill page", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"},
+    {"budget": "trianglesMax3d", "from": 13698, "to": 13838, "reason": "the arena's stepping stones draw as one mesh, which the camera culls as a whole, so the 5 stones off camera at phase 4 reach the GPU and are clipped there: 140 triangles in every frame, for 6 fewer draw calls", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"},
+    {"budget": "bundleKiB", "from": 1947, "to": 1948, "reason": "merging the arena's walls, pillars, plinths and stones into two meshes adds 405 bytes to the script", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"}
   ]
 }
