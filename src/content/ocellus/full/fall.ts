@@ -82,3 +82,37 @@ export function carriedEntry(fall: Fall, config: DrillConfig): P4Entry {
     voids: fall.voids.map(({ tile, placed }) => ({ tile: toLocal(frame, toSdk(tile)), sincePlaced: span(fall.tick - placed), period: span(P3.patchEvery), damage: P3.patchDamage })),
   };
 }
+
+export type PlatformFacing = "south" | "west" | "north" | "east";
+
+function platformFacing(quadrant: Quadrant): PlatformFacing {
+  const turns = quadrantFrame(quadrant).turns;
+  switch (turns) {
+    case 0:
+      return "south";
+    case 1:
+      return "west";
+    case 2:
+      return "north";
+    case 3:
+      return "east";
+    default: {
+      const unhandled: never = turns;
+      return unhandled;
+    }
+  }
+}
+
+function onlyStanding(destroyed: readonly Quadrant[]): Quadrant | null {
+  const left = QUADRANTS.filter((quadrant) => !destroyed.includes(quadrant));
+  if (left.length !== 1) return null;
+  const only = left[0];
+  return only ?? null;
+}
+
+/** Local south stays at the top of the screen, matching the drill's south camera on an unturned platform. */
+export function p4CameraFacing(destroyed: readonly Quadrant[]): PlatformFacing | null {
+  const standing = onlyStanding(destroyed);
+  if (standing === null) return null;
+  return platformFacing(standing);
+}
