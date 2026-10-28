@@ -5,7 +5,9 @@ import type { TrainerLoadingState } from "osrs-sdk";
 import { CHANGELOG } from "../changelog";
 import { QUADRANTS, quadrantOf, quadrantTiles } from "../fight/geometry";
 import { FightPlayer } from "../fight/units";
+import { p4CameraFacing } from "../full/fall";
 import { FightRegion } from "../full/prefix";
+import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { FullFightApp } from "../../../FullFightApp";
 
 const POLICY = "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.";
@@ -386,6 +388,52 @@ describe("full fight pause", () => {
       paused: { resume: "Resume (P)", held: true, world: atP4.world, hud: atP4.hud, phase: "p4" },
       resumed: { world: atP4.world + 1, phase: "p4", held: false },
     });
+  });
+
+  test("phase 4 hides the fight clock, shows the drill chat, and turns the camera with the platform", async () => {
+    const faced: string[] = [];
+    const page = loadFullFight("/?mode=full&phase=3&seed=1&practice=1");
+    try {
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      const before = document.querySelector(".fight-hud") !== null;
+      const region = fightRegion();
+      page.click("start");
+      const viewport = Viewport.viewport;
+      vi.spyOn(viewport, "rotateSouth").mockImplementation(() => faced.push("south"));
+      vi.spyOn(viewport, "rotateWest").mockImplementation(() => faced.push("west"));
+      vi.spyOn(viewport, "rotateNorth").mockImplementation(() => faced.push("north"));
+      vi.spyOn(viewport, "rotateEast").mockImplementation(() => faced.push("east"));
+      reachP4(region);
+      const lifeforce = OCELLUS_P4.lifeforce.tellChat.value;
+      act(() => {
+        for (let step = 0; step < 40 && !region.p4.mounted?.views.chat.includes(lifeforce); step++) region.world.tickWorld();
+      });
+      const lines = [...document.querySelectorAll("#game_chat li")];
+      const shown = lines.map((line) => line.textContent);
+      const drillLines = region.p4.mounted?.views.chat.slice(-5) ?? [];
+      expect({
+        clockBefore: before,
+        clockDuring: document.querySelector(".fight-hud"),
+        aimed: faced,
+        historyKept: region.chat().some((line) => line.text.includes("Jump across the stones")),
+        shown,
+        lifeforceStyle: lines.find((line) => line.textContent === lifeforce)?.getAttribute("style") ?? null,
+      }).toEqual({
+        clockBefore: true,
+        clockDuring: null,
+        aimed: [p4CameraFacing(region.floorState().destroyed)],
+        historyKept: true,
+        shown: drillLines,
+        lifeforceStyle: null,
+      });
+      expect(drillLines).toContain(lifeforce);
+      expect(shown.some((text) => text?.includes("Jump across the stones"))).toBe(false);
+    } finally {
+      page.close();
+    }
   });
 });
 

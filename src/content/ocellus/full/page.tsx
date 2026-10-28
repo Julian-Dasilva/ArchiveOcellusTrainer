@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react";
 import { CacheRender, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
 import type { Location3, Region, TrainerLoadingState } from "osrs-sdk";
 import { GameOverlay, RuneScapeButton, TrainerApp } from "osrs-sdk-react";
@@ -11,7 +11,9 @@ import { dressFullFight } from "../fight/blowpipe";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { installBossBar } from "../fight/bossBar";
 import type { ChatLine, StartPhase } from "./options";
-import { CHAT, START_PHASES, formatTicks } from "./options";
+import { START_PHASES, formatTicks } from "./options";
+import type { PlatformFacing } from "./fall";
+import { p4CameraFacing } from "./fall";
 import type { ATile, Quadrant } from "../fight/geometry";
 import { toSdk } from "../fight/geometry";
 import { warmLaterPhases } from "../fight/warmup";
@@ -284,6 +286,38 @@ function stageLabel(stage: Stage): string {
   }
 }
 
+function aimPlatformCamera(facing: PlatformFacing): void {
+  const viewport = Viewport.viewport;
+  if (!viewport) return;
+  switch (facing) {
+    case "south":
+      viewport.rotateSouth();
+      return;
+    case "west":
+      viewport.rotateWest();
+      return;
+    case "north":
+      viewport.rotateNorth();
+      return;
+    case "east":
+      viewport.rotateEast();
+      return;
+    default: {
+      const unhandled: never = facing;
+      return unhandled;
+    }
+  }
+}
+
+type DrawnChat = Readonly<{ key: string; text: string; colour: string | null }>;
+
+function drawnChat(stage: Stage | null, history: readonly ChatLine[]): readonly DrawnChat[] {
+  if (stage?.phase === "p4") {
+    return stage.p4.views.chat.slice(-CHAT_LINES_SHOWN).map((text, index) => ({ key: `p4-${index}`, text, colour: null }));
+  }
+  return history.slice(-CHAT_LINES_SHOWN).map((line, index) => ({ key: `${line.tick}-${index}`, text: line.text, colour: line.colour }));
+}
+
 function Hud({ stage, region }: Readonly<{ stage: Stage; region: FightRegion }>) {
   useRegionTicks(region);
   const ticks = stageTicks(stage);
@@ -299,13 +333,12 @@ function Hud({ stage, region }: Readonly<{ stage: Stage; region: FightRegion }>)
 
 function Chatbox({ stage, region }: Readonly<{ stage: Stage | null; region: FightRegion }>) {
   useRegionTicks(region);
-  const p4: readonly ChatLine[] = stage?.phase === "p4" ? stage.p4.views.chat.map((text) => ({ text, colour: CHAT.game, tick: stage.from })) : [];
-  const lines = [...region.chat(), ...p4].slice(-CHAT_LINES_SHOWN);
+  const lines = drawnChat(stage, region.chat());
   useKeepChatAboveInventory(lines.map((line) => line.text).join("\n"));
   return (
     <ol id="game_chat">
-      {lines.map((line, index) => (
-        <li key={`${line.tick}-${index}`} style={{ color: line.colour }}>{line.text}</li>
+      {lines.map((line) => (
+        <li key={line.key} style={line.colour === null ? undefined : { color: line.colour }}>{line.text}</li>
       ))}
     </ol>
   );
@@ -610,6 +643,7 @@ export function FullFightPage() {
   const [{ trainer, region, params, clock }] = useState(createTrainer);
   const [loading, setLoading] = useState<TrainerLoadingState>();
   const stage = useStage(region);
+  const phase = stage?.phase;
   const ready = loading?.status === "ready";
   const download = useFirstDownload(params.startPhase, !ready);
   const ended = stage !== null && endingOf(stage) !== null;
@@ -629,11 +663,18 @@ export function FullFightPage() {
     if (anchor) warmLaterPhases(anchor, params.startPhase);
   }, [ready, params.startPhase, region]);
 
+  useLayoutEffect(() => {
+    if (phase !== "p4") return;
+    const facing = p4CameraFacing(region.floorState().destroyed);
+    if (facing === null) return;
+    aimPlatformCamera(facing);
+  }, [phase, region]);
+
   return (
     <TrainerApp trainer={trainer} autoStart={false} onLoadingStateChange={setLoading}>
       <GameOverlay>
         <LoadingSplash state={loading} download={download} />
-        {stage && <Hud stage={stage} region={region} />}
+        {stage && stage.phase !== "p4" && <Hud stage={stage} region={region} />}
         <div id="hud_corner">
           <Chatbox stage={stage} region={region} />
         </div>
