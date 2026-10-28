@@ -120,7 +120,7 @@ describe("phase 4's floor in the full room", () => {
     }).toEqual({ phase: "p4", stoneBlocked: true, outsideBlocked: true, onFloor: true });
   });
 
-  test("a player already on the last floor keeps that tile", () => {
+  test("guard: a player already on the last floor keeps that tile", () => {
     const region = fullFight();
     const before = fallFromFloor(region);
     const platform = platformRooms(standingOf(region));
