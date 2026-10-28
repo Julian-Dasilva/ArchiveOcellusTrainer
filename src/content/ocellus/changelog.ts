@@ -7,6 +7,7 @@ export const CHANGELOG: Changelog = [
       "The full fight is in beta. Full fight (beta) on the drill page opens it, and the phase selector starts you in phase 1, 2, or 3.",
       "The credit line sits under the game, so it no longer covers the tabs on a phone.",
       "Chat stays above the inventory on a narrow screen, so the lines no longer cover it.",
+      "About 1 run in 10 sends an anonymous performance summary, so we can find what causes lag. To turn it off, untick Performance data under About.",
     ],
   },
   {
