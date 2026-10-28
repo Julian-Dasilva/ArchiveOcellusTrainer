@@ -290,16 +290,16 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
 
   /**
    * He only spawns when the fight starts, after the loading splash, so load his first body with the arena: otherwise
-   * the splash clears onto an empty room and he downloads in front of the player. The start phase's floor effects
-   * build here too, rather than stalling its first attacks.
+   * the splash clears onto an empty room and he downloads in front of the player. The start phase's graphics build
+   * here too, rather than stalling its first attacks, and before the arena's own preload places any of them.
    */
   override async preload(): Promise<void> {
     const anchor = this.entities[0];
     const start = this.run.options.startPhase;
     this.warmHeldGraphics();
     const boss = anchor ? CacheRenderModel.forRenderable(anchor, CacheRenderReferences.npc(START_NPC[start])).preload() : Promise.resolve();
-    const spots = anchor ? warmStartPhase(anchor, start) : Promise.resolve();
-    await Promise.all([super.preload(), boss, spots]);
+    if (anchor) await warmStartPhase(anchor, start);
+    await Promise.all([super.preload(), boss]);
     this.releaseHeldGraphics();
   }
 

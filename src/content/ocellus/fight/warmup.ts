@@ -89,9 +89,12 @@ function floorSpot(anchor: Renderable, id: number): Job {
 /** A phase 4 start has no earlier phase whose idle time can build phase 4's graphics, so the splash builds them. */
 const startSpots = (start: StartPhase): readonly number[] => (start === 4 ? p4WarmSpotIds() : FLOOR_SPOTS[start]);
 
-/** The start phase's graphics, built behind the loading splash so its first attacks don't stall. */
-export function warmStartPhase(anchor: Renderable, start: StartPhase): Promise<unknown> {
-  return Promise.all(startSpots(start).map((id) => floorSpot(anchor, id)().catch(() => undefined)));
+/**
+ * The start phase's graphics, built behind the loading splash so its first attacks don't stall. One at a time, and
+ * before the fight places its own: a pool keeps drawing as many instances as it ever held at once.
+ */
+export async function warmStartPhase(anchor: Renderable, start: StartPhase): Promise<void> {
+  for (const id of startSpots(start)) await floorSpot(anchor, id)().catch(() => undefined);
 }
 
 /**
