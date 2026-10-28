@@ -3,5 +3,6 @@
   "main": "src/worker/worker.ts",
   "compatibility_date": "2026-10-19",
   "workers_dev": true,
-  "assets": { "directory": "./dist", "binding": "ASSETS" }
+  "assets": { "directory": "./dist", "binding": "ASSETS" },
+  "analytics_engine_datasets": [{ "binding": "PERF", "dataset": "archive_ocellus_perf" }]
 }
