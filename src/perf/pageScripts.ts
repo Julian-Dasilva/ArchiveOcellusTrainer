@@ -1,40 +1,18 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { basename, join, relative, sep } from "node:path";
-
-export const SCRIPT_ROLES = ["entry", "sidebar", "full-fight", "other"] as const;
-export type ScriptRole = (typeof SCRIPT_ROLES)[number];
-export type PageName = "drill" | "full";
+import { join, relative, sep } from "node:path";
 
 export type BuiltScript = Readonly<{
   path: string;
   bytes: number;
-  role: ScriptRole;
+  entry: boolean;
 }>;
-
-/** `/` loads the HTML scripts and any script with no page role. A sidebar chunk still counts on `/`, so splitting the sidebar again fails the budget. `?mode=full` loads the HTML scripts, the full-fight chunk, and any script with no page role. */
-const PAGE_ROLES: Readonly<Record<PageName, readonly ScriptRole[]>> = {
-  drill: ["entry", "sidebar", "other"],
-  full: ["entry", "full-fight", "other"],
-};
 
 export function kib(bytes: number): number {
   return Math.ceil(bytes / 1024);
 }
 
-export function scriptRole(path: string, entryPaths: ReadonlySet<string>): ScriptRole {
-  if (entryPaths.has(path)) return "entry";
-  const name = basename(path);
-  if (name.startsWith("sidebar.") && name.endsWith(".js")) return "sidebar";
-  if (name.startsWith("full-fight.") && name.endsWith(".js")) return "full-fight";
-  return "other";
-}
-
-export function pageBytes(scripts: readonly BuiltScript[], page: PageName): number {
-  const roles = PAGE_ROLES[page];
-  return scripts.reduce((sum, script) => (roles.includes(script.role) ? sum + script.bytes : sum), 0);
-}
-
-export function everyScriptBytes(scripts: readonly BuiltScript[]): number {
+/** `/` is the only page, so every script the build emits counts toward it, the HTML's entry and any chunk it loads later. */
+export function pageBytes(scripts: readonly BuiltScript[]): number {
   return scripts.reduce((sum, script) => sum + script.bytes, 0);
 }
 
@@ -52,6 +30,6 @@ export function builtScripts(dist: string): readonly BuiltScript[] {
     .filter((entry) => entry.isFile() && entry.name.endsWith(".js"))
     .map((entry) => {
       const path = relative(dist, join(entry.parentPath, entry.name)).split(sep).join("/");
-      return { path, bytes: statSync(join(dist, path)).size, role: scriptRole(path, entries) };
+      return { path, bytes: statSync(join(dist, path)).size, entry: entries.has(path) };
     });
 }

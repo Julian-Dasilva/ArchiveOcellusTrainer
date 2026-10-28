@@ -27,7 +27,11 @@ export function judge({ read, env }) {
       const glaives = read("loadout-spec-log.json").rows.flatMap((row) => row.events.filter((e) => e.kind === "player-hit-judged")).slice(0, 2);
       return glaives.length === 2 && switched.boss.defence - spec.boss.defence === Number(drain) * glaives.filter((e) => kept(e) > 0).length;
     })(),
-    setupSelectorApplied: sameJson(selector.player.equipped, meleeWorn),
+    // The full fight wields the blowpipe in every setup and carries the setup's own weapon.
+    setupSelectorApplied: (() => {
+      const melee = JSON.parse(meleeWorn);
+      return sameJson(selector.player.equipped, JSON.stringify({ ...melee, weapon: JSON.parse(rangedWorn).weapon })) && selector.player.inventory.includes(melee.weapon);
+    })(),
     trainerItemsShowCacheIcons: Object.entries(JSON.parse(trainerIcons)).every(([id, size]) => icons[id]?.path === `/osrs-assets/item-icons/${id}.png` && icons[id].size === size),
   };
   return { observed, checks };

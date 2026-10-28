@@ -13,8 +13,7 @@ function main(args: readonly string[]): void {
   if (dist === undefined || args.length !== 1) throw new Error(USAGE);
   const budget = budgetKiB();
   const report = judgeRelease(dist, budget);
-  console.log(`release-bundle: / ${report.drillKiB} KiB against a budget of ${report.budgetKiB}`);
-  console.log(`release-bundle: ?mode=full ${report.fullFightKiB} KiB`);
+  console.log(`release-bundle: / ${report.pageKiB} KiB against a budget of ${report.budgetKiB}`);
   for (const problem of report.problems) console.error(`release-bundle: ${problem}`);
   if (report.problems.length > 0) process.exitCode = 1;
 }

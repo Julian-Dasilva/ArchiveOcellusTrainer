@@ -25,8 +25,9 @@ export function judge({ read, bytes, env }) {
   };
   const checks = {
     rangedShotFromTheFlood: launch !== undefined && !inSquare(edgeStopTile) && same(launch.playerAtBossStep.tile, edgeStopTile) && same(launch.playerAtPostTick.tile, edgeStopTile) && floorHit(launch),
-    rangedShotLanded: launch !== undefined && landing !== undefined && landing.at > launch.tick && landing.outcome === "passed" && landing.requested > 0 &&
-      landing.bossHp.atBossStep - landing.bossHp.atPostTick === landing.requested,
+    // Deflect Range is up for the whole outer void, so the shot lands on him and is blocked.
+    rangedShotDeflected: launch !== undefined && landing !== undefined && landing.at > launch.tick && landing.outcome === "blocked" &&
+      landing.bossHp.atBossStep === landing.bossHp.atPostTick,
     ringSparedInFlood: flood.length === Number(floodLast) - Number(floodDamage) + 1 && flood.every((row) => floorHit(row) === !inSquare(row.playerAtBossStep.tile)) &&
       flood.some(floorHit) && inSquare(flood[flood.length - 1].playerAtBossStep.tile),
   };

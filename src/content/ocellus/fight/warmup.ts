@@ -86,9 +86,15 @@ function floorSpot(anchor: Renderable, id: number): Job {
   };
 }
 
-/** The start phase's floor effects, built behind the loading splash so its first attacks don't stall. */
-export function warmStartPhase(anchor: Renderable, start: StartPhase): Promise<unknown> {
-  return Promise.all(FLOOR_SPOTS[start].map((id) => floorSpot(anchor, id)().catch(() => undefined)));
+/** A phase 4 start has no earlier phase whose idle time can build phase 4's graphics, so the splash builds them. */
+const startSpots = (start: StartPhase): readonly number[] => (start === 4 ? p4WarmSpotIds() : FLOOR_SPOTS[start]);
+
+/**
+ * The start phase's graphics, built behind the loading splash so its first attacks don't stall. One at a time, and
+ * before the fight places its own: a pool keeps drawing as many instances as it ever held at once.
+ */
+export async function warmStartPhase(anchor: Renderable, start: StartPhase): Promise<void> {
+  for (const id of startSpots(start)) await floorSpot(anchor, id)().catch(() => undefined);
 }
 
 /**
@@ -130,7 +136,7 @@ export function p4WarmSpotIds(): readonly number[] {
  */
 export function warmLaterPhases(anchor: Renderable, start: StartPhase): void {
   const later = START_PHASES.filter((phase) => phase > start);
-  const done = new Set(FLOOR_SPOTS[start]);
+  const done = new Set(startSpots(start));
   const spots = [...new Set(later.flatMap((phase) => FLOOR_SPOTS[phase]))].filter((id) => !done.has(id));
   const p4Spots = p4WarmSpotIds().filter((id) => !done.has(id));
   const sounds: Job[] = [...new Set(Object.values(SOUND).flat())].map((id) => () => SoundCache.preload(cacheSound(id)));

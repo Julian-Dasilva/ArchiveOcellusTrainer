@@ -20,7 +20,7 @@ describe("verify plan", () => {
     const { impact, plan } = await shipped();
     const selected = plan(impact, ["scripts/install-beta-sdk.sh"]);
     expect(selected.tier).toBe("t2");
-    expect(selected.units).toHaveLength(40);
+    expect(selected.units).toHaveLength(32);
     expect(selected.units).toContain("layered_present");
     expect(selected.selections).toEqual([{ kind: "everything", path: "scripts/install-beta-sdk.sh", glob: "scripts/install-beta-sdk.sh" }]);
   });
@@ -62,17 +62,17 @@ describe("verify plan", () => {
 
   test("a unit's check module selects that unit", async () => {
     const { impact, plan } = await shipped();
-    expect(plan(impact, ["scripts/verify/units/seed.mjs"]).units).toEqual(["seed"]);
+    expect(plan(impact, ["scripts/verify/units/walkway.mjs"]).units).toEqual(["walkway"]);
   });
 
   test("two rules select the union of their units, browser units before stages", async () => {
     const { impact, plan } = await shipped();
-    expect(plan(impact, ["src/hoverText.ts", "src/flags.ts"]).units).toEqual(["keybinds", "p3_drill", "supplies", "production"]);
+    expect(plan(impact, ["src/hoverText.ts", "src/telemetry/perfTelemetry.ts"]).units).toEqual(["keybinds", "supplies", "telemetry", "production"]);
   });
 
   test("the run command names the selected units and stages", async () => {
     const { impact, plan, runCommand } = await shipped();
-    expect(runCommand(impact, plan(impact, ["src/flags.ts"]))).toBe("scripts/verify.sh t0 browser --unit p3_drill production");
+    expect(runCommand(impact, plan(impact, ["src/telemetry/perfTelemetry.ts"]))).toBe("scripts/verify.sh t0 browser --unit telemetry production");
     expect(runCommand(impact, plan(impact, ["src/perf/gate.ts"]))).toBe("scripts/verify.sh t0 perf");
     expect(runCommand(impact, plan(impact, ["README.md"]))).toBe("scripts/verify.sh t0");
     expect(runCommand(impact, plan(impact, ["src/sim/tiles.ts"]))).toBe("scripts/verify.sh t0 browser production perf");
@@ -105,7 +105,7 @@ describe("verify plan", () => {
       units: demoted.units,
       selections: [
         { kind: "everything", path: MAP, glob: MAP },
-        { kind: "units", path: "src/content/ocellus/js/p4/orb.ts", units: ["cues", "invincible", "lifeforce_orb", "orb_late_and_entry", "orb_off_holes", "recorded_fights"], globs: ["src/content/ocellus/js/p4/orb.ts"] },
+        { kind: "units", path: "src/content/ocellus/js/p4/orb.ts", units: ["cues", "lifeforce_orb", "orb_late_and_entry", "recorded_fights"], globs: ["src/content/ocellus/js/p4/orb.ts"] },
       ],
     });
   });

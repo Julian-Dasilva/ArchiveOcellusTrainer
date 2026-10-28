@@ -1,38 +1,12 @@
-import React, { act } from "react";
-import { createRoot } from "react-dom/client";
 import { ControlPanelController, Settings } from "osrs-sdk";
-import { FullFightApp } from "../../../FullFightApp";
-import { creditLines } from "../../../menu/credits";
-import { FightLoadNotice } from "../../../menu/Sidebar";
-import { captureNavigation, loadPage } from "./page";
+import { loadPage } from "./page";
 
 const SAVED_SETTINGS = "osrs-sdk:settings";
 const TILE_INDICATORS = ["destination_tile", "true_tile", "hovered_tile", "entity_outlines"] as const;
 
-async function loadSidebarPage(url: string) {
-  const page = loadPage(url);
-  const lazyLoadMs = process.env.ARCHIVE_FULL === "on" ? 2000 : 50;
-  for (const started = Date.now(); !document.querySelector("#sidebar") && Date.now() - started < lazyLoadMs; ) await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
-  return page;
-}
-
 function savedTileIndicators() {
   const values = JSON.parse(localStorage.getItem(SAVED_SETTINGS) ?? "{}").values ?? {};
   return [values.targetTileEnabled, values.trueTileEnabled, values.hoveredTileEnabled, values.entityIndicatorEnabled];
-}
-
-function loadFullFight() {
-  window.history.replaceState(null, "", "/?mode=full");
-  const container = document.createElement("div");
-  document.body.append(container);
-  const root = createRoot(container);
-  act(() => root.render(<FullFightApp />));
-  return {
-    close: () => {
-      act(() => root.unmount());
-      container.remove();
-    },
-  };
 }
 
 function sidebarLayout() {
@@ -48,7 +22,8 @@ function sidebarLayout() {
   return {
     scrollContainers: [panel, ...panel.querySelectorAll("*")].filter(scrolls).map((element) => element.id),
     panelOverflowX: getComputedStyle(panel).overflowX,
-    sections: [...panel.querySelectorAll(".sidebar_title")].map((title) => title.textContent),
+    sections: [...panel.querySelectorAll("#sidebar > section > .sidebar_title")].map((title) => title.textContent),
+    tipsIn: document.getElementById("phase_tips")?.closest("section")?.id ?? null,
     policy: {
       text: policy?.textContent ?? null,
       overGame: game === null || game.contains(policy),
@@ -73,7 +48,7 @@ const openTab = () => Object.entries(ControlPanelController.controls).find(([, c
 
 const PHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 
-describe("the sidebar behind ARCHIVE_FULL", () => {
+describe("the sidebar", () => {
   beforeEach(() => localStorage.removeItem(SAVED_SETTINGS));
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -82,27 +57,15 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
     document.documentElement.classList.remove("phone-overlay");
   });
 
-  test.each([
-    { full: "off", expected: { sidebar: false, fullFight: false, settingsButton: true, footerMaker: true, comingSoon: "Phases 1 to 3 coming soon." } },
-    { full: "on", expected: { sidebar: true, fullFight: true, settingsButton: false, footerMaker: false, comingSoon: null } },
-  ])("with ARCHIVE_FULL $full, the drill's controls sit in the sidebar with the Full fight (beta) entry only when the flag is on", async ({ full, expected }) => {
-    vi.stubEnv("ARCHIVE_FULL", full);
-    const page = await loadSidebarPage("/?seed=1");
-    const sidebar = document.querySelector("#sidebar");
-    const shown = {
-      sidebar: sidebar?.contains(page.element("setup")) ?? false,
-      fullFight: document.querySelector("#full_fight")?.textContent === "Full fight (beta)",
-      settingsButton: document.querySelector("#settings") !== null,
-      footerMaker: document.querySelector("#credits #maker_credit") !== null,
-      comingSoon: document.getElementById("coming_soon")?.textContent ?? null,
-    };
+  test("the site's one panel has no drill or full fight toggle", () => {
+    const page = loadPage("/");
+    const toggles = ["full_fight", "phase_4_drill", "settings", "drill_controls"].filter((id) => document.getElementById(id) !== null);
     page.close();
-    expect(shown).toEqual(expected);
+    expect(toggles).toEqual([]);
   });
 
-  test("each tile indicator box flips its SDK setting at once and saves it", async () => {
-    vi.stubEnv("ARCHIVE_FULL", "on");
-    const page = await loadSidebarPage("/?seed=1");
+  test("each tile indicator box flips its SDK setting at once and saves it", () => {
+    const page = loadPage("/?seed=1");
     const boxes = () => TILE_INDICATORS.map((id) => page.checked(id));
     const onLoad = boxes();
     for (const id of TILE_INDICATORS) page.click(id);
@@ -118,24 +81,19 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
     });
   });
 
-  test("Full fight (beta) opens the full fight, and Keybinds in the sidebar opens the key bindings", async () => {
-    vi.stubEnv("ARCHIVE_FULL", "on");
-    const navigation = captureNavigation();
-    const page = await loadSidebarPage("/?seed=1&setup=ranged");
-    page.click("full_fight");
+  test("Keybinds in the sidebar opens the key bindings", () => {
+    const page = loadPage("/?seed=1&setup=ranged");
     page.click("keybinds");
     const tab = openTab();
     page.close();
-    navigation.restore();
 
-    expect({ navigation: navigation.assigned, tab }).toEqual({ navigation: ["http://localhost/?mode=full"], tab: "SETTINGS" });
+    expect(tab).toEqual("SETTINGS");
   });
 
-  test("on a phone, Keybinds closes the menu and opens the key bindings", async () => {
-    vi.stubEnv("ARCHIVE_FULL", "on");
+  test("on a phone, Keybinds closes the menu and opens the key bindings", () => {
     vi.spyOn(navigator, "userAgent", "get").mockReturnValue(PHONE);
     Settings._isMobileResult = null;
-    const page = await loadSidebarPage("/?seed=1");
+    const page = loadPage("/?seed=1");
     try {
       const panel = document.querySelector("#right_panel");
       if (!(panel instanceof HTMLElement)) throw new Error("the page has no #right_panel");
@@ -153,35 +111,8 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
     }
   });
 
-  test("a failed full fight shows the reload message, the drill link, and both credit lines", () => {
-    window.history.replaceState(null, "", "/?mode=full&seed=1");
-    const container = document.createElement("div");
-    document.body.append(container);
-    const root = createRoot(container);
-    act(() => root.render(<FightLoadNotice failed />));
-    const shown = {
-      message: document.querySelector("#fight_load_error p")?.textContent ?? null,
-      reload: document.querySelector("#fight_reload")?.textContent ?? null,
-      back: document.querySelector("#fight_back_to_drill")?.textContent ?? null,
-      href: document.querySelector("#fight_back_to_drill")?.getAttribute("href") ?? null,
-      lines: [...document.querySelectorAll("#policy_footer li")].map((line) => line.textContent),
-    };
-    act(() => root.unmount());
-    container.remove();
-
-    expect(shown).toEqual({
-      message: "The full fight didn't load.",
-      reload: "Reload",
-      back: "Back to the drill",
-      href: "/",
-      lines: ["Made by Julian Dasilva / Moarhots: GitHub · @ShadowJdas", "With help from Alessandro Rodi"],
-    });
-    expect(creditLines()).toEqual(shown.lines);
-  });
-
-  test("the sidebar credits the makers first, then Alessandro Rodi on X, and the footer keeps the Jagex credit line", async () => {
-    vi.stubEnv("ARCHIVE_FULL", "on");
-    const page = await loadSidebarPage("/?seed=1");
+  test("the sidebar credits the makers first, then Alessandro Rodi on X, and the footer keeps the Jagex credit line", () => {
+    const page = loadPage("/?seed=1");
     const credits = page.element("sidebar_credits");
     const shown = {
       lines: [...credits.querySelectorAll("li")].map((line) => line.textContent),
@@ -203,8 +134,7 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
     });
   });
 
-  test("on a phone, Menu opens the sidebar over the game and Close puts it away", async () => {
-    vi.stubEnv("ARCHIVE_FULL", "on");
+  test("on a phone, Menu opens the sidebar over the game and Close puts it away", () => {
     vi.spyOn(navigator, "userAgent", "get").mockReturnValue(PHONE);
     Settings._isMobileResult = null;
     const previousHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
@@ -214,20 +144,20 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
         return this.id === "policy_footer" ? 96 : 0;
       },
     });
-    const page = await loadSidebarPage("/?seed=1");
+    const page = loadPage("/?seed=1");
     try {
       const panel = document.querySelector("#right_panel");
       const menu = page.element("phone_menu");
       if (!(panel instanceof HTMLElement)) throw new Error("the page has no #right_panel");
       const closed = { menu: menu.textContent, expanded: menu.getAttribute("aria-expanded"), panel: panel.style.display, overlay: document.documentElement.classList.contains("phone-overlay"), aboveFooter: panel.style.bottom };
       page.click("phone_menu");
-      const opened = { menu: page.element("phone_menu").textContent, expanded: page.element("phone_menu").getAttribute("aria-expanded"), panel: panel.style.display, fullFight: panel.contains(page.element("full_fight")) };
+      const opened = { menu: page.element("phone_menu").textContent, expanded: page.element("phone_menu").getAttribute("aria-expanded"), panel: panel.style.display, startPhase: panel.contains(page.element("start_phase")) };
       page.click("phone_menu");
       const again = { menu: page.element("phone_menu").textContent, panel: panel.style.display };
 
       expect({ closed, opened, again }).toEqual({
         closed: { menu: "Menu", expanded: "false", panel: "none", overlay: true, aboveFooter: "96px" },
-        opened: { menu: "Close", expanded: "true", panel: "flex", fullFight: true },
+        opened: { menu: "Close", expanded: "true", panel: "flex", startPhase: true },
         again: { menu: "Menu", panel: "none" },
       });
     } finally {
@@ -237,18 +167,11 @@ describe("the sidebar behind ARCHIVE_FULL", () => {
     }
   });
 
-  test("on the drill and the full fight, the side panel is the only scroll container, never scrolls sideways, and lists the same sections, and the policy line sits below the game canvas", async () => {
-    vi.stubEnv("ARCHIVE_FULL", "on");
-    const drillPage = await loadSidebarPage("/?seed=1");
-    const drill = sidebarLayout();
-    drillPage.close();
-    const fullPage = loadFullFight();
-    const full = sidebarLayout();
-    fullPage.close();
+  test("the side panel is the only scroll container, never scrolls sideways, lists Fight, Learning aids, Sound, Controls and About with the phase tips in Learning aids, and the policy line sits below the game canvas", () => {
+    const page = loadPage("/");
+    const layout = sidebarLayout();
+    page.close();
 
-    expect({ drill, full }).toEqual({
-      drill: { scrollContainers: ["right_panel"], panelOverflowX: "hidden", sections: ["Fight", "Learning aids", "Sound", "Controls", "About"], policy: POLICY_BELOW_GAME },
-      full: { scrollContainers: ["right_panel"], panelOverflowX: "hidden", sections: ["Fight", "Learning aids", "Sound", "Controls", "About", "Phase 1"], policy: POLICY_BELOW_GAME },
-    });
+    expect(layout).toEqual({ scrollContainers: ["right_panel"], panelOverflowX: "hidden", sections: ["Fight", "Learning aids", "Sound", "Controls", "About"], tipsIn: "learning_aids", policy: POLICY_BELOW_GAME });
   });
 });

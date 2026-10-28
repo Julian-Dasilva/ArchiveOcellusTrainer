@@ -1,6 +1,6 @@
 import { creditLines } from "../menu/credits";
-import { chunkAbortProblems, chunkRetryProblems, contrastRatio, visibleCreditLines, walkProblems } from "./walk";
-import type { ChunkAbortObservation, ChunkRetryObservation, WalkObservation } from "./walk";
+import { oldLinkProblems, visibleCreditLines, walkProblems } from "./walk";
+import type { WalkObservation } from "./walk";
 
 const LINES = [
   "Made by Julian Dasilva / Moarhots: GitHub · @ShadowJdas",
@@ -12,7 +12,11 @@ const HEALTHY_PHONE: WalkObservation = {
   rootChildren: 1,
   errors: [],
   creditLines: LINES,
-  fullFightReachable: true,
+  startPhase: "4",
+  phases: ["1", "2", "3", "4"],
+  sections: ["Fight", "Learning aids", "Sound", "Controls", "About"],
+  aboutReachable: true,
+  retiredToggles: [],
   worldWidth: 390,
   chatBottom: "4px",
   chatLine: "Ocellus manipulates your lifeforce!",
@@ -24,33 +28,15 @@ const CRASHED_PHONE: WalkObservation = {
   rootChildren: 0,
   errors: ["TypeError: Cannot read properties of null (reading 'appearsOnLeftInMobile')"],
   creditLines: [],
-  fullFightReachable: false,
+  startPhase: "",
+  phases: [],
+  sections: [],
+  aboutReachable: false,
+  retiredToggles: [],
   worldWidth: 0,
   chatBottom: "",
   chatLine: "",
   keybindsClosed: true,
-};
-
-const ABORTED: ChunkAbortObservation = {
-  surface: "desktop",
-  message: true,
-  reload: true,
-  drillLink: true,
-  creditLines: LINES,
-  errors: ["ChunkLoadError: Loading chunk 61 failed"],
-  reloadHeight: 24,
-  backHeight: 24,
-  gapPx: 12,
-  reloadContrast: 9.76,
-  backContrast: 9.76,
-};
-
-const RETRIED: ChunkRetryObservation = {
-  loaded: true,
-  navigations: 1,
-  creditLines: LINES,
-  errors: ["ChunkLoadError: Loading chunk 1 failed"],
-  outcomes: ["503", "200"],
 };
 
 describe("release browser walk", () => {
@@ -58,8 +44,10 @@ describe("release browser walk", () => {
     expect(creditLines()).toEqual([...LINES]);
   });
 
-  test("a phone page with both credit lines, the full fight, and a chat line under the tabs passes", () => {
+  test("a phone page at phase 4 with every phase, the five sections, About at the bottom, both credit lines, and a chat line under the tabs passes", () => {
     expect(walkProblems(HEALTHY_PHONE)).toEqual([]);
+    const without = [{ startPhase: "1" }, { phases: ["1", "2", "4"] }, { sections: ["Fight", "Sound"] }, { aboutReachable: false }, { creditLines: [LINES[0]] }, { chatLine: "" }, { chatBottom: "76px" }];
+    expect(without.map((change) => walkProblems({ ...HEALTHY_PHONE, ...change }).length)).toEqual([1, 1, 1, 1, 1, 1, 1]);
   });
 
   test("the e4b47df phone crash fails", () => {
@@ -68,78 +56,55 @@ describe("release browser walk", () => {
       "page errors: TypeError: Cannot read properties of null (reading 'appearsOnLeftInMobile')",
       "Made by Julian Dasilva / Moarhots: GitHub · @ShadowJdas is not on screen",
       "With help from Alessandro Rodi is not on screen",
-      "Full fight (beta) is not reachable",
+      "Start at is missing, not phase 4",
+      "Start at offers nothing, not phases 1 to 4",
+      "the panel's sections are , not Fight, Learning aids, Sound, Controls, About",
+      "Performance data and What's new are not reachable at the bottom of the panel",
       "no chat line",
       "the game is 0px wide",
       "the chat corner is missing, not under the tabs",
     ]);
   });
 
-  test("a phone page without the maker credit fails", () => {
-    expect(walkProblems({ ...HEALTHY_PHONE, creditLines: [LINES[1]] })).toEqual([`${LINES[0]} is not on screen`]);
-  });
-
-  test("a phone page without the contributor credit fails", () => {
-    expect(walkProblems({ ...HEALTHY_PHONE, creditLines: [LINES[0]] })).toEqual([`${LINES[1]} is not on screen`]);
-  });
-
-  test("a phone page that leaves the menu open after Keybinds fails", () => {
-    expect(walkProblems({ ...HEALTHY_PHONE, keybindsClosed: false })).toEqual(["Keybinds leaves the menu open"]);
-  });
-
-  test("a desktop page that stays up after a chat line passes", () => {
-    expect(walkProblems({ ...HEALTHY_PHONE, surface: "desktop", worldWidth: 1040, chatBottom: "76px" })).toEqual([]);
-  });
-
-  test("an aborted full-fight chunk passes when the message, the reload, the drill link, and both credit lines stay up", () => {
-    expect(chunkAbortProblems(ABORTED)).toEqual([]);
-    expect(chunkAbortProblems({ ...ABORTED, surface: "phone", errors: ["Loading chunk 2 failed"] })).toEqual([]);
-  });
-
-  test("an aborted full-fight chunk that hides the contributor credit fails", () => {
-    expect(chunkAbortProblems({ ...ABORTED, creditLines: [LINES[0]] })).toEqual([`${LINES[1]} is not on screen`]);
-  });
-
-  test("an aborted full-fight chunk that stays blank fails", () => {
-    expect(chunkAbortProblems({ ...ABORTED, message: false, reload: false, drillLink: false, creditLines: [], errors: ["TypeError: broke"], reloadHeight: 0, backHeight: 0, gapPx: 0, reloadContrast: 1, backContrast: 1 })).toEqual([
-      "the full fight failure message is not on screen",
-      "Reload is not on screen",
-      "the link back to the drill is not on screen",
-      "Reload is 0px tall",
-      "Back to the drill is 0px tall",
-      "Reload and Back to the drill are 0px apart",
-      "Reload contrast is 1.00:1",
-      "Back to the drill contrast is 1.00:1",
-      `${LINES[0]} is not on screen`,
-      `${LINES[1]} is not on screen`,
-      "page errors: TypeError: broke",
+  test("a page that opens at phase 1, hides phase 3 or puts About first fails", () => {
+    expect(walkProblems({ ...HEALTHY_PHONE, startPhase: "1", phases: ["1", "2", "4"], sections: ["About", "Fight", "Learning aids", "Sound", "Controls"] })).toEqual([
+      "Start at is phase 1, not phase 4",
+      "Start at offers 1, 2, 4, not phases 1 to 4",
+      "the panel's sections are About, Fight, Learning aids, Sound, Controls, not Fight, Learning aids, Sound, Controls, About",
     ]);
   });
 
-  test("the failure controls fail when they are short, flush, or below AA contrast", () => {
-    expect(chunkAbortProblems({ ...ABORTED, reloadHeight: 21, backHeight: 18, gapPx: 0, reloadContrast: 2.23, backContrast: 2.23 })).toEqual([
-      "Reload is 21px tall",
-      "Back to the drill is 18px tall",
-      "Reload and Back to the drill are 0px apart",
-      "Reload contrast is 2.23:1",
-      "Back to the drill contrast is 2.23:1",
+  test("with no Full fight toggle to reach, a phone page without the maker credit fails on that line alone", () => {
+    const page = { ...HEALTHY_PHONE, creditLines: [LINES[1]] };
+    expect(walkProblems(page)).toEqual([`${LINES[0]} is not on screen`]);
+    expect(walkProblems({ ...page, retiredToggles: ["Full fight (beta)"] })).toEqual([`${LINES[0]} is not on screen`, "Full fight (beta) is still on the page"]);
+  });
+
+  test("with no Full fight toggle to reach, a phone page without the contributor credit fails on that line alone", () => {
+    const page = { ...HEALTHY_PHONE, creditLines: [LINES[0]] };
+    expect(walkProblems(page)).toEqual([`${LINES[1]} is not on screen`]);
+    expect(walkProblems({ ...page, retiredToggles: ["Full fight (beta)"] })).toEqual([`${LINES[1]} is not on screen`, "Full fight (beta) is still on the page"]);
+  });
+
+  test("with no Full fight toggle to reach, a phone page that leaves the menu open after Keybinds fails on that alone", () => {
+    const page = { ...HEALTHY_PHONE, keybindsClosed: false };
+    expect(walkProblems(page)).toEqual(["Keybinds leaves the menu open"]);
+    expect(walkProblems({ ...page, retiredToggles: ["Phase 4 drill"] })).toEqual(["Phase 4 drill is still on the page", "Keybinds leaves the menu open"]);
+  });
+
+  test("with no Full fight toggle to reach, a desktop page that stays up after a chat line passes", () => {
+    const page: WalkObservation = { ...HEALTHY_PHONE, surface: "desktop", worldWidth: 1040, chatBottom: "76px" };
+    expect(walkProblems(page)).toEqual([]);
+    expect(walkProblems({ ...page, retiredToggles: ["Phase 4 drill", "Full fight (beta)"] })).toEqual(["Phase 4 drill is still on the page", "Full fight (beta) is still on the page"]);
+  });
+
+  test("an old drill link must open phase 4 and an old full-fight link keeps its phase", () => {
+    expect(oldLinkProblems("?seed=1&invincible=on", { startPhase: "4", errors: [] })).toEqual([]);
+    expect(oldLinkProblems("?mode=full&phase=1", { startPhase: "1", errors: [] })).toEqual([]);
+    expect(oldLinkProblems("?phase=p3&seed=1", { startPhase: "1", errors: ["TypeError: broke"] })).toEqual([
+      "?phase=p3&seed=1 opens Start at phase 1, not phase 4",
+      "?phase=p3&seed=1 page errors: TypeError: broke",
     ]);
-  });
-
-  test("one failed full-fight request then the file passes", () => {
-    expect(chunkRetryProblems(RETRIED)).toEqual([]);
-  });
-
-  test("a single full-fight attempt fails the retry", () => {
-    expect(chunkRetryProblems({ ...RETRIED, loaded: false, outcomes: ["503"] })).toEqual([
-      "full-fight requests were 503, not one failure then the file",
-      "one failed full-fight request did not load the fight",
-    ]);
-  });
-
-  test("orange on black clears AA and the default link blue does not", () => {
-    expect(Math.round((contrastRatio("rgb(255, 152, 31)", "rgb(0, 0, 0)") ?? 0) * 100) / 100).toBe(9.76);
-    expect(Math.round((contrastRatio("rgb(0, 0, 238)", "rgb(0, 0, 0)") ?? 0) * 100) / 100).toBe(2.23);
   });
 
   test("a credit line covered at its centre is not on screen, and its own link is", () => {

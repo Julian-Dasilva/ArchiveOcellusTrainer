@@ -110,7 +110,7 @@ function onlyStanding(destroyed: readonly Quadrant[]): Quadrant | null {
   return only ?? null;
 }
 
-/** Local south stays at the top of the screen, matching the drill's south camera on an unturned platform. */
+/** Local south stays at the top of the screen, as the south camera shows an unturned platform. */
 export function p4CameraFacing(destroyed: readonly Quadrant[]): PlatformFacing | null {
   const standing = onlyStanding(destroyed);
   if (standing === null) return null;

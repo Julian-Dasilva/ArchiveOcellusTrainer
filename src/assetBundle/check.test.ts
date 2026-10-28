@@ -74,16 +74,10 @@ const rejected = (...gaps: readonly string[]) => ({ status: 1, stdout: [], stder
 describe("npm run build", () => {
   test.each<readonly [string, Bundle, Readonly<Record<string, Replacement>>, ReturnType<typeof rejected>]>([
     [
-      "a bundle extracted before the explosion spotanim and the ocellus attack animations",
+      "a bundle extracted before the explosion spotanim",
       "beforeExplosion",
       {},
-      rejected(
-        "missing assets.npcs.ocellus.animations.swing = 14842",
-        "missing assets.npcs.ocellus.animations.panic = 14851",
-        "missing assets.npcs.ocellus.animations.shadowSlash = 14846",
-        "missing assets.spotAnims.explosion.id = 4339",
-        "manifest.json has no spotAnims.explosion (4339)",
-      ),
+      rejected("missing assets.spotAnims.explosion.id = 4339", "manifest.json has no spotAnims.explosion (4339)", "manifest.json has no spotAnims.fight_voidChainExplosion (4339)"),
     ],
     [
       "a bundle from another cache with a sprite missing",
@@ -95,7 +89,7 @@ describe("npm run build", () => {
     ["a valid build-info.json beside no manifest.json", "complete", { "manifest.json": null }, rejected("manifest.json is missing or unreadable")],
     ["an empty manifest.json", "complete", { "manifest.json": "" }, rejected("manifest.json is missing or unreadable")],
     ["a manifest.json of {}", "complete", { "manifest.json": "{}" }, rejected("manifest.json is not a cache render bundle manifest")],
-    ["a stale manifest.json without the explosion spotanim", "staleManifest", {}, rejected("manifest.json has no spotAnims.explosion (4339)")],
+    ["a stale manifest.json without the explosion spotanim", "staleManifest", {}, rejected("manifest.json has no spotAnims.explosion (4339)", "manifest.json has no spotAnims.fight_voidChainExplosion (4339)")],
     ["a manifest.json from another cache", "manifestFromOtherCache", {}, rejected("manifest.json is from openrs2:2745, configured openrs2:2746")],
     ["a manifest.json without the ocellus npc", "manifestWithoutOcellus", {}, rejected("manifest.json has no npcs.ocellus (16677)")],
     ["a manifest.json without the brazier model or a player item", "manifestWithoutBrazierOrAhrimsTop", {}, rejected("manifest.json has no models.brazier (62440)", "manifest.json has no items.ahrimsRobeTop (4712)")],
@@ -132,7 +126,7 @@ describe("npm run build", () => {
         "manifest.json has no playerAnimations.zombieAxeCrush (3852)",
       ),
     ],
-    ["a manifest.json that maps the explosion to an asset it does not list", "manifestWithoutExplosionAsset", {}, rejected("manifest.json lists no asset spotanim-4339 for spotAnims.explosion (4339)")],
+    ["a manifest.json that maps the explosion to an asset it does not list", "manifestWithoutExplosionAsset", {}, rejected("manifest.json lists no asset spotanim-4339 for spotAnims.explosion (4339)", "manifest.json lists no asset spotanim-4339 for spotAnims.fight_voidChainExplosion (4339)")],
     ["a payload file the manifest names missing", "complete", { "f7283bd7ba8dae5bc8341a85afe1d04cae1543ee6c77e4a5f061fdca37aba6f2.bin": null }, rejected("missing f7283bd7ba8dae5bc8341a85afe1d04cae1543ee6c77e4a5f061fdca37aba6f2.bin, manifest.json's npc-16677")],
     ["an empty explosion payload", "complete", { [EXPLOSION_PAYLOAD]: "" }, rejected(`${EXPLOSION_PAYLOAD} is empty, manifest.json's spotanim-4339`)],
     ["a directory in place of the explosion payload", "complete", { [EXPLOSION_PAYLOAD]: DIRECTORY }, rejected(`${EXPLOSION_PAYLOAD} is not a file, manifest.json's spotanim-4339`)],

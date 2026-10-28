@@ -1,4 +1,5 @@
 import React, { act } from "react";
+import type { ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { ArchiveOcellusApp } from "../../../ArchiveOcellusApp";
 
@@ -7,12 +8,15 @@ declare global {
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-export function loadPage(url: string) {
+export const loadPage = (url: string) => mountPage(url, <ArchiveOcellusApp />);
+
+/** A test that must also run on a base whose app is another page mounts the page it tests. */
+export function mountPage(url: string, page: ReactElement) {
   window.history.replaceState(null, "", url);
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
-  act(() => root.render(<ArchiveOcellusApp />));
+  act(() => root.render(page));
   const element = (id: string): HTMLElement => {
     const found = container.querySelector<HTMLElement>(`#${id}`);
     if (!found) throw new Error(`the page has no #${id}`);
