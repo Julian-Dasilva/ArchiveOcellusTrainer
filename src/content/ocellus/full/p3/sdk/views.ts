@@ -16,6 +16,8 @@ const MAGIC_SHOT: Omit<ProjectileVisuals, "spotAnim"> = { startCycleOffset: 45, 
 const FLARE_SHOT: Omit<ProjectileVisuals, "spotAnim"> = { startCycleOffset: 0, endCycleOffset: 30, verticalOffset: 0.5 };
 export const TONE: Readonly<Record<Tone, string>> = { game: "#000000", red: "#ef1020", purple: "#7f00ff", green: "#0b6e0b" };
 const DANGER: Readonly<Record<DangerRole, number>> = { slash: 0xb01030, bomb: 0x8a2be2, debris: 0x8a6a3a, "superior-slash": 0x5a0a0a };
+/** Face 12702 is the curved shard. Julian's photo shows it purple, not the model's olive. */
+const SHARD_PURPLE: Record<string, number> = { "12702": 0x4a1868 };
 const UNLEASH_TURN: Readonly<Record<Quadrant, number>> = { NE: 2, NW: 1, SW: 0, SE: 3 };
 /** The arena breaks outward along each arm, one burst every 15 client cycles. */
 const ARM_BURSTS = [3, 6, 9, 12] as const;
@@ -118,8 +120,8 @@ export class P3Views {
         this.spot(look.tile, SPOT.fallingDebris, { maxTicks: look.falls - now + 1 });
         return;
       case "band-landed":
-        if (look.role === "slash") look.tiles.forEach((tile, i) => this.spot(tile, SPOT.shadowSlash, { delay: Math.floor(i / 3) * 2, maxTicks: 3 }));
-        else look.tiles.forEach((tile, i) => this.spot(tile, SPOT.superiorSlash, { delay: Math.floor(i / 3), maxTicks: 3 }));
+        if (look.role === "slash") look.tiles.forEach((tile, i) => this.spot(tile, SPOT.shadowSlash, { delay: Math.floor(i / 3) * 2, maxTicks: 3, rotation: ((tile.x * 5 + tile.z * 3) & 7) * 256, level: true, recolor: SHARD_PURPLE }));
+        else look.tiles.forEach((tile, i) => this.spot(tile, SPOT.superiorSlash, { delay: Math.floor(i / 3), maxTicks: 3, rotation: ((tile.x * 5 + tile.z * 3) & 7) * 256, level: true, recolor: SHARD_PURPLE }));
         return;
       case "pools":
         look.tiles.forEach((tile) => this.spot(tile, SPOT.p2Pool, { maxTicks: 4 }));

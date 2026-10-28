@@ -24,6 +24,10 @@ export type SpotOptions = Readonly<{
   delay?: number;
   /** OSRS orientation units, 2048 a turn. */
   rotation?: number;
+  /** Keep the model's bind height. A rising sequence would stand the graphic up. */
+  level?: boolean;
+  /** Cache face colour to a Three.js RGB value. */
+  recolor?: Record<string, number>;
   height?: number;
   /** Keep replaying until this many ticks have passed; otherwise play once. */
   loopTicks?: number;
@@ -48,7 +52,16 @@ class SpotModel implements Model {
       const { id, options } = this.renderable;
       this.playing = CacheRenderInstancedModel.forRenderable(
         this.renderable,
-        CacheRenderReferences.spotAnim([{ id, delay: this.renderable.restarts === 0 ? options.delay ?? 0 : 0, rotation: options.rotation ?? 0, height: options.height ?? 0 }]),
+        CacheRenderReferences.spotAnim([
+          {
+            id,
+            delay: this.renderable.restarts === 0 ? options.delay ?? 0 : 0,
+            rotation: options.rotation ?? 0,
+            height: options.height ?? 0,
+            level: options.level,
+            recolor: options.recolor,
+          },
+        ]),
         {
           onSpotAnimComplete: () => {
             this.ended = true;
