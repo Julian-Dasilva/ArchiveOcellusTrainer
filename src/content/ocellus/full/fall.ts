@@ -1,7 +1,7 @@
 import { P3 } from "./data/p3";
 import type { Fall } from "./p3/types";
 import type { Quadrant } from "../fight/geometry";
-import { C, GRID, toSdk } from "../fight/geometry";
+import { C, GRID, QUADRANTS, toSdk } from "../fight/geometry";
 import type { DrillConfig } from "../js/OcellusTimings";
 import type { P4Entry } from "../js/p4/phase";
 import { span } from "../../../sim/brands";
@@ -33,4 +33,38 @@ export function carriedEntry(fall: Fall, config: DrillConfig): P4Entry {
     boss: fall.boss,
     voids: fall.voids.map(({ tile, placed }) => ({ tile: toLocal(frame, toSdk(tile)), sincePlaced: span(fall.tick - placed), period: span(P3.patchEvery), damage: P3.patchDamage })),
   };
+}
+
+export type PlatformFacing = "south" | "west" | "north" | "east";
+
+function platformFacing(quadrant: Quadrant): PlatformFacing {
+  const turns = quadrantFrame(quadrant).turns;
+  switch (turns) {
+    case 0:
+      return "south";
+    case 1:
+      return "west";
+    case 2:
+      return "north";
+    case 3:
+      return "east";
+    default: {
+      const unhandled: never = turns;
+      return unhandled;
+    }
+  }
+}
+
+function standingQuadrant(destroyed: readonly Quadrant[]): Quadrant | null {
+  const left = QUADRANTS.filter((quadrant) => !destroyed.includes(quadrant));
+  if (left.length !== 1) return null;
+  const only = left[0];
+  return only ?? null;
+}
+
+/** Local south stays at the top of the screen, matching the drill's south camera on an unturned platform. */
+export function p4CameraFacing(destroyed: readonly Quadrant[]): PlatformFacing | null {
+  const standing = standingQuadrant(destroyed);
+  if (standing === null) return null;
+  return platformFacing(standing);
 }
