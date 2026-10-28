@@ -158,6 +158,18 @@ describe("the full fight page", () => {
     expect(shown).toEqual({ startAt: "4", tips: "Phase 4", phase: "p4" });
   });
 
+  test("Restart reloads the same seed with the toggles as they stand, so no click queued before it plays in the new run", () => {
+    const page = loadFullFight("/?seed=7&setup=melee");
+    page.click("practice");
+    const navigation = captureAssign();
+    page.click("restart_fight");
+    const assigned = navigation.assigned;
+    navigation.restore();
+    page.close();
+
+    expect(assigned).toEqual(["http://localhost/?seed=7&setup=melee&practice=1&phase=4&tiles=1&markers=0&skip=0&vine=1"]);
+  });
+
   test("offers phase 4 on Start at, and choosing it reloads the full fight at phase 4", () => {
     const loaded = loadFullFight("/?mode=full&phase=4&setup=ranged");
     const loadedSelect = loaded.element("start_phase");

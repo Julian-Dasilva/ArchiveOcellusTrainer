@@ -18,6 +18,8 @@ declare global {
       snapshot(): P4ProbeSnapshot;
       log(): P4ProbeLog;
       tileCentre(at: At): At | null;
+      /** Sets phase 4's boss HP, so a check reaches a kill in a few hits. */
+      setBossHp(hp: number): void;
     }>;
   }
 }
@@ -74,6 +76,10 @@ export function exposeP4Probe(trainer: TrainerInstance, region: FightRegion, clo
     tileCentre: (at) => {
       const p4 = region.p4.mounted;
       return p4 && Viewport.viewport.projectTile(toRoom(p4.frame, tile(at.x, at.y)), trainer.getSnapshot().world);
+    },
+    setBossHp: (hp) => {
+      const p4 = region.p4.mounted;
+      if (p4) p4.ocellus.currentStats.hitpoint = hp;
     },
   });
 }

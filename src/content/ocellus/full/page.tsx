@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react";
-import { CacheRender, Trainer, TrainerInstance, Viewport } from "osrs-sdk";
+import { CacheRender, TrainerInstance, Viewport } from "osrs-sdk";
 import type { Location3, Region, TrainerLoadingState } from "osrs-sdk";
 import { GameOverlay, RuneScapeButton, TrainerApp } from "osrs-sdk-react";
 import { readSettings, RunGate, RunPauseButton } from "../../../runGate";
@@ -400,8 +400,8 @@ function Result({ stage, region, params, clock }: Readonly<{ stage: Stage; regio
       </p>
       <PausedNote pauses={clock.pauses()} />
       <div className="fight-result-buttons">
-        <RuneScapeButton type="button" onClick={() => again(true)}>Try again</RuneScapeButton>
-        <RuneScapeButton type="button" onClick={() => again(false)}>Same seed</RuneScapeButton>
+        <RuneScapeButton id="result_restart" type="button" onClick={() => again(true)}>Try again</RuneScapeButton>
+        <RuneScapeButton id="result_retry" type="button" onClick={() => again(false)}>Same seed</RuneScapeButton>
       </div>
       <p className="fight-result-follow">
         Updates and new sims:{" "}
@@ -455,7 +455,6 @@ const TIPS: Readonly<Record<StartPhase, readonly string[]>> = {
 function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: Params; region: FightRegion; stage: Stage | null; clock: RunClock }>) {
   const [draft, setDraft] = useState<Params>(params);
   const set = (patch: Partial<Params>) => setDraft((current) => ({ ...current, ...patch }));
-  const changedAtLoad = (["startPhase", "setup", "videoMarkers", "soloVine"] as const).some((key) => draft[key] !== params[key]);
   return (
     <Sidebar
       fight={
@@ -494,13 +493,8 @@ function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: P
             />
           </label>
           <RuneScapeButton id="start_fight" type="button" onClick={() => writeParams(draft)}>Start fight</RuneScapeButton>
-          <RuneScapeButton id="restart_fight" type="button" onClick={() => {
-            if (changedAtLoad) writeParams(draft, false);
-            else {
-              Trainer.reset();
-              clock.holdAtStart();
-            }
-          }}>Restart</RuneScapeButton>
+          {/* A reload, not an in-place reset: the SDK keeps clicks queued for the next world tick, and a reset would play them in the new run. */}
+          <RuneScapeButton id="restart_fight" type="button" onClick={() => writeParams(draft, false)}>Restart</RuneScapeButton>
           {(stage === null || endingOf(stage) === null) && <RunPauseButton clock={clock} />}
         </>
       }
