@@ -749,11 +749,11 @@ export const p3Sourced = {
     "The vine's hold, renewed on every tick it lives. ocellus-sim phase3.ts:469, 772",
     noWiki("the wiki's phase 3 text does not state this count"),
   ),
-  hopHolds: selected(
+  stoneWalk: selected(
     1,
     "inferred",
     "unscaled",
-    "Each stepping-stone hop holds you a tick. ocellus-sim phase3.ts:867",
+    "You walk the stones, one tile a tick, and you do not hold on a stone. Julian, 2026-10-27: in p3 you dont really \"hop\" on thes tones you kinda \"walk\" on them.",
     noWiki("the wiki's phase 3 text does not state this count"),
   ),
   idleAfter: selected(
@@ -937,7 +937,7 @@ export const P3 = {
   spinReach: p3Sourced.spinReach.value,
   slashShowsBefore: p3Sourced.slashShowsBefore.value,
   vineHolds: p3Sourced.vineHolds.value,
-  hopHolds: p3Sourced.hopHolds.value,
+  stoneWalk: p3Sourced.stoneWalk.value,
   idleAfter: p3Sourced.idleAfter.value,
   flyingMessageEvery: p3Sourced.flyingMessageEvery.value,
   insolenceDebrisAt: p3Sourced.insolenceDebrisAt.value,

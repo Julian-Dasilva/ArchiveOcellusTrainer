@@ -34,6 +34,10 @@ class LocFieldModel implements Model {
     }
   }
 
+  clientTick(): void {
+    this.shown.forEach((models) => models.forEach((model) => model.clientTick()));
+  }
+
   destroy(scene: THREE.Scene): void {
     this.shown.forEach((models) => models.forEach((model) => model.destroy(scene)));
     this.shown.clear();
@@ -67,6 +71,11 @@ export class LocField extends Entity {
   /** Scenery: no Player/NPC outline. */
   override get drawOutline(): boolean {
     return false;
+  }
+
+  /** The asset recipe bakes each loc model's idle as pose 0. */
+  override get animationIndex(): number {
+    return 0;
   }
 
   override draw(tickPercent: number, context: OffscreenCanvasRenderingContext2D): void {
