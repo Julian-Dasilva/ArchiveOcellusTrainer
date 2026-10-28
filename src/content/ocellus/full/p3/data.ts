@@ -41,7 +41,7 @@ export const T = {
   vineRootsAfter: ticks(D.vineRootsAfter),
   vineCutByTeammate: ticks(D.vineCutByTeammate),
   vineHolds: ticks(D.vineHolds),
-  hopHolds: ticks(D.hopHolds),
+  stoneWalk: ticks(D.stoneWalk),
   idleAfter: ticks(D.idleAfter),
   flyingMessageEvery: ticks(D.flyingMessageEvery),
   insolenceFirst: ticks(D.insolenceFirst),

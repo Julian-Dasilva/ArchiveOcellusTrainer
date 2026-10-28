@@ -1,6 +1,24 @@
-import { at } from "../fight/geometry";
+import { PlayerAnimationIndices, Settings } from "osrs-sdk";
+import type { ATile } from "../fight/geometry";
+import { at, fromSdk } from "../fight/geometry";
 import { S, startP3 } from "./p3run";
 import { drawnThrough } from "./drawn";
+
+/** East arm, from the south-east bank (4, -2) onto the north-east landing (10, 2), one tile a tick. */
+const EAST_STONE_WALK: readonly ATile[] = [
+  at(4, -1),
+  at(4, 0),
+  at(5, 0),
+  at(6, 0),
+  at(7, 0),
+  at(8, 0),
+  at(9, 0),
+  at(10, 0),
+  at(10, 1),
+  at(10, 2),
+];
+
+type Run = ReturnType<typeof startP3>;
 
 describe("phase 3 moves on screen without a jump", () => {
   let close: (() => void) | null = null;
@@ -25,20 +43,76 @@ describe("phase 3 moves on screen without a jump", () => {
     });
   });
 
-  test("crossing the stones, the player glides a tile at a time from the bank to the far quadrant", () => {
+  test("crossing the three east stones takes ten walk ticks, and the drawn path does not stall between them", () => {
     const f = startP3();
     close = f.close;
     f.tickTo(S + 2);
     f.bossAt(74);
     f.tickTo(S + 4);
     expect(f.live().script.interceptWalk(at(6, 4))).toBe(true);
-    const crossing = drawnThrough(f, f.player, 10);
-    // From arena (5, -3) he walks to the bank and hops the east arm's stones to (10, 2), SDK (24, 12).
-    expect({ from: crossing.where(0), to: crossing.where(399), largestStep: crossing.largestStep, here: f.here() }).toEqual({
-      from: { x: 19, y: 17, z: 0 },
-      to: { x: 24, y: 12, z: 0 },
-      largestStep: 0.13,
-      here: at(10, 2),
-    });
+    const clientSteps = Settings.tickMs / 20;
+    const round = (n: number) => Math.round(n * 100) / 100;
+    let ms = 0;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => ms);
+    const step = () => {
+      f.tickOnce();
+      let largest = 0;
+      let still = 1;
+      let run = 1;
+      let previous: { x: number; y: number } | null = null;
+      const poses = new Set<number>();
+      for (let i = 0; i < clientSteps; i++) {
+        ms += 15;
+        f.region.world.clientTick(f.region, i / clientSteps, ms);
+        const player = f.player();
+        poses.add(player.currentPoseAnimation);
+        const seen = player.getPerceivedLocation(i / clientSteps);
+        const point = { x: round(seen.x), y: round(seen.y) };
+        if (previous) {
+          largest = Math.max(largest, Math.hypot(point.x - previous.x, point.y - previous.y));
+          if (point.x === previous.x && point.y === previous.y) {
+            run++;
+            still = Math.max(still, run);
+          } else run = 1;
+        }
+        previous = point;
+      }
+      ms += 20;
+      const settled = f.player().getPerceivedLocation(1);
+      const end = { x: round(settled.x), y: round(settled.y) };
+      return { tile: f.here(), drawn: fromSdk({ x: Math.round(end.x), y: Math.round(end.y) }), largest: round(largest), still, poses };
+    };
+    try {
+      let guard = 0;
+      let arrived = step();
+      while (arrived.tile.x !== 4 || arrived.tile.z !== -2) {
+        if (guard++ > 20) throw new Error("the walk never reached the east bank");
+        arrived = step();
+      }
+      const walked: { tile: ATile; drawn: ATile; run: boolean; walk: boolean; still: number; walkPace: boolean }[] = [];
+      for (let i = 0; i < EAST_STONE_WALK.length; i++) {
+        const moved = step();
+        walked.push({
+          tile: moved.tile,
+          drawn: moved.drawn,
+          run: moved.poses.has(PlayerAnimationIndices.Run),
+          walk: moved.poses.has(PlayerAnimationIndices.Walk),
+          still: moved.still,
+          walkPace: moved.largest <= 0.06,
+        });
+      }
+      expect(walked).toEqual(
+        EAST_STONE_WALK.map((tile) => ({
+          tile,
+          drawn: tile,
+          run: false,
+          walk: true,
+          still: 1,
+          walkPace: true,
+        })),
+      );
+    } finally {
+      clock.mockRestore();
+    }
   });
 });
