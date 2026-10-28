@@ -999,7 +999,7 @@ tile_pixel() {
 }
 
 # Each argument is one entry, after|tile|mode|rise, and the entries run in order in one eval, so no CLI turn separates two timed clicks.
-# An entry reads, and clicks when its mode is click, none, control, walk, or control-walk, on the first frame of tick $after, $rise pixels above the tile's centre. A click whose page is already past its tick is not sent, and the plan stops there. The plan stays under agent-browser's 25 s eval timeout.
+# An entry reads, and clicks when its mode is click, none, control, walk, or control-walk, on the first frame of tick $after, $rise pixels above the tile's centre. A click whose page is already past its tick is not sent, and the plan stops there, unless $after is written N+, which clicks on the first frame at or past tick N. The plan stays under agent-browser's 25 s eval timeout.
 # When $rise is boss, the height is the lowest one where the right-click menu offers Attack first, which is what a left click there does. The SDK builds that menu inside mousedown, so the search runs in the frame that clicks, on the boss's pose and camera at that tick.
 click_plan() {
   local page="$1" entry after tile mode rise first="" tiles=() plan="" read
@@ -1009,7 +1009,7 @@ click_plan() {
     first="${first:-$after}" tiles+=("$tile")
     plan+="{ after: '${after}', tile: () => (${tile}), mode: '${mode}', rise: '${rise}' },"
   done
-  [[ "$first" == now ]] || fight_tick_at_least $((first - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((first - 1))"; return 1; }
+  [[ "$first" == now ]] || fight_tick_at_least $((${first%+} - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((${first%+} - 1))"; return 1; }
   read="$(ab --json eval "new Promise((done) => {
     const probe = window.__archiveOcellusProbe, plan = [${plan}], tick = () => probe.snapshot().fight?.run.tick ?? -1;
     const bossRise = (world, box, under) => {
@@ -1028,8 +1028,8 @@ click_plan() {
     let index = 0;
     const read = () => {
       const { after, tile, mode, rise } = plan[index], clicks = ['click', 'none', 'control', 'walk', 'control-walk'].includes(mode);
-      if (after !== 'now' && tick() < Number(after)) return requestAnimationFrame(read);
-      if (clicks && after !== 'now' && tick() > Number(after)) return done({ index, planned: after, late: tick() });
+      if (after !== 'now' && tick() < parseInt(after)) return requestAnimationFrame(read);
+      if (clicks && after !== 'now' && !after.endsWith('+') && tick() > parseInt(after)) return done({ index, planned: after, late: tick() });
       const at = probe.tileCentre(tile()), world = document.querySelector('#world'), box = world.getBoundingClientRect();
       const lift = at && (rise === 'boss' ? bossRise(world, box, at) : Number(rise));
       if (at && lift === null) return done({ index, late: null, at: null, boss: false });
@@ -2071,7 +2071,7 @@ rift_tile() {
 }
 
 click_tile_after_tick() {
-  tile_pixel "$1" "$2" "$3" click || { log "$1: the click on $2 after P4 tick $3 was not sent"; return 1; }
+  tile_pixel "$1" "$2" "$3+" click || { log "$1: the click on $2 after P4 tick $3 was not sent"; return 1; }
 }
 
 drive_recorded_fights() {
