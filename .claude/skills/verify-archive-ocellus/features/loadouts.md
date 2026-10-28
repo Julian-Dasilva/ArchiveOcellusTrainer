@@ -41,5 +41,5 @@ Preconditions:
 - Special energy regenerates 10 every 30 seconds. Read it as soon as the glaives land.
 - Without a pinned `seed`, the glaive rolls differ between loads, and a load where both glaives deal 0 leaves Defence at 250.
 - A click on Ocellus before P4 tick 4 finds no target, because the boss is hidden.
-- The boss's model hovers above the tile under him, so a click on (5, 5)'s floor pixel can miss him. Find his height first, as `boss_point` in `scripts/verify.sh` does.
+- The boss's model hovers above the tile under him, so a click on (5, 5)'s floor pixel can miss him. Find his height in the frame that clicks, as `click_boss` in `scripts/verify.sh` does.
 - Restart applies every choice in the side panel. Click `Restart` only after the `Start with` selector shows the weapon you want.

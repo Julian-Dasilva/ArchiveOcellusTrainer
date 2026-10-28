@@ -44,7 +44,7 @@ Preconditions:
 
 - A screenshot can take most of a 600 ms tick, and longer on a software renderer. Copy the canvas inside the frame instead (`arm_shot` and `take_shot`, on the frame clock from `start_frame_clock`), and arm every shot of a page before taking the first, because encoding one copy on llvmpipe outlasted the rest of its tick.
 - A dev server started with `scripts/verify.sh serve` can miss a file that `git checkout` replaces. After restoring a deliberate break, check the served bundle before trusting the next run. The `browser` stage starts its own server.
-- A left-click on the floor under the hovering boss walks there. Click him at the height `boss_point` finds above (5, 5), which it reads two ticks before the click.
+- A left-click on the floor under the hovering boss walks there. Click him with `click_boss`, which finds his height above (5, 5) in the frame that clicks.
 - Reacting to the mark is too late by design. The mark appears when the mark tick has already captured the tile, and a click after that moves the player on the impact tick. Click before the mark tick, as the rhythm of every 2 ticks allows.
 - The camera follows the player with a short lag. Screenshots taken right after a dodge show the mark closer to the centre than it settles.
 - `step_on_marks` reads the player's tile on the tick it clicks, so a step that falls short does not carry its error into the next one.
