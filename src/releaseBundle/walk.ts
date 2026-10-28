@@ -22,6 +22,9 @@ export function visibleCreditLines(doc: Document): readonly string[] {
 
 export type WalkSurface = "desktop" | "phone";
 
+/** The buttons that left for the retired drill page or into the full fight from it. */
+const RETIRED_TOGGLES = ["Full fight (beta)", "Phase 4 drill"] as const;
+
 export type WalkObservation = Readonly<{
   surface: WalkSurface;
   rootChildren: number;
@@ -31,6 +34,7 @@ export type WalkObservation = Readonly<{
   phases: readonly string[];
   sections: readonly string[];
   aboutReachable: boolean;
+  retiredToggles: readonly string[];
   worldWidth: number;
   chatBottom: string;
   chatLine: string;
@@ -59,6 +63,7 @@ const FACTS = `(() => {
     phases: start instanceof HTMLSelectElement ? [...start.options].map((option) => option.value) : [],
     sections: [...document.querySelectorAll("#sidebar > section > .sidebar_title")].map((title) => title.textContent || ""),
     aboutReachable: onScreen(document.getElementById("perf_data")) && onScreen(document.getElementById("whats_new")),
+    retiredToggles: [...document.querySelectorAll("button, a")].map((el) => (el.textContent || "").trim()).filter((text) => ${JSON.stringify(RETIRED_TOGGLES)}.includes(text)),
     worldWidth: box ? box.width : 0,
     worldLeft: box ? box.left : 0,
     worldTop: box ? box.top : 0,
@@ -78,6 +83,7 @@ type PageFacts = Readonly<{
   phases: readonly string[];
   sections: readonly string[];
   aboutReachable: boolean;
+  retiredToggles: readonly string[];
   worldWidth: number;
   worldLeft: number;
   worldTop: number;
@@ -104,6 +110,7 @@ export function walkProblems(observed: WalkObservation): readonly string[] {
   if (observed.phases.join(",") !== "1,2,3,4") problems.push(`Start at offers ${observed.phases.join(", ") || "nothing"}, not phases 1 to 4`);
   if (observed.sections.join(",") !== SECTIONS.join(",")) problems.push(`the panel's sections are ${observed.sections.join(", ")}, not ${SECTIONS.join(", ")}`);
   if (!observed.aboutReachable) problems.push("Performance data and What's new are not reachable at the bottom of the panel");
+  problems.push(...observed.retiredToggles.map((toggle) => `${toggle} is still on the page`));
   if (observed.chatLine === "") problems.push("no chat line");
   if (observed.surface === "phone") {
     if (observed.worldWidth < 300) problems.push(`the game is ${observed.worldWidth}px wide`);
@@ -170,6 +177,7 @@ function parseFacts(value: unknown): PageFacts {
     phases: stringListField(record, "phases"),
     sections: stringListField(record, "sections"),
     aboutReachable: booleanField(record, "aboutReachable"),
+    retiredToggles: stringListField(record, "retiredToggles"),
     worldWidth: numberField(record, "worldWidth"),
     worldLeft: numberField(record, "worldLeft"),
     worldTop: numberField(record, "worldTop"),
@@ -312,6 +320,7 @@ function driveSurface(surface: WalkSurface, origin: string): readonly string[] {
       phases: loaded.phases,
       sections: loaded.sections,
       aboutReachable: bottom.aboutReachable,
+      retiredToggles: loaded.retiredToggles,
       worldWidth,
       chatBottom: settled.chatBottom,
       chatLine: settled.chatLine,

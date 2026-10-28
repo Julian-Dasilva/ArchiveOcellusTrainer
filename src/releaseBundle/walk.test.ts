@@ -16,6 +16,7 @@ const HEALTHY_PHONE: WalkObservation = {
   phases: ["1", "2", "3", "4"],
   sections: ["Fight", "Learning aids", "Sound", "Controls", "About"],
   aboutReachable: true,
+  retiredToggles: [],
   worldWidth: 390,
   chatBottom: "4px",
   chatLine: "Ocellus manipulates your lifeforce!",
@@ -31,6 +32,7 @@ const CRASHED_PHONE: WalkObservation = {
   phases: [],
   sections: [],
   aboutReachable: false,
+  retiredToggles: [],
   worldWidth: 0,
   chatBottom: "",
   chatLine: "",
@@ -44,6 +46,8 @@ describe("release browser walk", () => {
 
   test("a phone page at phase 4 with every phase, the five sections, About at the bottom, both credit lines, and a chat line under the tabs passes", () => {
     expect(walkProblems(HEALTHY_PHONE)).toEqual([]);
+    const without = [{ startPhase: "1" }, { phases: ["1", "2", "4"] }, { sections: ["Fight", "Sound"] }, { aboutReachable: false }, { creditLines: [LINES[0]] }, { chatLine: "" }, { chatBottom: "76px" }];
+    expect(without.map((change) => walkProblems({ ...HEALTHY_PHONE, ...change }).length)).toEqual([1, 1, 1, 1, 1, 1, 1]);
   });
 
   test("the e4b47df phone crash fails", () => {
@@ -71,19 +75,27 @@ describe("release browser walk", () => {
   });
 
   test("with no Full fight toggle to reach, a phone page without the maker credit fails on that line alone", () => {
-    expect(walkProblems({ ...HEALTHY_PHONE, creditLines: [LINES[1]] })).toEqual([`${LINES[0]} is not on screen`]);
+    const page = { ...HEALTHY_PHONE, creditLines: [LINES[1]] };
+    expect(walkProblems(page)).toEqual([`${LINES[0]} is not on screen`]);
+    expect(walkProblems({ ...page, retiredToggles: ["Full fight (beta)"] })).toEqual([`${LINES[0]} is not on screen`, "Full fight (beta) is still on the page"]);
   });
 
   test("with no Full fight toggle to reach, a phone page without the contributor credit fails on that line alone", () => {
-    expect(walkProblems({ ...HEALTHY_PHONE, creditLines: [LINES[0]] })).toEqual([`${LINES[1]} is not on screen`]);
+    const page = { ...HEALTHY_PHONE, creditLines: [LINES[0]] };
+    expect(walkProblems(page)).toEqual([`${LINES[1]} is not on screen`]);
+    expect(walkProblems({ ...page, retiredToggles: ["Full fight (beta)"] })).toEqual([`${LINES[1]} is not on screen`, "Full fight (beta) is still on the page"]);
   });
 
   test("with no Full fight toggle to reach, a phone page that leaves the menu open after Keybinds fails on that alone", () => {
-    expect(walkProblems({ ...HEALTHY_PHONE, keybindsClosed: false })).toEqual(["Keybinds leaves the menu open"]);
+    const page = { ...HEALTHY_PHONE, keybindsClosed: false };
+    expect(walkProblems(page)).toEqual(["Keybinds leaves the menu open"]);
+    expect(walkProblems({ ...page, retiredToggles: ["Phase 4 drill"] })).toEqual(["Phase 4 drill is still on the page", "Keybinds leaves the menu open"]);
   });
 
   test("with no Full fight toggle to reach, a desktop page that stays up after a chat line passes", () => {
-    expect(walkProblems({ ...HEALTHY_PHONE, surface: "desktop", worldWidth: 1040, chatBottom: "76px" })).toEqual([]);
+    const page: WalkObservation = { ...HEALTHY_PHONE, surface: "desktop", worldWidth: 1040, chatBottom: "76px" };
+    expect(walkProblems(page)).toEqual([]);
+    expect(walkProblems({ ...page, retiredToggles: ["Phase 4 drill", "Full fight (beta)"] })).toEqual(["Phase 4 drill is still on the page", "Full fight (beta) is still on the page"]);
   });
 
   test("an old drill link must open phase 4 and an old full-fight link keeps its phase", () => {

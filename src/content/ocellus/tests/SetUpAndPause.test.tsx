@@ -73,14 +73,15 @@ describe("Set-up and pause", () => {
   test("the full fight page opens with Start, its probe reads no ticking for as long as it waits, and Start begins GET READY", async () => {
     const run = await openRun("/?seed=1");
     run.play(10_000);
-    const setUp = { tick: run.world.globalTickCounter, ticking: probe().snapshot().ticking, start: shown("start"), pause: shown("pause") };
+    const exposed = window.__archiveOcellusProbe;
+    const setUp = { probe: exposed !== undefined, tick: run.world.globalTickCounter, ticking: exposed?.snapshot().ticking ?? null, start: shown("start"), pause: shown("pause") };
     run.page.click("start");
     run.play(3 * 600 + FRAME_MS);
     const started = { tick: run.world.globalTickCounter, getReady: run.world.getReadyTimer, start: shown("start"), pause: shown("pause") };
     run.page.close();
 
     expect({ setUp, started }).toEqual({
-      setUp: { tick: 0, ticking: false, start: "Start", pause: null },
+      setUp: { probe: true, tick: 0, ticking: false, start: "Start", pause: null },
       started: { tick: 3, getReady: 3, start: null, pause: "Pause (P)" },
     });
   });
