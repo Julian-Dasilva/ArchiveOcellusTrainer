@@ -1731,8 +1731,7 @@ replace_run() {
   local button="$1" name="$2" origin waiting first_tick first_row
   origin="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
   click_with_departing_input "$button" || { log "${name}: the walk, prayer and inventory clicks or #${button} were not sent"; return 1; }
-  # Restart with nothing changed resets the fight in place; Try again and Same seed load a new page.
-  ab wait --fn "document.getElementById('start')?.checkVisibility() === true && (performance.timeOrigin !== $origin || window.__archiveOcellusProbe.snapshot().tick === 0)" --timeout 60000 >/dev/null || log "${name}: no fresh run showed Start"
+  ab wait --fn "document.getElementById('start')?.checkVisibility() === true && performance.timeOrigin !== $origin" --timeout 60000 >/dev/null || log "${name}: no reloaded page showed Start"
   ab wait "$REPLACEMENT_HOLD_MS" >/dev/null
   waiting="$(ab --json eval "(() => { const probe = window.__archiveOcellusProbe, snapshot = probe.snapshot(); return { reloaded: performance.timeOrigin !== $origin, search: location.search, start: document.getElementById('start')?.checkVisibility() === true, pause: document.getElementById('pause') !== null, tick: snapshot.tick, ticking: snapshot.ticking, rows: probe.log().rows.length }; })()" | json data.result)" || return 1
   [[ "$(json start <<<"$waiting")" != true ]] || ab click "#start" >/dev/null || { log "${name}: Start was not clicked"; return 1; }
