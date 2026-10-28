@@ -3,16 +3,18 @@ import { sameJson } from "../lib.mjs";
 export const captures = () => [
   "loadout-before.json", "loadout-ranged.png", "icons.json", "equipment-ranged.png", "loadout-after.json", "loadout-melee.png", "loadout-spec.json", "loadout-spec-log.json",
   "loadout-spec.png", "equipment-melee.png", "loadout-console.log", "loadout-page-errors.json", "loadout-selector.json", "loadout-selector-page-errors.json",
+  "loadout-start-options.json", "loadout-start-options-page-errors.json",
 ];
 
 export function judge({ read, env }) {
   const { LOADOUT_RANGED_WORN: rangedWorn, LOADOUT_MELEE_WORN: meleeWorn, LOADOUT_DIVISION_DRAIN: drain, EXPLOSION_DAMAGE_REDUCTION_PERCENT: explosionReduction,
-    LOADOUT_TRAINER_ICONS: trainerIcons } = env;
-  const [dressed, switched, spec, selector] = ["loadout-before.json", "loadout-after.json", "loadout-spec.json", "loadout-selector.json"].map(read);
+    LOADOUT_TRAINER_ICONS: trainerIcons, START_DEFAULT_WEAPON: defaultWeapon, START_DRAINED_DEFENCE: drainedDefence } = env;
+  const [dressed, switched, spec, selector, start] = ["loadout-before.json", "loadout-after.json", "loadout-spec.json", "loadout-selector.json", "loadout-start-options.json"].map(read);
   const icons = read("icons.json");
   const observed = {
     loadout: {
-      worn: [dressed.player.equipped, switched.player.equipped, selector.player.equipped],
+      worn: [dressed.player.equipped, switched.player.equipped, selector.player.equipped, start.player.equipped],
+      startDefence: start.boss.defence,
       specialEnergy: [switched.player.specialEnergy, spec.player.specialEnergy],
       bossDefence: [switched.boss.defence, spec.boss.defence],
     },
@@ -27,11 +29,9 @@ export function judge({ read, env }) {
       const glaives = read("loadout-spec-log.json").rows.flatMap((row) => row.events.filter((e) => e.kind === "player-hit-judged")).slice(0, 2);
       return glaives.length === 2 && switched.boss.defence - spec.boss.defence === Number(drain) * glaives.filter((e) => kept(e) > 0).length;
     })(),
-    // The full fight wields the blowpipe in every setup and carries the setup's own weapon.
-    setupSelectorApplied: (() => {
-      const melee = JSON.parse(meleeWorn);
-      return sameJson(selector.player.equipped, JSON.stringify({ ...melee, weapon: JSON.parse(rangedWorn).weapon })) && selector.player.inventory.includes(melee.weapon);
-    })(),
+    startWeaponSelectorApplied: sameJson(selector.player.equipped, meleeWorn) && selector.player.inventory.includes(JSON.parse(rangedWorn).weapon),
+    twistedBowStartsByDefault: start.player.equipped.weapon === Number(defaultWeapon) && start.player.inventory.includes(JSON.parse(rangedWorn).weapon),
+    drainedStartsAtDefenceFloor: start.boss.defence === Number(drainedDefence),
     trainerItemsShowCacheIcons: Object.entries(JSON.parse(trainerIcons)).every(([id, size]) => icons[id]?.path === `/osrs-assets/item-icons/${id}.png` && icons[id].size === size),
   };
   return { observed, checks };

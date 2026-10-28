@@ -9,13 +9,13 @@ Ocellus has the wiki's phase 3 defence: Defence level 250, stab 150, slash 100, 
 
 ## How to get to it (user POV)
 
-- Open `http://127.0.0.1:8002/?setup=ranged`, wield Ralos from inventory slot 0, light the special orb and click Ocellus. Light the orb again after the first Division fires, so the next throw is a second Division.
+- Open `http://127.0.0.1:8002/?weapon=blowpipe`, wield Ralos from inventory slot 0, light the special orb and click Ocellus. Light the orb again after the first Division fires, so the next throw is a second Division.
 
 ## Driving it with agent-browser
 
 Preconditions:
 
-- The baseline preconditions in the index hold, with the page opened at `http://127.0.0.1:8002/?seed=20&setup=ranged` (`DEFENCE_FLOOR_QUERY`), and P4 tick 1 reached.
+- The baseline preconditions in the index hold, with the page opened at `http://127.0.0.1:8002/?seed=20&weapon=blowpipe` (`DEFENCE_FLOOR_QUERY`), and P4 tick 1 reached.
 - Panel points are the loadout recipe's `LOADOUT_` constants on a 1280x800 canvas, moved to the canvas's bottom right or top right as [loadouts.md](./loadouts.md) describes.
 
 - **Start.** `snapshot().fight.boss.defence` is 250.

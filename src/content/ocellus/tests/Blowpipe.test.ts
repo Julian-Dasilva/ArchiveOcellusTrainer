@@ -5,7 +5,6 @@ import type { FightRegion } from "../full/prefix";
 import { fullFightStaged } from "../full/prefix";
 import { BLOWPIPE, PHASE_RANGED_DEFENCE, dressFullFight } from "../fight/blowpipe";
 import { QUADRANTS, quadrantOf } from "../fight/geometry";
-import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { startP3 } from "./p3run";
 
 let close: (() => void) | null = null;
@@ -14,11 +13,11 @@ afterEach(() => {
   close = null;
 });
 
-function open(startPhase: StartPhase, setup: "ranged" | "melee"): FightRegion {
+function open(startPhase: StartPhase): FightRegion {
   Settings.readFromStorage();
   const region = fullFightStaged(
-    { seed: 1, party: 1, startPhase, hazardTiles: false, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true },
-    (player) => dressFullFight(player, OCELLUS_P4.choices.setup.options[setup].value),
+    { seed: 1, party: 1, startPhase, hazardTiles: false, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true, defenceDrained: false },
+    (player) => dressFullFight(player, "blowpipe"),
   );
   const trainer = new TrainerInstance(region, { force2d: true });
   trainer.mount(document.createElement("canvas"), document.createElement("div"));
@@ -46,7 +45,7 @@ describe("the full fight's toxic blowpipe", () => {
   });
 
   test("Rapid is 2 ticks at 5 tiles, and Accurate and Longrange are 3, with the charged dragon-dart bonuses", () => {
-    const region = open(1, "ranged");
+    const region = open(1);
     const weapon = player(region).equipment.weapon;
     if (!weapon) throw new Error("the full fight dressed no weapon");
     const stance = (style: AttackStyle) => {
@@ -73,8 +72,8 @@ describe("the full fight's toxic blowpipe", () => {
   });
 
   test("phase 1, 2 and 3 each start with it worn, and phase 1 and 2 roll darts against light ranged defence", () => {
-    const worn = (phase: StartPhase, setup: "ranged" | "melee") => {
-      const region = open(phase, setup);
+    const worn = (phase: StartPhase) => {
+      const region = open(phase);
       try {
         const name = player(region).equipment.weapon?.itemName ?? null;
         if (phase === 1) {
@@ -87,20 +86,18 @@ describe("the full fight's toxic blowpipe", () => {
       }
     };
     expect({
-      ranged: worn(1, "ranged"),
-      inquisitor: worn(1, "melee"),
-      blade: worn(2, "ranged"),
-      phase3: worn(3, "ranged"),
+      ranged: worn(1),
+      blade: worn(2),
+      phase3: worn(3),
     }).toEqual({
       ranged: { name: "Toxic Blowpipe", range: 50 },
-      inquisitor: { name: "Toxic Blowpipe", range: 50 },
       blade: { name: "Toxic Blowpipe", range: 100 },
       phase3: { name: "Toxic Blowpipe", range: 250 },
     });
   });
 
   test("phase 1 shoots Ocellus with it every 2 ticks once he can be attacked", () => {
-    const region = open(1, "ranged");
+    const region = open(1);
     const you = player(region);
     const ocellus = boss(region, 1);
     for (let guard = 0; !ocellus.attackable && guard < 8; guard++) region.world.tickWorld();
@@ -121,30 +118,12 @@ describe("the full fight's toxic blowpipe", () => {
     });
   });
 
-  const RANGED_BAG = [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, 12695, 22461, 6685, 3024, 12695, 22461, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 20997, 3024];
-  const MELEE_BAG = [28922, 20997, 27235, 27238, 27241, 26235, 28951, 33639, 28310, 12695, 22461, 6685, 3024, 12695, 22461, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 22325, 3024];
-
   function carried(you: FightPlayer): (number | null)[] {
     return you.inventory.map((item) => (typeof item?.cacheItemId === "number" ? item.cacheItemId : null));
   }
 
-  test("phase 1 starts with the blowpipe worn and the twisted bow in a brew's slot, keeping every super restore", () => {
-    const dressed = (setup: "ranged" | "melee") => {
-      const region = open(1, setup);
-      try {
-        const you = player(region);
-        return { worn: you.equipment.weapon?.cacheItemId ?? null, inventory: carried(you) };
-      } finally {
-        close?.();
-        close = null;
-      }
-    };
-    expect(dressed("ranged")).toEqual({ worn: BLOWPIPE.value.itemId, inventory: RANGED_BAG });
-    expect(dressed("melee")).toEqual({ worn: BLOWPIPE.value.itemId, inventory: MELEE_BAG });
-  });
-
   test("a click swaps the blowpipe and the twisted bow, and the next click swaps them back", () => {
-    const region = open(1, "ranged");
+    const region = open(1);
     const you = player(region);
     const slot = you.inventory.findIndex((item) => item?.cacheItemId === 20997);
     const bow = slot >= 0 ? you.inventory[slot] : null;
@@ -165,7 +144,7 @@ describe("the full fight's toxic blowpipe", () => {
   });
 
   test("the blowpipe and the twisted bow are both still carried after the fall into phase 4", () => {
-    const run = startP3({ setup: "ranged" });
+    const run = startP3({ weapon: "blowpipe" });
     try {
       const fallTo = (count: number) => {
         for (let guard = 0; run.live().arena.destroyed.size < count; guard++) {

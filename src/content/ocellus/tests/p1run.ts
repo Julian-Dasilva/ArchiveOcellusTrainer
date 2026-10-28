@@ -20,6 +20,7 @@ export function startP1(options: P1RunOptions = {}) {
     skipMarkers: false,
     soloVine: true,
     invincible: options.practice ?? true,
+    defenceDrained: false,
   };
   const region = new FightRegion(fight, () => undefined);
   const trainer = new TrainerInstance(region, { force2d: true });

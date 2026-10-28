@@ -274,7 +274,7 @@ describe("phase 3 on the engine follows the recorded kill [K]", () => {
   });
 
   test("the third quadrant's fall enters our phase 4 in the same world with the player as it stands, each potion's doses included, and the boss", () => {
-    const f = open({ setup: "ranged" });
+    const f = open({ weapon: "blowpipe" });
     const fallTo = (count: number) => {
       for (let guard = 0; f.live().arena.destroyed.size < count; guard++) {
         if (guard > 100) throw new Error(`quadrant ${count} never fell`);

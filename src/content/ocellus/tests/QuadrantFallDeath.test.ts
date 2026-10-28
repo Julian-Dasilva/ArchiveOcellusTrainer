@@ -32,6 +32,7 @@ describe("a falling quadrant", () => {
       skipMarkers: false,
       soloVine: true,
       invincible: practice,
+      defenceDrained: false,
     };
     const region = new FightRegion(options, () => undefined);
     const trainer = new TrainerInstance(region, { force2d: true });

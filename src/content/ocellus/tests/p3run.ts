@@ -2,16 +2,16 @@ import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import type { ScriptEvent } from "../../../sim/script";
 import type { ATile, Body, Quadrant } from "../fight/geometry";
 import { QUADRANTS, at, distanceToBody, quadrantOf, quadrantTiles } from "../fight/geometry";
+import type { StartWeapon } from "../fight/blowpipe";
 import { dressFullFight } from "../fight/blowpipe";
 import { FightPlayer } from "../fight/units";
-import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { P3 } from "../full/data/p3";
 import type { StartPhase } from "../full/options";
 import type { FullFightOptions } from "../full/prefix";
 import { FightRegion } from "../full/prefix";
 import type { P3Cause, P3Look, P3Row, P3Types } from "../full/p3/types";
 
-export type P3RunOptions = Readonly<{ seed?: number; practice?: boolean; soloVine?: boolean; setup?: "ranged" | "melee" | null; startPhase?: StartPhase }>;
+export type P3RunOptions = Readonly<{ seed?: number; practice?: boolean; soloVine?: boolean; weapon?: StartWeapon | null; startPhase?: StartPhase; defenceDrained?: boolean }>;
 
 /** The full fight's own region, ticked by hand. It starts at phase 3 unless `startPhase` says otherwise. */
 export function startP3(options: P3RunOptions = {}) {
@@ -25,10 +25,11 @@ export function startP3(options: P3RunOptions = {}) {
     skipMarkers: false,
     soloVine: options.soloVine ?? true,
     invincible: options.practice ?? true,
+    defenceDrained: options.defenceDrained ?? false,
   };
   const region = new FightRegion(fight, (player) => {
-    if (!options.setup) return;
-    dressFullFight(player, OCELLUS_P4.choices.setup.options[options.setup].value);
+    if (!options.weapon) return;
+    dressFullFight(player, options.weapon);
   });
   const trainer = new TrainerInstance(region, { force2d: true });
   trainer.mount(document.createElement("canvas"), document.createElement("div"));

@@ -21,7 +21,7 @@ import { identity, toRoom } from "../../../sim/frame";
 import type { EncounterPlayerHooks } from "../../../sim/sdk/EncounterPlayer";
 import { EncounterRegion } from "../../../sim/sdk/EncounterRegion";
 import { fence, seal } from "../../../sim/sdk/fence";
-import { carriedEntry, phase4Opening } from "./fall";
+import { carriedEntry, drainedFall, phase4Opening } from "./fall";
 import type { ChatLine, FullFightOptions, StartPhase } from "./options";
 import type { P1Entry } from "./p1/types";
 import type { P1Watch } from "./p1/sdk/phase";
@@ -102,7 +102,7 @@ function voidsOf(fall: Fall): readonly LocView[] {
 function phasesOf(run: Run, p1: P1Watch, p2: P2Watch, p3: P3Watch, p4: P4Watch, p4Config: DrillConfig): FullPhases {
   return {
     p1: p1Phase<FullEntries>({
-      settings: { practice: () => run.options.invincible, hazardTiles: () => run.options.hazardTiles },
+      settings: { practice: () => run.options.invincible, hazardTiles: () => run.options.hazardTiles, defenceDrained: () => run.options.defenceDrained },
       watch: p1,
       say: (line) => run.chat.push(line),
       hp: scaledHp(P1.hp, run.options.party),
@@ -113,7 +113,7 @@ function phasesOf(run: Run, p1: P1Watch, p2: P2Watch, p3: P3Watch, p4: P4Watch, 
       changed: () => run.notify(),
     }),
     p2: p2Phase<FullEntries>({
-      settings: { practice: () => run.options.invincible, hazardTiles: () => run.options.hazardTiles, skipMarkers: () => run.options.skipMarkers },
+      settings: { practice: () => run.options.invincible, hazardTiles: () => run.options.hazardTiles, skipMarkers: () => run.options.skipMarkers, defenceDrained: () => run.options.defenceDrained },
       watch: p2,
       say: (line) => run.chat.push(line),
       intoP3: (hp) => {
@@ -122,7 +122,7 @@ function phasesOf(run: Run, p1: P1Watch, p2: P2Watch, p3: P3Watch, p4: P4Watch, 
       },
     }),
     p3: p3Phase<FullEntries>({
-      settings: { practice: () => run.options.invincible, soloVine: () => run.options.soloVine, hazardTiles: () => run.options.hazardTiles },
+      settings: { practice: () => run.options.invincible, soloVine: () => run.options.soloVine, hazardTiles: () => run.options.hazardTiles, defenceDrained: () => run.options.defenceDrained },
       watch: p3,
       showFloor: (state) => {
         run.floor = state;
@@ -143,7 +143,7 @@ function phasesOf(run: Run, p1: P1Watch, p2: P2Watch, p3: P3Watch, p4: P4Watch, 
 }
 
 /** Which phase a fresh run opens on. Phase 4 opens on the third fall. */
-function opened(start: StartPhase, config: DrillConfig): { phase: "p1"; entry: P1Entry } | { phase: "p2"; entry: P2Entry } | { phase: "p3"; entry: P3Entry } | { phase: "p4"; entry: P4Entry } {
+function opened(start: StartPhase, config: DrillConfig, defenceDrained: boolean): { phase: "p1"; entry: P1Entry } | { phase: "p2"; entry: P2Entry } | { phase: "p3"; entry: P3Entry } | { phase: "p4"; entry: P4Entry } {
   switch (start) {
     case 1:
       return { phase: "p1", entry: { kind: "fresh" } };
@@ -152,7 +152,7 @@ function opened(start: StartPhase, config: DrillConfig): { phase: "p1"; entry: P
     case 3:
       return { phase: "p3", entry: { kind: "fresh" } };
     case 4:
-      return { phase: "p4", entry: carriedEntry(PHASE_4.fall, config) };
+      return { phase: "p4", entry: carriedEntry(defenceDrained ? drainedFall(PHASE_4.fall) : PHASE_4.fall, config) };
     default: {
       const unhandled: never = start;
       return unhandled;
@@ -199,7 +199,7 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
     super({
       room: arenaRoom(start, run),
       phases: phasesOf(run, p1, p2, p3, p4, config),
-      start: opened(start, config),
+      start: opened(start, config, options.defenceDrained),
       seed: fightSeed,
     });
     this.run = run;

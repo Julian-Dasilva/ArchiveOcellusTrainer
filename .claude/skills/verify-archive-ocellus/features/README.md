@@ -44,7 +44,7 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 - [Credit line](./credit-line.md) covers the Fan Content Policy credit that must stay visible.
 - [What's new and the version label](./whats-new.md) covers the What's new panel in the About section, its unseen dot, and the version beside the credit line.
 - [P4 cycle](./p4-cycle.md) covers the boss, the lead-in, the 60-tick cycle's stages and overheads, and the fight log.
-- [Loadouts](./loadouts.md) covers the ranged and melee setups, inventory switches, Ralos's Division special attack and the setup control.
+- [Loadouts](./loadouts.md) covers the ranged and melee setups, the Start with and Defence drained controls, inventory switches and Ralos's Division special attack.
 - [Boss defence](./boss-defence.md) covers the boss's ranged defence and the 60% Defence floor that stops Division at 150.
 - [Void floor](./void-floor.md) covers the inner square and outer flood, their damage, the safe 5x5 and how both draw in 3D.
 - [Floor holes](./floor-holes.md) covers the corner-stack hole layout, the holes drawn from the cache, their hiding under the flood, and the hit on a player who stands on one.

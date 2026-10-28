@@ -12,6 +12,8 @@ export type FullFightOptions = Readonly<{
   skipMarkers: boolean;
   soloVine: boolean;
   invincible: boolean;
+  /** Each phase opens with his Defence at the floor the hotfix allows, as if every drain had landed. */
+  defenceDrained: boolean;
 }>;
 
 export type ChatLine = Readonly<{ text: string; colour: string; tick: number }>;

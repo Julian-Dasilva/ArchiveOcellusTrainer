@@ -90,12 +90,12 @@ export function hoverTextOf(decode, { LOADOUT_SLOT_Y, SUPPLY_BREW_SLOT, LOADOUT_
   };
 }
 
-export function replacedRun({ waiting, firstTick, firstRow }, { SPAWN_TILE: spawn, LOADOUT_RANGED_WORN: worn, SUPPLY_INVENTORY: inventory }) {
+export function replacedRun({ waiting, firstTick, firstRow }, { SPAWN_TILE: spawn, START_DEFAULT_WEAPON: weapon, SUPPLY_INVENTORY: inventory }) {
   const from = JSON.parse(spawn), at = (tile) => tile?.x === from.x && tile?.y === from.y;
   return {
     waitsAtStart: waiting.start && !waiting.pause && waiting.tick === 0 && waiting.ticking === false && waiting.rows === 0,
     carriesNoInput: firstTick.tick >= 1 && at(firstTick.player) && (firstTick.destination === null || at(firstTick.destination)) &&
-      firstTick.weapon === JSON.parse(worn).weapon && firstTick.slot0 === JSON.parse(inventory)[0] &&
+      firstTick.weapon === Number(weapon) && firstTick.slot0 === JSON.parse(inventory)[0] &&
       firstRow !== null && firstRow.prayer === null && at(firstRow.tile) && firstRow.inputs.length === 0,
   };
 }

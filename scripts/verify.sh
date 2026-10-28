@@ -14,7 +14,7 @@ STATE_FILE="$ROOT/.verify/current-server"
 MANIFEST="$ROOT/public/osrs-assets/manifest.json"
 PARITY_EXPECTED="scripts/verify-parity-expected.json"
 URL="http://127.0.0.1:${VERIFY_PORT}/"
-DRILL_QUERY="?seed=1&practice=1"
+DRILL_QUERY="?seed=1&practice=1&weapon=blowpipe"
 BOSS_NPC=16677
 SPAWN_TILE='{"x":5,"y":1}'
 WALK_TARGET_TILE='{"x":8,"y":3}'
@@ -28,7 +28,7 @@ CYCLE_LAST_TICK=70
 CYCLE_STAGE_ENTRIES='[[8,"inner-void"],[30,"after-inner"],[39,"outer-void"],[59,"after-outer"],[68,"inner-void"]]'
 CYCLE_OVERHEAD_SWITCHES='[[8,"deflect-melee"],[33,"soul-split"],[38,null],[39,"deflect-range"],[61,"soul-split"],[67,null],[68,"deflect-melee"]]'
 CYCLE_SPECIAL_HITS='[[37,"black-disk"],[65,"black-disk"]]'
-LOADOUT_QUERY="?seed=6&setup=ranged&practice=1"
+LOADOUT_QUERY="?seed=6&weapon=blowpipe&practice=1"
 LOADOUT_RANGED_WORN='{"weapon":12926,"offhand":null,"helmet":27235,"chest":27238,"legs":27241,"gloves":26235,"cape":28951,"necklace":33639,"feet":31097,"ring":28310,"ammo":11212}'
 LOADOUT_MELEE_WORN='{"weapon":22325,"offhand":null,"helmet":24419,"chest":24420,"legs":24421,"gloves":22981,"cape":21295,"necklace":29801,"feet":31097,"ring":25485,"ammo":11212}'
 LOADOUT_INVENTORY_TAB_X=1164
@@ -38,18 +38,20 @@ LOADOUT_SLOT_Y=508
 LOADOUT_SLOT_DX=39
 LOADOUT_SLOT_DY=32
 LOADOUT_SPECIAL_SLOT=0
-CARRIED_WEAPON_SLOT=26
 LOADOUT_SWITCHES=8
 LOADOUT_SPECIAL_ORB_X=1140
 LOADOUT_SPECIAL_ORB_Y=157
 LOADOUT_DIVISION_DRAIN=37
 LOADOUT_EQUIPMENT_TAB_X=1197
 LOADOUT_EQUIPMENT_TAB_Y=745
+START_OPTIONS_QUERY="?seed=6&practice=1&drained=1"
+START_DEFAULT_WEAPON=20997
+START_DRAINED_DEFENCE=150
 LOADOUT_TRAINER_ICONS='{"24419":"27x30","24420":"32x24","24421":"16x31","26235":"30x22","27235":"19x27","27238":"30x23","27241":"13x26","28922":"31x28"}'
-DEFENCE_FLOOR_QUERY="?seed=20&setup=ranged"
+DEFENCE_FLOOR_QUERY="?seed=20&weapon=blowpipe"
 DEFENCE_FLOOR_STEPS="[250,176,150]"
 DEFENCE_FLOOR_CLICK_TICK=12
-SUPPLY_QUERY="?seed=1&setup=ranged"
+SUPPLY_QUERY="?seed=1&weapon=blowpipe"
 SUPPLY_INVENTORY='[28922,22325,24419,24420,24421,22981,21295,29801,25485,12695,22461,6685,3024,12695,22461,6685,3024,6685,6685,6685,3024,6685,6685,6685,3024,6685,20997,3024]'
 SUPPLY_NAMED_SLOT=0
 SUPPLY_NAMED_MENU='["Equip Tonalztics of Ralos","Drop Tonalztics of Ralos","Examine Tonalztics of Ralos"]'
@@ -112,7 +114,7 @@ HOLE_HITS=3
 HOLE_DAMAGE='{"min":9,"max":11}'
 PROJECTED_TILE_CLICKS=18
 FLOOD_DAMAGE_TICK=44
-VOID_SHOT_QUERY="?seed=4&practice=1"
+VOID_SHOT_QUERY="?seed=4&practice=1&weapon=blowpipe"
 FLOOD_LAST_TICK=58
 FLOOD_RING_SCREENSHOT_TICK=52
 NEAR_SQUARE='{"minX":3,"maxX":7,"minY":3,"maxY":7}'
@@ -163,7 +165,7 @@ EXPLOSION_OVERHEAD_SHOT_FRACTION=0.25
 EXPLOSION_OUTSIDE_TICKS="15 29"
 EXPLOSION_GLOW_SHOT_FRACTION=0.85
 EXPLOSION_MARKED_SHOT_FRACTIONS="0.75 0.85"
-EXPLOSION_RUN_END_QUERY="?seed=38&practice=1"
+EXPLOSION_RUN_END_QUERY="?seed=38&practice=1&weapon=blowpipe"
 EXPLOSION_KILL_CLICK_TICK=15
 EXPLOSION_RUN_END_EXPECTED='{"marked":[[17,{"x":5,"y":1}]],"ended":[[18,"kill"]],"resolved":[]}'
 EXPLOSION_RUN_END_FRAMES=2
@@ -191,7 +193,8 @@ STYLE_WINDOWS='[[32,37.5],[60,65.5],[92,97.5]]'
 SOUND_TOLERANCE_TICKS=0.2
 SPECIAL_EXPECTED='{"protected":[37,"magic",{"requested":5,"applied":5,"beforeHp":67,"afterHp":62,"prayer":"magic"}],"late":[37,"magic",{"requested":43,"applied":43,"beforeHp":67,"afterHp":24,"prayer":null}],"told":[[32,"vortex","magic"],[60,"spike-disk","ranged"],[92,"black-disk","melee"]]}'
 ORB_EXPECTED='{"told":[[11,"inner-void"]],"drained":[[12,49,50]],"spawned":[[12,{"x":9,"y":4},49]],"matured":[[24,{"x":9,"y":4}]],"returned":{"requested":49,"applied":49,"beforeHp":50,"afterHp":99},"skipExpired":[[36,"inner-void"],[61,"outer-void"]],"skipHeal":[[62,{"kind":"unclaimed-orb"},{"requested":11,"applied":11,"beforeHp":1359,"afterHp":1370}]]}'
-RIFT_QUERY="?seed=1&practice=1"
+RIFT_QUERY="?seed=1&practice=1&weapon=blowpipe"
+RIFT_MELEE_QUERY="?seed=1&practice=1&weapon=melee"
 OVERHEAD_SHOT_TICKS="5 31 35 45"
 OVERHEAD_GAP_DRAWS='{"37":["440-11"],"38":[],"39":["440-16"],"66":["440-11"],"67":[],"68":["440-15"]}'
 ICON_BOX='{"minX":-40,"maxX":40,"minY":-290,"maxY":-190}'
@@ -213,7 +216,7 @@ CHAT_POLL_WAIT_MS=600
 MENU_QUERY="?seed=1"
 MENU_SMALL_VIEWPORT="800 600"
 WHATS_NEW_PHONE_VIEWPORT="390 844"
-KILL_RESULT_QUERY="?seed=4"
+KILL_RESULT_QUERY="?seed=4&weapon=blowpipe"
 KILL_RESULT_BOSS_HP=1
 KILL_RESULT_CLICK_TICK=12
 UNDER_BOSS_TILE='{"x":5,"y":5}'
@@ -236,7 +239,7 @@ GET_READY_QUERY="?seed=1"
 STORED_VIEW_QUERY="?seed=1"
 GET_READY_TICKS=6
 GET_READY_CLICK_TICK=1
-DEFLECT_QUERY="?seed=1&setup=melee&practice=1"
+DEFLECT_QUERY="?seed=1&weapon=melee&practice=1"
 DEFLECT_CLICK_TICK=12
 DEFLECT_HOVER_SHOT_TICK=20
 DEFLECT_HOVER_TILE='{"x":5,"y":3}'
@@ -244,7 +247,7 @@ DEFLECT_HOVER_TICKS='[14,29]'
 DEFLECT_FIRST_MELEE_TICK=31
 DEFLECT_BLOCKED_SHOT_TICK=31
 DEFLECT_LAST_TICK=46
-REFLECT_QUERY="?seed=4&practice=1"
+REFLECT_QUERY="?seed=4&practice=1&weapon=blowpipe"
 REFLECT_CLICK_TICK=38
 REFLECT_NONE_SHOT_TICK=42
 REFLECT_HIT_SHOT_TICK=47
@@ -299,19 +302,19 @@ PRESENT_CONTEXT_LOST_LOG="[osrs-sdk] WebGL context lost while rendering the 3D v
 PRESENT_FRAME_WAIT_LIMIT=120
 PRESENT_WEBGL_HOOKS_JS='(() => { const contexts = []; window.__webglContexts = contexts; window.__webglClears = 0; for (const Canvas of [HTMLCanvasElement, OffscreenCanvas]) { const getContext = Canvas.prototype.getContext; Canvas.prototype.getContext = function (type, ...rest) { const context = getContext.call(this, type, ...rest); if (type === "webgl2" && context && !contexts.includes(context)) contexts.push(context); return context; }; } const clear = WebGL2RenderingContext.prototype.clear; WebGL2RenderingContext.prototype.clear = function (...args) { window.__webglClears++; return clear.apply(this, args); }; })();'
 # Phase 4 as RuneLite fight logs recorded on 2026-10-23 show it: the lead-in, an orb taken by a player waiting on it, and a rift kill's reset.
-RECORDED_LEAD_IN_QUERY="?seed=100"
+RECORDED_LEAD_IN_QUERY="?seed=100&weapon=blowpipe"
 RECORDED_RING_TILE='{"x":5,"y":3}'
 RECORDED_BOSS_TILE='{"x":5,"y":5}'
 RECORDED_LEAD_IN_SHOT_TICK=4
 RECORDED_LEAD_IN_LAST_TICK=9
 RECORDED_LEAD_IN_EXPECTED='{"states":[[4,"present-damageable"],[8,"present-out-of-melee-reach"]],"judged":[[7,"passed",21],[9,"passed",0]],"bossHp":[7,{"atBossStep":1313,"atPostTick":1292}]}'
-RECORDED_ORB_QUERY="?seed=75&practice=1"
+RECORDED_ORB_QUERY="?seed=75&practice=1&weapon=blowpipe"
 RECORDED_ORB_TILE='{"x":9,"y":4}'
 RECORDED_ORB_CLICK_TICK=12
 RECORDED_ORB_DODGE_MARK=17
 RECORDED_ORB_LAST_TICK=25
 RECORDED_ORB_EXPECTED='{"matured":[[24,{"x":9,"y":4}]],"returned":[[24,{"requested":49,"applied":49,"beforeHp":7,"afterHp":56}]]}'
-RECORDED_RIFT_QUERY="?seed=1&practice=1"
+RECORDED_RIFT_QUERY="?seed=1&practice=1&weapon=blowpipe"
 RECORDED_FIRST_RIFT="rift-67-1"
 RECORDED_SECOND_RIFT="rift-67-0"
 RECORDED_RIFT_FIRST_TICK=68
@@ -882,12 +885,17 @@ drive_loadouts() {
 
   local loaded
   loaded="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
-  ab select "#setup" melee >/dev/null && ab click "#restart_fight" >/dev/null || { log "setup control did not accept melee"; return 1; }
-  ab wait --fn "new URLSearchParams(location.search).get('setup') === 'melee'" --timeout 30000 >/dev/null || { log "restart did not load setup=melee"; return 1; }
+  ab select "#start_weapon" melee >/dev/null && ab click "#restart_fight" >/dev/null || { log "Start with did not accept melee"; return 1; }
+  ab wait --fn "new URLSearchParams(location.search).get('weapon') === 'melee'" --timeout 30000 >/dev/null || { log "restart did not load weapon=melee"; return 1; }
   reloaded_from "$loaded" || { log "the melee page never started"; return 1; }
   fight_tick_at_least 1 120000 || { log "the reloaded melee drill never stepped to P4 tick 1"; return 1; }
   probe "snapshot().fight" >"$VERIFY_DIR/loadout-selector.json"
   ab --json errors | json data.errors >"$VERIFY_DIR/loadout-selector-page-errors.json" || { log "page error capture failed"; return 1; }
+
+  ab open "${URL}${START_OPTIONS_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 1 120000 || { log "the start options page never stepped to P4 tick 1"; return 1; }
+  probe "snapshot().fight" >"$VERIFY_DIR/loadout-start-options.json"
+  ab --json errors | json data.errors >"$VERIFY_DIR/loadout-start-options-page-errors.json" || { log "page error capture failed"; return 1; }
 }
 
 drive_defence_floor() {
@@ -1449,12 +1457,6 @@ drive_transition_attack() {
   save_sound_settings false || { log "the sound settings were not restored"; return 1; }
 }
 
-# The full fight wields the blowpipe in every setup; the melee setup carries its scythe.
-wield_carried_weapon() {
-  click_panel "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" && ab wait 600 >/dev/null && click_inventory_slot "$CARRIED_WEAPON_SLOT" && ab wait 600 >/dev/null ||
-    { log "the carried weapon was not wielded"; return 1; }
-}
-
 drive_overheads_rifts() {
   local shot
   ab open "${URL}${RIFT_QUERY}" >/dev/null || return 1
@@ -1498,9 +1500,8 @@ drive_overheads_rifts() {
   ab console >"$VERIFY_DIR/rift-ralos-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/rift-ralos-page-errors.json" || { log "page error capture failed"; return 1; }
 
-  ab open "${URL}${RIFT_QUERY}&setup=melee" >/dev/null || return 1
+  ab open "${URL}${RIFT_MELEE_QUERY}" >/dev/null || return 1
   fight_tick_at_least 1 120000 || { log "the melee rifts page never loaded"; return 1; }
-  wield_carried_weapon || return 1
   click_tile_after_tick rift-melee "$(rift_tile "$RIFT_SHOT")" "$RIFT_CLICK_TICK" || return 1
   shot_after_tick "$RIFT_MELEE_SPLAT_TICK" 0 rift-melee-hit.png || { log "melee rift hit screenshot failed"; return 1; }
   fight_tick_at_least "$RIFT_MELEE_LAST_TICK" 30000 || { log "the melee rifts drill never stepped to P4 tick ${RIFT_MELEE_LAST_TICK}"; return 1; }
@@ -1509,7 +1510,7 @@ drive_overheads_rifts() {
   ab --json errors | json data.errors >"$VERIFY_DIR/rift-melee-page-errors.json" || { log "page error capture failed"; return 1; }
 
   ab open "${URL}${DEFLECT_QUERY}" >/dev/null || return 1
-  fight_tick_at_least 1 120000 && wield_carried_weapon || return 1
+  fight_tick_at_least 1 120000 || return 1
   click_boss deflect "$DEFLECT_CLICK_TICK" || { log "the risen boss was not clicked"; return 1; }
   shot_after_tick "$DEFLECT_HOVER_SHOT_TICK" 0 hover-out-of-reach.png || { log "hovering boss screenshot failed"; return 1; }
   shot_after_tick "$DEFLECT_BLOCKED_SHOT_TICK" 0 deflect-blocked.png || { log "deflected attack screenshot failed"; return 1; }

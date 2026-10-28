@@ -120,7 +120,7 @@ describe("the full fight page", () => {
   });
 
   test("practice stays on without a reload, Keybinds opens the bindings, and Start fight reloads the chosen phase", () => {
-    const page = loadFullFight("/?mode=full&phase=1&seed=1&setup=ranged");
+    const page = loadFullFight("/?mode=full&phase=1&seed=1&weapon=blowpipe");
     page.click("practice");
     const practiced = { checked: page.checked("practice"), search: window.location.search };
     page.click("keybinds");
@@ -138,10 +138,10 @@ describe("the full fight page", () => {
     page.close();
 
     expect({ practiced, tab, assigned }).toEqual({
-      practiced: { checked: true, search: "?mode=full&phase=1&seed=1&setup=ranged&practice=1" },
+      practiced: { checked: true, search: "?mode=full&phase=1&seed=1&weapon=blowpipe&practice=1" },
       tab: "SETTINGS",
       assigned: [
-        "http://localhost/?mode=full&phase=3&setup=ranged&practice=1&tiles=1&markers=0&skip=0&vine=1",
+        "http://localhost/?mode=full&phase=3&weapon=blowpipe&practice=1&drained=0&tiles=1&markers=0&skip=0&vine=1",
       ],
     });
   });
@@ -159,7 +159,7 @@ describe("the full fight page", () => {
   });
 
   test("Restart reloads the same seed with the toggles as they stand, so no click queued before it plays in the new run", () => {
-    const page = loadFullFight("/?seed=7&setup=melee");
+    const page = loadFullFight("/?seed=7&weapon=melee");
     page.click("practice");
     const navigation = captureAssign();
     page.click("restart_fight");
@@ -167,11 +167,66 @@ describe("the full fight page", () => {
     navigation.restore();
     page.close();
 
-    expect(assigned).toEqual(["http://localhost/?seed=7&setup=melee&practice=1&phase=4&tiles=1&markers=0&skip=0&vine=1"]);
+    expect(assigned).toEqual(["http://localhost/?seed=7&weapon=melee&practice=1&phase=4&drained=0&tiles=1&markers=0&skip=0&vine=1"]);
+  });
+
+  test("Start with is the twisted bow unless the link names another, and only the weapon in hand changes", () => {
+    const dressed = (link: string) => {
+      const page = loadFullFight(link);
+      const you = fightRegion().players[0];
+      const id = (item: { cacheItemId?: unknown } | null | undefined) => (typeof item?.cacheItemId === "number" ? item.cacheItemId : null);
+      const shown = {
+        chosen: document.getElementById("start_weapon") instanceof HTMLSelectElement ? phaseValue(page.element("start_weapon")) : null,
+        weapon: id(you?.equipment.weapon),
+        helmet: id(you?.equipment.helmet),
+        bag: you?.inventory.map(id) ?? [],
+      };
+      page.close();
+      return shown;
+    };
+    const supplies = [12695, 22461, 6685, 3024, 12695, 22461, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 6685, 3024, 6685];
+    expect({ unnamed: dressed("/?seed=1"), blowpipe: dressed("/?seed=1&weapon=blowpipe"), melee: dressed("/?seed=1&weapon=melee"), unknown: dressed("/?seed=1&weapon=bow") }).toEqual({
+      unnamed: { chosen: "twistedBow", weapon: 20997, helmet: 27235, bag: [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, ...supplies, 12926, 3024] },
+      blowpipe: { chosen: "blowpipe", weapon: 12926, helmet: 27235, bag: [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, ...supplies, 20997, 3024] },
+      melee: { chosen: "melee", weapon: 22325, helmet: 24419, bag: [28922, 20997, 27235, 27238, 27241, 26235, 28951, 33639, 28310, ...supplies, 12926, 3024] },
+      unknown: { chosen: "twistedBow", weapon: 20997, helmet: 27235, bag: [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, ...supplies, 12926, 3024] },
+    });
+  });
+
+  test("Defence drained starts phase 4 at his floor, and Restart keeps it with the start weapon chosen in the panel", () => {
+    const opening = (link: string) => {
+      const page = loadFullFight(link);
+      const box = document.getElementById("defence_drained");
+      const shown = { drained: box instanceof HTMLInputElement ? box.checked : null, defence: fightRegion().p4.mounted?.ocellus.currentStats.defence ?? null };
+      page.close();
+      return shown;
+    };
+    const full = opening("/?seed=7");
+    const drained = opening("/?seed=7&drained=1");
+    const page = loadFullFight("/?seed=7");
+    act(() => {
+      const weapon = document.getElementById("start_weapon");
+      if (weapon instanceof HTMLSelectElement) {
+        weapon.value = "melee";
+        weapon.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      document.getElementById("defence_drained")?.click();
+    });
+    const navigation = captureAssign();
+    page.click("restart_fight");
+    const assigned = navigation.assigned;
+    navigation.restore();
+    page.close();
+
+    expect({ full, drained, assigned }).toEqual({
+      full: { drained: false, defence: 250 },
+      drained: { drained: true, defence: 150 },
+      assigned: ["http://localhost/?seed=7&phase=4&weapon=melee&drained=1&tiles=1&markers=0&skip=0&vine=1&practice=0"],
+    });
   });
 
   test("offers phase 4 on Start at, and choosing it reloads the full fight at phase 4", () => {
-    const loaded = loadFullFight("/?mode=full&phase=4&setup=ranged");
+    const loaded = loadFullFight("/?mode=full&phase=4&weapon=blowpipe");
     const loadedSelect = loaded.element("start_phase");
     if (!(loadedSelect instanceof HTMLSelectElement)) throw new Error("start phase is not a select");
     const fromUrl = {
@@ -181,7 +236,7 @@ describe("the full fight page", () => {
     };
     loaded.close();
 
-    const page = loadFullFight("/?mode=full&phase=1&setup=ranged");
+    const page = loadFullFight("/?mode=full&phase=1&weapon=blowpipe");
     const startPhase = page.element("start_phase");
     if (!(startPhase instanceof HTMLSelectElement)) throw new Error("start phase is not a select");
     act(() => {
@@ -196,7 +251,7 @@ describe("the full fight page", () => {
 
     expect({ fromUrl, assigned }).toEqual({
       fromUrl: { offered: ["1", "2", "3", "4"], value: "4", title: "Phase 4" },
-      assigned: ["http://localhost/?mode=full&phase=4&setup=ranged&tiles=1&markers=0&skip=0&vine=1&practice=0"],
+      assigned: ["http://localhost/?mode=full&phase=4&weapon=blowpipe&drained=0&tiles=1&markers=0&skip=0&vine=1&practice=0"],
     });
   });
 

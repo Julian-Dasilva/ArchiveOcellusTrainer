@@ -17,6 +17,7 @@ describe("a melee player targeting the levitating boss", () => {
       skipMarkers: false,
       soloVine: true,
       invincible: true,
+      defenceDrained: false,
     };
     const region = new FightRegion(options, (player) => dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options.melee.value)));
     const trainer = new TrainerInstance(region, { force2d: true });
