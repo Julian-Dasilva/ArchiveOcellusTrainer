@@ -219,9 +219,9 @@ function About() {
   );
 }
 
-export type SidebarSlots = Readonly<{ fight: ReactNode; aids: ReactNode; after: ReactNode }>;
+export type SidebarSlots = Readonly<{ fight: ReactNode; aids: ReactNode; tips: ReactNode }>;
 
-export default function Sidebar({ fight, aids, after }: SidebarSlots) {
+export default function Sidebar({ fight, aids, tips }: SidebarSlots) {
   useLayoutEffect(() => {
     if (!phoneLayout()) return;
     const root = document.documentElement;
@@ -253,6 +253,7 @@ export default function Sidebar({ fight, aids, after }: SidebarSlots) {
           <Section id="learning_aids" title="Learning aids">
             {aids}
             <SettingToggles toggles={TILE_INDICATORS} />
+            {tips}
           </Section>
           <Section id="sidebar_sound" title="Sound">
             <SettingToggles toggles={SOUNDS} />
@@ -263,7 +264,6 @@ export default function Sidebar({ fight, aids, after }: SidebarSlots) {
           <Section id="sidebar_about" title="About">
             <About />
           </Section>
-          {after}
         </div>
       </DefaultSidebar>
       <PolicyFooter menu={<PhoneMenuButton />} />

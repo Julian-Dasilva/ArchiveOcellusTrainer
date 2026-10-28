@@ -22,7 +22,8 @@ function sidebarLayout() {
   return {
     scrollContainers: [panel, ...panel.querySelectorAll("*")].filter(scrolls).map((element) => element.id),
     panelOverflowX: getComputedStyle(panel).overflowX,
-    sections: [...panel.querySelectorAll(".sidebar_title")].map((title) => title.textContent),
+    sections: [...panel.querySelectorAll("#sidebar > section > .sidebar_title")].map((title) => title.textContent),
+    tipsIn: document.getElementById("phase_tips")?.closest("section")?.id ?? null,
     policy: {
       text: policy?.textContent ?? null,
       overGame: game === null || game.contains(policy),
@@ -166,11 +167,11 @@ describe("the sidebar", () => {
     }
   });
 
-  test("the side panel is the only scroll container, never scrolls sideways, lists Fight, Learning aids, Sound, Controls and About before the phase tips, and the policy line sits below the game canvas", () => {
+  test("the side panel is the only scroll container, never scrolls sideways, lists Fight, Learning aids, Sound, Controls and About with the phase tips in Learning aids, and the policy line sits below the game canvas", () => {
     const page = loadPage("/");
     const layout = sidebarLayout();
     page.close();
 
-    expect(layout).toEqual({ scrollContainers: ["right_panel"], panelOverflowX: "hidden", sections: ["Fight", "Learning aids", "Sound", "Controls", "About", "Phase 4"], policy: POLICY_BELOW_GAME });
+    expect(layout).toEqual({ scrollContainers: ["right_panel"], panelOverflowX: "hidden", sections: ["Fight", "Learning aids", "Sound", "Controls", "About"], tipsIn: "learning_aids", policy: POLICY_BELOW_GAME });
   });
 });

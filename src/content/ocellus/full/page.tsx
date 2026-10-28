@@ -520,7 +520,7 @@ function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: P
           </label>
         </>
       }
-      after={<PhaseTips params={params} stage={stage} region={region} />}
+      tips={<PhaseTips params={params} stage={stage} region={region} />}
     />
   );
 }
@@ -547,10 +547,10 @@ function tipsPhase(stage: Stage | null, start: StartPhase): StartPhase {
 function PhaseTips({ params, stage }: Readonly<{ params: Params; stage: Stage | null; region: FightRegion }>) {
   const phaseNow = tipsPhase(stage, params.startPhase);
   return (
-    <section id="phase_tips">
+    <div id="phase_tips">
       <div className="sidebar_title">{`Phase ${phaseNow}`}</div>
       <ul>{TIPS[phaseNow].map((tip) => <li key={tip}>{tip}</li>)}</ul>
-    </section>
+    </div>
   );
 }
 
