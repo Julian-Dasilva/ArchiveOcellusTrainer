@@ -23,7 +23,7 @@
     "entityGrowth3d": 0,
     "projectileGrowth3d": 0,
     "sceneObjectGrowth3d": 0,
-    "bundleKiB": 1947
+    "bundleKiB": 1948
   },
   "timing": {
     "pairs": 5,
@@ -35,6 +35,7 @@
   "exceptions": [
     {"budget": "drawCallsMedian3d", "from": 14, "to": 31, "reason": "`/` is now the full fight, whose phase 4 renders his arena around the platform the drill drew alone; the head measures a median of 31 and a most of 45 draw calls in the window", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"},
     {"budget": "drawCallsMax3d", "from": 28, "to": 45, "reason": "`/` is now the full fight, whose phase 4 renders his arena around the platform the drill drew alone; the head measures a median of 31 and a most of 45 draw calls in the window", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"},
-    {"budget": "bundleKiB", "from": 1753, "to": 1947, "reason": "`/` now loads the full fight, with phases 1 to 3 and his arena, in one 1947 KiB script instead of the drill page", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"}
+    {"budget": "bundleKiB", "from": 1753, "to": 1947, "reason": "`/` now loads the full fight, with phases 1 to 3 and his arena, in one 1947 KiB script instead of the drill page", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"},
+    {"budget": "bundleKiB", "from": 1947, "to": 1948, "reason": "phase 3's stone crossing adds the exact move and the sourced jump timing, 993 bytes over main's 1,993,598, which left 130 bytes under the 1947 KiB line", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40698852281"}
   ]
 }
