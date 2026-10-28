@@ -78,8 +78,8 @@ describe("What's new", () => {
     page.click("whats_new");
     const { releases } = whatsNew(page);
     page.close();
-    expect({ menuDot, unshipped: releases.slice(0, 2).map((release) => release.version), next: releases[2] }).toEqual({
-      menuDot: true, unshipped: ["2026.10.28.1", "2026.10.28"], next: NEXT_RELEASE,
+    expect({ menuDot, unshipped: releases.slice(0, 1).map((release) => release.version), next: releases[1] }).toEqual({
+      menuDot: true, unshipped: ["2026.10.28"], next: NEXT_RELEASE,
     });
   });
 
