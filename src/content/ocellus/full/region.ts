@@ -20,7 +20,7 @@ import type { Room } from "../../../sim/encounter";
 import { identity, toRoom } from "../../../sim/frame";
 import type { EncounterPlayerHooks } from "../../../sim/sdk/EncounterPlayer";
 import { EncounterRegion } from "../../../sim/sdk/EncounterRegion";
-import { fence } from "../../../sim/sdk/fence";
+import { fence, seal } from "../../../sim/sdk/fence";
 import { carriedEntry } from "./fall";
 import type { ChatLine, FullFightOptions, StartPhase } from "./options";
 import type { P1Entry } from "./p1/types";
@@ -81,7 +81,7 @@ function arenaRoom(start: StartPhase, run: Run): Room<Region> {
       scenery.forEach((entity) => region.addEntity(entity));
       return {
         dispose: () => scenery.forEach((entity) => region.removeEntity(entity)),
-        walkable: (tiles) => scenery.push(...fence(region, tiles)),
+        walkable: (tiles) => scenery.push(...fence(region, tiles), ...seal(region, tiles)),
       };
     },
   };
