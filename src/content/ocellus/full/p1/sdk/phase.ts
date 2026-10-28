@@ -20,8 +20,8 @@ import { P1Views } from "./views";
 
 type P1Encounter = Readonly<{ input: PlayerInput; event: never; cause: P1Cause; snapshot: null; row: P1Row; end: never }>;
 
-/** The sidebar's live toggles: practice, and the danger tiles. */
-export type P1Settings = Readonly<{ practice: () => boolean; hazardTiles: () => boolean }>;
+/** The sidebar's toggles: practice, the danger tiles, and whether his Defence opens drained. */
+export type P1Settings = Readonly<{ practice: () => boolean; hazardTiles: () => boolean; defenceDrained: () => boolean }>;
 
 export type P1Mount = Readonly<{ boss: P1Boss; views: P1Views; arena: Arena; script: P1Script<Entries>; now: () => number; started: () => boolean }>;
 /** The page's hold on the running phase 1. */
@@ -108,6 +108,7 @@ export function p1Phase<E extends Entries & Readonly<{ p1: P1Entry }>>(options: 
           },
           acceptsAttack: (form, style) => form.form === "p1" && !script.ended && !(style === "melee" && form.overhead === "protect-melee"),
           incomingDamageFactor: () => 1,
+          defenceDrained: settings.defenceDrained,
         },
         poolMax,
         (actor, resolve) => {

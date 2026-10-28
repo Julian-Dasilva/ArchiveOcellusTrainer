@@ -11,8 +11,8 @@ import type { Pause } from "../../../sim/sdk/RunClock";
 import type { CreditLink } from "../../../menu/credits";
 import { CONTRIBUTOR, MAKER_LINKS } from "../../../menu/credits";
 import Sidebar from "../../../menu/Sidebar";
-import { dressFullFight } from "../fight/blowpipe";
-import { OCELLUS_P4 } from "../js/OcellusTimings";
+import type { StartWeapon } from "../fight/blowpipe";
+import { START_WEAPONS, dressFullFight, startWeapon } from "../fight/blowpipe";
 import { installBossBar } from "../fight/bossBar";
 import type { ChatLine, StartPhase } from "./options";
 import { START_PHASES, formatTicks } from "./options";
@@ -61,8 +61,7 @@ const UPDATE_LINKS: readonly CreditLink[] = [
   xHandle(CONTRIBUTOR),
 ];
 
-type Setup = "ranged" | "melee";
-type Params = FullFightOptions & Readonly<{ setup: Setup }>;
+type Params = FullFightOptions & Readonly<{ weapon: StartWeapon }>;
 
 function readParams(): Params {
   const url = new URL(window.location.href);
@@ -83,7 +82,8 @@ function readParams(): Params {
     skipMarkers: flag("skip", false),
     soloVine: flag("vine", true),
     invincible: flag("practice", false),
-    setup: get("setup") === "melee" ? "melee" : "ranged",
+    defenceDrained: flag("drained", false),
+    weapon: startWeapon(get("weapon")),
   };
 }
 
@@ -97,7 +97,9 @@ function writeParams(params: Params, fresh = true): void {
   const url = new URL(window.location.href);
   url.searchParams.set("phase", String(params.startPhase));
   url.searchParams.delete("party");
-  url.searchParams.set("setup", params.setup);
+  url.searchParams.delete("setup");
+  url.searchParams.set("weapon", params.weapon);
+  url.searchParams.set("drained", params.defenceDrained ? "1" : "0");
   url.searchParams.set("tiles", params.hazardTiles ? "1" : "0");
   url.searchParams.set("markers", params.videoMarkers ? "1" : "0");
   url.searchParams.set("skip", params.skipMarkers ? "1" : "0");
@@ -114,8 +116,7 @@ function createTrainer() {
   void CacheRender.bundle().then(({ manifest }) => reportUnservedAssets(manifest), (error: unknown) => console.error("assets: osrs-assets/manifest.json did not load", error));
   readSettings();
   const params = readParams();
-  const worn = OCELLUS_P4.choices.setup.options[params.setup].value;
-  const region = fullFightStaged(params, (player) => dressFullFight(player, worn));
+  const region = fullFightStaged(params, (player) => dressFullFight(player, params.weapon));
   installBossBar((r: Region) => {
     if (!(r instanceof FightRegion)) return null;
     const p1 = r.current === "p1" ? r.p1.mounted : null;
@@ -424,6 +425,12 @@ const START_LABEL: Readonly<Record<StartPhase, string>> = {
   4: "Phase 4",
 };
 
+const WEAPON_LABEL: Readonly<Record<StartWeapon, string>> = {
+  twistedBow: "Twisted bow (Masori)",
+  blowpipe: "Toxic blowpipe (Masori)",
+  melee: "Scythe (Inquisitor's)",
+};
+
 const TIPS: Readonly<Record<StartPhase, readonly string[]>> = {
   1: [
     "Pray Missiles for the orange fire volleys, Magic for the blue water ones. Prayer is checked when the shot lands.",
@@ -466,11 +473,15 @@ function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: P
             </select>
           </label>
           <label>
-            Setup
-            <select id="setup" value={draft.setup} onChange={(event) => set({ setup: event.target.value === "melee" ? "melee" : "ranged" })}>
-              <option value="ranged">Ranged (Toxic blowpipe, Masori)</option>
-              <option value="melee">Inquisitor's (Toxic blowpipe)</option>
+            Start with
+            <select id="start_weapon" value={draft.weapon} onChange={(event) => set({ weapon: startWeapon(event.target.value) })}>
+              {START_WEAPONS.map((weapon) => <option key={weapon} value={weapon}>{WEAPON_LABEL[weapon]}</option>)}
             </select>
+          </label>
+          <label>
+            Defence drained
+            <small>He starts each phase at his lowest Defence</small>
+            <input id="defence_drained" type="checkbox" checked={draft.defenceDrained} onChange={(event) => set({ defenceDrained: event.target.checked })} />
           </label>
           <label>
             Solo vine

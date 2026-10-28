@@ -28,6 +28,8 @@ export interface BossHooks {
   acceptsAttack(boss: BossForm, style: Style): boolean;
   /** Scales accepted player hits (phase 4 halves them while the explosions run). */
   incomingDamageFactor(): number;
+  /** Whether each form opens with his Defence already at its floor. */
+  defenceDrained(): boolean;
 }
 
 export function styleOf(attackStyle: string): Style | null {
@@ -59,6 +61,11 @@ function seedStats(unit: Mob): void {
   if (unit.stats !== undefined) return;
   unit.stats = { attack: 1, strength: 1, defence: 1, range: 1, magic: 1, hitpoint: 1 };
   unit.currentStats = { ...unit.stats };
+}
+
+/** The hotfix's floor is Ocellus's own; The Blade can be drained to 0. [W] Out Today news */
+export function lowestDefence(form: Form, defence: number): number {
+  return form === "p1" || form === "p3" ? Math.ceil(defence * LOWEST_DEFENCE_FRACTION) : 0;
 }
 
 /** Current stats whose Defence can't be drained below `lowest` (special attacks set it directly). */
@@ -140,9 +147,9 @@ export class BossForm extends Mob {
         return unhandled;
       }
     }
-    // The hotfix's floor is Ocellus's own; The Blade can be drained to 0. [W] Out Today news
-    const lowest = this.form === "p1" || this.form === "p3" ? Math.ceil(this.stats.defence * LOWEST_DEFENCE_FRACTION) : 0;
-    this.currentStats = withDefenceFloor({ ...this.stats, hitpoint: this.currentStats.hitpoint }, lowest);
+    const lowest = lowestDefence(this.form, this.stats.defence);
+    const opening = this.hooks.defenceDrained() ? lowest : this.stats.defence;
+    this.currentStats = withDefenceFloor({ ...this.stats, defence: opening, hitpoint: this.currentStats.hitpoint }, lowest);
   }
 
   override setStats(): void {

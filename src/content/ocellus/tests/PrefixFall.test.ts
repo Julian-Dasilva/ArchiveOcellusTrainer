@@ -13,9 +13,9 @@ afterEach(() => {
   close = null;
 });
 
-function fullFight(startPhase: StartPhase, setup: "melee" | null = null) {
+function fullFight(startPhase: StartPhase, setup: "melee" | null = null, defenceDrained = false) {
   Settings.readFromStorage();
-  const options: FullFightOptions = { seed: 1, party: 1, startPhase, hazardTiles: false, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true };
+  const options: FullFightOptions = { seed: 1, party: 1, startPhase, hazardTiles: false, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true, defenceDrained };
   const region = fullFightStaged(options, (player) => {
     if (setup) dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options[setup].value));
   });
@@ -184,4 +184,28 @@ describe("the third fall enters P4 in the same world", () => {
     const { ocellus } = mountedP4(region);
     expect([ocellus.currentStats.defence, ocellus.stats.defence]).toEqual([150, 250]);
   });
+
+  test("Defence drained opens phases 1 to 3 at his floor (The Blade has none), carries phase 3's into P4, and a further drain stops there", () => {
+    const run = (defenceDrained: boolean) => {
+      const region = fullFight(1, null, defenceDrained);
+      const opened: Partial<Record<"p1" | "p2" | "p3", number>> = {};
+      toThirdFall(region, () => {
+        const phase = region.current;
+        if (phase === "p4") return;
+        const boss = { p1: region.p1.mounted?.boss, p2: region.p2.mounted?.boss, p3: region.p3.mounted?.boss }[phase];
+        if (boss && boss.form !== "hooded" && opened[phase] === undefined) opened[phase] = boss.currentStats.defence;
+      });
+      const { ocellus } = mountedP4(region);
+      const p4 = ocellus.currentStats.defence;
+      ocellus.currentStats.defence = 0;
+      const drainedAgain = ocellus.currentStats.defence;
+      close?.();
+      close = null;
+      return { ...opened, p4, drainedAgain };
+    };
+    expect({ drained: run(true), full: run(false) }).toEqual({
+      drained: { p1: 129, p2: 0, p3: 150, p4: 150, drainedAgain: 150 },
+      full: { p1: 215, p2: 250, p3: 250, p4: 250, drainedAgain: 150 },
+    });
+  }, 120000);
 });

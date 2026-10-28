@@ -22,8 +22,8 @@ import { P3Views } from "./views";
 
 type P3Encounter = Readonly<{ input: PlayerInput; event: never; cause: P3Cause; snapshot: null; row: P3Row; end: never }>;
 
-/** The sidebar's live toggles: practice, "attack your own vine", and the danger-tile highlights. */
-export type P3Settings = Readonly<{ practice: () => boolean; soloVine: () => boolean; hazardTiles: () => boolean }>;
+/** The sidebar's toggles: practice, "attack your own vine", the danger-tile highlights, and whether his Defence opens drained. */
+export type P3Settings = Readonly<{ practice: () => boolean; soloVine: () => boolean; hazardTiles: () => boolean; defenceDrained: () => boolean }>;
 
 export type P3Mount = Readonly<{ boss: P3Boss; views: P3Views; arena: Arena; script: P3Script<Entries>; now: () => number; started: () => boolean }>;
 /** The page's hold on the running P3: the boss bar, chat and probe read it. */
@@ -112,6 +112,7 @@ export function p3Phase<E extends Entries & Readonly<{ p3: P3Entry }>>(options: 
           },
           acceptsAttack: (form, style) => !(style === "melee" && form.overhead === "protect-melee"),
           incomingDamageFactor: () => 1,
+          defenceDrained: settings.defenceDrained,
         },
         poolMax,
         (actor, resolve) => {

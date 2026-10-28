@@ -1,7 +1,7 @@
 import { AttackStyle, AttackStylesController, Blowpipe, SaradominBrew } from "osrs-sdk";
 import type { Player, Weapon } from "osrs-sdk";
 import { wiki } from "../../../sim/provenance";
-import type { AmmunitionClass, Setup, Source, StanceSpeeds } from "../js/OcellusTimings";
+import type { AmmunitionClass, Source, StanceSpeeds } from "../js/OcellusTimings";
 import { OCELLUS_P4, defaultLoadout, selected } from "../js/OcellusTimings";
 import { dress } from "../js/OcellusLoadout";
 
@@ -71,18 +71,33 @@ export class OcellusBlowpipe extends Blowpipe {
   }
 }
 
-export function dressFullFight(player: Player, worn: Setup): void {
-  dress(player, defaultLoadout(worn));
-  const replaced = player.equipment.weapon;
+export const START_WEAPONS = ["twistedBow", "blowpipe", "melee"] as const;
+export type StartWeapon = (typeof START_WEAPONS)[number];
+
+export function startWeapon(value: string | null): StartWeapon {
+  return START_WEAPONS.find((weapon) => weapon === value) ?? "twistedBow";
+}
+
+/** Which setup is worn, and whether the blowpipe or the setup's own weapon is in hand. The other one takes a brew's slot. */
+const STARTS: Readonly<Record<StartWeapon, Readonly<{ setup: keyof typeof OCELLUS_P4.choices.setup.options; held: "setup-weapon" | "blowpipe" }>>> = {
+  twistedBow: { setup: "ranged", held: "setup-weapon" },
+  blowpipe: { setup: "ranged", held: "blowpipe" },
+  melee: { setup: "melee", held: "setup-weapon" },
+};
+
+export function dressFullFight(player: Player, start: StartWeapon): void {
+  const { setup, held } = STARTS[start];
+  dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options[setup].value));
   const blowpipe = new OcellusBlowpipe();
-  player.equipment.weapon = blowpipe;
+  const stowed = held === "blowpipe" ? player.equipment.weapon : blowpipe;
+  if (held === "blowpipe") player.equipment.weapon = blowpipe;
   let lastBrew = -1;
   player.inventory.forEach((slot, i) => {
     if (slot instanceof SaradominBrew) lastBrew = i;
   });
   const open = player.inventory.findIndex((slot) => slot === null || slot === undefined);
   const index = open === -1 ? lastBrew : open;
-  if (replaced && index >= 0) player.inventory[index] = replaced;
+  if (stowed && index >= 0) player.inventory[index] = stowed;
   player.equipmentChanged();
   AttackStylesController.controller.setWeaponAttackStyle(blowpipe, AttackStyle.RAPID);
 }

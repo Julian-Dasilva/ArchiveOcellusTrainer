@@ -8,6 +8,7 @@ import type { ATile, Quadrant } from "../fight/geometry";
 import { ARMS, C, CENSERS, GRID, QUADRANTS, key, quadrantTiles, stonesOf, toSdk, fromSdk } from "../fight/geometry";
 import type { DrillConfig } from "../js/OcellusTimings";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
+import { lowestDefence } from "../fight/units";
 import type { P4Entry } from "../js/p4/phase";
 import { span, tick } from "../../../sim/brands";
 import type { Frame } from "../../../sim/frame";
@@ -69,6 +70,10 @@ export function phase4Opening(): Readonly<{ fall: Fall; floor: FloorState; spawn
     },
     spawn: fromSdk(toRoom(frame, OCELLUS_P4.geometry.playerSpawn.value)),
   };
+}
+
+export function drainedFall(fall: Fall): Fall {
+  return { ...fall, boss: { ...fall.boss, defence: lowestDefence("p3", fall.boss.defence) } };
 }
 
 /** P4's tick 0 is the fall's tick, so a void hurts on P4's ticks in step with his clock. */

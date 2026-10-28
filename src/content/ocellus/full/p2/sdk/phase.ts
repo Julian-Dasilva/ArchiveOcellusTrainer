@@ -21,8 +21,8 @@ import { P2Views } from "./views";
 
 type P2Encounter = Readonly<{ input: PlayerInput; event: never; cause: P2Cause; snapshot: null; row: P2Row; end: never }>;
 
-/** The sidebar's live toggles: practice, the danger tiles, and the phase 2 skip tiles. */
-export type P2Settings = Readonly<{ practice: () => boolean; hazardTiles: () => boolean; skipMarkers: () => boolean }>;
+/** The sidebar's toggles: practice, the danger tiles, the phase 2 skip tiles, and whether his Defence opens drained. */
+export type P2Settings = Readonly<{ practice: () => boolean; hazardTiles: () => boolean; skipMarkers: () => boolean; defenceDrained: () => boolean }>;
 
 export type P2Mount = Readonly<{ boss: P2Boss; views: P2Views; arena: Arena; script: P2Script<Entries>; now: () => number; started: () => boolean }>;
 /** The page's hold on the running phase 2. */
@@ -102,6 +102,7 @@ export function p2Phase<E extends Entries & Readonly<{ p2: P2Entry }>>(options: 
           },
           acceptsAttack: () => true,
           incomingDamageFactor: () => 1,
+          defenceDrained: settings.defenceDrained,
         },
         poolMax,
         (actor, resolve) => {

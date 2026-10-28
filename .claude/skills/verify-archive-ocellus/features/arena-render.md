@@ -9,7 +9,7 @@ Opening the trainer loads cache assets, waits behind the Ready? dialog, counts d
 - `arena-floor` draws the standing quadrant's 84 floor tiles as a checkerboard. In platform-local tiles they are the `#` tiles of `geometry.platform` in `OcellusTimings.ts`.
 - `arena-room` draws the room around the floor: cliffs into the abyss, the parapet and torches, the stepping stones and the censers on the quadrants' outer corners. A fallen quadrant's parapet, torches and censer go with it.
 - `arena-walkway` keeps the walkway band (`w`, `b` and `/` in the same rows) off the floor: a click on it walks the player to the nearest floor tile ([click-to-walk.md](./click-to-walk.md)).
-- `arena-player` draws the player model, in the selected setup's gear (ranged by default) with the toxic blowpipe, on spawn tile (5, 1).
+- `arena-player` draws the player model, in the gear Start with selects (the ranged setup with the twisted bow by default), on spawn tile (5, 1).
 - `arena-hud` shows the minimap orbs, inventory tabs and inventory panel at the canvas's right edge.
 - `arena-resize` keeps the 3D view's WebGL canvas in `#world`'s box and backing size when the window resizes, and a tile click still orders that tile.
 - `arena-device-scale` does the same when the device pixel ratio changes.

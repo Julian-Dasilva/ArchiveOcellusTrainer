@@ -4,7 +4,7 @@ import { startP3 } from "./p3run";
 const WAITING = at(-6, 2);
 
 function thirdFall() {
-  const run = startP3({ seed: 1, setup: "ranged" });
+  const run = startP3({ seed: 1, weapon: "blowpipe" });
   const fallTo = (count: number) => {
     for (let guard = 0; run.live().arena.destroyed.size < count; guard++) {
       if (guard > 400) throw new Error(`quadrant ${count} never fell at ${run.now()}`);
@@ -58,7 +58,7 @@ function picture(run: ReturnType<typeof startP3>) {
 
 test("starting at phase 4 opens the arena the third fall leaves", () => {
   const fell = thirdFall();
-  const started = startP3({ seed: 1, setup: "ranged", startPhase: 4 });
+  const started = startP3({ seed: 1, weapon: "blowpipe", startPhase: 4 });
   try {
     const fromFall = picture(fell);
     const fromStart = picture(started);

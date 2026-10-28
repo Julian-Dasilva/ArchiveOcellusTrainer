@@ -5,7 +5,7 @@ Every item in the inventory menu shows its name, for example `Equip Tonalztics o
 ## Sub-features
 
 - `item-names` shows each carried item's name in its hover text and right-click menu.
-- `supplies` fills inventory slots 9 to 27 with the wiki's supplies after the switches, except slot 26, which holds the setup's own weapon.
+- `supplies` fills inventory slots 9 to 27 with the wiki's supplies after the switches, except slot 26, which holds the blowpipe or the setup's own weapon, whichever is not in hand.
 - `brew-heal` raises Hitpoints by 15% of the maximum plus 2 on the tick after the click.
 - `keybinds-reachable` opens the settings tab from the `Keybinds` button.
 - `keybinds-saved` keeps a bound key across a reload, and the old key no longer opens the tab.
@@ -13,7 +13,7 @@ Every item in the inventory menu shows its name, for example `Equip Tonalztics o
 
 ## How to get to it (user POV)
 
-- Open `http://127.0.0.1:8002/?setup=ranged` or `?setup=melee`, open the inventory tab, and hover or right-click an item.
+- Open `http://127.0.0.1:8002/?weapon=blowpipe` or `?weapon=melee`, open the inventory tab, and hover or right-click an item.
 - Click a potion in the inventory to drink it.
 - Click `Keybinds` in the side panel's Controls section, click one of the five tab buttons under Key Bindings, then press the new key.
 - The wrench tab in the bottom row of the side panel opens the same settings.
@@ -22,7 +22,7 @@ Every item in the inventory menu shows its name, for example `Equip Tonalztics o
 
 Preconditions:
 
-- The baseline preconditions in the index hold, with the page opened at `http://127.0.0.1:8002/?seed=1&setup=ranged` (`SUPPLY_QUERY`), and P4 tick 1 reached, so no damage has landed yet.
+- The baseline preconditions in the index hold, with the page opened at `http://127.0.0.1:8002/?seed=1&weapon=blowpipe` (`SUPPLY_QUERY`), and P4 tick 1 reached, so no damage has landed yet.
 - Panel points are given on a 1280x800 canvas and moved to the canvas's bottom right as [loadouts.md](./loadouts.md) describes. The constants sit under `SUPPLY_`, `KEYBIND_` and `LOADOUT_` at the top of `scripts/verify.sh`.
 
 - **Carried items.** Open the inventory tab at the panel point (1164, 745). `snapshot().fight.player.inventory` is the 28 ids in `SUPPLY_INVENTORY`: Ralos, the eight melee switches, then `12695, 22461, 6685, 3024` twice, the remaining brews (6685) and restores (3024), and the Twisted Bow (20997) in slot 26.
