@@ -60,6 +60,7 @@ export const ARCHIVE_OCELLUS_ASSETS = {
     ...Object.fromEntries([...p1SpotAnims, ...(p2 ? Object.entries(OCELLUS_P2.spotAnims).map(([name, spotAnim]) => [p2Key(name), { id: spotAnim.value }]) : [])]),
     ...(full ? FIGHT_ASSETS.spotAnims : {}),
   },
+  playerAnimations: full ? FIGHT_ASSETS.playerAnimations : {},
   sounds: { ...P4_ASSETS.sounds, ...(full ? FIGHT_ASSETS.sounds : {}) },
 } as const satisfies CacheAssets;
 

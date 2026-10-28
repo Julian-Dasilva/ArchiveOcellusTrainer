@@ -1,5 +1,6 @@
 import { InvisibleMovementBlocker } from "osrs-sdk";
 import type { Region } from "osrs-sdk";
+import type { ClientCycles } from "../../../../../sim/brands";
 import type { Style } from "../../../../../sim/combat";
 import type { FloorState } from "../../../fight/arena";
 import { fullRoom } from "../../../fight/arena";
@@ -7,6 +8,7 @@ import type { ATile, Quadrant } from "../../../fight/geometry";
 import { CENSERS, GRID, QUADRANTS, TileSet, at, fromSdk, key, toSdk } from "../../../fight/geometry";
 import type { FightPlayer } from "../../../fight/units";
 import { VoidAdd } from "../../../fight/units";
+import { SEQ } from "../../data/looks";
 import { V } from "../data";
 import type { AddKind } from "../types";
 import type { Add, Censer, Fighter, P3World } from "../world";
@@ -71,16 +73,9 @@ class PlayerPort implements Fighter {
     this.player.walkTo(to);
   }
 
-  step(to: ATile): void {
-    const player = this.player;
-    const from = player.location;
-    const target = toSdk(to);
-    player.perceivedLocation = { x: from.x, y: from.y };
-    player.location = { x: target.x, y: target.y };
-    player.destinationLocation = undefined;
-    // A second step left in the path draws a tile behind the true tile.
-    player.visualPath = [{ x: target.x, y: target.y, run: false }];
-    player.region.refreshUnitChunk(player);
+  jump(to: ATile, over: ClientCycles): void {
+    this.player.exactMove(to, over);
+    void this.player.playAnimation(SEQ.humanYamaShortJump);
   }
 
   freeze(ticks: number): void {

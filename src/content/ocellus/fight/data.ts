@@ -68,6 +68,8 @@ export const SEQ = {
   p3PrayerLoop: 14870,
   p3PrayerOut: 14871,
   p3Death: 14872,
+  /** HUMAN_YAMA_SHORTJUMP01, the player's jump onto and off each stepping stone */
+  humanYamaShortJump: 12196,
 } as const;
 
 /**
@@ -499,10 +501,11 @@ export const P3 = {
   /** The vine's hold, renewed on every tick it lives. ocellus-sim phase3.ts:469, 772 */
   vineHolds: 2,
   /**
-   * You walk the stones, one tile a tick, and you do not hold on a stone.
-   * Julian, 2026-10-27: in p3 you dont really "hop" on thes tones you kinda "walk" on them.
+   * [R] Each stone jump draws over 27 cc, inside its 30 cc tick, so the next jump starts on the next tick: "Jump (op1)
+   * from the bank onto the near stone, stone to stone, off the far stone onto the bank it is named for;
+   * `human_yama_shortjump01`, a teleport and a 27-cycle exact move (4301 [1327..1338]: four hops a raider)"
    */
-  stoneWalk: 1,
+  stoneJumpCycles: 27,
   /** The vine's grip and the over-head bomb each turn to their idle look a tick after they start. ocellus-sim phase3.ts:471; [K] 4302 then 4299 a tick later */
   idleAfter: 1,
   /** "It's flying too high to hit using melee." shows at most once in this many ticks. ocellus-sim phase3.ts:935 */
