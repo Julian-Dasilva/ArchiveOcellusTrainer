@@ -49,6 +49,9 @@ START_DEFAULT_WEAPON=20997
 START_DRAINED_DEFENCE=150
 TIER_QUERY="?seed=6&practice=1&tier=low&weapon=twistedBow"
 TIER_LOW_WORN='{"weapon":12926,"offhand":null,"helmet":null,"chest":null,"legs":null,"gloves":7462,"cape":21295,"necklace":null,"feet":null,"ring":null,"ammo":11212}'
+EDITOR_QUERY="?seed=6&practice=1&tier=max&weapon=ralos"
+EDITOR_SHOP_ITEM="Saradomin Brew"
+EDITOR_SHOP_ITEM_ID=6685
 LOADOUT_TRAINER_ICONS='{"24419":"27x30","24420":"32x24","24421":"16x31","26235":"30x22","27235":"19x27","27238":"30x23","27241":"13x26","28922":"31x28"}'
 DEFENCE_FLOOR_QUERY="?seed=20&weapon=blowpipe"
 DEFENCE_FLOOR_STEPS="[250,176,150]"
@@ -904,6 +907,19 @@ drive_loadouts() {
   probe "snapshot().fight" >"$VERIFY_DIR/loadout-tier.json"
   ab --json eval "({ tier: document.getElementById('start_tier')?.value ?? null, starts: [...(document.getElementById('start_weapon')?.options ?? [])].map((option) => option.value), leftOut: document.getElementById('tier_not_simulated')?.textContent ?? null })" | json data.result >"$VERIFY_DIR/loadout-tier-panel.json"
   ab --json errors | json data.errors >"$VERIFY_DIR/loadout-tier-page-errors.json" || { log "page error capture failed"; return 1; }
+
+  ab open "${URL}${EDITOR_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 1 120000 || { log "the max tier page never stepped to P4 tick 1"; return 1; }
+  ab click "#loadout" >/dev/null || { log "Loadout was not clicked"; return 1; }
+  ab wait --fn "document.getElementById('resume')?.checkVisibility() === true && document.getElementById('loadout_editor') !== null" --timeout 10000 >/dev/null || { log "Loadout did not pause the run and open the editor"; return 1; }
+  ab click "#loadout_editor [aria-label='Take ${EDITOR_SHOP_ITEM}']" >/dev/null || { log "the shop did not offer ${EDITOR_SHOP_ITEM}"; return 1; }
+  ab --json eval "({ paused: document.getElementById('resume')?.checkVisibility() === true, preset: document.querySelector('#loadout_editor select')?.selectedOptions[0]?.text ?? null, shop: [...document.querySelectorAll('#loadout_editor [aria-label^=\"Take \"]')].map((entry) => entry.textContent) })" | json data.result >"$VERIFY_DIR/loadout-editor-draft.json"
+  loaded="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
+  ab find role button click --name Apply >/dev/null || { log "Apply was not clicked"; return 1; }
+  reloaded_from "$loaded" || { log "Apply did not restart the run"; return 1; }
+  fight_tick_at_least 1 120000 || { log "the edited max tier never stepped to P4 tick 1"; return 1; }
+  probe "log().header.loadout" >"$VERIFY_DIR/loadout-editor-applied.json"
+  ab --json errors | json data.errors >"$VERIFY_DIR/loadout-editor-page-errors.json" || { log "page error capture failed"; return 1; }
 }
 
 drive_defence_floor() {
