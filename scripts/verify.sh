@@ -168,7 +168,11 @@ EXPLOSION_OUTSIDE_TICKS="15 29"
 EXPLOSION_GLOW_SHOT_FRACTION=0.85
 EXPLOSION_MARKED_SHOT_FRACTIONS="0.75 0.85"
 EXPLOSION_RUN_END_QUERY="?seed=38&practice=1&weapon=blowpipe"
-EXPLOSION_KILL_CLICK_TICK=15
+# Three.js compiles a dart's WebGL programs on its first draw, the tick after it is fired, which can stall a software
+# renderer for the rest of that tick, and reuses them for every later dart. The boss's HP takes two darts, so the
+# compile lands on 15 and the killing dart draws on mark 17's tick with nothing to compile.
+EXPLOSION_KILL_CLICK_TICK=13
+EXPLOSION_RUN_END_BOSS_HP=10
 EXPLOSION_RUN_END_EXPECTED='{"marked":[[17,{"x":5,"y":1}]],"ended":[[18,"kill"]],"resolved":[]}'
 EXPLOSION_RUN_END_FRAMES=2
 SOUND_SETTINGS_KEY="osrs-sdk:settings"
@@ -1446,7 +1450,7 @@ drive_explosion_run_end() {
   local inner=($EXPLOSION_INNER_MARKS) frame fraction ended
   ab open "${URL}${EXPLOSION_RUN_END_QUERY}" >/dev/null || return 1
   fight_tick_at_least 1 120000 || { log "the run-end page never started"; return 1; }
-  probe "setBossHp(1)" >/dev/null || { log "the boss's HP was not set to 1"; return 1; }
+  probe "setBossHp(${EXPLOSION_RUN_END_BOSS_HP})" >/dev/null || { log "the boss's HP was not set to ${EXPLOSION_RUN_END_BOSS_HP}"; return 1; }
   start_frame_clock || { log "the frame clock was not installed"; return 1; }
   click_boss explosion-run-end "$EXPLOSION_KILL_CLICK_TICK" || { log "the hovering boss was not clicked"; return 1; }
   step_on_marks "$DODGE_STEP_TILES" "${inner[0]}" || { log "the step off the mark was not clicked"; return 1; }

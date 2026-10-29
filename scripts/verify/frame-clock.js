@@ -41,7 +41,7 @@
     gl.bindFramebuffer(gl.FRAMEBUFFER, bound);
     return drawn;
   };
-  const encode = ({ name, shot }) =>
+  const encode = ({ name, when, shot }) =>
     Promise.all(shot.layers.map(({ bitmap }) => bitmap))
       .then((bitmaps) => {
         const page = new OffscreenCanvas(window.innerWidth, window.innerHeight), context = page.getContext("2d");
@@ -55,7 +55,7 @@
         reader.onload = () => resolve(reader.result);
         reader.readAsDataURL(blob);
       }))
-      .then((png) => (clock.done[name] = { ...shot.at, png }));
+      .then((png) => (clock.done[name] = { ...shot.at, planned: when.fraction, png }));
   let copied = [];
 
   const click = ({ x, y }) => {
