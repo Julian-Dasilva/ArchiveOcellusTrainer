@@ -680,6 +680,7 @@ describe("the loadout editor", () => {
     { row: "a worn item in a slot it no longer fits", edit: { equipment: { ...MAX_WORN, helmet: 20997 }, inventory: MAX_BAG }, reason: "Your Max edit wears 1 item in a slot that no longer fits (helmet slot)" },
     { row: "a bag that is not 28 slots", edit: { equipment: MAX_WORN, inventory: MAX_BAG.slice(1) }, reason: "Your Max edit could not be read (inventory has 27 slots, expected 28)" },
     { row: "more supplies than the tier and the shop allow", edit: { equipment: MAX_WORN, inventory: withBag({ 0: 6685, 2: 6685, 7: 6685, 10: 6685, 11: 6685, 12: 6685, 13: 6685 }) }, reason: "Your Max edit carries more than the supplies allow (Saradomin Brew 11 of 10)" },
+    { row: "more of a supply the shop does not stock than the tier carries", edit: { equipment: MAX_WORN, inventory: Array<number>(28).fill(12695) }, reason: "Your Max edit carries more than the supplies allow (Super combat potion 28 of 1)" },
   ])("a saved edit with $row starts on the preset, names why with Reset, and stays stored until Reset", ({ edit, reason }) => {
     const raw = savedMax({ presetRevision: 1, loadout: edit });
     localStorage.setItem(LOADOUTS_KEY, raw);

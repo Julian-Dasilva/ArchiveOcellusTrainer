@@ -147,14 +147,21 @@ export type OverStock = Readonly<{ item: CarriedItem; carried: number; allowed: 
 
 export type TierLoadout = Readonly<{ tier: Tier; active: ActiveLoadout; overStock: readonly OverStock[] }>;
 
-function tierLoadout(store: LoadoutStore): TierLoadout {
-  const active = store.active();
-  const tier = parseTier(active.preset.id);
-  if (active.source !== "edit") return { tier, active, overStock: [] };
-  const overStock = remainingStock(OCELLUS_LOADOUTS.supplyStock, active.preset.loadout, active.loadout).flatMap(({ item, quantity }) => {
+function overStockOf(active: ActiveLoadout): readonly OverStock[] {
+  if (active.source !== "edit") return [];
+  const stocked = new Set(OCELLUS_LOADOUTS.supplyStock.map(({ item }) => item.id));
+  const unstocked = new Map(active.loadout.inventory.flatMap((held) => (held?.slot === "carried" && !stocked.has(held.id) ? [[held.id, held] as const] : [])));
+  const supplies = [...OCELLUS_LOADOUTS.supplyStock, ...[...unstocked.values()].map((item) => ({ item, quantity: 0 }))];
+  return remainingStock(supplies, active.preset.loadout, active.loadout).flatMap(({ item, quantity }) => {
     const carried = active.loadout.inventory.filter((held) => held?.id === item.id).length;
     return quantity < 0 ? [{ item, carried, allowed: carried + quantity }] : [];
   });
+}
+
+function tierLoadout(store: LoadoutStore): TierLoadout {
+  const active = store.active();
+  const tier = parseTier(active.preset.id);
+  const overStock = overStockOf(active);
   if (overStock.length === 0) return { tier, active, overStock };
   const { preset, storage } = active;
   return { tier, active: { preset, storage, source: "preset", loadout: preset.loadout, refusedEdit: [] }, overStock };
