@@ -1,7 +1,7 @@
 import { AttackStyle, AttackStylesController, defineSimLoadouts, dressPlayer } from "osrs-sdk";
-import type { CatalogLoadout, Item, Player, PresetId } from "osrs-sdk";
-import type { StartWeapon } from "./OcellusTimings";
-import { OCELLUS_P4, START_WEAPONS } from "./OcellusTimings";
+import type { CatalogLoadout, Item, LoadoutIds, Player, Preset, PresetId } from "osrs-sdk";
+import type { StartWeapon, Tier, TierItem, TierRecipe, TierSlot, TierStarts } from "./OcellusTimings";
+import { OCELLUS_P4, TIERS } from "./OcellusTimings";
 import type { LoadoutSnapshot } from "./P4Types";
 import {
   InquisitorsGreatHelm,
@@ -19,7 +19,33 @@ import {
 } from "./gear/OcellusGear";
 
 const { gear } = OCELLUS_P4;
-const RAID = "raid";
+
+export type OcellusPreset = Readonly<{ label: string; loadout: LoadoutIds; starts: TierStarts; notSimulated: readonly TierItem[] }>;
+
+function tierPreset({ label, equipment, inventory, starts }: TierRecipe): OcellusPreset {
+  const id = (slot: TierSlot) => (slot?.value.simulation === "simulated" ? slot.value.id : null);
+  const { weapon, offhand, helmet, chest, legs, gloves, cape, necklace, feet, ring, ammo } = equipment;
+  return {
+    label,
+    loadout: {
+      equipment: { weapon: id(weapon), offhand: id(offhand), helmet: id(helmet), chest: id(chest), legs: id(legs), gloves: id(gloves), cape: id(cape), necklace: id(necklace), feet: id(feet), ring: id(ring), ammo: id(ammo) },
+      inventory: inventory.map(id),
+    },
+    starts,
+    notSimulated: [...Object.values(equipment), ...inventory].flatMap((slot) => (slot !== null && slot.value.simulation !== "simulated" ? [slot.value] : [])),
+  };
+}
+
+export const OCELLUS_PRESETS: Readonly<Record<Tier, OcellusPreset>> = {
+  raid: { label: "Raid", loadout: gear.loadout.value, starts: gear.starts.value, notSimulated: [] },
+  max: tierPreset(gear.tiers.max.value),
+  high: tierPreset(gear.tiers.high.value),
+  mid: tierPreset(gear.tiers.mid.value),
+  low: tierPreset(gear.tiers.low.value),
+  poor: tierPreset(gear.tiers.poor.value),
+};
+
+const optionId = (tier: Tier, weapon: StartWeapon): string => `${tier}:${weapon}`;
 
 export const OCELLUS_LOADOUTS = defineSimLoadouts({
   sim: "archive-ocellus",
@@ -37,28 +63,49 @@ export const OCELLUS_LOADOUTS = defineSimLoadouts({
     InquisitorsHauberk,
     InquisitorsPlateskirt,
   ],
-  presets: [{ id: RAID, label: "Raid", revision: 1, loadout: gear.loadout.value, startOptions: START_WEAPONS }],
-  defaultPreset: RAID,
+  presets: TIERS.map((tier) => {
+    const { label, loadout, starts } = OCELLUS_PRESETS[tier];
+    return { id: tier, label, revision: 1, loadout, startOptions: starts.map(({ weapon }) => optionId(tier, weapon)) };
+  }),
+  defaultPreset: "raid",
   supplyStock: [],
-  startOptions: START_WEAPONS.map((id) => ({ id, ...gear.starts.value[id] })),
+  startOptions: TIERS.flatMap((tier) => OCELLUS_PRESETS[tier].starts.map(({ weapon, label, wear }) => ({ id: optionId(tier, weapon), label, wear }))),
 });
 
-export type StartedLoadout = Readonly<{ preset: PresetId; edited: boolean; loadout: CatalogLoadout }>;
+export function parseTier(value: string | null): Tier {
+  return TIERS.find((tier) => tier === value) ?? "raid";
+}
 
-export function startingLoadout(start: StartWeapon): StartedLoadout {
-  const preset = OCELLUS_LOADOUTS.presets.find(({ id }) => id === OCELLUS_LOADOUTS.defaultPreset);
-  if (!preset) throw new Error(`the default preset ${OCELLUS_LOADOUTS.defaultPreset} is not defined`);
-  const started = OCELLUS_LOADOUTS.start({ preset, loadout: preset.loadout }, start);
+export function tierStart(tier: Tier, value: string | null): StartWeapon {
+  const { starts } = OCELLUS_PRESETS[tier];
+  return (starts.find(({ weapon }) => weapon === value) ?? starts[0]).weapon;
+}
+
+function tierPresetOf(tier: Tier): Preset {
+  const preset = OCELLUS_LOADOUTS.presets.find(({ id }) => id === tier);
+  if (!preset) throw new Error(`the ${tier} preset is not defined`);
+  return preset;
+}
+
+export function startTier(tier: Tier, weapon: StartWeapon, loadout: CatalogLoadout): CatalogLoadout {
+  const started = OCELLUS_LOADOUTS.start({ preset: tierPresetOf(tier), loadout }, optionId(tier, weapon));
   switch (started.kind) {
     case "started":
-      return { preset: preset.id, edited: false, loadout: started.loadout };
+      return started.loadout;
     case "refused":
-      throw new Error(`the ${preset.id} preset cannot start with ${start}: ${JSON.stringify(started.rejections)}`);
+      throw new Error(`the ${tier} preset cannot start with ${weapon}: ${JSON.stringify(started.rejections)}`);
     default: {
       const unhandled: never = started;
       return unhandled;
     }
   }
+}
+
+export type StartedLoadout = Readonly<{ preset: PresetId; edited: boolean; loadout: CatalogLoadout }>;
+
+export function startingLoadout(tier: Tier, weapon: StartWeapon): StartedLoadout {
+  const { id, loadout } = tierPresetOf(tier);
+  return { preset: id, edited: false, loadout: startTier(tier, weapon, loadout) };
 }
 
 const STANCES: Readonly<Record<typeof gear.scytheStance.value, AttackStyle>> = { jab: AttackStyle.AGGRESSIVECRUSH };

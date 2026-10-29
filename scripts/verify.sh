@@ -47,6 +47,8 @@ LOADOUT_EQUIPMENT_TAB_Y=745
 START_OPTIONS_QUERY="?seed=6&practice=1&drained=1"
 START_DEFAULT_WEAPON=20997
 START_DRAINED_DEFENCE=150
+TIER_QUERY="?seed=6&practice=1&tier=low&weapon=twistedBow"
+TIER_LOW_WORN='{"weapon":12926,"offhand":null,"helmet":null,"chest":null,"legs":null,"gloves":7462,"cape":21295,"necklace":null,"feet":null,"ring":null,"ammo":11212}'
 LOADOUT_TRAINER_ICONS='{"24419":"27x30","24420":"32x24","24421":"16x31","26235":"30x22","27235":"19x27","27238":"30x23","27241":"13x26","28922":"31x28"}'
 DEFENCE_FLOOR_QUERY="?seed=20&weapon=blowpipe"
 DEFENCE_FLOOR_STEPS="[250,176,150]"
@@ -896,6 +898,12 @@ drive_loadouts() {
   fight_tick_at_least 1 120000 || { log "the start options page never stepped to P4 tick 1"; return 1; }
   probe "snapshot().fight" >"$VERIFY_DIR/loadout-start-options.json"
   ab --json errors | json data.errors >"$VERIFY_DIR/loadout-start-options-page-errors.json" || { log "page error capture failed"; return 1; }
+
+  ab open "${URL}${TIER_QUERY}" >/dev/null || return 1
+  fight_tick_at_least 1 120000 || { log "the low tier page never stepped to P4 tick 1"; return 1; }
+  probe "snapshot().fight" >"$VERIFY_DIR/loadout-tier.json"
+  ab --json eval "({ tier: document.getElementById('start_tier')?.value ?? null, starts: [...(document.getElementById('start_weapon')?.options ?? [])].map((option) => option.value), leftOut: document.getElementById('tier_not_simulated')?.textContent ?? null })" | json data.result >"$VERIFY_DIR/loadout-tier-panel.json"
+  ab --json errors | json data.errors >"$VERIFY_DIR/loadout-tier-page-errors.json" || { log "page error capture failed"; return 1; }
 }
 
 drive_defence_floor() {

@@ -141,7 +141,7 @@ describe("the full fight page", () => {
       practiced: { checked: true, search: "?mode=full&phase=1&seed=1&weapon=blowpipe&practice=1" },
       tab: "SETTINGS",
       assigned: [
-        "http://localhost/?mode=full&phase=3&weapon=blowpipe&practice=1&drained=0&tiles=1&markers=0&skip=0&vine=1",
+        "http://localhost/?mode=full&phase=3&weapon=blowpipe&practice=1&tier=raid&drained=0&tiles=1&markers=0&skip=0&vine=1",
       ],
     });
   });
@@ -167,7 +167,7 @@ describe("the full fight page", () => {
     navigation.restore();
     page.close();
 
-    expect(assigned).toEqual(["http://localhost/?seed=7&weapon=melee&practice=1&phase=4&drained=0&tiles=1&markers=0&skip=0&vine=1"]);
+    expect(assigned).toEqual(["http://localhost/?seed=7&weapon=melee&practice=1&phase=4&tier=raid&drained=0&tiles=1&markers=0&skip=0&vine=1"]);
   });
 
   test("Start with is the twisted bow unless the link names another, and only the weapon in hand changes", () => {
@@ -190,6 +190,58 @@ describe("the full fight page", () => {
       blowpipe: { chosen: "blowpipe", weapon: 12926, helmet: 27235, bag: [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, ...supplies, 20997, 3024] },
       melee: { chosen: "melee", weapon: 22325, helmet: 24419, bag: [28922, 20997, 27235, 27238, 27241, 26235, 28951, 33639, 28310, ...supplies, 12926, 3024] },
       unknown: { chosen: "twistedBow", weapon: 20997, helmet: 27235, bag: [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, ...supplies, 12926, 3024] },
+    });
+  });
+
+  test("a tier link dresses that tier, Start with offers only its weapons, the panel names what it leaves out, and Restart keeps the tier chosen in the panel", () => {
+    const choose = (id: string, value: string) =>
+      act(() => {
+        const select = document.getElementById(id);
+        if (select instanceof HTMLSelectElement) {
+          select.value = value;
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      });
+    const shown = () => {
+      const you = fightRegion().players[0];
+      const id = (item: { cacheItemId?: unknown } | null | undefined) => (typeof item?.cacheItemId === "number" ? item.cacheItemId : null);
+      const weapons = document.getElementById("start_weapon");
+      return {
+        tier: phaseValue(document.getElementById("start_tier") ?? document.body),
+        starts: weapons instanceof HTMLSelectElement ? [...weapons.options].map((option) => `${option.value} ${option.text}`) : [],
+        chosen: weapons instanceof HTMLSelectElement ? weapons.value : null,
+        leftOut: document.getElementById("tier_not_simulated")?.textContent ?? null,
+        worn: [id(you?.equipment.weapon), id(you?.equipment.helmet), id(you?.equipment.gloves), id(you?.equipment.cape)],
+      };
+    };
+    const low = loadFullFight("/?seed=1&tier=low&weapon=twistedBow");
+    const lowShown = shown();
+    low.close();
+    const page = loadFullFight("/?seed=7&weapon=blowpipe");
+    const raidShown = shown();
+    choose("start_tier", "max");
+    const maxPanel = shown();
+    choose("start_weapon", "ralos");
+    const navigation = captureAssign();
+    page.click("restart_fight");
+    const assigned = navigation.assigned;
+    navigation.restore();
+    page.close();
+
+    expect({ lowShown, raidShown, maxStarts: maxPanel.starts, maxChosen: maxPanel.chosen, maxLeftOut: maxPanel.leftOut, assigned }).toEqual({
+      lowShown: {
+        tier: "low",
+        starts: ["blowpipe Toxic blowpipe"],
+        chosen: "blowpipe",
+        leftOut:
+          "Not simulated yet, so left out: Emberlight, Ghommal's avernic defender 6, Magma helm, Eclipse Moon chestplate, Eclipse Moon tassets, Amulet of blood fury, Dragon boots, Berserker ring (i), Dragon crossbow, Blessed Dizana's quiver, Divine rune pouch, Necklace of anguish (or), Twisted buckler, Book of the Dead, Scorching bow, Dragon warhammer, Ranging potion ×2, Sanfew serum",
+        worn: [12926, null, 7462, 21295],
+      },
+      raidShown: { tier: "raid", starts: ["twistedBow Twisted bow (Masori)", "blowpipe Toxic blowpipe (Masori)", "melee Scythe (Inquisitor's)"], chosen: "blowpipe", leftOut: null, worn: [12926, 27235, 26235, 28951] },
+      maxStarts: ["twistedBow Twisted bow (Masori)", "blowpipe Toxic blowpipe (Masori)", "ralos Tonalztics of Ralos (Inquisitor's)"],
+      maxChosen: "blowpipe",
+      maxLeftOut: "Not simulated yet, so left out: Book of the Dead, Ferocious gloves, Zaryte crossbow, Blessed Dizana's quiver, Lightbearer, Ranging potion ×2, Sanguine scythe of Vitur, Divine super combat potion, Sanfew serum, Divine rune pouch",
+      assigned: ["http://localhost/?seed=7&weapon=ralos&phase=4&tier=max&drained=0&tiles=1&markers=0&skip=0&vine=1&practice=0"],
     });
   });
 
@@ -221,7 +273,7 @@ describe("the full fight page", () => {
     expect({ full, drained, assigned }).toEqual({
       full: { drained: false, defence: 250 },
       drained: { drained: true, defence: 150 },
-      assigned: ["http://localhost/?seed=7&phase=4&weapon=melee&drained=1&tiles=1&markers=0&skip=0&vine=1&practice=0"],
+      assigned: ["http://localhost/?seed=7&phase=4&tier=raid&weapon=melee&drained=1&tiles=1&markers=0&skip=0&vine=1&practice=0"],
     });
   });
 
@@ -251,7 +303,7 @@ describe("the full fight page", () => {
 
     expect({ fromUrl, assigned }).toEqual({
       fromUrl: { offered: ["1", "2", "3", "4"], value: "4", title: "Phase 4" },
-      assigned: ["http://localhost/?mode=full&phase=4&weapon=blowpipe&drained=0&tiles=1&markers=0&skip=0&vine=1&practice=0"],
+      assigned: ["http://localhost/?mode=full&phase=4&weapon=blowpipe&tier=raid&drained=0&tiles=1&markers=0&skip=0&vine=1&practice=0"],
     });
   });
 
