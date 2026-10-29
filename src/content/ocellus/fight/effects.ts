@@ -206,6 +206,119 @@ export class TileMarks extends FloorEntity {
   }
 }
 
+export type LabelledTile = Readonly<{ tile: ATile; colour: string; label: string }>;
+
+const LABEL_PX = 64;
+/** Clear texels around each atlas cell, so mipmaps never blend a neighbour's outline in. */
+const LABEL_GUTTER = 4;
+const LABEL_CELL = LABEL_PX + 2 * LABEL_GUTTER;
+
+function labelAtlas(tiles: readonly LabelledTile[]): { texture: THREE.CanvasTexture; cells: ReadonlyMap<string, number>; columns: number; rows: number } {
+  const cells = new Map<string, number>();
+  for (const { colour, label } of tiles) if (!cells.has(`${colour} ${label}`)) cells.set(`${colour} ${label}`, cells.size);
+  const columns = Math.max(1, Math.ceil(Math.sqrt(cells.size)));
+  const rows = Math.max(1, Math.ceil(cells.size / columns));
+  const canvas = new OffscreenCanvas(columns * LABEL_CELL, rows * LABEL_CELL);
+  const context = canvas.getContext("2d");
+  if (context) {
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.lineWidth = 4;
+    for (const { colour, label } of tiles) {
+      const cell = cells.get(`${colour} ${label}`) ?? 0;
+      const x = (cell % columns) * LABEL_CELL + LABEL_GUTTER;
+      const y = Math.floor(cell / columns) * LABEL_CELL + LABEL_GUTTER;
+      context.strokeStyle = colour;
+      context.strokeRect(x + 2, y + 2, LABEL_PX - 4, LABEL_PX - 4);
+      context.font = `bold ${label.length > 2 ? 22 : 34}px sans-serif`;
+      context.fillStyle = "black";
+      context.fillText(label, x + LABEL_PX / 2 + 2, y + LABEL_PX / 2 + 2);
+      context.fillStyle = colour;
+      context.fillText(label, x + LABEL_PX / 2, y + LABEL_PX / 2);
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return { texture, cells, columns, rows };
+}
+
+class LabelledTilesModel implements Model {
+  private readonly geometry = new THREE.BufferGeometry();
+  private readonly material: THREE.MeshBasicMaterial;
+  private readonly mesh: THREE.Mesh;
+
+  constructor(tiles: readonly LabelledTile[], height: number) {
+    const { texture, cells, columns, rows } = labelAtlas(tiles);
+    const width = columns * LABEL_CELL;
+    const tall = rows * LABEL_CELL;
+    const positions: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+    tiles.forEach(({ tile, colour, label }, i) => {
+      const cell = cells.get(`${colour} ${label}`) ?? 0;
+      const u0 = ((cell % columns) * LABEL_CELL + LABEL_GUTTER) / width;
+      const u1 = u0 + LABEL_PX / width;
+      const top = 1 - (Math.floor(cell / columns) * LABEL_CELL + LABEL_GUTTER) / tall;
+      const bottom = top - LABEL_PX / tall;
+      const s = toSdk(tile);
+      // The texture's top row on the tile's north edge (SDK y - 1).
+      positions.push(s.x, height, s.y - 1, s.x + 1, height, s.y - 1, s.x, height, s.y, s.x + 1, height, s.y);
+      uvs.push(u0, top, u1, top, u0, bottom, u1, bottom);
+      const v = 4 * i;
+      indices.push(v, v + 2, v + 1, v + 2, v + 3, v + 1);
+    });
+    this.geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    this.geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    this.geometry.setIndex(indices);
+    this.material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false });
+    this.mesh = new THREE.Mesh(this.geometry, this.material);
+    this.mesh.renderOrder = 3;
+  }
+
+  draw(scene: THREE.Scene, clockDelta: number, tickPercent: number, location: Location3, angleRadians: number, pitchRadians: number, visible: boolean): void {
+    if (this.mesh.parent !== scene) scene.add(this.mesh);
+    this.mesh.visible = visible;
+  }
+
+  destroy(scene: THREE.Scene): void {
+    scene.remove(this.mesh);
+    this.geometry.dispose();
+    this.material.map?.dispose();
+    this.material.dispose();
+  }
+
+  getWorldPosition(): THREE.Vector3 {
+    return new THREE.Vector3();
+  }
+
+  async preload(): Promise<void> {}
+}
+
+/** Fixed tiles drawn with an outline and a label (phase 2's pattern tiles). */
+export class LabelledTiles extends FloorEntity {
+  constructor(region: Region, private readonly tiles: readonly LabelledTile[], private readonly overlayY = GROUND_OVERLAY_Y + 0.006) {
+    super(region, { x: 0, y: 0 });
+  }
+
+  override draw(tickPercent: number, context: OffscreenCanvasRenderingContext2D): void {
+    const scale = Settings.tileSize;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.font = `bold ${Math.round(scale * 0.45)}px sans-serif`;
+    for (const { tile, colour, label } of this.tiles) {
+      const s = toSdk(tile);
+      context.strokeStyle = colour;
+      context.fillStyle = colour;
+      context.strokeRect(s.x * scale, s.y * scale, scale, scale);
+      context.fillText(label, (s.x + 0.5) * scale, (s.y + 0.5) * scale);
+    }
+  }
+
+  protected override create3dModel(): Model {
+    return new LabelledTilesModel(this.tiles, this.overlayY);
+  }
+}
+
 const VOID_LOOK = { void: "#1e2529", stars: "#babcc2", rim: "#9f48bd" } as const;
 const STAR_TILES = 4;
 const STAR_PX = 32;

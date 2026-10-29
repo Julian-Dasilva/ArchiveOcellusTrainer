@@ -8,7 +8,6 @@ import {
   ARM_DIR,
   MIDDLE,
   QUADRANT_SIGN,
-  ROOM_DIAGONAL,
   ROOM_HALF,
   armsOf,
   at,
@@ -20,6 +19,7 @@ import {
   sideOf,
 } from "../../fight/geometry";
 import { seqSourced as SEQ, soundSourced as SOUND, spotSourced as SPOT } from "../data/looks";
+import type { GapSequence } from "./data";
 import { T, V } from "./data";
 import type { MarkRole, P2Ctx, P2Entry, P2Outcome, P2Roll, P2Stage, P2Types } from "./types";
 import type { P2World, Portal } from "./world";
@@ -28,8 +28,6 @@ import type { P2World, Portal } from "./world";
 const PORTALS_PER_ARM = 6;
 /** Client cycles in a tick. The volley's reach is counted in these. */
 const CYCLES_PER_TICK = 30;
-/** How far a repeat gap moves from the last gap on that arm. */
-const GAP_WANDER = [-2, -1, 0, 1, 2] as const;
 /** Each arm's portal rotation, in quarter turns. */
 const ROTATION: Readonly<Record<Arm, number>> = { N: 3, E: 0, S: 1, W: 2 };
 /** The blade keeps three quarters of the pool. */
@@ -43,6 +41,9 @@ type Safe = Readonly<{ kind: "closed" }> | { kind: "open"; tile: ATile; left: "h
 type Round = {
   q: Quadrant;
   start: Tick;
+  sequence: GapSequence;
+  /** Waves lit so far this round: the next wave's index into the sequence. */
+  waves: number;
   gaps: Map<Arm, number>;
   wave: "dark" | "lit";
   coverage: "gaps" | "all";
@@ -56,12 +57,6 @@ function nonEmpty<T>(items: readonly T[]): readonly [T, ...T[]] {
   const [first, ...rest] = items;
   if (first === undefined) throw new Error("phase 2 had nothing to choose from");
   return [first, ...rest];
-}
-
-function indices(max: number): readonly [number, ...number[]] {
-  const items: number[] = [];
-  for (let i = 0; i <= max; i++) items.push(i);
-  return nonEmpty(items);
 }
 
 /** The two tiles of portal `index` (0 nearest the middle) on an arm. The cross runs along x = 0 and z = 0. */
@@ -99,6 +94,7 @@ export class P2Script<E extends Entries> implements Script<E, P2Types> {
   private portals: readonly Portal[] = [];
   private roundsRun = 0;
   private firstQuadrant: Quadrant | null = null;
+  private firstSequence: number | null = null;
   private ending: P2Outcome = { kind: "running" };
   private ctx: P2Ctx<E> | null = null;
 
@@ -231,9 +227,11 @@ export class P2Script<E extends Entries> implements Script<E, P2Types> {
     const here = quadrantOf(m.player.tile) ?? sideOf(m.player.tile);
     const q = this.firstQuadrant === null ? here : clockwise(this.firstQuadrant, this.roundsRun);
     if (this.firstQuadrant === null) this.firstQuadrant = q;
+    this.firstSequence ??= V.gapOrder.value.indexOf(m.pick("gap-sequence", V.gapOrder.value));
+    const sequence = V.gapOrder.value[(this.firstSequence + this.roundsRun) % V.gapOrder.value.length];
     this.roundsRun += 1;
     const last = this.roundsRun === T.rounds.value.length;
-    const round: Round = { q, start: m.now, gaps: new Map(), wave: "dark", coverage: "gaps", pools: [], safe: { kind: "closed" } };
+    const round: Round = { q, start: m.now, sequence, waves: 0, gaps: new Map(), wave: "dark", coverage: "gaps", pools: [], safe: { kind: "closed" } };
     this.round = round;
     this.arm(m, round, 0, last);
     if (last) return;
@@ -257,25 +255,17 @@ export class P2Script<E extends Entries> implements Script<E, P2Types> {
 
   /**
    * Ten of the twelve portals light, a gap on each arm. The gaps' rows and columns cross on the safe 2x2.
-   * Gaps g and h put its inner tile at (2h + 1, 2g + 1), which stays in the octagon while g + h <= 7.
+   * The gaps are the round's sequence, wave by wave.
    */
   private light(m: P2Ctx<E>, round: Round): void {
-    const arms = armsOf(round.q);
-    const swapped: readonly [Arm, Arm] = [arms[1], arms[0]];
-    const [first, second] = m.pick("arm-order", [arms, swapped]);
-    const gap = this.gap(m, round, first, PORTALS_PER_ARM - 1);
-    round.gaps.set(first, gap);
-    const secondMax = Math.min(PORTALS_PER_ARM - 1, (ROOM_DIAGONAL - 2) / 2 - gap);
-    round.gaps.set(second, this.gap(m, round, second, secondMax));
+    const gaps = V.gapSequences[round.sequence].value[round.waves];
+    if (gaps === undefined) throw new Error(`phase 2 lit a seventh wave of ${round.sequence}`);
+    const [northSouth, eastWest] = gaps;
+    round.waves += 1;
+    for (const arm of armsOf(round.q)) round.gaps.set(arm, (arm === "N" || arm === "S" ? northSouth : eastWest) - 1);
     round.wave = "lit";
     m.log({ kind: "portals-lit", at: m.now });
     this.paint(m);
-  }
-
-  private gap(m: P2Ctx<E>, round: Round, arm: Arm, max: number): number {
-    const previous = round.gaps.get(arm);
-    if (previous === undefined) return m.pick("gap", indices(max));
-    return Math.max(0, Math.min(max, previous + m.pick("gap-step", GAP_WANDER)));
   }
 
   private lightAll(m: P2Ctx<E>, round: Round): void {

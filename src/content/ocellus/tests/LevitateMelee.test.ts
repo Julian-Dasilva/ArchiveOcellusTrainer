@@ -14,6 +14,7 @@ describe("a melee player targeting the levitating boss", () => {
       hazardTiles: true,
       videoMarkers: false,
       skipMarkers: false,
+      patternMarkers: false,
       soloVine: true,
       invincible: true,
       defenceDrained: false,

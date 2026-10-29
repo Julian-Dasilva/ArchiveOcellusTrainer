@@ -1,7 +1,7 @@
 import { Sound, SoundCache, TileMarker, cacheSound } from "osrs-sdk";
 import type { Entity, Region, Unit } from "osrs-sdk";
 import type { SpotOptions, TileMark } from "../../../fight/effects";
-import { GroundSpot, TileMarks } from "../../../fight/effects";
+import { GroundSpot, LabelledTiles, TileMarks } from "../../../fight/effects";
 import type { ATile } from "../../../fight/geometry";
 import { QUADRANT_SIGN, at, toSdk } from "../../../fight/geometry";
 import type { PortalView } from "../../../fight/portals";
@@ -9,6 +9,7 @@ import { PortalCross } from "../../../fight/portals";
 import { P2 } from "../../data/p2";
 import { SPOT } from "../../data/looks";
 import { T } from "../data";
+import { patternTiles } from "../pattern";
 import type { GroundEffect, MarkRole, P2Look, P2Row, PortalFace, Tone } from "../types";
 
 /** His spot() holds: the safe portal's despawn plays for 3 ticks, the sword drop and its boom for 6. */
@@ -77,7 +78,7 @@ function spotId(effect: GroundEffect): number {
 }
 
 /**
- * Phase 2's looks, drawn from each closed row as phase 4's present() does. Hazard tiles and the skip markers
+ * Phase 2's looks, drawn from each closed row as phase 4's present() does. Hazard tiles and the skip and pattern markers
  * read the sidebar live, so a toggle during the fight shows on the next frame.
  */
 export class P2Views {
@@ -85,6 +86,7 @@ export class P2Views {
   private marks: readonly Readonly<{ tile: ATile; role: MarkRole }>[] = [];
   private cross: PortalCross | null = null;
   private skip: Entity[] = [];
+  private pattern: Entity | null = null;
   private readonly owned: Entity[] = [];
 
   constructor(
@@ -92,15 +94,18 @@ export class P2Views {
     private readonly actors: Actors,
     private readonly hazardTiles: () => boolean,
     private readonly skipMarkers: () => boolean,
+    private readonly patternMarkers: () => boolean,
     private readonly say: (line: ChatLine) => void,
   ) {
     this.own(new TileMarks(region, () => this.floorMarks()));
     this.syncSkip();
+    this.syncPattern();
   }
 
   present(row: P2Row): void {
     for (const event of row.events) if (event.kind === "shown") this.show(event.look, row.tick);
     this.syncSkip();
+    this.syncPattern();
   }
 
   /** The sidebar's phase 2 skip tiles, on or off as the toggle stands. */
@@ -120,12 +125,23 @@ export class P2Views {
     }
   }
 
+  /** The sidebar's phase 2 pattern tiles, on or off as the toggle stands. */
+  syncPattern(): void {
+    const show = this.patternMarkers();
+    if (show === (this.pattern !== null)) return;
+    const gone = this.pattern;
+    this.region.entities = this.region.entities.filter((entity) => entity !== gone);
+    this.pattern = show ? new LabelledTiles(this.region, patternTiles()) : null;
+    if (this.pattern !== null) this.region.addEntity(this.pattern);
+  }
+
   /** Every entity the views made, and the floor effects still playing, leave with the phase. */
   dispose(): void {
-    const owned = new Set<unknown>([...this.owned, ...this.skip]);
+    const owned = new Set<unknown>([...this.owned, ...this.skip, this.pattern]);
     this.region.entities = this.region.entities.filter((entity) => !owned.has(entity) && !(entity instanceof GroundSpot));
     this.owned.splice(0, this.owned.length);
     this.skip = [];
+    this.pattern = null;
   }
 
   private floorMarks(): readonly TileMark[] {

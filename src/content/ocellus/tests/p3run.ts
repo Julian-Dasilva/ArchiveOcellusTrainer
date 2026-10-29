@@ -23,6 +23,7 @@ export function startP3(options: P3RunOptions = {}) {
     hazardTiles: true,
     videoMarkers: false,
     skipMarkers: false,
+    patternMarkers: false,
     soloVine: options.soloVine ?? true,
     invincible: options.practice ?? true,
     defenceDrained: options.defenceDrained ?? false,

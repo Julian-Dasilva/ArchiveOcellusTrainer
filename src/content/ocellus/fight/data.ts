@@ -334,6 +334,18 @@ export const P2 = {
   skipRunOut: 4,
   skipMarkerColour: "#FF3DE0",
   poolDamage: range(3, 5),
+  /**
+   * A round's six gaps are one of three fixed sequences, each wave's (north or south arm, east or west arm) gap 1..6
+   * out, mirrored into every quadrant. The first round's sequence is random, then orange, red, green in turn (39/39
+   * rounds in 13 fights). [R]
+   */
+  gapSequences: {
+    orange: [[2, 2], [4, 2], [2, 4], [2, 2], [3, 3], [5, 2]],
+    red: [[3, 3], [3, 4], [2, 5], [3, 3], [3, 5], [4, 4]],
+    green: [[2, 1], [2, 4], [2, 6], [4, 4], [3, 3], [4, 1]],
+  },
+  /** The order the rounds run the sequences in, from a random first. [R] */
+  gapOrder: ["orange", "red", "green"],
   /** One tick, for a beat that follows another by a tick. */
   oneTick: 1,
   /** The sword's repair graphic: first at tick 3, then every 3 until enough. */

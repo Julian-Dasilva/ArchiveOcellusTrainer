@@ -10,6 +10,8 @@ export type FullFightOptions = Readonly<{
   videoMarkers: boolean;
   /** Mark the phase 2 skip tiles. */
   skipMarkers: boolean;
+  /** Number each phase 2 wave's safe spot in its gap sequence's colour. */
+  patternMarkers: boolean;
   soloVine: boolean;
   invincible: boolean;
   /** Each phase opens with his Defence at the floor the hotfix allows, as if every drain had landed. */

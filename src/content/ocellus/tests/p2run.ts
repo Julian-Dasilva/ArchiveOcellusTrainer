@@ -6,7 +6,7 @@ import type { FullFightOptions } from "../full/prefix";
 import { FightRegion } from "../full/prefix";
 import type { P2Cause, P2Event, P2Look, P2Row, P2Types } from "../full/p2/types";
 
-export type P2RunOptions = Readonly<{ seed?: number; practice?: boolean; hazardTiles?: boolean; skipMarkers?: boolean }>;
+export type P2RunOptions = Readonly<{ seed?: number; practice?: boolean; hazardTiles?: boolean; skipMarkers?: boolean; patternMarkers?: boolean }>;
 
 /** The full fight's own region started at phase 2, as `?mode=full&phase=2` starts it, ticked by hand. */
 export function startP2(options: P2RunOptions = {}) {
@@ -18,6 +18,7 @@ export function startP2(options: P2RunOptions = {}) {
     hazardTiles: options.hazardTiles ?? true,
     videoMarkers: false,
     skipMarkers: options.skipMarkers ?? false,
+    patternMarkers: options.patternMarkers ?? false,
     soloVine: true,
     invincible: options.practice ?? true,
     defenceDrained: false,

@@ -84,6 +84,7 @@ function readParams(): Params {
     hazardTiles: flag("tiles", true),
     videoMarkers: flag("markers", false),
     skipMarkers: flag("skip", false),
+    patternMarkers: flag("pattern", false),
     soloVine: flag("vine", true),
     invincible: flag("practice", false),
     defenceDrained: flag("drained", false),
@@ -110,6 +111,7 @@ function writeParams(params: Params, fresh = true): void {
   url.searchParams.set("tiles", params.hazardTiles ? "1" : "0");
   url.searchParams.set("markers", params.videoMarkers ? "1" : "0");
   url.searchParams.set("skip", params.skipMarkers ? "1" : "0");
+  url.searchParams.set("pattern", params.patternMarkers ? "1" : "0");
   url.searchParams.set("vine", params.soloVine ? "1" : "0");
   url.searchParams.set("practice", params.invincible ? "1" : "0");
   if (fresh) url.searchParams.delete("seed");
@@ -402,7 +404,7 @@ function Result({ stage, region, params, clock }: Readonly<{ stage: Stage; regio
   const ending = endingOf(stage);
   if (ending === null) return null;
   const now = region.currentOptions();
-  const again = (fresh: boolean) => writeParams({ ...params, hazardTiles: now.hazardTiles, invincible: now.invincible, skipMarkers: now.skipMarkers }, fresh);
+  const again = (fresh: boolean) => writeParams({ ...params, hazardTiles: now.hazardTiles, invincible: now.invincible, skipMarkers: now.skipMarkers, patternMarkers: now.patternMarkers }, fresh);
   return (
     <div className="fight-result">
       <h2>{ending.won ? "Ocellus defeated" : "Oh dear, you are dead!"}</h2>
@@ -444,6 +446,7 @@ const TIPS: Readonly<Record<StartPhase, readonly string[]>> = {
   ],
   2: [
     "Attack The Blade. Purple portals fire across their rows 4 ticks after lighting; stand where the two orange gaps cross (green tiles).",
+    "The gaps aren't random: each round runs one of three set patterns (orange, red, green), and after the first they come in that order. Learn each pattern's first gap and you know the round; \"Phase 2 patterns\" numbers every wave's safe spot in its pattern's colour.",
     "When pools appear, step on the orange floor portal before all twelve fire.",
     "The skip (\"Phase 2 skip tiles\"): wait on the outer pink tile, 6 out diagonally, and click the inner one, 4 out, one tick before each volley. Running through the wave dodges it.",
   ],
@@ -550,6 +553,21 @@ function FullFightSidebar({ params, region, stage, clock, loadouts }: Readonly<{
           <label>
             Community markers
             <input id="video_markers" type="checkbox" checked={draft.videoMarkers} onChange={(event) => set({ videoMarkers: event.target.checked })} />
+          </label>
+          <label>
+            Phase 2 patterns
+            <small>Number each wave's safe spot</small>
+            <input
+              id="pattern_markers"
+              type="checkbox"
+              checked={draft.patternMarkers}
+              onChange={(event) => {
+                const on = event.target.checked;
+                set({ patternMarkers: on });
+                region.setPatternMarkers(on);
+                rememberFlag("pattern", on);
+              }}
+            />
           </label>
         </>
       }
