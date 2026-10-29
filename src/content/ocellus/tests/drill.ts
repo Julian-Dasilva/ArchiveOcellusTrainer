@@ -1,8 +1,7 @@
-import { Projectile, Settings, TrainerInstance, Viewport, loadoutIds, parseLoadout } from "osrs-sdk";
-import type { CatalogLoadout, Mob, Player, Unit, World } from "osrs-sdk";
-import { OCELLUS_LOADOUTS } from "../js/OcellusLoadout";
+import { Projectile, Settings, TrainerInstance, Viewport } from "osrs-sdk";
+import type { Mob, Player, Unit, World } from "osrs-sdk";
 import { OcellusRegion } from "../js/OcellusRegion";
-import type { DrillConfig, DrillSelection, StartWeapon } from "../js/OcellusTimings";
+import type { DrillSelection } from "../js/OcellusTimings";
 import { OCELLUS_P4, parseDrillRequest } from "../js/OcellusTimings";
 import type { Style } from "../../../sim/combat";
 import type { FightEvent, TickRow } from "../js/P4Types";
@@ -40,22 +39,6 @@ export async function clickTile(world: World, on: At, modifiers: Readonly<{ ctrl
   await new Promise((queued) => setTimeout(queued, Settings.inputDelay));
 }
 
-const SARADOMIN_BREW = 6685;
-const DRILL_START: Readonly<Record<DrillConfig["choices"]["setup"]["key"], StartWeapon>> = { ranged: "twistedBow", melee: "melee" };
-
-/** The raid preset started by the drill's setup, with a Saradomin brew in the slot where the full fight carries the blowpipe. */
-function drillLoadout(config: DrillConfig): CatalogLoadout {
-  const preset = OCELLUS_LOADOUTS.presets.find(({ id }) => id === OCELLUS_LOADOUTS.defaultPreset);
-  if (!preset) throw new Error("the Ocellus loadouts have no default preset");
-  const ids = loadoutIds(preset.loadout);
-  const blowpipe = OCELLUS_P4.gear.blowpipe.value.itemId;
-  const parsed = parseLoadout(OCELLUS_LOADOUTS.catalog, { ...ids, inventory: ids.inventory.map((id) => (id === blowpipe ? SARADOMIN_BREW : id)) });
-  if (parsed.kind === "refused") throw new Error(`the drill loadout is refused: ${JSON.stringify(parsed.rejections)}`);
-  const started = OCELLUS_LOADOUTS.start({ preset, loadout: parsed.loadout }, DRILL_START[config.choices.setup.key]);
-  if (started.kind === "refused") throw new Error(`the drill loadout cannot start: ${JSON.stringify(started.rejections)}`);
-  return started.loadout;
-}
-
 export function startDrill(options: DrillOptions = {}) {
   Settings.readFromStorage();
   const link = new URL("http://localhost/");
@@ -66,7 +49,7 @@ export function startDrill(options: DrillOptions = {}) {
     throw new Error(`the drill link has no usable seed: ${link.search}`);
   });
   if (rejected.length > 0) throw new Error(`the drill link has options the trainer rejects: ${rejected.join(", ")}`);
-  const region = new OcellusRegion(config, drillLoadout(config));
+  const region = new OcellusRegion(config);
   const trainer = new TrainerInstance(region);
   trainer.mount(document.createElement("canvas"), document.createElement("div"));
   // The world tick after the last held one ends GET READY and is the boss's first step, P4 tick 0.
