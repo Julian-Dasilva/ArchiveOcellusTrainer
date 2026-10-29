@@ -105,4 +105,26 @@ describe("chat above a closed side panel", () => {
     expect({ lifted, dropped: page.corner.style.bottom }).toEqual({ lifted: "327px", dropped: "76px" });
     page.close();
   });
+
+  test("fixed mode puts the chat lines inside the frame's chatbox, scaled with the frame", async () => {
+    stubOffsetParent();
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      if (this.id === "play") return rect(0, 0, 1550, 1050);
+      if (this.id === "world") return rect(10, 20, 1540, 1026);
+      if (this.id === "hud_corner") return rect(28, 900, 300, 962);
+      return new DOMRect();
+    });
+    const { sdk, keep } = await placeOn(DESKTOP);
+    sdk.Settings.fixedMode = true;
+    const page = mount("Ocellus manipulates your lifeforce!", keep);
+    const { left, bottom, fontSize } = page.corner.style;
+    const fixed = { left, bottom, fontSize, inChatbox: page.corner.classList.contains("fixed_chatbox") };
+    sdk.Settings.fixedMode = false;
+    act(() => window.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })));
+    expect({ fixed, resizable: { left: page.corner.style.left, inChatbox: page.corner.classList.contains("fixed_chatbox") } }).toEqual({
+      fixed: { left: "28px", bottom: "88px", fontSize: "24px", inChatbox: true },
+      resizable: { left: "", inChatbox: false },
+    });
+    page.close();
+  });
 });
