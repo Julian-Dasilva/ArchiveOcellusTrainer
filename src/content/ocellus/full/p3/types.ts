@@ -21,6 +21,7 @@ export type P3Cause =
   | Readonly<{ kind: "superior-slash" }>
   | Readonly<{ kind: "rift-detonation" }>
   | Readonly<{ kind: "rift-heal" }>
+  | Readonly<{ kind: "siphon-kill" }>
   | Readonly<{ kind: "void-patch" }>
   | Readonly<{ kind: "untether-magic" }>
   | Readonly<{ kind: "slam" }>

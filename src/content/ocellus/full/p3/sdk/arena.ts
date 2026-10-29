@@ -31,6 +31,10 @@ class SpawnedAdd implements Add {
   remove(): void {
     this.unit.remove();
   }
+
+  detonate(): void {
+    this.unit.detonate();
+  }
 }
 
 /** The SDK's player as phase 3 moves and buffs them. A forced move glides through the SDK's own path interpolation. */
