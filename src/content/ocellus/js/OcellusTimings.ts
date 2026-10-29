@@ -274,6 +274,7 @@ export type TierRecipe = Readonly<{
   inventory: readonly TierSlot[];
   starts: TierStarts;
 }>;
+export type SupplyStockRecipe = readonly Readonly<{ item: Selected<TierItem>; quantity: number }>[];
 type WornSet = Readonly<Record<Exclude<EquipmentSlot, "offhand">, string>>;
 type BlowpipeRecipe = Readonly<{
   itemId: number;
@@ -298,6 +299,7 @@ type GearRecipe = Readonly<{
   loadout: Selected<LoadoutIds>;
   starts: Selected<TierStarts>;
   tiers: Readonly<Record<Exclude<Tier, "raid">, Selected<TierRecipe>>>;
+  allianceSupplies: Selected<SupplyStockRecipe>;
   twistedBow: Selected<StanceSpeeds<TwistedBow["attackSpeed"]>>;
   ralos: Selected<StanceSpeeds & Readonly<{ range: number; longrangeRange: number; hits: number; hitMaxFraction: number }>>;
   division: Selected<Readonly<{ energy: number; accuracyFactor: number; defenceDrainOfMagic: number }>>;
@@ -1022,6 +1024,15 @@ const TIER_ITEMS = {
   superCombatPotion: tierItem(12695, "Super combat potion", "simulated", "Super_combat_potion", 15281186),
   superRestore: tierItem(3024, "Super restore", "simulated", "Super_restore", 15183989),
   saradominBrew: tierItem(6685, "Saradomin brew", "simulated", "Saradomin_brew", 15322175),
+  allianceLog: tierItem(34729, "Alliance log", "no-item-class", "Alliance_log", 15383767),
+  leftovers: tierItem(34730, "Leftovers", "no-item-class", "Leftovers", 15383841),
+  prayerPotion4: tierItem(2434, "Prayer potion(4)", "no-item-class", "Prayer_potion", 15374387),
+  prayerPotion2: tierItem(141, "Prayer potion(2)", "no-item-class", "Prayer_potion", 15374387),
+  rangingPotion2: tierItem(171, "Ranging potion(2)", "no-item-class", "Ranging_potion", 15293943),
+  superCombatPotion2: tierItem(12699, "Super combat potion(2)", "no-item-class", "Super_combat_potion", 15281186, "infobox item id; the SDK builds only the 4-dose potion, 12695"),
+  mantaRay: tierItem(391, "Manta ray", "no-item-class", "Manta_ray", 15184402),
+  halibut: tierItem(32336, "Halibut", "no-item-class", "Halibut", 15352002),
+  giantKrill: tierItem(32312, "Giant krill", "no-item-class", "Giant_krill", 15351996),
   sanfewSerum: tierItem(10925, "Sanfew serum", "no-item-class", "Sanfew_serum", 15236706),
   divineRunePouch: tierItem(27281, "Divine rune pouch", "no-item-class", "Divine_rune_pouch", 15359154),
 } as const satisfies Readonly<Record<string, Selected<TierItem>>>;
@@ -1194,6 +1205,25 @@ const GEAR: GearRecipe = {
     owner("tbow start in hand or blowpipe start or melee start with tbow as default", "2026-10-28"),
   ),
   tiers: TIERS_GEAR,
+  allianceSupplies: selected<SupplyStockRecipe>(
+    [
+      { item: I.allianceLog, quantity: 1 },
+      { item: I.leftovers, quantity: 1 },
+      { item: I.saradominBrew, quantity: 6 },
+      { item: I.superRestore, quantity: 4 },
+      { item: I.prayerPotion4, quantity: 4 },
+      { item: I.prayerPotion2, quantity: 1 },
+      { item: I.rangingPotion2, quantity: 1 },
+      { item: I.superCombatPotion2, quantity: 1 },
+      { item: I.mantaRay, quantity: 10 },
+      { item: I.halibut, quantity: 5 },
+      { item: I.giantKrill, quantity: 10 },
+    ],
+    "spec-single",
+    "unscaled",
+    "the Quartermaster's Alliance Supplies stock, in the shop's order; the wiki gives no prices, so each stocked item is a cap per player on top of the tier's own carried supplies, and whether the raid shares the stock across the team is not stated",
+    wiki(`${OSRS_WIKI}Alliance_Supplies`, 15378420),
+  ),
   twistedBow: selected({ rapidSpeed: 5, otherSpeed: 6 }, "spec-single", "unscaled", "attack speed by stance: 5 ticks on Rapid, 6 on Accurate and Longrange", TWISTED_BOW_PAGE),
   ralos: selected({ rapidSpeed: span(6), otherSpeed: span(7), range: 7, longrangeRange: 9, hits: 2, hitMaxFraction: 0.75 }, "spec-single", "unscaled", "charged, one-handed thrown: two independent hits, each 0 to 75% of the max ranged hit", RALOS_PAGE),
   division: selected({ energy: 50, accuracyFactor: 1.5, defenceDrainOfMagic: 0.125 }, "spec-single", "unscaled", "+50% accuracy; each hit that deals damage lowers Defence by 12.5% of Magic (10% before 2026-07-22) and, on NPCs, before the second roll; the drain applies as each glaive lands, so a hit the target rejects drains nothing (inferred); rounding not stated, floored (inferred)", RALOS_PAGE),

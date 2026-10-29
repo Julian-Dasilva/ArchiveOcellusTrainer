@@ -517,6 +517,31 @@ describe("full fight pause", () => {
     });
   });
 
+  test("Loadout pauses a live run and opens the editor, and Resume closes it", async () => {
+    const page = loadFullFight("/?mode=full&phase=1&seed=1&practice=1");
+    try {
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      page.click("start");
+      play(fightRegion(), 2 * TICK_MS + FRAME_MS);
+      page.click("loadout");
+      play(fightRegion(), 10_000);
+      const opened = { ...gate(), editor: document.getElementById("loadout_editor") !== null };
+      act(() => document.getElementById("resume")?.click());
+      play(fightRegion(), TICK_MS + FRAME_MS);
+      const resumed = { ...gate(), editor: document.getElementById("loadout_editor") !== null };
+
+      expect({ opened: { resume: opened.resume, held: opened.held, world: opened.world, editor: opened.editor }, resumed: { held: resumed.held, world: resumed.world, editor: resumed.editor } }).toEqual({
+        opened: { resume: "Resume (P)", held: true, world: 2, editor: true },
+        resumed: { held: false, world: 3, editor: false },
+      });
+    } finally {
+      page.close();
+    }
+  });
+
   test("pause after the third fall holds phase 4 on that tick", async () => {
     const page = loadFullFight("/?mode=full&phase=3&seed=1&practice=1");
     await act(async () => {
@@ -599,3 +624,251 @@ function fightRegion(): FightRegion {
   if (!(region instanceof FightRegion)) throw new Error("the trainer is not the full fight");
   return region;
 }
+
+const LOADOUTS_KEY = "osrs-sdk:loadouts:archive-ocellus";
+const MAX_WORN = { ammo: 33595, cape: 21295, chest: 24420, feet: 31097, gloves: null, helmet: 24419, legs: 24421, necklace: 29801, offhand: null, ring: 25485, weapon: 28922 };
+const MAX_BAG = [null, 26235, null, 27235, 33639, 27238, 27241, null, 12926, 20997, null, null, null, null, null, 12695, null, null, 3024, 3024, 6685, 6685, 3024, 3024, 6685, 6685, null, null];
+const withBag = (changes: Readonly<Record<number, number | null>>) => MAX_BAG.map((id, index) => (index in changes ? changes[index] : id));
+const savedMax = (edit: unknown, version = 1) => JSON.stringify({ version, values: { selected: "max", edits: { max: edit } } });
+
+describe("the loadout editor", () => {
+  beforeEach(() => {
+    localStorage.removeItem("osrs-sdk:settings");
+    localStorage.removeItem(LOADOUTS_KEY);
+    window.name = "";
+  });
+
+  const id = (item: { cacheItemId?: unknown } | null | undefined) => (typeof item?.cacheItemId === "number" ? item.cacheItemId : null);
+  const dressedBag = () => fightRegion().players[0]?.inventory.map(id) ?? [];
+  const editorText = () => [...document.querySelectorAll("#loadout_editor [role=status], #loadout_editor [role=alert]")].map((line) => line.textContent);
+  const editorButton = (label: string) => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>("#loadout_editor button")].find((candidate) => candidate.textContent === label || candidate.getAttribute("aria-label") === label);
+    if (!button) throw new Error(`the editor has no ${label} button`);
+    act(() => button.click());
+  };
+  const presetOption = () => document.querySelector<HTMLSelectElement>("#loadout_editor select")?.selectedOptions[0]?.text ?? null;
+
+  test("Apply saves the tier's edit and restarts on the same seed, and the reloaded run wears, carries and logs the edit", () => {
+    const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
+    page.click("loadout");
+    const before = presetOption();
+    editorButton("Take Saradomin Brew");
+    const marked = presetOption();
+    const navigation = captureAssign();
+    editorButton("Apply");
+    const assigned = navigation.assigned;
+    navigation.restore();
+    const stored: unknown = JSON.parse(localStorage.getItem(LOADOUTS_KEY) ?? "null");
+    page.close();
+
+    const reloaded = loadFullFight(assigned[0] ?? "/");
+    const bag = dressedBag();
+    const header = window.__archiveOcellusProbe?.log().header.loadout;
+    reloaded.close();
+
+    expect({ before, marked, assigned, stored, bag, header }).toEqual({
+      before: "Max",
+      marked: "Max (edited)",
+      assigned: ["http://localhost/?seed=1&tier=max&weapon=ralos&phase=4&drained=0&tiles=1&markers=0&skip=0&vine=1&practice=0"],
+      stored: { version: 1, values: { selected: "max", edits: { max: { presetRevision: 1, loadout: { equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) } } } } },
+      bag: withBag({ 0: 6685 }),
+      header: { preset: "max", edited: true, equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) },
+    });
+  });
+
+  test.each([
+    { row: "an unknown id", edit: { equipment: MAX_WORN, inventory: withBag({ 0: 99999 }) }, reason: "Your Max edit uses 1 item this version doesn't have (inventory slot 1)" },
+    { row: "a worn item in a slot it no longer fits", edit: { equipment: { ...MAX_WORN, helmet: 20997 }, inventory: MAX_BAG }, reason: "Your Max edit wears 1 item in a slot that no longer fits (helmet slot)" },
+    { row: "a bag that is not 28 slots", edit: { equipment: MAX_WORN, inventory: MAX_BAG.slice(1) }, reason: "Your Max edit could not be read (inventory has 27 slots, expected 28)" },
+    { row: "more supplies than the tier and the shop allow", edit: { equipment: MAX_WORN, inventory: withBag({ 0: 6685, 2: 6685, 7: 6685, 10: 6685, 11: 6685, 12: 6685, 13: 6685 }) }, reason: "Your Max edit carries more than the supplies allow (Saradomin Brew 11 of 10)" },
+    { row: "more of a supply the shop does not stock than the tier carries", edit: { equipment: MAX_WORN, inventory: Array<number>(28).fill(12695) }, reason: "Your Max edit carries more than the supplies allow (Super combat potion 28 of 1)" },
+  ])("a saved edit with $row starts on the preset, names why with Reset, and stays stored until Reset", ({ edit, reason }) => {
+    const raw = savedMax({ presetRevision: 1, loadout: edit });
+    localStorage.setItem(LOADOUTS_KEY, raw);
+    const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
+    const bag = dressedBag();
+    const note = document.getElementById("loadout_note")?.textContent ?? null;
+    page.click("loadout");
+    const reasons = editorText();
+    const navigation = captureAssign();
+    editorButton("Apply");
+    navigation.restore();
+    const keptThroughApply = localStorage.getItem(LOADOUTS_KEY) === raw;
+    editorButton("Reset");
+    const afterReset = { edits: JSON.parse(localStorage.getItem(LOADOUTS_KEY) ?? "null")?.values.edits, note: document.getElementById("loadout_note"), reasons: editorText() };
+    page.close();
+
+    expect({ bag, note, reasons, keptThroughApply, afterReset }).toEqual({
+      bag: MAX_BAG,
+      note: "Your Max edit can't load, so the run starts on the preset. Open Loadout to see why.",
+      reasons: [reason],
+      keptThroughApply: true,
+      afterReset: { edits: {}, note: null, reasons: [] },
+    });
+  });
+
+  test("an edit of an older tier revision still starts the run, says the tier changed, and Reset returns to the tier", () => {
+    localStorage.setItem(LOADOUTS_KEY, savedMax({ presetRevision: 0, loadout: { equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) } }));
+    const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
+    const bag = dressedBag();
+    page.click("loadout");
+    const notices = editorText();
+    editorButton("Reset");
+    const after = { edits: JSON.parse(localStorage.getItem(LOADOUTS_KEY) ?? "null")?.values.edits, notices: editorText(), option: presetOption() };
+    page.close();
+
+    expect({ bag, notices, after }).toEqual({
+      bag: withBag({ 0: 6685 }),
+      notices: ["This tier changed since you edited it"],
+      after: { edits: {}, notices: [], option: "Max" },
+    });
+  });
+
+  test.each([
+    { row: "unparseable JSON", raw: '{"version":1,"values":{"selected":"max"', warned: true },
+    { row: "a newer version", raw: JSON.stringify({ version: 2, values: { tiers: { max: { slots: [] } } } }), warned: false },
+  ])("$row starts every tier on its preset and is never overwritten by loading or choosing a tier", ({ raw, warned }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    localStorage.setItem(LOADOUTS_KEY, raw);
+    const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
+    const bag = dressedBag();
+    act(() => {
+      const select = page.element("start_tier");
+      if (!(select instanceof HTMLSelectElement)) throw new Error("the tier is not a select");
+      select.value = "high";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    page.click("loadout");
+    const shown = { option: presetOption(), notices: editorText(), note: document.getElementById("loadout_note") };
+    const warnings = warn.mock.calls.some(([message]) => String(message).includes(LOADOUTS_KEY));
+    page.close();
+    warn.mockRestore();
+
+    expect({ bag, shown, warnings, kept: localStorage.getItem(LOADOUTS_KEY) }).toEqual({
+      bag: MAX_BAG,
+      shown: { option: "High", notices: [], note: null },
+      warnings: warned,
+      kept: raw,
+    });
+  });
+
+  test("storage the browser refuses still runs the tier, says edits won't be kept, and Apply's edit starts the next run in this tab", () => {
+    const own = Object.getOwnPropertyDescriptor(window, "localStorage");
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get: () => {
+        throw new DOMException("The operation is insecure.", "SecurityError");
+      },
+    });
+    try {
+      const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
+      const bag = dressedBag();
+      page.click("loadout");
+      editorButton("Take Saradomin Brew");
+      const notices = editorText();
+      const navigation = captureAssign();
+      editorButton("Apply");
+      const assigned = navigation.assigned;
+      navigation.restore();
+      page.close();
+      const restarted = loadFullFight(assigned[0] ?? "/");
+      const header = window.__archiveOcellusProbe?.log().header.loadout;
+      restarted.close();
+
+      expect({ bag, notices, restarted: { edited: header?.edited, bag: header?.inventory } }).toEqual({
+        bag: MAX_BAG,
+        notices: ["This browser is not saving data, so edits won't be kept"],
+        restarted: { edited: true, bag: withBag({ 0: 6685 }) },
+      });
+    } finally {
+      if (own) Object.defineProperty(window, "localStorage", own);
+      else Reflect.deleteProperty(window, "localStorage");
+    }
+  });
+
+  test("an open editor keeps the Max draft across a trip to High and back", () => {
+    const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
+    page.click("loadout");
+    editorButton("Take Saradomin Brew");
+    const choose = (tier: string) =>
+      act(() => {
+        const select = document.querySelector<HTMLSelectElement>("#loadout_editor select");
+        if (!select) throw new Error("the editor has no tier select");
+        select.value = tier;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    const firstSlot = () => document.querySelector('#loadout_editor [aria-label="Inventory slot 1"] img')?.getAttribute("alt") ?? null;
+    choose("high");
+    const high = { option: presetOption(), first: firstSlot() };
+    choose("max");
+    const max = { option: presetOption(), first: firstSlot() };
+    page.close();
+
+    expect({ high, max }).toEqual({ high: { option: "High", first: null }, max: { option: "Max (edited)", first: "Saradomin Brew" } });
+  });
+
+  test("loading, opening the editor, an unchanged Apply, choosing a tier and an untouched Reset write nothing, and a save keeps the stored value's other fields", () => {
+    const raw = JSON.stringify({ version: 1, values: { selected: "raid", edits: {}, note: "kept" }, extension: "kept" }, null, 2);
+    localStorage.setItem(LOADOUTS_KEY, raw);
+    const writes = vi.spyOn(Storage.prototype, "setItem");
+    const written = () => writes.mock.calls.filter(([key]) => key === LOADOUTS_KEY).length;
+    const navigation = captureAssign();
+    try {
+      const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
+      const steps: Record<string, number> = { loaded: written() };
+      page.click("loadout");
+      steps.opened = written();
+      editorButton("Apply");
+      steps.unchangedApply = written();
+      act(() => {
+        const select = document.querySelector<HTMLSelectElement>("#loadout_editor select");
+        if (!select) throw new Error("the editor has no tier select");
+        select.value = "high";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      steps.choseTier = written();
+      editorButton("Reset");
+      steps.untouchedReset = written();
+      const untouched = localStorage.getItem(LOADOUTS_KEY);
+      editorButton("Take Saradomin Brew");
+      editorButton("Apply");
+      const saved: unknown = JSON.parse(localStorage.getItem(LOADOUTS_KEY) ?? "null");
+      page.close();
+
+      expect({ steps, untouched, saved }).toEqual({
+        steps: { loaded: 0, opened: 0, unchangedApply: 0, choseTier: 0, untouchedReset: 0 },
+        untouched: raw,
+        saved: {
+          version: 1,
+          values: { selected: "raid", note: "kept", edits: { high: { presetRevision: 1, loadout: expect.objectContaining({ inventory: expect.arrayContaining([6685]) }) } } },
+          extension: "kept",
+        },
+      });
+    } finally {
+      navigation.restore();
+      writes.mockRestore();
+    }
+  });
+
+  test("Start with lists only the tier's starts the edit can make, and none means the run starts as worn", () => {
+    const listed = (edit: unknown) => {
+      localStorage.setItem(LOADOUTS_KEY, savedMax({ presetRevision: 1, loadout: edit }));
+      const page = loadFullFight("/?seed=1&tier=max&weapon=twistedBow");
+      const select = page.element("start_weapon");
+      const shown = {
+        starts: select instanceof HTMLSelectElement ? [...select.options].map((option) => option.text) : [],
+        weapon: id(fightRegion().players[0]?.equipment.weapon),
+      };
+      page.close();
+      return shown;
+    };
+
+    expect({
+      noBows: listed({ equipment: MAX_WORN, inventory: withBag({ 8: null, 9: null }) }),
+      nothingToStart: listed({ equipment: { ...MAX_WORN, weapon: null }, inventory: withBag({ 8: null, 9: null }) }),
+    }).toEqual({
+      noBows: { starts: ["Tonalztics of Ralos (Inquisitor's)"], weapon: 28922 },
+      nothingToStart: { starts: ["As worn"], weapon: null },
+    });
+  });
+});

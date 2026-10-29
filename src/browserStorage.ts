@@ -1,3 +1,59 @@
+export type SavedStorage = Pick<Storage, "getItem" | "setItem"> & Readonly<{ kept(): boolean }>;
+
+const TAB_KEY = "archive-ocellus:tab-storage";
+
+function tabValues(): Map<string, string> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(window.name);
+  } catch {
+    return new Map();
+  }
+  const values: unknown = typeof parsed === "object" && parsed !== null && TAB_KEY in parsed ? parsed[TAB_KEY] : null;
+  if (typeof values !== "object" || values === null) return new Map();
+  return new Map(Object.entries(values).flatMap(([key, value]) => (typeof value === "string" ? [[key, value] as const] : [])));
+}
+
+function writeTab(values: ReadonlyMap<string, string>): void {
+  window.name = values.size === 0 ? "" : JSON.stringify({ [TAB_KEY]: Object.fromEntries(values) });
+}
+
+// window.name outlives the page's own reloads and navigations in this tab, and needs no Web Storage.
+class TabStorage implements SavedStorage {
+  readonly #trusted: Storage | null;
+
+  constructor(trusted: Storage | null) {
+    this.#trusted = trusted;
+  }
+
+  kept(): boolean {
+    return this.#trusted !== null && tabValues().size === 0;
+  }
+
+  getItem(key: string): string | null {
+    const tabbed = tabValues().get(key);
+    if (tabbed !== undefined) return tabbed;
+    try {
+      return this.#trusted?.getItem(key) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  setItem(key: string, value: string): void {
+    const tab = tabValues();
+    try {
+      if (this.#trusted) {
+        this.#trusted.setItem(key, value);
+        tab.delete(key);
+        writeTab(tab);
+        return;
+      }
+    } catch {}
+    writeTab(tab.set(key, value));
+  }
+}
+
 class PageStorage implements Storage {
   [name: string]: unknown;
   readonly #trusted: Storage | null;
@@ -43,6 +99,10 @@ class PageStorage implements Storage {
     this.#unsaved.set(key, value);
   }
 
+  saved(): SavedStorage {
+    return new TabStorage(this.#trusted);
+  }
+
   #keys(): string[] {
     const keys = new Set<string>();
     const trusted = this.#trusted;
@@ -73,8 +133,10 @@ function trustedStorage(): Storage | null {
 }
 
 // The SDK reads and writes window.localStorage without a guard, so storage the browser refuses or has no room left in would throw inside it.
-export function keepStorageUsable(): void {
+export function keepStorageUsable(): SavedStorage {
   const storage = trustedStorage();
-  if (storage instanceof PageStorage) return;
-  Object.defineProperty(window, "localStorage", { configurable: true, value: new PageStorage(storage) });
+  if (storage instanceof PageStorage) return storage.saved();
+  const page = new PageStorage(storage);
+  Object.defineProperty(window, "localStorage", { configurable: true, value: page });
+  return page.saved();
 }

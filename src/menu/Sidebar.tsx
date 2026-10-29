@@ -139,6 +139,10 @@ html.phone-overlay #policy_footer { position: relative; z-index: 1002; }
 #sidebar ul { margin: 0; padding-left: 16px; color: #e8dcc0; font-size: 13px; line-height: 15px; }
 #sidebar li { margin-bottom: 5px; }
 #sidebar a { color: #ff981f; }
+#sidebar #loadout_note, #sidebar #loadout_editor small { font-size: 12px; color: #a89a78; }
+#sidebar #loadout_editor { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid #6b5b3e; background: #1b160f; }
+#sidebar #loadout_editor h3 { margin: 0; font-size: 15px; text-align: left; }
+#sidebar #loadout_editor p { margin: 0; font-size: 13px; color: #e8dcc0; }
 `;
 
 const SEEN_RELEASE_KEY = "archive-ocellus:seen-release";

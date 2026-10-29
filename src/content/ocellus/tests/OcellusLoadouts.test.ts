@@ -1,6 +1,6 @@
 import { Equipment, loadoutIds } from "osrs-sdk";
 import type { CatalogLoadout } from "osrs-sdk";
-import { OCELLUS_LOADOUTS, OCELLUS_PRESETS, startingLoadout } from "../js/OcellusLoadout";
+import { OCELLUS_LOADOUTS, OCELLUS_PRESETS, presetChoice, startingLoadout } from "../js/OcellusLoadout";
 import type { Tier } from "../js/OcellusTimings";
 import { TIERS } from "../js/OcellusTimings";
 
@@ -88,7 +88,7 @@ describe("Ocellus loadouts", () => {
   test("each tier starts with every weapon it offers in hand, unedited, holding the same items as its other starts", () => {
     const starts = Object.fromEntries(
       TIERS.map((tier) => {
-        const loadouts = OCELLUS_PRESETS[tier].starts.map(({ weapon, label }) => ({ label, started: startingLoadout(tier, weapon) }));
+        const loadouts = OCELLUS_PRESETS[tier].starts.map(({ weapon, label }) => ({ label, started: startingLoadout(presetChoice(tier), weapon) }));
         const items = heldItems(loadouts[0].started.loadout).join();
         return [tier, loadouts.map(({ label, started }) => ({ label, preset: started.preset, edited: started.edited, weapon: started.loadout.equipment.weapon?.id ?? null, sameItems: heldItems(started.loadout).join() === items }))];
       }),
@@ -103,7 +103,7 @@ describe("Ocellus loadouts", () => {
       low: [start("low", "Toxic blowpipe", 12926)],
       poor: [start("poor", "Toxic blowpipe", 12926)],
     });
-    expect(heldItems(startingLoadout("raid", "melee").loadout).length).toBe(38);
+    expect(heldItems(startingLoadout(presetChoice("raid"), "melee").loadout).length).toBe(38);
   });
 
   test("each tier names every item it leaves out", () => {
