@@ -18,7 +18,9 @@ no failure in that replay is evidence about the base's behaviour. A Vitest
 test that reads a top-level declaration of its own file, such as a fixture
 const or a helper, directly or through other such declarations, is not a
 control when the head changed that declaration: its input changed on
-purpose, so it is listed as NOT A CONTROL and not judged. That holds only
+purpose, so it is listed as NOT A CONTROL and not judged, provided it ran
+after the overlay: one that was skipped or has no result, for example because
+the file no longer collects on the base, is BROKEN. That holds only
 while the file's imports, hooks and other statements outside its tests and
 top-level declarations are identical at both revisions; when they differ,
 every test whose own source is unchanged stays a control. Vitest files
