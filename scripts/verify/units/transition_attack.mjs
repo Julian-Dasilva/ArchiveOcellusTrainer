@@ -23,7 +23,7 @@ export function judge({ read, bytes, env }) {
     const lengths = new Set(expected.map(([, samples]) => samples));
     return transitionAudio
       .filter((s) => s.rate === 22050 && s.tick !== null && lengths.has(s.samples) && JSON.parse(windows).some(([from, to]) => s.tick + s.phase >= from && s.tick + s.phase < to))
-      .map((s) => [Math.round((s.tick + s.phase) * 100) / 100, s.samples]);
+      .map((s) => [Math.round((s.tick + s.phase) * 100) / 100, s.samples, s.frameGapMs, s.heapChangeMB]);
   };
   const [landingExpected, styleExpected] = [timed(landingSounds), timed(styleSounds)];
   const prayedAt = (rows) => rows.find((row) => row.inputs.some((input) => input.kind === "prayer-published" && input.prayer === "magic"))?.tick ?? null;

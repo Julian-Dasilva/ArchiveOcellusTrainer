@@ -132,9 +132,20 @@
   // document.timeline holds the current frame's timestamp through its callbacks and their promise jobs, where the SDK starts frame sounds.
   clock.recordAudio = () => {
     const starts = (clock.audio = []), start = AudioBufferSourceNode.prototype.start;
+    const heapMB = () => (performance.memory ? performance.memory.usedJSHeapSize / 1048576 : null);
+    let seen = { at: null, heap: null }, before = seen;
+    const frame = (now) => {
+      requestAnimationFrame(frame);
+      if (now !== seen.at) [before, seen] = [seen, { at: now, heap: heapMB() }];
+    };
+    requestAnimationFrame(frame);
     AudioBufferSourceNode.prototype.start = function (...args) {
-      const now = document.timeline.currentTime, t = ticksAt(now).fight;
-      starts.push({ tick: t, phase: t === null ? null : Math.round(into("fight", t, now) * 100) / 100, samples: this.buffer?.length ?? null, rate: this.buffer?.sampleRate ?? null, state: this.context.state });
+      const now = document.timeline.currentTime, t = ticksAt(now).fight, previous = seen.at === now ? before : seen, heap = heapMB();
+      starts.push({
+        tick: t, phase: t === null ? null : Math.round(into("fight", t, now) * 100) / 100, samples: this.buffer?.length ?? null, rate: this.buffer?.sampleRate ?? null, state: this.context.state,
+        frameGapMs: previous.at === null ? null : Math.round(now - previous.at),
+        heapChangeMB: heap === null || previous.heap === null ? null : Math.round((heap - previous.heap) * 10) / 10,
+      });
       return start.apply(this, args);
     };
   };
