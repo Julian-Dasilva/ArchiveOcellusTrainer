@@ -97,44 +97,62 @@ function vitestFile(ts, file, text) {
   const checker = ts.createProgram([name], options, host).getTypeChecker();
 
   const bindings = new Map();
-  const statements = new Map();
+  const texts = new Map();
   const setup = [];
-  const bind = (binding, declaration, statement) => {
+  const bind = (binding, declaration, text) => {
     if (!ts.isIdentifier(binding)) {
-      for (const element of binding.elements) if (!ts.isOmittedExpression(element)) bind(element.name, element, statement);
+      for (const element of binding.elements) if (!ts.isOmittedExpression(element)) bind(element.name, element, text);
       return;
     }
     bindings.set(declaration, binding.text);
-    statements.set(binding.text, [...(statements.get(binding.text) ?? []), statement]);
+    texts.set(binding.text, [...(texts.get(binding.text) ?? []), text]);
   };
   for (const statement of source.statements) {
-    if (ts.isVariableStatement(statement)) for (const declaration of statement.declarationList.declarations) bind(declaration.name, declaration, statement);
-    else if ((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement) || ts.isEnumDeclaration(statement)) && statement.name) bind(statement.name, statement, statement);
-    else if (!ts.isTypeAliasDeclaration(statement) && !ts.isInterfaceDeclaration(statement)) setup.push(statement);
+    if (ts.isVariableStatement(statement)) {
+      const [first] = statement.declarationList.declarations;
+      const keyword = statement.getText(source).slice(0, first.getStart(source) - statement.getStart(source));
+      for (const declaration of statement.declarationList.declarations) bind(declaration.name, declaration, keyword + declaration.getText(source));
+    } else if ((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement) || ts.isEnumDeclaration(statement)) && statement.name) {
+      bind(statement.name, statement, statement.getText(source));
+    } else if (!ts.isTypeAliasDeclaration(statement) && !ts.isInterfaceDeclaration(statement)) {
+      setup.push(statement);
+    }
   }
 
-  const reads = (node) => {
+  const owner = (declaration) => {
+    let node = declaration;
+    while (ts.isBindingElement(node) || ts.isObjectBindingPattern(node) || ts.isArrayBindingPattern(node)) node = node.parent;
+    return ts.isVariableDeclaration(node) || ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node) || ts.isEnumDeclaration(node) ? node : null;
+  };
+  const assigned = (identifier) =>
+    ts.isBinaryExpression(identifier.parent) && identifier.parent.left === identifier && identifier.parent.operatorToken.kind === ts.SyntaxKind.EqualsToken;
+  const valueReads = (node) => {
     const found = new Set();
     const visit = (child) => {
-      if (ts.isIdentifier(child)) {
+      if (ts.isTypeNode(child) && !ts.isExpressionWithTypeArguments(child)) return;
+      if (ts.isIdentifier(child) && !assigned(child)) {
         const symbol = ts.isShorthandPropertyAssignment(child.parent) && child.parent.name === child ? checker.getShorthandAssignmentValueSymbol(child.parent) : checker.getSymbolAtLocation(child);
-        for (const declaration of symbol?.declarations ?? []) if (bindings.has(declaration)) found.add(bindings.get(declaration));
+        for (const declaration of symbol?.declarations ?? []) found.add(declaration);
       }
       ts.forEachChild(child, visit);
     };
     visit(node);
     return found;
   };
-  const transitiveReads = (node) => {
-    const found = new Set();
-    const pending = [...reads(node)];
+  const inputs = (test) => {
+    const names = new Set();
+    const seen = new Set([test]);
+    const pending = [test];
     while (pending.length > 0) {
-      const read = pending.pop();
-      if (found.has(read)) continue;
-      found.add(read);
-      for (const statement of statements.get(read)) pending.push(...reads(statement));
+      for (const declaration of valueReads(pending.pop())) {
+        if (bindings.has(declaration)) names.add(bindings.get(declaration));
+        const declared = owner(declaration);
+        if (declared === null || seen.has(declared)) continue;
+        seen.add(declared);
+        pending.push(declared);
+      }
     }
-    return [...found];
+    return [...names];
   };
 
   const callee = (node) =>
@@ -155,7 +173,7 @@ function vitestFile(ts, file, text) {
       return;
     }
     if (call?.kind === "test") {
-      tests.set([...titles, call.title].join(" > "), { source: node.getText(source), reads: transitiveReads(node) });
+      tests.set([...titles, call.title].join(" > "), { source: node.getText(source), reads: inputs(node) });
       return;
     }
     ts.forEachChild(node, (child) => visit(child, titles));
@@ -168,7 +186,7 @@ function vitestFile(ts, file, text) {
     if (call?.kind === "describe" && (ts.isArrowFunction(call.body) || ts.isFunctionExpression(call.body)) && ts.isBlock(call.body.body)) return call.body.body.statements.flatMap(setupText);
     return [statement.getText(source)];
   };
-  const declarations = new Map([...statements].map(([read, declared]) => [read, declared.map((statement) => statement.getText(source)).join("\n")]));
+  const declarations = new Map([...texts].map(([read, declared]) => [read, declared.join("\n")]));
   return { kind: "vitest", setup: setup.flatMap(setupText).join("\n"), declarations, tests };
 }
 
@@ -196,7 +214,7 @@ function runShell(worktree, suite) {
     const detail = output.slice(index + 1).filter((next) => /^\s+\S/.test(next)).slice(0, 2).map((next) => next.trim()).join(" / ");
     outcomes.set(match[2], { status: match[1] === "PASS" ? "pass" : "fail", detail });
   });
-  return outcomes;
+  return { error: "", tests: outcomes };
 }
 
 function runVitest(worktree, suites, report) {
@@ -204,16 +222,17 @@ function runVitest(worktree, suites, report) {
   if (!fs.existsSync(vitest)) throw new Undecidable(`no vitest at ${vitest}; install dependencies in the repository first`);
   const result = run(vitest, ["run", "--reporter=json", `--outputFile=${report}`, ...suites], worktree);
   if (result.error || !fs.existsSync(report)) throw new Undecidable(`vitest wrote no report: ${(result.error?.message || result.stderr || "").trim().split("\n").slice(-3).join(" ")}`);
-  const outcomes = new Map(suites.map((suite) => [suite, new Map()]));
+  const outcomes = new Map(suites.map((suite) => [suite, { error: "", tests: new Map() }]));
   const root = fs.realpathSync(worktree);
   for (const file of JSON.parse(fs.readFileSync(report, "utf8")).testResults) {
     const suite = path.relative(root, fs.realpathSync(file.name));
-    const tests = outcomes.get(suite) ?? new Map();
+    const tests = new Map();
     for (const test of file.assertionResults) {
       const detail = (test.failureMessages[0] ?? "").split("\n")[0];
-      tests.set([...test.ancestorTitles, test.title].join(" > "), { status: test.status === "passed" ? "pass" : "fail", detail });
+      const status = test.status === "passed" ? "pass" : test.status === "failed" ? "fail" : "skip";
+      tests.set([...test.ancestorTitles, test.title].join(" > "), { status, detail });
     }
-    outcomes.set(suite, tests);
+    outcomes.set(suite, { error: (file.message ?? "").split("\n")[0], tests });
   }
   return outcomes;
 }
@@ -222,7 +241,7 @@ function runSuites(worktree, suites, scratch, label) {
   const outcomes = new Map();
   const vitestSuites = suites.filter((suite) => !suite.endsWith(".sh"));
   if (vitestSuites.length > 0) {
-    for (const [suite, tests] of runVitest(worktree, vitestSuites, path.join(scratch, `${label}.json`))) outcomes.set(suite, tests);
+    for (const [suite, outcome] of runVitest(worktree, vitestSuites, path.join(scratch, `${label}.json`))) outcomes.set(suite, outcome);
   }
   for (const suite of suites.filter((file) => file.endsWith(".sh"))) outcomes.set(suite, runShell(worktree, suite));
   return outcomes;
@@ -277,17 +296,20 @@ function replay({ base: baseRevision, head: headRevision, repo }) {
     const changedInput = [];
     let controls = 0;
     for (const suite of suites) {
-      for (const [name, outcome] of native.get(suite) ?? new Map()) {
+      const overlaid = replayed.get(suite);
+      for (const [name, outcome] of native.get(suite)?.tests ?? new Map()) {
         if (outcome.status !== "pass") continue;
         const verdict = standing(sourceOf(base, suite), sourceOf(head, suite), name);
         if (verdict.kind === "changed") continue;
+        const after = overlaid?.tests.get(name);
+        const unrun = overlaid?.error || "no result after the overlay";
         if (verdict.kind === "changed-input") {
-          changedInput.push({ suite, name, declarations: verdict.declarations });
+          if (after === undefined || after.status === "skip") broken.push({ suite, name, detail: after ? "skipped after the overlay" : unrun });
+          else changedInput.push({ suite, name, declarations: verdict.declarations });
           continue;
         }
         controls++;
-        const after = replayed.get(suite)?.get(name);
-        if (after?.status !== "pass") broken.push({ suite, name, detail: after ? after.detail : "no result after the overlay" });
+        if (after?.status !== "pass") broken.push({ suite, name, detail: after ? after.detail : unrun });
       }
     }
     console.log(`replay-controls: base ${short(base)}, head ${short(head)}: ${suites.length} file(s) replayed, ${controls} unchanged control(s), ${changedInput.length} test(s) reading changed declarations`);

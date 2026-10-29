@@ -188,7 +188,7 @@
         },
         {
           "policy": "a test reads the declarations its declarations read",
-          "mutation": [{ "find": "      for (const statement of statements.get(read)) pending.push(...reads(statement));\n", "replace": "" }]
+          "mutation": [{ "find": "        pending.push(declared);\n", "replace": "" }]
         },
         {
           "policy": "only the declarations a test reads stop it being a control",
@@ -197,6 +197,26 @@
         {
           "policy": "a changed import, hook or top-level statement keeps every unchanged test a control",
           "mutation": [{ "find": "  if (base.setup !== head.setup) return CONTROL;\n", "replace": "" }]
+        },
+        {
+          "policy": "a test that reads a changed declaration but does not run after the overlay is broken",
+          "mutation": [{ "find": "after === undefined || after.status === \"skip\"", "replace": "false" }]
+        },
+        {
+          "policy": "each declarator of a statement is its own declaration",
+          "mutation": [{ "find": "bind(declaration.name, declaration, keyword + declaration.getText(source))", "replace": "bind(declaration.name, declaration, statement.getText(source))" }]
+        },
+        {
+          "policy": "a type position is not a read",
+          "mutation": [{ "find": "      if (ts.isTypeNode(child) && !ts.isExpressionWithTypeArguments(child)) return;\n", "replace": "" }]
+        },
+        {
+          "policy": "a plain assignment target is not a read",
+          "mutation": [{ "find": "ts.isIdentifier(child) && !assigned(child)", "replace": "ts.isIdentifier(child)" }]
+        },
+        {
+          "policy": "an unchanged describe-local binding passes on the declarations it reads",
+          "mutation": [{ "find": "        const declared = owner(declaration);\n", "replace": "        const declared = bindings.has(declaration) ? owner(declaration) : null;\n" }]
         }
       ]
     },
