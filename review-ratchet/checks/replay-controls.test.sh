@@ -6,7 +6,6 @@ FIXTURES="$(cd "$(dirname "$0")/../fixtures/replay-controls" && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-# shell-test-runs-entry.mjs credits a case's failure under a mutation only to an assertion after the case's ready line, so a case calls ready once its setup is done.
 fail() {
   printf 'ASSERTION FAILED: %s\n' "$*"
   exit 1
@@ -18,7 +17,6 @@ ready() {
 
 SUITE='src/sections.test.ts::sections'
 
-# Each row is name|fixture|variant|exit|lines. variant replaces the head's test file, and each ;-separated line must appear in the check's output.
 CASES="$(cat <<EOF
 shell_clean|clean||0|1 file(s) replayed, 1 unchanged control(s), 0 test(s) reading changed declarations
 shell_violation|violation||1|BROKEN scripts/drive.test.sh::walk_passes passes on the base but not after the overlay

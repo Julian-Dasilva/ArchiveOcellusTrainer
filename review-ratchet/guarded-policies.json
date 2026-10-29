@@ -179,6 +179,28 @@
       ]
     },
     {
+      "path": "review-ratchet/checks/replay-controls.mjs",
+      "tests": ["review-ratchet/checks/replay-controls.test.sh"],
+      "policies": [
+        {
+          "policy": "a test that reads a changed same-file declaration is not a control",
+          "mutation": [{ "find": "  return declarations.length > 0 ? { kind: \"changed-input\", declarations } : CONTROL;\n", "replace": "  return CONTROL;\n" }]
+        },
+        {
+          "policy": "a test reads the declarations its declarations read",
+          "mutation": [{ "find": "      for (const statement of statements.get(read)) pending.push(...reads(statement));\n", "replace": "" }]
+        },
+        {
+          "policy": "only the declarations a test reads stop it being a control",
+          "mutation": [{ "find": "[...new Set([...before.reads, ...after.reads])]", "replace": "[...new Set([...base.declarations.keys(), ...head.declarations.keys()])]" }]
+        },
+        {
+          "policy": "a changed import, hook or top-level statement keeps every unchanged test a control",
+          "mutation": [{ "find": "  if (base.setup !== head.setup) return CONTROL;\n", "replace": "" }]
+        }
+      ]
+    },
+    {
       "path": "scripts/verify/judge.mjs",
       "tests": ["scripts/verify/verdicts.test.sh"],
       "policies": [

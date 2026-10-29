@@ -14,7 +14,14 @@ test support (files under a test/ or tests/ directory), and runs them again.
 A control is a test whose own source is identical at both revisions and that
 passed on the base before the overlay. A control that fails after the
 overlay shows that the head's test code itself does not run on the base, so
-no failure in that replay is evidence about the base's behaviour. Vitest files
+no failure in that replay is evidence about the base's behaviour. A Vitest
+test that reads a top-level declaration of its own file, such as a fixture
+const or a helper, directly or through other such declarations, is not a
+control when the head changed that declaration: its input changed on
+purpose, so it is listed as NOT A CONTROL and not judged. That holds only
+while the file's imports, hooks and other statements outside its tests and
+top-level declarations are identical at both revisions; when they differ,
+every test whose own source is unchanged stays a control. Vitest files
 report through their JSON reporter; *.test.sh files print PASS name or FAIL name.
 Each test run may take up to --timeout seconds (default 600).
 
@@ -24,6 +31,17 @@ revision, the worktree or a test runner cannot be used.
 
 const TEST_FILE = /\.test\.(?:[cm]?[jt]sx?|sh)$/;
 const SUPPORT = /(^|\/)tests?\//;
+const DESCRIBE = /^describe(\.(only|skip|concurrent))?$/;
+const TEST = /^(test|it)(\.(only|skip|concurrent))?$/;
+const CONTROL = { kind: "control" };
+const CHANGED = { kind: "changed" };
+
+/**
+ * @typedef {Readonly<{ source: string; reads: readonly string[] }>} VitestTest
+ * @typedef {Readonly<{ kind: "vitest"; setup: string; declarations: ReadonlyMap<string, string>; tests: ReadonlyMap<string, VitestTest> }
+ *   | { kind: "shell"; text: string }>} SuiteSource
+ * @typedef {Readonly<{ kind: "control" } | { kind: "changed" } | { kind: "changed-input"; declarations: readonly string[] }>} Standing
+ */
 
 class Undecidable extends Error {}
 
@@ -69,30 +87,102 @@ function shellSource(text, name) {
   return end < 0 ? null : lines.slice(start, end + 1).join("\n");
 }
 
-function vitestSources(ts, file, text) {
-  const kind = file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
-  const found = new Map();
+/** @returns {SuiteSource} */
+function vitestFile(ts, file, text) {
+  const name = file.endsWith("x") ? "/suite.tsx" : "/suite.ts";
+  const options = { noLib: true, noResolve: true, types: [] };
+  const source = ts.createSourceFile(name, text, ts.ScriptTarget.Latest, true, file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const host = ts.createCompilerHost(options);
+  host.getSourceFile = (requested) => (requested === name ? source : undefined);
+  const checker = ts.createProgram([name], options, host).getTypeChecker();
+
+  const bindings = new Map();
+  const statements = new Map();
+  const setup = [];
+  const bind = (binding, declaration, statement) => {
+    if (!ts.isIdentifier(binding)) {
+      for (const element of binding.elements) if (!ts.isOmittedExpression(element)) bind(element.name, element, statement);
+      return;
+    }
+    bindings.set(declaration, binding.text);
+    statements.set(binding.text, [...(statements.get(binding.text) ?? []), statement]);
+  };
+  for (const statement of source.statements) {
+    if (ts.isVariableStatement(statement)) for (const declaration of statement.declarationList.declarations) bind(declaration.name, declaration, statement);
+    else if ((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement) || ts.isEnumDeclaration(statement)) && statement.name) bind(statement.name, statement, statement);
+    else if (!ts.isTypeAliasDeclaration(statement) && !ts.isInterfaceDeclaration(statement)) setup.push(statement);
+  }
+
+  const reads = (node) => {
+    const found = new Set();
+    const visit = (child) => {
+      if (ts.isIdentifier(child)) {
+        const symbol = ts.isShorthandPropertyAssignment(child.parent) && child.parent.name === child ? checker.getShorthandAssignmentValueSymbol(child.parent) : checker.getSymbolAtLocation(child);
+        for (const declaration of symbol?.declarations ?? []) if (bindings.has(declaration)) found.add(bindings.get(declaration));
+      }
+      ts.forEachChild(child, visit);
+    };
+    visit(node);
+    return found;
+  };
+  const transitiveReads = (node) => {
+    const found = new Set();
+    const pending = [...reads(node)];
+    while (pending.length > 0) {
+      const read = pending.pop();
+      if (found.has(read)) continue;
+      found.add(read);
+      for (const statement of statements.get(read)) pending.push(...reads(statement));
+    }
+    return [...found];
+  };
+
   const callee = (node) =>
     ts.isIdentifier(node) ? node.text : ts.isPropertyAccessExpression(node) ? `${callee(node.expression)}.${node.name.text}` : "";
+  const suiteCall = (node) => {
+    if (!ts.isCallExpression(node)) return null;
+    const [first, body] = node.arguments;
+    if (!body || !first || !(ts.isStringLiteral(first) || ts.isNoSubstitutionTemplateLiteral(first))) return null;
+    const name = callee(node.expression);
+    return DESCRIBE.test(name) ? { kind: "describe", title: first.text, body } : TEST.test(name) ? { kind: "test", title: first.text, body } : null;
+  };
+
+  const tests = new Map();
   const visit = (node, titles) => {
-    if (ts.isCallExpression(node)) {
-      const [first, body] = node.arguments;
-      const title = first && (ts.isStringLiteral(first) || ts.isNoSubstitutionTemplateLiteral(first)) ? first.text : null;
-      const name = callee(node.expression);
-      if (title !== null && body && /^describe(\.(only|skip|concurrent))?$/.test(name)) {
-        ts.forEachChild(body, (child) => visit(child, [...titles, title]));
-        return;
-      }
-      if (title !== null && body && /^(test|it)(\.(only|skip|concurrent))?$/.test(name)) {
-        found.set([...titles, title].join(" > "), node.getText(source));
-        return;
-      }
+    const call = suiteCall(node);
+    if (call?.kind === "describe") {
+      ts.forEachChild(call.body, (child) => visit(child, [...titles, call.title]));
+      return;
+    }
+    if (call?.kind === "test") {
+      tests.set([...titles, call.title].join(" > "), { source: node.getText(source), reads: transitiveReads(node) });
+      return;
     }
     ts.forEachChild(node, (child) => visit(child, titles));
   };
   visit(source, []);
-  return found;
+
+  const setupText = (statement) => {
+    const call = ts.isExpressionStatement(statement) ? suiteCall(statement.expression) : null;
+    if (call?.kind === "test") return [];
+    if (call?.kind === "describe" && (ts.isArrowFunction(call.body) || ts.isFunctionExpression(call.body)) && ts.isBlock(call.body.body)) return call.body.body.statements.flatMap(setupText);
+    return [statement.getText(source)];
+  };
+  const declarations = new Map([...statements].map(([read, declared]) => [read, declared.map((statement) => statement.getText(source)).join("\n")]));
+  return { kind: "vitest", setup: setup.flatMap(setupText).join("\n"), declarations, tests };
+}
+
+/** @returns {Standing} */
+function standing(base, head, name) {
+  if (base.kind === "shell") {
+    const source = shellSource(base.text, name);
+    return source !== null && source === shellSource(head.text, name) ? CONTROL : CHANGED;
+  }
+  const [before, after] = [base.tests.get(name), head.tests.get(name)];
+  if (!before || !after || before.source !== after.source) return CHANGED;
+  if (base.setup !== head.setup) return CONTROL;
+  const declarations = [...new Set([...before.reads, ...after.reads])].filter((read) => base.declarations.get(read) !== head.declarations.get(read)).sort();
+  return declarations.length > 0 ? { kind: "changed-input", declarations } : CONTROL;
 }
 
 function runShell(worktree, suite) {
@@ -157,14 +247,13 @@ function replay({ base: baseRevision, head: headRevision, repo }) {
   }
 
   const sources = new Map();
-  const sourceOf = (revision, suite, name) => {
+  const sourceOf = (revision, suite) => {
     const key = `${revision}:${suite}`;
     if (!sources.has(key)) {
       const text = git(repo, ["show", key]);
-      sources.set(key, suite.endsWith(".sh") ? { shell: text } : { vitest: vitestSources(createRequire(import.meta.url)("typescript"), suite, text) });
+      sources.set(key, suite.endsWith(".sh") ? { kind: "shell", text } : vitestFile(createRequire(import.meta.url)("typescript"), suite, text));
     }
-    const parsed = sources.get(key);
-    return parsed.shell !== undefined ? shellSource(parsed.shell, name) : parsed.vitest.get(name) ?? null;
+    return sources.get(key);
   };
 
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "replay-controls."));
@@ -185,18 +274,24 @@ function replay({ base: baseRevision, head: headRevision, repo }) {
     const replayed = runSuites(worktree, suites, scratch, "replay");
 
     const broken = [];
+    const changedInput = [];
     let controls = 0;
     for (const suite of suites) {
       for (const [name, outcome] of native.get(suite) ?? new Map()) {
         if (outcome.status !== "pass") continue;
-        const source = sourceOf(base, suite, name);
-        if (source === null || source !== sourceOf(head, suite, name)) continue;
+        const verdict = standing(sourceOf(base, suite), sourceOf(head, suite), name);
+        if (verdict.kind === "changed") continue;
+        if (verdict.kind === "changed-input") {
+          changedInput.push({ suite, name, declarations: verdict.declarations });
+          continue;
+        }
         controls++;
         const after = replayed.get(suite)?.get(name);
         if (after?.status !== "pass") broken.push({ suite, name, detail: after ? after.detail : "no result after the overlay" });
       }
     }
-    console.log(`replay-controls: base ${short(base)}, head ${short(head)}: ${suites.length} file(s) replayed, ${controls} unchanged control(s)`);
+    console.log(`replay-controls: base ${short(base)}, head ${short(head)}: ${suites.length} file(s) replayed, ${controls} unchanged control(s), ${changedInput.length} test(s) reading changed declarations`);
+    for (const { suite, name, declarations } of changedInput) console.log(`NOT A CONTROL ${suite}::${name} reads ${declarations.join(", ")}, which the head changed`);
     for (const { suite, name, detail } of broken) console.log(`BROKEN ${suite}::${name} passes on the base but not after the overlay${detail ? `: ${detail}` : ""}`);
     if (broken.length === 0) return 0;
     console.log(`replay-controls: ${broken.length} control(s) broke, so the head's test code does not run on the base and failures in this replay are not evidence against it`);
