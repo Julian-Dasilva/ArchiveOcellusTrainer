@@ -204,11 +204,11 @@
       "policies": [
         {
           "policy": "an acknowledged control that fails after the overlay is not broken",
-          "mutation": [{ "find": "} else if (acknowledged.has(test) && after?.status === \"fail\" && after.error === \"\") {", "replace": "} else if (false) {" }]
+          "mutation": [{ "find": "} else if (acknowledgement && after?.status === \"fail\" && !after.fileFailed) {", "replace": "} else if (false) {" }]
         },
         {
           "policy": "an acknowledged control that passes after the overlay is stale",
-          "mutation": [{ "find": "if (acknowledged.has(test)) passing.push(", "replace": "if (false) passing.push(" }]
+          "mutation": [{ "find": "if (acknowledgement) passing.push(", "replace": "if (false) passing.push(" }]
         },
         {
           "policy": "an acknowledgement that names no control of a replayed file is stale",
@@ -216,11 +216,11 @@
         },
         {
           "policy": "an acknowledged control with no failed result after the overlay is broken",
-          "mutation": [{ "find": "acknowledged.has(test) && after?.status === \"fail\" && ", "replace": "acknowledged.has(test) && " }]
+          "mutation": [{ "find": "acknowledgement && after?.status === \"fail\" && ", "replace": "acknowledgement && " }]
         },
         {
           "policy": "an acknowledged control in a file with an error outside its tests is broken",
-          "mutation": [{ "find": " && after.error === \"\") {", "replace": ") {" }]
+          "mutation": [{ "find": " && !after.fileFailed) {", "replace": ") {" }]
         },
         {
           "policy": "only acknowledgements the head adds apply",
@@ -229,6 +229,14 @@
         {
           "policy": "a malformed acknowledgement file stops the check",
           "mutation": [{ "find": "if (!Array.isArray(entries) || !entries.every(valid))", "replace": "if (false)" }]
+        },
+        {
+          "policy": "an acknowledgement that more than one test's name matches is refused",
+          "mutation": [{ "find": "const ambiguous = outcome.ambiguous || after?.ambiguous === true;", "replace": "const ambiguous = false;" }]
+        },
+        {
+          "policy": "a file error is decided from Vitest's raw message, not its first line",
+          "mutation": [{ "find": "const fileFailed = (file.message ?? \"\") !== \"\";", "replace": "const fileFailed = (file.message ?? \"\").split(\"\\n\")[0] !== \"\";" }]
         }
       ]
     },

@@ -25,9 +25,10 @@ Only entries the head adds or changes apply; an entry identical at the base
 is ignored. An acknowledged control that fails after the overlay is
 reported as ACKNOWLEDGED instead of BROKEN. An entry that names no control of
 a replayed file, or whose control passes after the overlay, is STALE and
-fails the check. An acknowledged control with no result or a skipped result
-after the overlay, or in a file that reports an error outside its tests, is
-still BROKEN.
+fails the check, and so does an entry whose name more than one test shares
+on the base or after the overlay (AMBIGUOUS). An acknowledged control with
+no result or a skipped result after the overlay, or in a file that reports
+an error outside its tests, is still BROKEN.
 
 The check guards against honest mistakes, not an author who means to deceive
 it. Vitest's report does not say whether a failed test failed in its own body
@@ -136,7 +137,7 @@ function runShell(worktree, suite) {
     const match = line.match(/^(PASS|FAIL) (\S+)\s*$/);
     if (!match) return;
     const detail = output.slice(index + 1).filter((next) => /^\s+\S/.test(next)).slice(0, 2).map((next) => next.trim()).join(" / ");
-    outcomes.set(match[2], { status: match[1] === "PASS" ? "pass" : "fail", detail, error: "" });
+    outcomes.set(match[2], { status: match[1] === "PASS" ? "pass" : "fail", detail, error: "", fileFailed: false, ambiguous: outcomes.has(match[2]) });
   });
   return outcomes;
 }
@@ -151,11 +152,13 @@ function runVitest(worktree, suites, report) {
   for (const file of JSON.parse(fs.readFileSync(report, "utf8")).testResults) {
     const suite = path.relative(root, fs.realpathSync(file.name));
     const tests = outcomes.get(suite) ?? new Map();
-    const error = (file.message ?? "").split("\n")[0];
+    const fileFailed = (file.message ?? "") !== "";
+    const error = (file.message ?? "").trim().split("\n")[0];
     for (const test of file.assertionResults) {
       const detail = (test.failureMessages[0] ?? "").split("\n")[0];
       const status = test.status === "passed" ? "pass" : test.status === "failed" ? "fail" : "skip";
-      tests.set([...test.ancestorTitles, test.title].join(" > "), { status, detail, error });
+      const name = [...test.ancestorTitles, test.title].join(" > ");
+      tests.set(name, { status, detail, error, fileFailed, ambiguous: tests.has(name) });
     }
     outcomes.set(suite, tests);
   }
@@ -237,9 +240,12 @@ function replay({ base: baseRevision, head: headRevision, repo }) {
         const test = `${suite}::${name}`;
         judged.add(test);
         const after = replayed.get(suite)?.get(name);
+        const ambiguous = outcome.ambiguous || after?.ambiguous === true;
+        const acknowledgement = acknowledged.has(test) && !ambiguous;
+        if (acknowledged.has(test) && ambiguous) passing.push(`AMBIGUOUS ${test} is acknowledged but more than one test has that name on the base or after the overlay`);
         if (after?.status === "pass") {
-          if (acknowledged.has(test)) passing.push(`STALE ${test} is acknowledged but passes after the overlay`);
-        } else if (acknowledged.has(test) && after?.status === "fail" && after.error === "") {
+          if (acknowledgement) passing.push(`STALE ${test} is acknowledged but passes after the overlay`);
+        } else if (acknowledgement && after?.status === "fail" && !after.fileFailed) {
           accepted.push(`ACKNOWLEDGED ${test} fails after the overlay: ${acknowledged.get(test)}`);
         } else {
           broken.push({ suite, name, detail: after ? after.error || after.detail : "no result after the overlay" });
