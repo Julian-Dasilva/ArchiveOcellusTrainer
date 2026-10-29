@@ -25,8 +25,7 @@ a test body, so each such test is BROKEN, and otherwise each is listed as NOT
 A CONTROL. That holds only while the file's imports, hooks and other
 statements outside its tests and top-level declarations are identical at both
 revisions; when they differ, every test whose own source is unchanged stays a
-control. Vitest files report through their JSON reporter; *.test.sh files
-print PASS name or FAIL name.
+control. *.test.sh files print PASS name or FAIL name.
 Each test run may take up to --timeout seconds (default 600).
 
 Exits 0 when every control still passes, 1 when one breaks, and 2 when a
