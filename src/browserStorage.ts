@@ -1,3 +1,14 @@
+export type SavedStorage = Pick<Storage, "getItem" | "setItem">;
+
+const REFUSED: SavedStorage = {
+  getItem: () => {
+    throw new DOMException("This browser refuses storage", "SecurityError");
+  },
+  setItem: () => {
+    throw new DOMException("This browser refuses storage", "SecurityError");
+  },
+};
+
 class PageStorage implements Storage {
   [name: string]: unknown;
   readonly #trusted: Storage | null;
@@ -43,6 +54,10 @@ class PageStorage implements Storage {
     this.#unsaved.set(key, value);
   }
 
+  saved(): SavedStorage {
+    return this.#trusted ?? REFUSED;
+  }
+
   #keys(): string[] {
     const keys = new Set<string>();
     const trusted = this.#trusted;
@@ -73,8 +88,11 @@ function trustedStorage(): Storage | null {
 }
 
 // The SDK reads and writes window.localStorage without a guard, so storage the browser refuses or has no room left in would throw inside it.
-export function keepStorageUsable(): void {
+// The returned storage is the browser's own, which throws when it refuses, for a store that tells the player its saves won't be kept.
+export function keepStorageUsable(): SavedStorage {
   const storage = trustedStorage();
-  if (storage instanceof PageStorage) return;
-  Object.defineProperty(window, "localStorage", { configurable: true, value: new PageStorage(storage) });
+  if (storage instanceof PageStorage) return storage.saved();
+  const page = new PageStorage(storage);
+  Object.defineProperty(window, "localStorage", { configurable: true, value: page });
+  return page.saved();
 }
