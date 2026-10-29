@@ -19,13 +19,13 @@ SUITE='src/sections.test.ts::sections'
 
 CASES="$(cat <<EOF
 shell_clean|clean||0|1 file(s) replayed, 1 unchanged control(s), 0 test(s) reading changed declarations
-shell_violation|violation||1|BROKEN scripts/drive.test.sh::walk_passes passes on the base but not after the overlay
+guard:shell_violation|violation||1|BROKEN scripts/drive.test.sh::walk_passes passes on the base but not after the overlay
 shared_fixture|vitest||0|1 file(s) replayed, 2 unchanged control(s), 2 test(s) reading changed declarations;NOT A CONTROL ${SUITE} > a healthy page has no problems reads HEALTHY, which the head changed;NOT A CONTROL ${SUITE} > a page without About misses only About reads HEALTHY, which the head changed
 transitive_helper|vitest|transitive-helper|0|1 file(s) replayed, 2 unchanged control(s), 2 test(s) reading changed declarations;NOT A CONTROL ${SUITE} > a page without About misses only About reads healthyPage, which the head changed
 unchanged_fixture|vitest|unchanged-fixture|1|BROKEN ${SUITE} > an empty page misses Fight passes on the base but not after the overlay;NOT A CONTROL ${SUITE} > a healthy page has no problems reads HEALTHY, which the head changed
-before_each|vitest|before-each|1|BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay
-top_level_side_effect|vitest|top-level-side-effect|1|BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay
-changed_import|vitest|changed-import|1|BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay
+guard:before_each|vitest|before-each|1|BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay
+guard:top_level_side_effect|vitest|top-level-side-effect|1|BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay
+guard:changed_import|vitest|changed-import|1|BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay
 EOF
 )"
 
