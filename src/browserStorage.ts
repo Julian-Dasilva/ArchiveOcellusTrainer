@@ -1,13 +1,58 @@
-export type SavedStorage = Pick<Storage, "getItem" | "setItem">;
+export type SavedStorage = Pick<Storage, "getItem" | "setItem"> & Readonly<{ kept(): boolean }>;
 
-const REFUSED: SavedStorage = {
-  getItem: () => {
-    throw new DOMException("This browser refuses storage", "SecurityError");
-  },
-  setItem: () => {
-    throw new DOMException("This browser refuses storage", "SecurityError");
-  },
-};
+const TAB_KEY = "archive-ocellus:tab-storage";
+
+function tabValues(): Map<string, string> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(window.name);
+  } catch {
+    return new Map();
+  }
+  const values: unknown = typeof parsed === "object" && parsed !== null && TAB_KEY in parsed ? parsed[TAB_KEY] : null;
+  if (typeof values !== "object" || values === null) return new Map();
+  return new Map(Object.entries(values).flatMap(([key, value]) => (typeof value === "string" ? [[key, value] as const] : [])));
+}
+
+function writeTab(values: ReadonlyMap<string, string>): void {
+  window.name = values.size === 0 ? "" : JSON.stringify({ [TAB_KEY]: Object.fromEntries(values) });
+}
+
+// window.name outlives the page's own reloads and navigations in this tab, and needs no Web Storage.
+class TabStorage implements SavedStorage {
+  readonly #trusted: Storage | null;
+
+  constructor(trusted: Storage | null) {
+    this.#trusted = trusted;
+  }
+
+  kept(): boolean {
+    return this.#trusted !== null && tabValues().size === 0;
+  }
+
+  getItem(key: string): string | null {
+    const tabbed = tabValues().get(key);
+    if (tabbed !== undefined) return tabbed;
+    try {
+      return this.#trusted?.getItem(key) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  setItem(key: string, value: string): void {
+    const tab = tabValues();
+    try {
+      if (this.#trusted) {
+        this.#trusted.setItem(key, value);
+        tab.delete(key);
+        writeTab(tab);
+        return;
+      }
+    } catch {}
+    writeTab(tab.set(key, value));
+  }
+}
 
 class PageStorage implements Storage {
   [name: string]: unknown;
@@ -55,7 +100,7 @@ class PageStorage implements Storage {
   }
 
   saved(): SavedStorage {
-    return this.#trusted ?? REFUSED;
+    return new TabStorage(this.#trusted);
   }
 
   #keys(): string[] {
@@ -88,7 +133,7 @@ function trustedStorage(): Storage | null {
 }
 
 // The SDK reads and writes window.localStorage without a guard, so storage the browser refuses or has no room left in would throw inside it.
-// The returned storage is the browser's own, which throws when it refuses, for a store that tells the player its saves won't be kept.
+// The returned storage saves to the browser's own, or to this tab when the browser refuses, and says which.
 export function keepStorageUsable(): SavedStorage {
   const storage = trustedStorage();
   if (storage instanceof PageStorage) return storage.saved();

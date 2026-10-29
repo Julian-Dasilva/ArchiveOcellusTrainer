@@ -1,5 +1,6 @@
 import { AttackStyle, AttackStylesController, defineSimLoadouts, dressPlayer, remainingStock } from "osrs-sdk";
 import type { ActiveLoadout, CarriedItem, CatalogItem, CatalogLoadout, EquipmentSlot, Item, LoadoutIds, LoadoutStore, Player, Preset, PresetId } from "osrs-sdk";
+import type { SavedStorage } from "../../../browserStorage";
 import type { StartWeapon, Tier, TierItem, TierRecipe, TierSlot, TierStart, TierStarts } from "./OcellusTimings";
 import { OCELLUS_P4, TIERS } from "./OcellusTimings";
 import type { LoadoutSnapshot } from "./P4Types";
@@ -158,12 +159,13 @@ function overStockOf(active: ActiveLoadout): readonly OverStock[] {
   });
 }
 
-function tierLoadout(store: LoadoutStore): TierLoadout {
-  const active = store.active();
+function tierLoadout(store: LoadoutStore, storage: ActiveLoadout["storage"]): TierLoadout {
+  const stored = store.active();
+  const active: ActiveLoadout = { ...stored, storage };
   const tier = parseTier(active.preset.id);
   const overStock = overStockOf(active);
   if (overStock.length === 0) return { tier, active, overStock };
-  const { preset, storage } = active;
+  const { preset } = active;
   return { tier, active: { preset, storage, source: "preset", loadout: preset.loadout, refusedEdit: [] }, overStock };
 }
 
@@ -193,13 +195,13 @@ function envelopeOf(raw: string | null): Envelope | null {
  * does, and stays in storage.
  */
 export class TierLoadouts {
-  readonly #saved: Pick<Storage, "getItem" | "setItem">;
+  readonly #saved: SavedStorage;
   readonly #store: LoadoutStore;
   readonly #listeners = new Set<() => void>();
   #tier: Tier;
   #snapshot: TierLoadout;
 
-  constructor(saved: Pick<Storage, "getItem" | "setItem">, tier: Tier) {
+  constructor(saved: SavedStorage, tier: Tier) {
     this.#saved = saved;
     this.#tier = tier;
     this.#store = OCELLUS_LOADOUTS.store({ getItem: (key) => this.#read(key), setItem: (key, value) => this.#write(key, value) });
@@ -254,7 +256,7 @@ export class TierLoadouts {
   }
 
   #current(): TierLoadout {
-    return tierLoadout(this.#store);
+    return tierLoadout(this.#store, this.#saved.kept() ? "kept" : "session-only");
   }
 
   #changed(): void {

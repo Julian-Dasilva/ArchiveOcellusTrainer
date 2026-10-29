@@ -635,6 +635,7 @@ describe("the loadout editor", () => {
   beforeEach(() => {
     localStorage.removeItem("osrs-sdk:settings");
     localStorage.removeItem(LOADOUTS_KEY);
+    window.name = "";
   });
 
   const id = (item: { cacheItemId?: unknown } | null | undefined) => (typeof item?.cacheItemId === "number" ? item.cacheItemId : null);
@@ -751,7 +752,7 @@ describe("the loadout editor", () => {
     });
   });
 
-  test("storage the browser refuses still runs the tier, and the editor says edits won't be kept", () => {
+  test("storage the browser refuses still runs the tier, says edits won't be kept, and Apply's edit starts the next run in this tab", () => {
     const own = Object.getOwnPropertyDescriptor(window, "localStorage");
     Object.defineProperty(window, "localStorage", {
       configurable: true,
@@ -766,9 +767,20 @@ describe("the loadout editor", () => {
       page.click("loadout");
       editorButton("Take Saradomin Brew");
       const notices = editorText();
+      const navigation = captureAssign();
+      editorButton("Apply");
+      const assigned = navigation.assigned;
+      navigation.restore();
       page.close();
+      const restarted = loadFullFight(assigned[0] ?? "/");
+      const header = window.__archiveOcellusProbe?.log().header.loadout;
+      restarted.close();
 
-      expect({ bag, notices }).toEqual({ bag: MAX_BAG, notices: ["This browser is not saving data, so edits won't be kept"] });
+      expect({ bag, notices, restarted: { edited: header?.edited, bag: header?.inventory } }).toEqual({
+        bag: MAX_BAG,
+        notices: ["This browser is not saving data, so edits won't be kept"],
+        restarted: { edited: true, bag: withBag({ 0: 6685 }) },
+      });
     } finally {
       if (own) Object.defineProperty(window, "localStorage", own);
       else Reflect.deleteProperty(window, "localStorage");
