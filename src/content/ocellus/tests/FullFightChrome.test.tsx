@@ -775,6 +775,49 @@ describe("the loadout editor", () => {
     }
   });
 
+  test("loading, opening the editor, an unchanged Apply, choosing a tier and an untouched Reset write nothing, and a save keeps the stored value's other fields", () => {
+    const raw = JSON.stringify({ version: 1, values: { selected: "raid", edits: {}, note: "kept" }, extension: "kept" }, null, 2);
+    localStorage.setItem(LOADOUTS_KEY, raw);
+    const writes = vi.spyOn(Storage.prototype, "setItem");
+    const written = () => writes.mock.calls.filter(([key]) => key === LOADOUTS_KEY).length;
+    const navigation = captureAssign();
+    try {
+      const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
+      const steps: Record<string, number> = { loaded: written() };
+      page.click("loadout");
+      steps.opened = written();
+      editorButton("Apply");
+      steps.unchangedApply = written();
+      act(() => {
+        const select = document.querySelector<HTMLSelectElement>("#loadout_editor select");
+        if (!select) throw new Error("the editor has no tier select");
+        select.value = "high";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      steps.choseTier = written();
+      editorButton("Reset");
+      steps.untouchedReset = written();
+      const untouched = localStorage.getItem(LOADOUTS_KEY);
+      editorButton("Take Saradomin Brew");
+      editorButton("Apply");
+      const saved: unknown = JSON.parse(localStorage.getItem(LOADOUTS_KEY) ?? "null");
+      page.close();
+
+      expect({ steps, untouched, saved }).toEqual({
+        steps: { loaded: 0, opened: 0, unchangedApply: 0, choseTier: 0, untouchedReset: 0 },
+        untouched: raw,
+        saved: {
+          version: 1,
+          values: { selected: "raid", note: "kept", edits: { high: { presetRevision: 1, loadout: expect.objectContaining({ inventory: expect.arrayContaining([6685]) }) } } },
+          extension: "kept",
+        },
+      });
+    } finally {
+      navigation.restore();
+      writes.mockRestore();
+    }
+  });
+
   test("Start with lists only the tier's starts the edit can make, and none means the run starts as worn", () => {
     const listed = (edit: unknown) => {
       localStorage.setItem(LOADOUTS_KEY, savedMax({ presetRevision: 1, loadout: edit }));

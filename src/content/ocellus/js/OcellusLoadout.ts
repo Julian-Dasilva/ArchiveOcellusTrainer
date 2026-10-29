@@ -167,19 +167,44 @@ function tierLoadout(store: LoadoutStore): TierLoadout {
   return { tier, active: { preset, storage, source: "preset", loadout: preset.loadout, refusedEdit: [] }, overStock };
 }
 
+type Envelope = Readonly<Record<string, unknown>> & Readonly<{ values: Readonly<Record<string, unknown>> }>;
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** A stored value in the SDK's version 1 layout, with any fields it does not know. */
+function envelopeOf(raw: string | null): Envelope | null {
+  let parsed: unknown;
+  try {
+    parsed = raw === null ? null : JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!isRecord(parsed) || parsed.version !== 1) return null;
+  const { values } = parsed;
+  return isRecord(values) ? { ...parsed, values } : null;
+}
+
 /**
- * The selected tier and its saved edit, for the page and the editor. A saved edit that carries more of a supply than the
- * tier plus the shop allows starts on the preset, as an edit the SDK store refuses does, and stays in storage.
+ * The tier from the link and its saved edit, for the page and the editor. The SDK store reads the stored value with that tier
+ * selected, so choosing a tier never writes, and a write changes only the edits, keeping the rest of the stored value. A saved
+ * edit that carries more of a supply than the tier plus the shop allows starts on the preset, as an edit the SDK store refuses
+ * does, and stays in storage.
  */
 export class TierLoadouts {
+  readonly #saved: Pick<Storage, "getItem" | "setItem">;
   readonly #store: LoadoutStore;
   readonly #listeners = new Set<() => void>();
+  #tier: Tier;
   #snapshot: TierLoadout;
 
-  constructor(storage: Pick<Storage, "getItem" | "setItem">, tier: Tier) {
-    this.#store = OCELLUS_LOADOUTS.store(storage);
+  constructor(saved: Pick<Storage, "getItem" | "setItem">, tier: Tier) {
+    this.#saved = saved;
+    this.#tier = tier;
+    this.#store = OCELLUS_LOADOUTS.store({ getItem: (key) => this.#read(key), setItem: (key, value) => this.#write(key, value) });
     this.#store.select(tierPresetOf(tier).id);
-    this.#snapshot = tierLoadout(this.#store);
+    this.#snapshot = this.#current();
   }
 
   readonly snapshot = (): TierLoadout => this.#snapshot;
@@ -204,6 +229,7 @@ export class TierLoadouts {
   }
 
   select(id: PresetId): void {
+    this.#tier = parseTier(id);
     this.#store.select(id);
     this.#changed();
   }
@@ -212,8 +238,27 @@ export class TierLoadouts {
     this.select(tierPresetOf(tier).id);
   }
 
+  #read(key: string): string | null {
+    const raw = this.#saved.getItem(key);
+    if (raw === null) return JSON.stringify({ version: 1, values: { selected: this.#tier, edits: {} } });
+    const envelope = envelopeOf(raw);
+    return envelope === null ? raw : JSON.stringify({ ...envelope, values: { ...envelope.values, selected: this.#tier } });
+  }
+
+  #write(key: string, value: string): void {
+    const edits = envelopeOf(value)?.values.edits;
+    const stored = envelopeOf(this.#saved.getItem(key));
+    if (JSON.stringify(edits) === JSON.stringify(stored?.values.edits ?? {})) return;
+    const next = stored === null ? { version: 1, values: { selected: this.#tier, edits } } : { ...stored, values: { ...stored.values, edits } };
+    this.#saved.setItem(key, JSON.stringify(next));
+  }
+
+  #current(): TierLoadout {
+    return tierLoadout(this.#store);
+  }
+
   #changed(): void {
-    this.#snapshot = tierLoadout(this.#store);
+    this.#snapshot = this.#current();
     for (const listener of this.#listeners) listener();
   }
 }
