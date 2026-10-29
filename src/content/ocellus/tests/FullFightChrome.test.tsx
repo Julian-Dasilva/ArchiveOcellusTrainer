@@ -786,6 +786,27 @@ describe("the loadout editor", () => {
     }
   });
 
+  test("an open editor keeps the Max draft across a trip to High and back", () => {
+    const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
+    page.click("loadout");
+    editorButton("Take Saradomin Brew");
+    const choose = (tier: string) =>
+      act(() => {
+        const select = document.querySelector<HTMLSelectElement>("#loadout_editor select");
+        if (!select) throw new Error("the editor has no tier select");
+        select.value = tier;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    const firstSlot = () => document.querySelector('#loadout_editor [aria-label="Inventory slot 1"] img')?.getAttribute("alt") ?? null;
+    choose("high");
+    const high = { option: presetOption(), first: firstSlot() };
+    choose("max");
+    const max = { option: presetOption(), first: firstSlot() };
+    page.close();
+
+    expect({ high, max }).toEqual({ high: { option: "High", first: null }, max: { option: "Max (edited)", first: "Saradomin Brew" } });
+  });
+
   test("loading, opening the editor, an unchanged Apply, choosing a tier and an untouched Reset write nothing, and a save keeps the stored value's other fields", () => {
     const raw = JSON.stringify({ version: 1, values: { selected: "raid", edits: {}, note: "kept" }, extension: "kept" }, null, 2);
     localStorage.setItem(LOADOUTS_KEY, raw);

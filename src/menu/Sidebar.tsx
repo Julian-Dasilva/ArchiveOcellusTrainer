@@ -143,7 +143,6 @@ html.phone-overlay #policy_footer { position: relative; z-index: 1002; }
 #sidebar #loadout_editor { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid #6b5b3e; background: #1b160f; }
 #sidebar #loadout_editor h3 { margin: 0; font-size: 15px; text-align: left; }
 #sidebar #loadout_editor p { margin: 0; font-size: 13px; color: #e8dcc0; }
-#sidebar #loadout_editor button[aria-expanded="true"] + div { left: auto !important; right: 244px !important; }
 `;
 
 const SEEN_RELEASE_KEY = "archive-ocellus:seen-release";
