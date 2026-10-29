@@ -1,8 +1,8 @@
 import { AttackStyle, AttackStylesController, Weapon } from "osrs-sdk";
-import type { Player } from "osrs-sdk";
+import type { CatalogLoadout, Player } from "osrs-sdk";
 import type { AmmunitionClass, StartWeapon, Tier } from "../js/OcellusTimings";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
-import { OCELLUS_LOADOUTS, dressOcellus, startingLoadout } from "../js/OcellusLoadout";
+import { OCELLUS_LOADOUTS, dressOcellus, presetChoice, startingLoadout } from "../js/OcellusLoadout";
 
 const { blowpipe } = OCELLUS_P4.gear;
 
@@ -19,7 +19,11 @@ export function ammunitionAgainst(itemId: number | "TODO" | null | undefined): A
 }
 
 export function dressFullFight(player: Player, start: StartWeapon, tier: Tier = "raid"): void {
-  dressOcellus(player, startingLoadout(tier, start).loadout);
+  dressStartedFight(player, startingLoadout(presetChoice(tier), start).loadout);
+}
+
+export function dressStartedFight(player: Player, loadout: CatalogLoadout): void {
+  dressOcellus(player, loadout);
   const pipe = OCELLUS_LOADOUTS.catalog.get(blowpipe.value.itemId)?.build();
   if (!(pipe instanceof Weapon)) throw new Error(`item ${blowpipe.value.itemId} is not the blowpipe in the Ocellus catalog`);
   AttackStylesController.controller.setWeaponAttackStyle(pipe, AttackStyle.RAPID);

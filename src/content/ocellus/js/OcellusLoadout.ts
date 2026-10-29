@@ -1,6 +1,6 @@
-import { AttackStyle, AttackStylesController, defineSimLoadouts, dressPlayer } from "osrs-sdk";
-import type { CatalogLoadout, Item, LoadoutIds, Player, Preset, PresetId } from "osrs-sdk";
-import type { StartWeapon, Tier, TierItem, TierRecipe, TierSlot, TierStarts } from "./OcellusTimings";
+import { AttackStyle, AttackStylesController, defineSimLoadouts, dressPlayer, remainingStock } from "osrs-sdk";
+import type { ActiveLoadout, CarriedItem, CatalogItem, CatalogLoadout, EquipmentSlot, Item, LoadoutIds, LoadoutStore, Player, Preset, PresetId } from "osrs-sdk";
+import type { StartWeapon, Tier, TierItem, TierRecipe, TierSlot, TierStart, TierStarts } from "./OcellusTimings";
 import { OCELLUS_P4, TIERS } from "./OcellusTimings";
 import type { LoadoutSnapshot } from "./P4Types";
 import {
@@ -47,6 +47,10 @@ export const OCELLUS_PRESETS: Readonly<Record<Tier, OcellusPreset>> = {
 
 const optionId = (tier: Tier, weapon: StartWeapon): string => `${tier}:${weapon}`;
 
+const ALLIANCE_SUPPLIES = gear.allianceSupplies.value.map(({ item, quantity }) => ({ item: item.value, quantity }));
+
+export const SHOP_NOT_SIMULATED: readonly Readonly<{ item: TierItem; quantity: number }>[] = ALLIANCE_SUPPLIES.filter(({ item }) => item.simulation !== "simulated");
+
 export const OCELLUS_LOADOUTS = defineSimLoadouts({
   sim: "archive-ocellus",
   items: [
@@ -68,17 +72,12 @@ export const OCELLUS_LOADOUTS = defineSimLoadouts({
     return { id: tier, label, revision: 1, loadout, startOptions: starts.map(({ weapon }) => optionId(tier, weapon)) };
   }),
   defaultPreset: "raid",
-  supplyStock: [],
+  supplyStock: ALLIANCE_SUPPLIES.flatMap(({ item, quantity }) => (item.simulation === "simulated" ? [{ id: item.id, quantity }] : [])),
   startOptions: TIERS.flatMap((tier) => OCELLUS_PRESETS[tier].starts.map(({ weapon, label, wear }) => ({ id: optionId(tier, weapon), label, wear }))),
 });
 
 export function parseTier(value: string | null): Tier {
   return TIERS.find((tier) => tier === value) ?? "raid";
-}
-
-export function tierStart(tier: Tier, value: string | null): StartWeapon {
-  const { starts } = OCELLUS_PRESETS[tier];
-  return (starts.find(({ weapon }) => weapon === value) ?? starts[0]).weapon;
 }
 
 function tierPresetOf(tier: Tier): Preset {
@@ -101,11 +100,115 @@ export function startTier(tier: Tier, weapon: StartWeapon, loadout: CatalogLoado
   }
 }
 
-export type StartedLoadout = Readonly<{ preset: PresetId; edited: boolean; loadout: CatalogLoadout }>;
+export type LoadoutChoice = Pick<ActiveLoadout, "preset" | "source" | "loadout">;
 
-export function startingLoadout(tier: Tier, weapon: StartWeapon): StartedLoadout {
-  const { id, loadout } = tierPresetOf(tier);
-  return { preset: id, edited: false, loadout: startTier(tier, weapon, loadout) };
+export function presetChoice(tier: Tier): LoadoutChoice {
+  const preset = tierPresetOf(tier);
+  return { preset, source: "preset", loadout: preset.loadout };
+}
+
+/** The tier's starts that this loadout can make, since an edit can drop an item a start wears. */
+export function tierStarts({ preset, loadout }: LoadoutChoice): readonly TierStart[] {
+  const tier = parseTier(preset.id);
+  return OCELLUS_PRESETS[tier].starts.filter(({ weapon }) => OCELLUS_LOADOUTS.start({ preset, loadout }, optionId(tier, weapon)).kind === "started");
+}
+
+/** `null` when the loadout can make none of its tier's starts, so it starts as worn. */
+export function tierStart(choice: LoadoutChoice, value: string | null): StartWeapon | null {
+  const starts = tierStarts(choice);
+  return (starts.find(({ weapon }) => weapon === value) ?? starts.at(0))?.weapon ?? null;
+}
+
+export type StartedLoadout = Readonly<{ preset: PresetId; edited: boolean; start: StartWeapon | null; loadout: CatalogLoadout }>;
+
+export function startingLoadout(choice: LoadoutChoice, requested: string | null): StartedLoadout {
+  const start = tierStart(choice, requested);
+  const loadout = start === null ? choice.loadout : startTier(parseTier(choice.preset.id), start, choice.loadout);
+  return { preset: choice.preset.id, edited: choice.source === "edit", start, loadout };
+}
+
+const CHECKED_WORN: readonly CatalogItem[] = [
+  ...new Set(
+    Object.values(gear.tiers).flatMap(({ value }) =>
+      [...Object.values(value.equipment), ...value.inventory].flatMap((slot) => (slot?.value.simulation === "simulated" ? [slot.value.id] : [])),
+    ),
+  ),
+].flatMap((id) => {
+  const item = OCELLUS_LOADOUTS.catalog.get(id);
+  return item && item.slot !== "carried" ? [item] : [];
+});
+
+/** Worn items whose bonuses the tier data checks against the wiki. Supplies come only from the shop. */
+export function editorChoices(slot: EquipmentSlot | null): readonly CatalogItem[] {
+  return CHECKED_WORN.filter((item) => slot === null || item.slot === slot);
+}
+
+export type OverStock = Readonly<{ item: CarriedItem; carried: number; allowed: number }>;
+
+export type TierLoadout = Readonly<{ tier: Tier; active: ActiveLoadout; overStock: readonly OverStock[] }>;
+
+function tierLoadout(store: LoadoutStore): TierLoadout {
+  const active = store.active();
+  const tier = parseTier(active.preset.id);
+  if (active.source !== "edit") return { tier, active, overStock: [] };
+  const overStock = remainingStock(OCELLUS_LOADOUTS.supplyStock, active.preset.loadout, active.loadout).flatMap(({ item, quantity }) => {
+    const carried = active.loadout.inventory.filter((held) => held?.id === item.id).length;
+    return quantity < 0 ? [{ item, carried, allowed: carried + quantity }] : [];
+  });
+  if (overStock.length === 0) return { tier, active, overStock };
+  const { preset, storage } = active;
+  return { tier, active: { preset, storage, source: "preset", loadout: preset.loadout, refusedEdit: [] }, overStock };
+}
+
+/**
+ * The selected tier and its saved edit, for the page and the editor. A saved edit that carries more of a supply than the
+ * tier plus the shop allows starts on the preset, as an edit the SDK store refuses does, and stays in storage.
+ */
+export class TierLoadouts {
+  readonly #store: LoadoutStore;
+  readonly #listeners = new Set<() => void>();
+  #snapshot: TierLoadout;
+
+  constructor(storage: Pick<Storage, "getItem" | "setItem">, tier: Tier) {
+    this.#store = OCELLUS_LOADOUTS.store(storage);
+    this.#store.select(tierPresetOf(tier).id);
+    this.#snapshot = tierLoadout(this.#store);
+  }
+
+  readonly snapshot = (): TierLoadout => this.#snapshot;
+
+  readonly subscribe = (listener: () => void): (() => void) => {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  };
+
+  active(): ActiveLoadout {
+    return this.#snapshot.active;
+  }
+
+  save(id: PresetId, loadout: CatalogLoadout): void {
+    this.#store.save(id, loadout);
+    this.#changed();
+  }
+
+  reset(id: PresetId): void {
+    this.#store.reset(id);
+    this.#changed();
+  }
+
+  select(id: PresetId): void {
+    this.#store.select(id);
+    this.#changed();
+  }
+
+  selectTier(tier: Tier): void {
+    this.select(tierPresetOf(tier).id);
+  }
+
+  #changed(): void {
+    this.#snapshot = tierLoadout(this.#store);
+    for (const listener of this.#listeners) listener();
+  }
 }
 
 const STANCES: Readonly<Record<typeof gear.scytheStance.value, AttackStyle>> = { jab: AttackStyle.AGGRESSIVECRUSH };

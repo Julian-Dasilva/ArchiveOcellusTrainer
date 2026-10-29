@@ -111,6 +111,7 @@ function Section({ id, title, children }: Readonly<{ id: string; title: string; 
 // The What's new panel keeps its popup id, so the sidebar resets that popup styling in place.
 // The SDK draws its tabs and inventory on the canvas, so the policy strip takes a grid row under the canvas and the panel. TrainerApp sets display inline and DefaultSidebar sets the panel width inline, hence !important.
 // #trainer-loading is z-index 1000 and takes hits. The phone panel paints above it, and the footer above the panel.
+// The SDK's Dropdown opens its menu right of the slot, past the screen's edge in this right-hand panel, so the loadout editor's menus open left of the panel.
 const SIDEBAR_CSS = `
 div:has(> #right_panel) { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto; }
 #policy_footer { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 8px; padding: 3px 6px; background: #1b160f; border-top: 1px solid #3e3529; color: #c8b88a; font-size: 11px; }
@@ -139,6 +140,11 @@ html.phone-overlay #policy_footer { position: relative; z-index: 1002; }
 #sidebar ul { margin: 0; padding-left: 16px; color: #e8dcc0; font-size: 13px; line-height: 15px; }
 #sidebar li { margin-bottom: 5px; }
 #sidebar a { color: #ff981f; }
+#sidebar #loadout_note, #sidebar #loadout_editor small { font-size: 12px; color: #a89a78; }
+#sidebar #loadout_editor { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid #6b5b3e; background: #1b160f; }
+#sidebar #loadout_editor h3 { margin: 0; font-size: 15px; text-align: left; }
+#sidebar #loadout_editor p { margin: 0; font-size: 13px; color: #e8dcc0; }
+#sidebar #loadout_editor button[aria-expanded="true"] + div { left: auto !important; right: 244px !important; }
 `;
 
 const SEEN_RELEASE_KEY = "archive-ocellus:seen-release";

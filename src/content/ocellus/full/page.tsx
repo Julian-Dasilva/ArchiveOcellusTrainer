@@ -11,10 +11,11 @@ import type { Pause } from "../../../sim/sdk/RunClock";
 import type { CreditLink } from "../../../menu/credits";
 import { CONTRIBUTOR, MAKER_LINKS } from "../../../menu/credits";
 import Sidebar from "../../../menu/Sidebar";
-import { dressFullFight } from "../fight/blowpipe";
-import { OCELLUS_PRESETS, parseTier, startingLoadout, tierStart } from "../js/OcellusLoadout";
+import { dressStartedFight } from "../fight/blowpipe";
+import { OCELLUS_PRESETS, TierLoadouts, parseTier, startingLoadout, tierStart, tierStarts } from "../js/OcellusLoadout";
 import type { StartWeapon, Tier, TierItem } from "../js/OcellusTimings";
-import { TIERS } from "../js/OcellusTimings";
+import { START_WEAPONS, TIERS } from "../js/OcellusTimings";
+import { LoadoutSection, useTierLoadout } from "./loadout";
 import { installBossBar } from "../fight/bossBar";
 import type { ChatLine, StartPhase } from "./options";
 import { START_PHASES, formatTicks } from "./options";
@@ -63,7 +64,8 @@ const UPDATE_LINKS: readonly CreditLink[] = [
   xHandle(CONTRIBUTOR),
 ];
 
-type Params = FullFightOptions & Readonly<{ tier: Tier; weapon: StartWeapon }>;
+/** `weapon` is `null` when the loadout can make none of its tier's starts. */
+type Params = FullFightOptions & Readonly<{ tier: Tier; weapon: StartWeapon | null }>;
 
 function readParams(): Params {
   const url = new URL(window.location.href);
@@ -87,7 +89,7 @@ function readParams(): Params {
     invincible: flag("practice", false),
     defenceDrained: flag("drained", false),
     tier,
-    weapon: tierStart(tier, get("weapon")),
+    weapon: START_WEAPONS.find((weapon) => weapon === get("weapon")) ?? null,
   };
 }
 
@@ -103,7 +105,8 @@ function writeParams(params: Params, fresh = true): void {
   url.searchParams.delete("party");
   url.searchParams.delete("setup");
   url.searchParams.set("tier", params.tier);
-  url.searchParams.set("weapon", params.weapon);
+  if (params.weapon === null) url.searchParams.delete("weapon");
+  else url.searchParams.set("weapon", params.weapon);
   url.searchParams.set("drained", params.defenceDrained ? "1" : "0");
   url.searchParams.set("tiles", params.hazardTiles ? "1" : "0");
   url.searchParams.set("markers", params.videoMarkers ? "1" : "0");
@@ -116,12 +119,15 @@ function writeParams(params: Params, fresh = true): void {
 }
 
 function createTrainer() {
-  keepStorageUsable();
+  const saved = keepStorageUsable();
   CacheRender.configure(new URL("osrs-assets/manifest.json", window.location.href).href);
   void CacheRender.bundle().then(({ manifest }) => reportUnservedAssets(manifest), (error: unknown) => console.error("assets: osrs-assets/manifest.json did not load", error));
   readSettings();
-  const params = readParams();
-  const region = fullFightStaged(params, (player) => dressFullFight(player, params.weapon, params.tier));
+  const link = readParams();
+  const loadouts = new TierLoadouts(saved, link.tier);
+  const started = startingLoadout(loadouts.active(), link.weapon);
+  const params: Params = { ...link, weapon: started.start };
+  const region = fullFightStaged(params, (player) => dressStartedFight(player, started.loadout));
   installBossBar((r: Region) => {
     if (!(r instanceof FightRegion)) return null;
     const p1 = r.current === "p1" ? r.p1.mounted : null;
@@ -131,7 +137,7 @@ function createTrainer() {
   const clock = new RunClock(trainer);
   loadWebAnalytics();
   void startPerfTelemetry({ world: region.world, run: () => region.p4.mounted?.ocellus.runState() ?? null, stage: () => region.rows("p4").at(-1)?.phase.stage ?? null }, clock);
-  return { trainer, region, params, clock };
+  return { trainer, region, params, clock, loadouts, started };
 }
 
 function prefetchLaterPhases(start: StartPhase): void {
@@ -464,9 +470,12 @@ function countedNames(items: readonly TierItem[]): string {
   return [...counts].map(([name, count]) => (count === 1 ? name : `${name} ×${count}`)).join(", ");
 }
 
-function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: Params; region: FightRegion; stage: Stage | null; clock: RunClock }>) {
-  const [draft, setDraft] = useState<Params>(params);
-  const set = (patch: Partial<Params>) => setDraft((current) => ({ ...current, ...patch }));
+function FullFightSidebar({ params, region, stage, clock, loadouts }: Readonly<{ params: Params; region: FightRegion; stage: Stage | null; clock: RunClock; loadouts: TierLoadouts }>) {
+  const [draft, setDraft] = useState<Omit<Params, "tier">>(params);
+  const set = (patch: Partial<Omit<Params, "tier">>) => setDraft((current) => ({ ...current, ...patch }));
+  const { tier, active } = useTierLoadout(loadouts);
+  const starts = tierStarts(active);
+  const chosen = () => ({ ...draft, tier, weapon: tierStart(loadouts.active(), draft.weapon) });
   return (
     <Sidebar
       fight={
@@ -479,24 +488,18 @@ function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: P
           </label>
           <label>
             Tier
-            <select
-              id="start_tier"
-              value={draft.tier}
-              onChange={(event) => {
-                const tier = parseTier(event.target.value);
-                set({ tier, weapon: tierStart(tier, draft.weapon) });
-              }}
-            >
-              {TIERS.map((tier) => <option key={tier} value={tier}>{OCELLUS_PRESETS[tier].label}</option>)}
+            <select id="start_tier" value={tier} onChange={(event) => loadouts.selectTier(parseTier(event.target.value))}>
+              {TIERS.map((option) => <option key={option} value={option}>{OCELLUS_PRESETS[option].label}</option>)}
             </select>
-            {OCELLUS_PRESETS[draft.tier].notSimulated.length > 0 && <small id="tier_not_simulated">{`Not simulated yet, so left out: ${countedNames(OCELLUS_PRESETS[draft.tier].notSimulated)}`}</small>}
+            {OCELLUS_PRESETS[tier].notSimulated.length > 0 && <small id="tier_not_simulated">{`Not simulated yet, so left out: ${countedNames(OCELLUS_PRESETS[tier].notSimulated)}`}</small>}
           </label>
           <label>
             Start with
-            <select id="start_weapon" value={draft.weapon} onChange={(event) => set({ weapon: tierStart(draft.tier, event.target.value) })}>
-              {OCELLUS_PRESETS[draft.tier].starts.map(({ weapon, label }) => <option key={weapon} value={weapon}>{label}</option>)}
+            <select id="start_weapon" value={tierStart(active, draft.weapon) ?? ""} onChange={(event) => set({ weapon: tierStart(active, event.target.value) })}>
+              {starts.length === 0 ? <option value="">As worn</option> : starts.map(({ weapon, label }) => <option key={weapon} value={weapon}>{label}</option>)}
             </select>
           </label>
+          <LoadoutSection loadouts={loadouts} clock={clock} onApply={() => writeParams(chosen(), false)} />
           <label>
             Defence drained
             <small>He starts each phase at his lowest Defence</small>
@@ -522,9 +525,9 @@ function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: P
               }}
             />
           </label>
-          <RuneScapeButton id="start_fight" type="button" onClick={() => writeParams(draft)}>Start fight</RuneScapeButton>
+          <RuneScapeButton id="start_fight" type="button" onClick={() => writeParams(chosen())}>Start fight</RuneScapeButton>
           {/* A reload, not an in-place reset: the SDK keeps clicks queued for the next world tick, and a reset would play them in the new run. */}
-          <RuneScapeButton id="restart_fight" type="button" onClick={() => writeParams(draft, false)}>Restart</RuneScapeButton>
+          <RuneScapeButton id="restart_fight" type="button" onClick={() => writeParams(chosen(), false)}>Restart</RuneScapeButton>
           {(stage === null || endingOf(stage) === null) && <RunPauseButton clock={clock} />}
         </>
       }
@@ -683,7 +686,7 @@ function exposeProbe(trainer: TrainerInstance, region: FightRegion): void {
 }
 
 export function FullFightPage() {
-  const [{ trainer, region, params, clock }] = useState(createTrainer);
+  const [{ trainer, region, params, clock, loadouts, started }] = useState(createTrainer);
   const [loading, setLoading] = useState<TrainerLoadingState>();
   const stage = useStage(region);
   const phase = stage?.phase;
@@ -697,7 +700,7 @@ export function FullFightPage() {
     document.head.append(style);
     if (process.env.NODE_ENV !== "production") {
       exposeProbe(trainer, region);
-      exposeP4Probe(trainer, region, clock, region.p4Config, startingLoadout(params.tier, params.weapon));
+      exposeP4Probe(trainer, region, clock, region.p4Config, started);
     }
     return () => style.remove();
   }, [trainer, region, clock]);
@@ -728,7 +731,7 @@ export function FullFightPage() {
         {stage && <Result stage={stage} region={region} params={params} clock={clock} />}
         {!ended && <RunGate clock={clock} ready={ready} />}
       </GameOverlay>
-      <FullFightSidebar params={params} region={region} stage={stage} clock={clock} />
+      <FullFightSidebar params={params} region={region} stage={stage} clock={clock} loadouts={loadouts} />
     </TrainerApp>
   );
 }
