@@ -474,6 +474,7 @@ function FullFightSidebar({ params, region, stage, clock, loadouts }: Readonly<{
   const [draft, setDraft] = useState<Omit<Params, "tier">>(params);
   const set = (patch: Partial<Omit<Params, "tier">>) => setDraft((current) => ({ ...current, ...patch }));
   const { tier, active } = useTierLoadout(loadouts);
+  const [editing, setEditing] = useState(false);
   const starts = tierStarts(active);
   const chosen = () => ({ ...draft, tier, weapon: tierStart(loadouts.active(), draft.weapon) });
   return (
@@ -488,7 +489,7 @@ function FullFightSidebar({ params, region, stage, clock, loadouts }: Readonly<{
           </label>
           <label>
             Tier
-            <select id="start_tier" value={tier} onChange={(event) => loadouts.selectTier(parseTier(event.target.value))}>
+            <select id="start_tier" value={tier} disabled={editing} onChange={(event) => loadouts.selectTier(parseTier(event.target.value))}>
               {TIERS.map((option) => <option key={option} value={option}>{OCELLUS_PRESETS[option].label}</option>)}
             </select>
             {OCELLUS_PRESETS[tier].notSimulated.length > 0 && <small id="tier_not_simulated">{`Not simulated yet, so left out: ${countedNames(OCELLUS_PRESETS[tier].notSimulated)}`}</small>}
@@ -499,7 +500,7 @@ function FullFightSidebar({ params, region, stage, clock, loadouts }: Readonly<{
               {starts.length === 0 ? <option value="">As worn</option> : starts.map(({ weapon, label }) => <option key={weapon} value={weapon}>{label}</option>)}
             </select>
           </label>
-          <LoadoutSection loadouts={loadouts} clock={clock} onApply={() => writeParams(chosen(), false)} />
+          <LoadoutSection loadouts={loadouts} clock={clock} onApply={() => writeParams(chosen(), false)} open={editing} setOpen={setEditing} />
           <label>
             Defence drained
             <small>He starts each phase at his lowest Defence</small>

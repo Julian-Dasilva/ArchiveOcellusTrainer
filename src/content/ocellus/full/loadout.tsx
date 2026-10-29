@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useSyncExternalStore } from "react";
 import { LoadoutEditor, RuneScapeButton } from "osrs-sdk-react";
 import type { RunClock } from "../../../sim/sdk/RunClock";
 import type { TierLoadout, TierLoadouts } from "../js/OcellusLoadout";
@@ -14,8 +14,9 @@ function editCannotLoad({ active, overStock }: TierLoadout): boolean {
 
 const NOT_STOCKED = SHOP_NOT_SIMULATED.map(({ item, quantity }) => (quantity === 1 ? item.name : `${item.name} ×${quantity}`)).join(", ");
 
-export function LoadoutSection({ loadouts, clock, onApply }: Readonly<{ loadouts: TierLoadouts; clock: RunClock; onApply: () => void }>) {
-  const [open, setOpen] = useState(false);
+type LoadoutSectionProps = Readonly<{ loadouts: TierLoadouts; clock: RunClock; onApply: () => void; open: boolean; setOpen: (open: boolean) => void }>;
+
+export function LoadoutSection({ loadouts, clock, onApply, open, setOpen }: LoadoutSectionProps) {
   const shown = useTierLoadout(loadouts);
   const { active, overStock } = shown;
 
@@ -24,7 +25,7 @@ export function LoadoutSection({ loadouts, clock, onApply }: Readonly<{ loadouts
     return clock.subscribe(() => {
       if (clock.state().kind === "running") setOpen(false);
     });
-  }, [open, clock]);
+  }, [open, clock, setOpen]);
 
   return (
     <>
@@ -47,7 +48,7 @@ export function LoadoutSection({ loadouts, clock, onApply }: Readonly<{ loadouts
               {`Your ${active.preset.label} edit carries more than the supplies allow (${overStock.map(({ item, carried, allowed }) => `${item.name} ${carried} of ${allowed}`).join(", ")})`}
             </p>
           )}
-          <LoadoutEditor key={shown.tier} sim={OCELLUS_LOADOUTS} store={loadouts} onApply={onApply} choices={editorChoices} />
+          <LoadoutEditor sim={OCELLUS_LOADOUTS} store={loadouts} onApply={onApply} choices={editorChoices} />
           <small id="shop_not_simulated">{`Not simulated yet, so not stocked: ${NOT_STOCKED}`}</small>
           <RuneScapeButton id="loadout_close" type="button" onClick={() => setOpen(false)}>
             Close
