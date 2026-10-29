@@ -133,7 +133,6 @@ function trustedStorage(): Storage | null {
 }
 
 // The SDK reads and writes window.localStorage without a guard, so storage the browser refuses or has no room left in would throw inside it.
-// The returned storage saves to the browser's own, or to this tab when the browser refuses, and says which.
 export function keepStorageUsable(): SavedStorage {
   const storage = trustedStorage();
   if (storage instanceof PageStorage) return storage.saved();

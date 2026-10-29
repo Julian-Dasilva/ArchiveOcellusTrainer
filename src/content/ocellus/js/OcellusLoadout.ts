@@ -108,13 +108,11 @@ export function presetChoice(tier: Tier): LoadoutChoice {
   return { preset, source: "preset", loadout: preset.loadout };
 }
 
-/** The tier's starts that this loadout can make, since an edit can drop an item a start wears. */
 export function tierStarts({ preset, loadout }: LoadoutChoice): readonly TierStart[] {
   const tier = parseTier(preset.id);
   return OCELLUS_PRESETS[tier].starts.filter(({ weapon }) => OCELLUS_LOADOUTS.start({ preset, loadout }, optionId(tier, weapon)).kind === "started");
 }
 
-/** `null` when the loadout can make none of its tier's starts, so it starts as worn. */
 export function tierStart(choice: LoadoutChoice, value: string | null): StartWeapon | null {
   const starts = tierStarts(choice);
   return (starts.find(({ weapon }) => weapon === value) ?? starts.at(0))?.weapon ?? null;
@@ -139,7 +137,6 @@ const CHECKED_WORN: readonly CatalogItem[] = [
   return item && item.slot !== "carried" ? [item] : [];
 });
 
-/** Worn items whose bonuses the tier data checks against the wiki. Supplies come only from the shop. */
 export function editorChoices(slot: EquipmentSlot | null): readonly CatalogItem[] {
   return CHECKED_WORN.filter((item) => slot === null || item.slot === slot);
 }
@@ -175,7 +172,6 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** A stored value in the SDK's version 1 layout, with any fields it does not know. */
 function envelopeOf(raw: string | null): Envelope | null {
   let parsed: unknown;
   try {
@@ -188,12 +184,6 @@ function envelopeOf(raw: string | null): Envelope | null {
   return isRecord(values) ? { ...parsed, values } : null;
 }
 
-/**
- * The tier from the link and its saved edit, for the page and the editor. The SDK store reads the stored value with that tier
- * selected, so choosing a tier never writes, and a write changes only the edits, keeping the rest of the stored value. A saved
- * edit that carries more of a supply than the tier plus the shop allows starts on the preset, as an edit the SDK store refuses
- * does, and stays in storage.
- */
 export class TierLoadouts {
   readonly #saved: SavedStorage;
   readonly #store: LoadoutStore;

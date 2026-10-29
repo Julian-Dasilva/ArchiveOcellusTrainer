@@ -757,7 +757,6 @@ describe("the loadout editor", () => {
     Object.defineProperty(window, "localStorage", {
       configurable: true,
       get: () => {
-        // Stands in for a browser that refuses storage: jsdom's storage cannot refuse a read.
         throw new DOMException("The operation is insecure.", "SecurityError");
       },
     });

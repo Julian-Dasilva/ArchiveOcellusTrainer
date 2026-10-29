@@ -64,7 +64,6 @@ const UPDATE_LINKS: readonly CreditLink[] = [
   xHandle(CONTRIBUTOR),
 ];
 
-/** `weapon` is `null` when the loadout can make none of its tier's starts. */
 type Params = FullFightOptions & Readonly<{ tier: Tier; weapon: StartWeapon | null }>;
 
 function readParams(): Params {

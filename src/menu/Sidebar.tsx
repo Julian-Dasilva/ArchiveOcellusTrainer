@@ -111,7 +111,6 @@ function Section({ id, title, children }: Readonly<{ id: string; title: string; 
 // The What's new panel keeps its popup id, so the sidebar resets that popup styling in place.
 // The SDK draws its tabs and inventory on the canvas, so the policy strip takes a grid row under the canvas and the panel. TrainerApp sets display inline and DefaultSidebar sets the panel width inline, hence !important.
 // #trainer-loading is z-index 1000 and takes hits. The phone panel paints above it, and the footer above the panel.
-// The SDK's Dropdown opens its menu right of the slot, past the screen's edge in this right-hand panel, so the loadout editor's menus open left of the panel.
 const SIDEBAR_CSS = `
 div:has(> #right_panel) { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr) auto; }
 #policy_footer { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 8px; padding: 3px 6px; background: #1b160f; border-top: 1px solid #3e3529; color: #c8b88a; font-size: 11px; }
