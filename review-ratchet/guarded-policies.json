@@ -203,56 +203,32 @@
       "tests": ["review-ratchet/checks/replay-controls.test.sh"],
       "policies": [
         {
-          "policy": "a test that reads a changed same-file declaration is not a control",
-          "mutation": [{ "find": "  return declarations.length > 0 ? { kind: \"changed-input\", declarations } : CONTROL;\n", "replace": "  return CONTROL;\n" }]
+          "policy": "an acknowledged control that fails after the overlay is not broken",
+          "mutation": [{ "find": "} else if (acknowledged.has(test) && after?.status === \"fail\" && after.error === \"\") {", "replace": "} else if (false) {" }]
         },
         {
-          "policy": "a test reads the declarations its declarations read",
-          "mutation": [{ "find": "        pending.push(declared);\n", "replace": "" }]
+          "policy": "an acknowledged control that passes after the overlay is stale",
+          "mutation": [{ "find": "if (acknowledged.has(test)) passing.push(", "replace": "if (false) passing.push(" }]
         },
         {
-          "policy": "only the declarations a test reads stop it being a control",
-          "mutation": [{ "find": "[...new Set([...before.reads, ...after.reads])]", "replace": "[...new Set([...base.declarations.keys(), ...head.declarations.keys()])]" }]
+          "policy": "an acknowledgement that names no control of a replayed file is stale",
+          "mutation": [{ "find": "[...acknowledged].filter(([test]) => !judged.has(test))", "replace": "[...acknowledged].filter(() => false)" }]
         },
         {
-          "policy": "a changed import, hook or top-level statement keeps every unchanged test a control",
-          "mutation": [{ "find": "  if (base.setup !== head.setup) return CONTROL;\n", "replace": "" }]
+          "policy": "an acknowledged control with no failed result after the overlay is broken",
+          "mutation": [{ "find": "acknowledged.has(test) && after?.status === \"fail\" && ", "replace": "acknowledged.has(test) && " }]
         },
         {
-          "policy": "each declarator of a statement is its own declaration",
-          "mutation": [{ "find": "bind(declaration.name, declaration, keyword + declaration.getText(source))", "replace": "bind(declaration.name, declaration, statement.getText(source))" }]
+          "policy": "an acknowledged control in a file with an error outside its tests is broken",
+          "mutation": [{ "find": " && after.error === \"\") {", "replace": ") {" }]
         },
         {
-          "policy": "a type position is not a read",
-          "mutation": [{ "find": "      if (ts.isTypeNode(child) && !runtimeHeritage(child)) return;\n", "replace": "" }]
+          "policy": "only acknowledgements the head adds apply",
+          "mutation": [{ "find": ".filter(({ test, reason }) => !inherited.has(JSON.stringify([test, reason])))", "replace": ".filter(() => true)" }]
         },
         {
-          "policy": "an implements clause is not a read",
-          "mutation": [{ "find": "ts.isExpressionWithTypeArguments(node) && ts.isHeritageClause(node.parent) && node.parent.token === ts.SyntaxKind.ExtendsKeyword && ts.isClassLike(node.parent.parent)", "replace": "ts.isExpressionWithTypeArguments(node)" }]
-        },
-        {
-          "policy": "a plain assignment target is not a read",
-          "mutation": [{ "find": "ts.isIdentifier(child) && !assigned(child)", "replace": "ts.isIdentifier(child)" }]
-        },
-        {
-          "policy": "a parenthesized or destructuring assignment target is not a read",
-          "mutation": [{ "find": "      target = target.parent;\n", "replace": "      break;\n" }]
-        },
-        {
-          "policy": "an unchanged describe-local binding passes on the declarations it reads",
-          "mutation": [{ "find": "        const declared = owner(declaration);\n", "replace": "        const declared = bindings.has(declaration) ? owner(declaration) : null;\n" }]
-        },
-        {
-          "policy": "an exempt test is broken when its file fails on the base with the exempt test bodies emptied",
-          "mutation": [{ "find": "        if (exit === 0) changedInput.push(", "replace": "        if (true) changedInput.push(" }]
-        },
-        {
-          "policy": "the emptied run empties each exempt test's body",
-          "mutation": [{ "find": "edits.push([argument.getStart(source), argument.end, \"() => {}\"]);", "replace": "void argument;" }]
-        },
-        {
-          "policy": "the emptied run skips every test it does not keep",
-          "mutation": [{ "find": "edits.push([node.getStart(source), node.end, `${registrar.text}.skip(\"\", () => {})`]);", "replace": "void registrar;" }]
+          "policy": "a malformed acknowledgement file stops the check",
+          "mutation": [{ "find": "if (!Array.isArray(entries) || !entries.every(valid))", "replace": "if (false)" }]
         }
       ]
     },
