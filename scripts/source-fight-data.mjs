@@ -139,7 +139,9 @@ function logCitations() {
   return new Map([["P3.slashLands", hits]]);
 }
 
-function wikiExpr(exportName) {
+function wikiExpr(exportName, comment) {
+  const page = comment.match(/https:\/\/oldschool\.runescape\.wiki\/w\/[\w/()%-]+/);
+  if (page) return `wiki(${JSON.stringify(page[0])}, null)`;
   if (exportName === "P1") return `wiki(${JSON.stringify(STRATEGIES)}, 15381731)`;
   if (exportName === "P3" || exportName === "VOID_LOC") return `wiki(${JSON.stringify(STRATEGIES)}, 15381236)`;
   if (exportName === "LOWEST_DEFENCE_FRACTION") return `wiki(${JSON.stringify(STRATEGIES)}, null)`;
@@ -195,7 +197,7 @@ function metaFor(exportName, pathName, comment, tags, hisLines, confirmed) {
   const sources = [];
   const used = new Set();
   if (tags.has("W")) {
-    sources.push(wikiExpr(exportName));
+    sources.push(wikiExpr(exportName, comment));
     used.add("wiki");
     if (exportName === "LOWEST_DEFENCE_FRACTION" || comment.includes("news")) {
       sources.push(`news(${JSON.stringify(HOTFIX)})`);

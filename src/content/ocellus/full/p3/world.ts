@@ -11,6 +11,7 @@ export interface Add {
   readonly tile: ATile;
   readonly alive: boolean;
   remove(): void;
+  detonate(): void;
 }
 
 export interface Fighter {
