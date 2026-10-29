@@ -2,9 +2,8 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { Settings, TrainerInstance } from "osrs-sdk";
 import { fullFightStaged } from "../../src/content/ocellus/full/prefix";
-import { dress } from "../../src/content/ocellus/js/OcellusLoadout";
+import { dressFullFight } from "../../src/content/ocellus/fight/blowpipe";
 import type { DrillSelection } from "../../src/content/ocellus/js/OcellusTimings";
-import { OCELLUS_P4, defaultLoadout } from "../../src/content/ocellus/js/OcellusTimings";
 import { startDrill } from "../../src/content/ocellus/tests/drill";
 
 type Focus = NonNullable<DrillSelection["focus"]>;
@@ -28,17 +27,14 @@ const plain = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
 
 type CarriedRun = Readonly<{ name: string; seed: number; to: number }>;
 
-/**
- * Phase 4 as `/` starts it, carried from the third fall, with Practice on and every choice at its default. The twisted bow
- * is dressed through `dress`, which the base shares, so slot 26 keeps a brew where `/` carries the blowpipe; no run uses it.
- */
+/** Phase 4 as `/` starts it, carried from the third fall, with Practice on, every choice at its default and the twisted bow in hand. */
 const CARRIED: readonly CarriedRun[] = [1, 4, 14, 75].map((runSeed): CarriedRun => ({ name: `site-p4-practice-${runSeed}`, seed: runSeed, to: 200 }));
 
 function carriedFight(run: CarriedRun) {
   Settings.readFromStorage();
   const region = fullFightStaged(
     { seed: run.seed, party: 1, startPhase: 4, hazardTiles: false, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true, defenceDrained: false },
-    (player) => dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options.ranged.value)),
+    (player) => dressFullFight(player, "twistedBow"),
   );
   const trainer = new TrainerInstance(region);
   trainer.mount(document.createElement("canvas"), document.createElement("div"));

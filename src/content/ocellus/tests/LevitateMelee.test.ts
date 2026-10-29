@@ -1,6 +1,5 @@
 import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
-import { dress } from "../js/OcellusLoadout";
-import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
+import { dressFullFight } from "../fight/blowpipe";
 import { FightPlayer } from "../fight/units";
 import type { FullFightOptions } from "../full/prefix";
 import { FightRegion } from "../full/prefix";
@@ -19,7 +18,7 @@ describe("a melee player targeting the levitating boss", () => {
       invincible: true,
       defenceDrained: false,
     };
-    const region = new FightRegion(options, (player) => dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options.melee.value)));
+    const region = new FightRegion(options, (player) => dressFullFight(player, "melee"));
     const trainer = new TrainerInstance(region, { force2d: true });
     trainer.mount(document.createElement("canvas"), document.createElement("div"));
     region.world.getReadyTimer = 0;

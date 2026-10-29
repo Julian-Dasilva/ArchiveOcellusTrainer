@@ -1,7 +1,7 @@
-import type { MovePace } from "osrs-sdk";
+import type { EquipmentSlot, MovePace } from "osrs-sdk";
 import type { Brand, Cycle, Seed, Tick, TickSpan, Tile, Unbranded, WorldTick } from "../../../sim/brands";
 import type { HitReceipt, IncomingStyle, Style } from "../../../sim/combat";
-import type { DamageRange, GearSlot, ResolvedChoices, SpecialStyle, TransitionCue } from "./OcellusTimings";
+import type { DamageRange, ResolvedChoices, SpecialStyle, TransitionCue } from "./OcellusTimings";
 import { isCount } from "../../../sim/brands";
 
 export type Ordinal = Brand<"Ordinal">;
@@ -139,7 +139,6 @@ export type RunState =
   | Readonly<{ kind: "running"; tick: Tick; phase: Phase }>
   | Readonly<{ kind: "ended"; at: Tick; reason: RunEnd }>;
 
-type EquipmentSlot = GearSlot | "offhand";
 export type LoadoutSnapshot = Readonly<{
   equipped: Readonly<Record<EquipmentSlot, number | null>>;
   inventory: readonly (number | null)[];

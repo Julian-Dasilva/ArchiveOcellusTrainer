@@ -11,8 +11,9 @@ import type { Pause } from "../../../sim/sdk/RunClock";
 import type { CreditLink } from "../../../menu/credits";
 import { CONTRIBUTOR, MAKER_LINKS } from "../../../menu/credits";
 import Sidebar from "../../../menu/Sidebar";
-import type { StartWeapon } from "../fight/blowpipe";
-import { START_WEAPONS, dressFullFight, startWeapon } from "../fight/blowpipe";
+import { dressFullFight, startWeapon } from "../fight/blowpipe";
+import type { StartWeapon } from "../js/OcellusTimings";
+import { OCELLUS_P4, START_WEAPONS } from "../js/OcellusTimings";
 import { installBossBar } from "../fight/bossBar";
 import type { ChatLine, StartPhase } from "./options";
 import { START_PHASES, formatTicks } from "./options";
@@ -425,12 +426,6 @@ const START_LABEL: Readonly<Record<StartPhase, string>> = {
   4: "Phase 4",
 };
 
-const WEAPON_LABEL: Readonly<Record<StartWeapon, string>> = {
-  twistedBow: "Twisted bow (Masori)",
-  blowpipe: "Toxic blowpipe (Masori)",
-  melee: "Scythe (Inquisitor's)",
-};
-
 const TIPS: Readonly<Record<StartPhase, readonly string[]>> = {
   1: [
     "Pray Missiles for the orange fire volleys, Magic for the blue water ones. Prayer is checked when the shot lands.",
@@ -475,7 +470,7 @@ function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: P
           <label>
             Start with
             <select id="start_weapon" value={draft.weapon} onChange={(event) => set({ weapon: startWeapon(event.target.value) })}>
-              {START_WEAPONS.map((weapon) => <option key={weapon} value={weapon}>{WEAPON_LABEL[weapon]}</option>)}
+              {START_WEAPONS.map((weapon) => <option key={weapon} value={weapon}>{OCELLUS_P4.gear.starts.value[weapon].label}</option>)}
             </select>
           </label>
           <label>

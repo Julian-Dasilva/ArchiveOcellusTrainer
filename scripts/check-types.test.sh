@@ -106,11 +106,6 @@ expect_compile_error() {
 }
 
 clean_tree_passes() { expect_clean; }
-helmet_factory_rejects_a_weapon() {
-  expect_compile_error src/content/ocellus/js/OcellusLoadout.ts \
-    "inquisitorsGreatHelm: () => new InquisitorsGreatHelm()" "inquisitorsGreatHelm: () => new OcellusScythe()" \
-    "error TS2322: Type 'OcellusScythe' is not assignable to type 'Helmet'."
-}
 void_masks_reject_a_swapped_mask() {
   expect_compile_error src/content/ocellus/js/p4/floor.ts \
     '"inner-void": voidMask("inner-void")' '"inner-void": voidMask("outer-void")' \
@@ -231,7 +226,6 @@ for t in \
   inferred_start_rejects_a_missing_phase \
   inferred_next_rejects_a_missing_phase \
   inferred_next_rejects_the_wrong_entry \
-  helmet_factory_rejects_a_weapon \
   void_masks_reject_a_swapped_mask \
   sourced_value_without_a_wiki_answer_fails \
   no_wiki_answer_followed_by_a_wiki_reference_fails \

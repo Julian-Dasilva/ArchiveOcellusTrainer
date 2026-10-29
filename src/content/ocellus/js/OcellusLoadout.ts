@@ -1,27 +1,13 @@
-import {
-  AmuletOfRancour,
-  AttackStyle,
-  AttackStylesController,
-  AvernicTreadsMax,
-  BastionPotion,
-  DizanasQuiver,
-  DragonArrows,
-  FerociousGloves,
-  InfernalCape,
-  SaradominBrew,
-  SuperCombatPotion,
-  SuperRestore,
-  UltorRing,
-  VenatorRing,
-} from "osrs-sdk";
-import type { Item, Player, UnitEquipment } from "osrs-sdk";
-import type { CarryKey, GearKeys, GearSlot, Loadout, Setup, SupplyKey } from "./OcellusTimings";
-import { GEAR_SLOTS, OCELLUS_P4 } from "./OcellusTimings";
+import { AttackStyle, AttackStylesController, defineSimLoadouts, dressPlayer } from "osrs-sdk";
+import type { CatalogLoadout, Item, Player, PresetId } from "osrs-sdk";
+import type { StartWeapon } from "./OcellusTimings";
+import { OCELLUS_P4, START_WEAPONS } from "./OcellusTimings";
 import type { LoadoutSnapshot } from "./P4Types";
 import {
   InquisitorsGreatHelm,
   InquisitorsHauberk,
   InquisitorsPlateskirt,
+  OcellusBlowpipe,
   OcellusMasoriBodyF,
   OcellusMasoriChapsF,
   OcellusMasoriMaskF,
@@ -32,62 +18,54 @@ import {
   TonalzticsOfRalos,
 } from "./gear/OcellusGear";
 
-// The SDK's slot classes share one shape, so a weapon or a chest would type-check as a helmet. Each brand fits one slot only.
-declare module "osrs-sdk/lib/src/sdk/gear/Weapon" { interface Weapon { readonly brand?: "weapon" } }
-declare module "osrs-sdk/lib/src/sdk/gear/Offhand" { interface Offhand { readonly brand?: "offhand" } }
-declare module "osrs-sdk/lib/src/sdk/gear/Helmet" { interface Helmet { readonly brand?: "helmet" } }
-declare module "osrs-sdk/lib/src/sdk/gear/Chest" { interface Chest { readonly brand?: "chest" } }
-declare module "osrs-sdk/lib/src/sdk/gear/Legs" { interface Legs { readonly brand?: "legs" } }
-declare module "osrs-sdk/lib/src/sdk/gear/Gloves" { interface Gloves { readonly brand?: "gloves" } }
-declare module "osrs-sdk/lib/src/sdk/gear/Cape" { interface Cape { readonly brand?: "cape" } }
-declare module "osrs-sdk/lib/src/sdk/gear/Necklace" { interface Necklace { readonly brand?: "necklace" } }
-declare module "osrs-sdk/lib/src/sdk/gear/Feet" { interface Feet { readonly brand?: "feet" } }
-declare module "osrs-sdk/lib/src/sdk/gear/Ring" { interface Ring { readonly brand?: "ring" } }
-declare module "osrs-sdk/lib/src/sdk/gear/Ammo" { interface Ammo { readonly brand?: "ammo" } }
+const { gear } = OCELLUS_P4;
+const RAID = "raid";
 
-type SlotItem<S extends GearSlot> = NonNullable<UnitEquipment[S]>;
+export const OCELLUS_LOADOUTS = defineSimLoadouts({
+  sim: "archive-ocellus",
+  items: [
+    OcellusTwistedBow,
+    OcellusScythe,
+    TonalzticsOfRalos,
+    OcellusBlowpipe,
+    OcellusMasoriMaskF,
+    OcellusMasoriBodyF,
+    OcellusMasoriChapsF,
+    OcellusZaryteVambraces,
+    OcellusNecklaceOfRupture,
+    InquisitorsGreatHelm,
+    InquisitorsHauberk,
+    InquisitorsPlateskirt,
+  ],
+  presets: [{ id: RAID, label: "Raid", revision: 1, loadout: gear.loadout.value, startOptions: START_WEAPONS }],
+  defaultPreset: RAID,
+  supplyStock: [],
+  startOptions: START_WEAPONS.map((id) => ({ id, ...gear.starts.value[id] })),
+});
 
-export const ITEMS: { readonly [S in GearSlot]: { readonly [K in GearKeys[S]]: () => SlotItem<S> } } = {
-  weapon: { twistedBow: () => new OcellusTwistedBow(), scytheOfVitur: () => new OcellusScythe(), tonalzticsOfRalos: () => new TonalzticsOfRalos() },
-  helmet: { masoriMaskF: () => new OcellusMasoriMaskF(), inquisitorsGreatHelm: () => new InquisitorsGreatHelm() },
-  chest: { masoriBodyF: () => new OcellusMasoriBodyF(), inquisitorsHauberk: () => new InquisitorsHauberk() },
-  legs: { masoriChapsF: () => new OcellusMasoriChapsF(), inquisitorsPlateskirt: () => new InquisitorsPlateskirt() },
-  gloves: { zaryteVambraces: () => new OcellusZaryteVambraces(), ferociousGloves: () => new FerociousGloves() },
-  cape: { dizanasQuiver: () => new DizanasQuiver(), infernalCape: () => new InfernalCape() },
-  necklace: { necklaceOfRupture: () => new OcellusNecklaceOfRupture(), amuletOfRancour: () => new AmuletOfRancour() },
-  feet: { avernicTreadsMax: () => new AvernicTreadsMax() },
-  ring: { venatorRing: () => new VenatorRing(), ultorRing: () => new UltorRing() },
-  ammo: { dragonArrows: () => new DragonArrows() },
-};
+export type StartedLoadout = Readonly<{ preset: PresetId; edited: boolean; loadout: CatalogLoadout }>;
 
-const SUPPLIES: { readonly [K in SupplyKey]: () => Item } = {
-  superCombatPotion: () => new SuperCombatPotion(),
-  bastionPotion: () => new BastionPotion(),
-  saradominBrew: () => new SaradominBrew(),
-  superRestore: () => new SuperRestore(),
-};
-
-const CARRIED: { readonly [K in CarryKey]: () => Item } = {
-  ...ITEMS.weapon, ...ITEMS.helmet, ...ITEMS.chest, ...ITEMS.legs, ...ITEMS.gloves, ...ITEMS.cape, ...ITEMS.necklace, ...ITEMS.feet, ...ITEMS.ring, ...ITEMS.ammo, ...SUPPLIES,
-};
-
-function create<S extends GearSlot>(slot: S, key: GearKeys[S]): SlotItem<S> {
-  return ITEMS[slot][key]();
+export function startingLoadout(start: StartWeapon): StartedLoadout {
+  const preset = OCELLUS_LOADOUTS.presets.find(({ id }) => id === OCELLUS_LOADOUTS.defaultPreset);
+  if (!preset) throw new Error(`the default preset ${OCELLUS_LOADOUTS.defaultPreset} is not defined`);
+  const started = OCELLUS_LOADOUTS.start({ preset, loadout: preset.loadout }, start);
+  switch (started.kind) {
+    case "started":
+      return { preset: preset.id, edited: false, loadout: started.loadout };
+    case "refused":
+      throw new Error(`the ${preset.id} preset cannot start with ${start}: ${JSON.stringify(started.rejections)}`);
+    default: {
+      const unhandled: never = started;
+      return unhandled;
+    }
+  }
 }
 
-function wear<S extends GearSlot>(equipment: UnitEquipment, slot: S, setup: Setup): void {
-  equipment[slot] = create(slot, setup[slot]);
-}
+const STANCES: Readonly<Record<typeof gear.scytheStance.value, AttackStyle>> = { jab: AttackStyle.AGGRESSIVECRUSH };
 
-const STANCES: Readonly<Record<typeof OCELLUS_P4.gear.scytheStance.value, AttackStyle>> = { jab: AttackStyle.AGGRESSIVECRUSH };
-
-export function dress(player: Player, { worn, inventory }: Loadout): void {
-  for (const slot of GEAR_SLOTS) wear(player.equipment, slot, worn);
-  inventory.forEach((key, index) => {
-    if (key !== null) player.inventory[index] = CARRIED[key]();
-  });
-  player.equipmentChanged();
-  AttackStylesController.controller.setWeaponAttackStyle(new OcellusScythe(), STANCES[OCELLUS_P4.gear.scytheStance.value]);
+export function dressOcellus(player: Player, loadout: CatalogLoadout): void {
+  dressPlayer(player, loadout);
+  AttackStylesController.controller.setWeaponAttackStyle(new OcellusScythe(), STANCES[gear.scytheStance.value]);
 }
 
 function itemId(item: Item | null | undefined): number | null {

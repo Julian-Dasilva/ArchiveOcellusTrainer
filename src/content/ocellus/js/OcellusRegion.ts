@@ -1,5 +1,6 @@
-import type { DrillConfig, Loadout } from "./OcellusTimings";
-import { OCELLUS_P4, defaultLoadout } from "./OcellusTimings";
+import type { CatalogLoadout } from "osrs-sdk";
+import type { DrillConfig } from "./OcellusTimings";
+import { OCELLUS_P4 } from "./OcellusTimings";
 import { loadoutSnapshot } from "./OcellusLoadout";
 import type { FightLog, FightSnapshot } from "./P4Types";
 import { warmSpotAnim } from "./entities/P4Views";
@@ -15,7 +16,7 @@ type DrillPhases = Readonly<{ p4: ReturnType<typeof p4Phase<DrillEntries>> }>;
 export class OcellusRegion extends EncounterRegion<DrillEntries, DrillPhases> {
   private readonly watch: P4Watch;
 
-  constructor(private readonly config: DrillConfig, loadout: Loadout = defaultLoadout(config.choices.setup.option.value)) {
+  constructor(private readonly config: DrillConfig, loadout: CatalogLoadout) {
     const watch: P4Watch = { invincible: false, mounted: null };
     super({ room: PLATFORM_ROOM, phases: { p4: p4Phase<DrillEntries>(watch) }, start: { phase: "p4", entry: { kind: "drill", config, loadout } }, seed: config.seed });
     this.watch = watch;

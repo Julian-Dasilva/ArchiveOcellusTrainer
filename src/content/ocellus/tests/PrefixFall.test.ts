@@ -4,8 +4,8 @@ import { FightPlayer } from "../fight/units";
 import type { StartPhase } from "../full/options";
 import type { FightRegion, FullFightOptions } from "../full/prefix";
 import { fullFightStaged } from "../full/prefix";
-import { dress } from "../js/OcellusLoadout";
-import { OCELLUS_P4, defaultLoadout } from "../js/OcellusTimings";
+import { dressFullFight } from "../fight/blowpipe";
+import { OCELLUS_P4 } from "../js/OcellusTimings";
 
 let close: (() => void) | null = null;
 afterEach(() => {
@@ -17,7 +17,7 @@ function fullFight(startPhase: StartPhase, setup: "melee" | null = null, defence
   Settings.readFromStorage();
   const options: FullFightOptions = { seed: 1, party: 1, startPhase, hazardTiles: false, videoMarkers: false, skipMarkers: false, soloVine: true, invincible: true, defenceDrained };
   const region = fullFightStaged(options, (player) => {
-    if (setup) dress(player, defaultLoadout(OCELLUS_P4.choices.setup.options[setup].value));
+    if (setup) dressFullFight(player, setup);
   });
   const trainer = new TrainerInstance(region, { force2d: true });
   trainer.mount(document.createElement("canvas"), document.createElement("div"));
