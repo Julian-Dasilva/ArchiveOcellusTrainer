@@ -1,5 +1,6 @@
-import { ControlPanelController, Settings, Viewport } from "osrs-sdk";
-import type { Item, TrainerInstance } from "osrs-sdk";
+import { ControlPanelController, Settings, Viewport, loadoutIds } from "osrs-sdk";
+import type { EquipmentSlot, Item, ItemId, PresetId, TrainerInstance } from "osrs-sdk";
+import type { StartedLoadout } from "../js/OcellusLoadout";
 import { loadoutSnapshot } from "../js/OcellusLoadout";
 import type { DrillConfig } from "../js/OcellusTimings";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
@@ -35,7 +36,13 @@ type P4ProbeSnapshot = Readonly<{
   icons: Readonly<Record<string, Readonly<{ path: string; size: string }>>>;
 }>;
 
-type P4ProbeLog = FightLog & Readonly<{ pauses: readonly Pause[] }>;
+type LoadoutRecord = Readonly<{
+  preset: PresetId;
+  edited: boolean;
+  equipment: Readonly<Record<EquipmentSlot, ItemId | null>>;
+  inventory: readonly (ItemId | null)[];
+}>;
+type P4ProbeLog = Readonly<{ header: FightLog["header"] & Readonly<{ loadout: LoadoutRecord }>; rows: FightLog["rows"]; pauses: readonly Pause[] }>;
 
 function drawnIcons(items: readonly (Item | null | undefined)[]): P4ProbeSnapshot["icons"] {
   return Object.fromEntries(
@@ -47,7 +54,8 @@ function drawnIcons(items: readonly (Item | null | undefined)[]): P4ProbeSnapsho
   );
 }
 
-export function exposeP4Probe(trainer: TrainerInstance, region: FightRegion, clock: RunClock, config: DrillConfig): void {
+export function exposeP4Probe(trainer: TrainerInstance, region: FightRegion, clock: RunClock, config: DrillConfig, { preset, edited, loadout }: StartedLoadout): void {
+  const dressed: LoadoutRecord = { preset, edited, ...loadoutIds(loadout) };
   window.__archiveOcellusProbe = Object.freeze({
     snapshot(): P4ProbeSnapshot {
       const { player, world } = trainer.getSnapshot();
@@ -72,7 +80,7 @@ export function exposeP4Probe(trainer: TrainerInstance, region: FightRegion, clo
         icons: player ? drawnIcons([...player.inventory, ...Object.values(player.equipment)]) : {},
       };
     },
-    log: () => ({ header: { seed: config.seed, choices: config.choices }, rows: region.rows("p4"), pauses: clock.pauses() }),
+    log: () => ({ header: { seed: config.seed, choices: config.choices, loadout: dressed }, rows: region.rows("p4"), pauses: clock.pauses() }),
     tileCentre: (at) => {
       const p4 = region.p4.mounted;
       return p4 && Viewport.viewport.projectTile(toRoom(p4.frame, tile(at.x, at.y)), trainer.getSnapshot().world);

@@ -12,6 +12,7 @@ import type { CreditLink } from "../../../menu/credits";
 import { CONTRIBUTOR, MAKER_LINKS } from "../../../menu/credits";
 import Sidebar from "../../../menu/Sidebar";
 import { dressFullFight, startWeapon } from "../fight/blowpipe";
+import { startingLoadout } from "../js/OcellusLoadout";
 import type { StartWeapon } from "../js/OcellusTimings";
 import { OCELLUS_P4, START_WEAPONS } from "../js/OcellusTimings";
 import { installBossBar } from "../fight/bossBar";
@@ -673,7 +674,7 @@ export function FullFightPage() {
     document.head.append(style);
     if (process.env.NODE_ENV !== "production") {
       exposeProbe(trainer, region);
-      exposeP4Probe(trainer, region, clock, region.p4Config);
+      exposeP4Probe(trainer, region, clock, region.p4Config, startingLoadout(params.weapon));
     }
     return () => style.remove();
   }, [trainer, region, clock]);
