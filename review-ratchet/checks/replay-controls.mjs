@@ -25,10 +25,10 @@ Only entries the head adds or changes apply; an entry identical at the base
 is ignored. An acknowledged control that fails after the overlay is
 reported as ACKNOWLEDGED instead of BROKEN. An entry that names no control of
 a replayed file, or whose control passes after the overlay, is STALE and
-fails the check, and so does an entry whose name more than one test shares
-on the base or after the overlay (AMBIGUOUS). An acknowledged control with
-no result or a skipped result after the overlay, or in a file that reports
-an error outside its tests, is still BROKEN.
+fails the check. An entry whose name more than one test has on the base or
+after the overlay is AMBIGUOUS: it does not apply and fails the check. An
+acknowledged control with no result or a skipped result after the overlay,
+or in a file that reports an error outside its tests, is still BROKEN.
 
 The check guards against honest mistakes, not an author who means to deceive
 it. Vitest's report does not say whether a failed test failed in its own body
@@ -36,7 +36,7 @@ or in a beforeEach, afterEach or cleanup around it, so the review of each
 acknowledgement owns that judgement.
 
 Exits 0 when every control still passes or fails as acknowledged, 1 when one
-breaks or an acknowledgement is stale, and 2 when a revision, the
+breaks or an acknowledgement is stale or ambiguous, and 2 when a revision, the
 acknowledgement file, the worktree or a test runner cannot be used.
 `;
 
