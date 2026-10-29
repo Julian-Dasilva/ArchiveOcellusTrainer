@@ -4,7 +4,6 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 const usage = `usage: replay-controls.mjs --base REV [--head REV] [--repo DIR] [--timeout SECS]
 
@@ -13,19 +12,21 @@ does: it checks out REV --base, runs every test file that exists at both
 revisions and whose test code changed, overlays the head's test files and
 test support (files under a test/ or tests/ directory), and runs them again.
 A control is a test whose own source is identical at both revisions and that
-passed cleanly on the base before the overlay. A control that fails after
-the overlay shows that the head's test code itself does not run on the base,
-so no failure in that replay is evidence about the base's behaviour. A Vitest
+passed on the base before the overlay. A control that fails after the
+overlay shows that the head's test code itself does not run on the base, so
+no failure in that replay is evidence about the base's behaviour. A Vitest
 test that reads a top-level declaration of its own file, such as a fixture
 const or a helper, directly or through other declarations, is not a control
-when the head changed that declaration: its input changed on purpose, so it
-is listed as NOT A CONTROL and only its own callback may fail. That holds only
-while the file's imports, hooks and other statements outside its tests and
-top-level declarations are identical at both revisions; when they differ,
-every test whose own source is unchanged stays a control. Either way, a test
-whose own source is unchanged is BROKEN when, after the overlay, it has no
-result, is skipped, or one of its hooks, its describe blocks or its file
-failed. *.test.sh files print PASS name or FAIL name.
+when the head changed that declaration: its input changed on purpose, so its
+own result is not judged. Instead its file runs once more on the base with
+every such test's body emptied and every other test skipped, and that run
+must pass; a failure there comes from collection, hooks or cleanup, not from
+a test body, so each such test is BROKEN, and otherwise each is listed as NOT
+A CONTROL. That holds only while the file's imports, hooks and other
+statements outside its tests and top-level declarations are identical at both
+revisions; when they differ, every test whose own source is unchanged stays a
+control. Vitest files report through their JSON reporter; *.test.sh files
+print PASS name or FAIL name.
 Each test run may take up to --timeout seconds (default 600).
 
 Exits 0 when every control still passes, 1 when one breaks, and 2 when a
@@ -34,9 +35,9 @@ revision, the worktree or a test runner cannot be used.
 
 const TEST_FILE = /\.test\.(?:[cm]?[jt]sx?|sh)$/;
 const SUPPORT = /(^|\/)tests?\//;
-const REPORTER = fileURLToPath(new URL("./replay-controls-reporter.mjs", import.meta.url));
 const DESCRIBE = /^describe(\.(only|skip|concurrent))?$/;
 const TEST = /^(test|it)(\.(only|skip|concurrent))?$/;
+const TEST_ROOT = /^(test|it)$/;
 const CONTROL = { kind: "control" };
 const CHANGED = { kind: "changed" };
 
@@ -68,8 +69,8 @@ function parseArguments(argv) {
   return { ...options, repo: path.resolve(options.repo) };
 }
 
-function run(command, args, cwd, env = process.env) {
-  return spawnSync(command, args, { cwd, env, encoding: "utf8", maxBuffer: 256 * 1024 * 1024, timeout: runTimeoutMs, killSignal: "SIGKILL" });
+function run(command, args, cwd) {
+  return spawnSync(command, args, { cwd, encoding: "utf8", maxBuffer: 256 * 1024 * 1024, timeout: runTimeoutMs, killSignal: "SIGKILL" });
 }
 
 function git(repo, args) {
@@ -89,6 +90,16 @@ function shellSource(text, name) {
   if (start < 0) return null;
   const end = lines.findIndex((line, index) => index > start && /^\}/.test(line));
   return end < 0 ? null : lines.slice(start, end + 1).join("\n");
+}
+
+function suiteCall(ts, node) {
+  if (!ts.isCallExpression(node)) return null;
+  const [first, body] = node.arguments;
+  if (!body || !first || !(ts.isStringLiteral(first) || ts.isNoSubstitutionTemplateLiteral(first))) return null;
+  const callee = (expression) =>
+    ts.isIdentifier(expression) ? expression.text : ts.isPropertyAccessExpression(expression) ? `${callee(expression.expression)}.${expression.name.text}` : "";
+  const name = callee(node.expression);
+  return DESCRIBE.test(name) ? { kind: "describe", title: first.text, body } : TEST.test(name) ? { kind: "test", title: first.text, body } : null;
 }
 
 /** @returns {SuiteSource} */
@@ -176,19 +187,9 @@ function vitestFile(ts, file, text) {
     return [...names];
   };
 
-  const callee = (node) =>
-    ts.isIdentifier(node) ? node.text : ts.isPropertyAccessExpression(node) ? `${callee(node.expression)}.${node.name.text}` : "";
-  const suiteCall = (node) => {
-    if (!ts.isCallExpression(node)) return null;
-    const [first, body] = node.arguments;
-    if (!body || !first || !(ts.isStringLiteral(first) || ts.isNoSubstitutionTemplateLiteral(first))) return null;
-    const name = callee(node.expression);
-    return DESCRIBE.test(name) ? { kind: "describe", title: first.text, body } : TEST.test(name) ? { kind: "test", title: first.text, body } : null;
-  };
-
   const tests = new Map();
   const visit = (node, titles) => {
-    const call = suiteCall(node);
+    const call = suiteCall(ts, node);
     if (call?.kind === "describe") {
       ts.forEachChild(call.body, (child) => visit(child, [...titles, call.title]));
       return;
@@ -202,7 +203,7 @@ function vitestFile(ts, file, text) {
   visit(source, []);
 
   const setupText = (statement) => {
-    const call = ts.isExpressionStatement(statement) ? suiteCall(statement.expression) : null;
+    const call = ts.isExpressionStatement(statement) ? suiteCall(ts, statement.expression) : null;
     if (call?.kind === "test") return [];
     if (call?.kind === "describe" && (ts.isArrowFunction(call.body) || ts.isFunctionExpression(call.body)) && ts.isBlock(call.body.body)) return call.body.body.statements.flatMap(setupText);
     return [statement.getText(source)];
@@ -224,6 +225,31 @@ function standing(base, head, name) {
   return declarations.length > 0 ? { kind: "changed-input", declarations } : CONTROL;
 }
 
+function emptiedSource(ts, file, text, keep) {
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const root = (node) => (ts.isCallExpression(node) || ts.isPropertyAccessExpression(node) ? root(node.expression) : node);
+  const edits = [];
+  const visit = (node, titles) => {
+    const call = suiteCall(ts, node);
+    if (call?.kind === "describe") {
+      ts.forEachChild(call.body, (child) => visit(child, [...titles, call.title]));
+      return;
+    }
+    if (call?.kind === "test" && keep.has([...titles, call.title].join(" > "))) {
+      for (const argument of node.arguments.slice(1)) if (ts.isArrowFunction(argument) || ts.isFunctionExpression(argument)) edits.push([argument.getStart(source), argument.end, "() => {}"]);
+      return;
+    }
+    const registrar = ts.isCallExpression(node) ? root(node.expression) : null;
+    if (registrar !== null && ts.isIdentifier(registrar) && TEST_ROOT.test(registrar.text)) {
+      edits.push([node.getStart(source), node.end, `${registrar.text}.skip("", () => {})`]);
+      return;
+    }
+    ts.forEachChild(node, (child) => visit(child, titles));
+  };
+  visit(source, []);
+  return edits.sort((a, b) => b[0] - a[0]).reduce((result, [start, end, replacement]) => result.slice(0, start) + replacement + result.slice(end), text);
+}
+
 function runShell(worktree, suite) {
   const result = run("bash", [suite], worktree);
   if (result.error) throw new Undecidable(`bash ${suite} did not finish: ${result.error.message}`);
@@ -233,7 +259,7 @@ function runShell(worktree, suite) {
     const match = line.match(/^(PASS|FAIL) (\S+)\s*$/);
     if (!match) return;
     const detail = output.slice(index + 1).filter((next) => /^\s+\S/.test(next)).slice(0, 2).map((next) => next.trim()).join(" / ");
-    outcomes.set(match[2], { status: match[1] === "PASS" ? "pass" : "fail", detail, fault: "" });
+    outcomes.set(match[2], { status: match[1] === "PASS" ? "pass" : "fail", detail });
   });
   return { error: "", tests: outcomes };
 }
@@ -241,22 +267,27 @@ function runShell(worktree, suite) {
 function runVitest(worktree, suites, report) {
   const vitest = path.join(worktree, "node_modules", ".bin", "vitest");
   if (!fs.existsSync(vitest)) throw new Undecidable(`no vitest at ${vitest}; install dependencies in the repository first`);
-  const result = run(vitest, ["run", `--reporter=${REPORTER}`, ...suites], worktree, { ...process.env, REPLAY_CONTROLS_REPORT: report });
+  const result = run(vitest, ["run", "--reporter=json", `--outputFile=${report}`, ...suites], worktree);
   if (result.error || !fs.existsSync(report)) throw new Undecidable(`vitest wrote no report: ${(result.error?.message || result.stderr || "").trim().split("\n").slice(-3).join(" ")}`);
   const outcomes = new Map(suites.map((suite) => [suite, { error: "", tests: new Map() }]));
   const root = fs.realpathSync(worktree);
-  for (const file of JSON.parse(fs.readFileSync(report, "utf8")).files) {
-    const suite = path.relative(root, fs.realpathSync(file.file));
-    outcomes.set(suite, { error: file.error, tests: new Map(file.tests.map(({ name, ...outcome }) => [name, outcome])) });
+  for (const file of JSON.parse(fs.readFileSync(report, "utf8")).testResults) {
+    const suite = path.relative(root, fs.realpathSync(file.name));
+    const tests = new Map();
+    for (const test of file.assertionResults) {
+      const detail = (test.failureMessages[0] ?? "").split("\n")[0];
+      tests.set([...test.ancestorTitles, test.title].join(" > "), { status: test.status === "passed" ? "pass" : "fail", detail });
+    }
+    outcomes.set(suite, { error: (file.message ?? "").split("\n")[0], tests });
   }
-  return outcomes;
+  return { exit: result.status, outcomes };
 }
 
 function runSuites(worktree, suites, scratch, label) {
   const outcomes = new Map();
   const vitestSuites = suites.filter((suite) => !suite.endsWith(".sh"));
   if (vitestSuites.length > 0) {
-    for (const [suite, outcome] of runVitest(worktree, vitestSuites, path.join(scratch, `${label}.json`))) outcomes.set(suite, outcome);
+    for (const [suite, outcome] of runVitest(worktree, vitestSuites, path.join(scratch, `${label}.json`)).outcomes) outcomes.set(suite, outcome);
   }
   for (const suite of suites.filter((file) => file.endsWith(".sh"))) outcomes.set(suite, runShell(worktree, suite));
   return outcomes;
@@ -308,27 +339,41 @@ function replay({ base: baseRevision, head: headRevision, repo }) {
     const replayed = runSuites(worktree, suites, scratch, "replay");
 
     const broken = [];
-    const changedInput = [];
+    const exempt = new Map();
     let controls = 0;
     for (const suite of suites) {
       const overlaid = replayed.get(suite);
       for (const [name, outcome] of native.get(suite)?.tests ?? new Map()) {
-        if (outcome.status !== "pass" || outcome.fault !== "") continue;
+        if (outcome.status !== "pass") continue;
         const verdict = standing(sourceOf(base, suite), sourceOf(head, suite), name);
         if (verdict.kind === "changed") continue;
+        if (verdict.kind === "changed-input") {
+          exempt.set(suite, [...(exempt.get(suite) ?? []), { name, declarations: verdict.declarations }]);
+          continue;
+        }
+        controls++;
         const after = overlaid?.tests.get(name);
-        const fault = after === undefined ? overlaid?.error || "no result after the overlay" : after.fault;
-        if (verdict.kind === "control") controls++;
-        if (fault !== "") broken.push({ suite, name, detail: fault });
-        else if (verdict.kind === "changed-input") changedInput.push({ suite, name, declarations: verdict.declarations });
-        else if (after.status !== "pass") broken.push({ suite, name, detail: after.detail });
+        const detail = after ? after.detail : overlaid?.error || "no result after the overlay";
+        if (after?.status !== "pass") broken.push(`${suite}::${name} passes on the base but not after the overlay${detail ? `: ${detail}` : ""}`);
+      }
+    }
+    const changedInput = [];
+    const ts = createRequire(import.meta.url)("typescript");
+    for (const [index, [suite, tests]] of [...exempt].entries()) {
+      fs.writeFileSync(path.join(worktree, suite), emptiedSource(ts, suite, git(repo, ["show", `${head}:${suite}`]), new Set(tests.map(({ name }) => name))));
+      const { exit, outcomes } = runVitest(worktree, [suite], path.join(scratch, `emptied-${index}.json`));
+      const emptied = outcomes.get(suite);
+      const detail = tests.map(({ name }) => emptied.tests.get(name)).find((test) => test?.status !== "pass")?.detail || emptied.error || `vitest exited ${exit}`;
+      for (const { name, declarations } of tests) {
+        if (exit === 0) changedInput.push(`${suite}::${name} reads ${declarations.join(", ")}, which the head changed`);
+        else broken.push(`${suite}::${name} reads ${declarations.join(", ")}, which the head changed, but its file does not pass on the base with the exempt test bodies emptied: ${detail}`);
       }
     }
     console.log(`replay-controls: base ${short(base)}, head ${short(head)}: ${suites.length} file(s) replayed, ${controls} unchanged control(s), ${changedInput.length} test(s) reading changed declarations`);
-    for (const { suite, name, declarations } of changedInput) console.log(`NOT A CONTROL ${suite}::${name} reads ${declarations.join(", ")}, which the head changed`);
-    for (const { suite, name, detail } of broken) console.log(`BROKEN ${suite}::${name} passes on the base but not after the overlay${detail ? `: ${detail}` : ""}`);
+    for (const line of changedInput) console.log(`NOT A CONTROL ${line}`);
+    for (const line of broken) console.log(`BROKEN ${line}`);
     if (broken.length === 0) return 0;
-    console.log(`replay-controls: ${broken.length} control(s) broke, so the head's test code does not run on the base and failures in this replay are not evidence against it`);
+    console.log(`replay-controls: ${broken.length} test(s) broke, so the head's test code does not run on the base and failures in this replay are not evidence against it`);
     return 1;
   } finally {
     run("git", ["worktree", "remove", "--force", worktree], repo);

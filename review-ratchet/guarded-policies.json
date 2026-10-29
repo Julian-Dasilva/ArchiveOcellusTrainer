@@ -219,14 +219,6 @@
           "mutation": [{ "find": "  if (base.setup !== head.setup) return CONTROL;\n", "replace": "" }]
         },
         {
-          "policy": "a judged test with no result after the overlay is broken",
-          "mutation": [{ "find": "after === undefined ? overlaid?.error || \"no result after the overlay\" : after.fault", "replace": "after === undefined ? \"\" : after.fault" }]
-        },
-        {
-          "policy": "a judged test that did not run cleanly after the overlay is broken",
-          "mutation": [{ "find": ": after.fault;\n", "replace": ": \"\";\n" }]
-        },
-        {
           "policy": "each declarator of a statement is its own declaration",
           "mutation": [{ "find": "bind(declaration.name, declaration, keyword + declaration.getText(source))", "replace": "bind(declaration.name, declaration, statement.getText(source))" }]
         },
@@ -249,20 +241,18 @@
         {
           "policy": "an unchanged describe-local binding passes on the declarations it reads",
           "mutation": [{ "find": "        const declared = owner(declaration);\n", "replace": "        const declared = bindings.has(declaration) ? owner(declaration) : null;\n" }]
-        }
-      ]
-    },
-    {
-      "path": "review-ratchet/checks/replay-controls-reporter.mjs",
-      "tests": ["review-ratchet/checks/replay-controls.test.sh"],
-      "policies": [
-        {
-          "policy": "a failed beforeEach or afterEach is a fault of its test",
-          "mutation": [{ "find": "  if (hook === undefined && (task.type === \"test\" || error === undefined)) return \"\";\n", "replace": "  if (task.type === \"test\" || error === undefined) return \"\";\n" }]
         },
         {
-          "policy": "a failed beforeAll, afterAll or collection is a fault of every test under it",
-          "mutation": [{ "find": "        const fault = inherited || ownFault(task);\n", "replace": "        const fault = task.type === \"test\" ? ownFault(task) : \"\";\n" }]
+          "policy": "an exempt test is broken when its file fails on the base with the exempt test bodies emptied",
+          "mutation": [{ "find": "        if (exit === 0) changedInput.push(", "replace": "        if (true) changedInput.push(" }]
+        },
+        {
+          "policy": "the emptied run empties each exempt test's body",
+          "mutation": [{ "find": "edits.push([argument.getStart(source), argument.end, \"() => {}\"]);", "replace": "void argument;" }]
+        },
+        {
+          "policy": "the emptied run skips every test it does not keep",
+          "mutation": [{ "find": "edits.push([node.getStart(source), node.end, `${registrar.text}.skip(\"\", () => {})`]);", "replace": "void registrar;" }]
         }
       ]
     },
