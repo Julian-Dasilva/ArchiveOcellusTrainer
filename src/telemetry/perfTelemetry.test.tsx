@@ -101,7 +101,7 @@ describe("Performance telemetry", () => {
       {
         url: "http://localhost/t",
         summary: {
-          version: "2026.10.28",
+          version: "2026.10.29",
           view: "3d",
           gpu: "unavailable",
           browser: "other",
