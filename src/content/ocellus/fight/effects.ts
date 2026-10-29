@@ -322,7 +322,7 @@ export class LabelledTiles extends FloorEntity {
 /** A short text drawn over a point of the arena grid; a tile's centre is its whole coordinates. */
 export type SceneLabel = Readonly<{ x: number; z: number; text: string; colour: number }>;
 
-const LABEL = { width: 128, height: 64, font: "bold 40px sans-serif", scale: 0.9, lift: 1.4, pool: 64 } as const;
+const LABEL = { width: 128, height: 64, font: "bold 44px sans-serif", scale: 1.6, lift: 0.6, pool: 64 } as const;
 
 function cssColour(colour: number): string {
   return `#${colour.toString(16).padStart(6, "0")}`;
@@ -339,7 +339,11 @@ class SceneLabelsModel implements Model {
     for (let i = 0; i < Math.min(labels.length, LABEL.pool); i++) {
       const { x, z, text, colour } = labels[i];
       const sprite = this.sprite(i, scene);
-      sprite.material.map = this.texture(text, colour);
+      const map = this.texture(text, colour);
+      if (sprite.material.map !== map) {
+        sprite.material.map = map;
+        sprite.material.needsUpdate = true;
+      }
       sprite.position.set(x + C_OFFSET + 0.5, GROUND_OVERLAY_Y + LABEL.lift, C_OFFSET - z - 0.5);
       sprite.visible = visible;
     }

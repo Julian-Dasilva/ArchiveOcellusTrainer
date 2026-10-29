@@ -28,7 +28,7 @@ export function markedOn(row: TickRow): readonly Marked[] {
 }
 
 /** What the guide says for one beat on the schedule, or null for a beat that is only part of another (sounds, the per-tick shards). */
-function warningOf(beat: Beat, marked: readonly Marked[]): Warning<Tile> | null {
+function warningOf(beat: Beat, marked: readonly Marked[], untold: ReadonlySet<number>): Warning<Tile> | null {
   switch (beat.kind) {
     case "boss-shouts":
       return { what: `"${beat.text}"`, todo: "The phase 4 cycle starts from this shout", tone: "beat", where: NOWHERE };
@@ -55,8 +55,10 @@ function warningOf(beat: Beat, marked: readonly Marked[]): Warning<Tile> | null 
     case "floor-damage":
       return { what: `The ${VOID_NAME[beat.void]} void floor hurts`, todo: FLOOR_TODO[beat.void], tone: "harm", where: NOWHERE };
     case "special-tell":
-      return { what: "Void blast tell", todo: `Read the tell: ${PROTECTION_PRAYER[OCELLUS_P4.special.styles[beat.variant].value]}`, tone: "beat", where: { kind: "spot", at: { kind: "boss" } } };
+      return { what: "Void blast tell", todo: "Read it: a black disk is melee, purple spikes ranged, a starburst magic", tone: "beat", where: { kind: "spot", at: { kind: "boss" } } };
     case "special-hit": {
+      // In game its style is not known until its tell, so the guide does not say it sooner.
+      if (untold.has(beat.ordinal)) return { what: "Void blast", todo: "Its tell shows which prayer", tone: "harm", where: { kind: "spot", at: { kind: "boss" } } };
       const style = OCELLUS_P4.special.styles[beat.variant].value;
       return { what: `Void blast (${style})`, todo: PROTECTION_PRAYER[style], tone: "harm", where: { kind: "spot", at: { kind: "boss" } } };
     }
@@ -88,6 +90,7 @@ function keyOf(beat: Beat): string {
 export function p4Threats(from: Tick, now: Phase, moments: readonly Moment<Phase, Beat>[], marked: readonly Marked[]): readonly Threat<Tile>[] {
   const threats: Threat<Tile>[] = [];
   const seen = new Set<string>();
+  const untold = new Set(moments.flatMap((moment) => moment.beats.flatMap((beat): number[] => (beat.kind === "special-tell" ? [beat.ordinal] : []))));
   let stage = now.stage;
   for (const moment of moments) {
     if (moment.phase.stage !== stage) {
@@ -98,7 +101,7 @@ export function p4Threats(from: Tick, now: Phase, moments: readonly Moment<Phase
       const key = keyOf(beat);
       if (beat.kind === "floor-damage" && seen.has(key)) continue;
       seen.add(key);
-      const warning = warningOf(beat, marked);
+      const warning = warningOf(beat, marked, untold);
       if (warning) threats.push({ ...warning, id: `${beat.kind}-${moment.tick}-${threats.length}`, told: from, lands: moment.tick });
     }
   }

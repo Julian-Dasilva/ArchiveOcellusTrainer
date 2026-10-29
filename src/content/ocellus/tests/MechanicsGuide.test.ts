@@ -193,7 +193,9 @@ describe("the mechanics guide", () => {
     for (const [t, style] of blasts) {
       const shown = warned(seen, t, new RegExp(`^Void blast \\(${style}\\)$`));
       expect(shown?.line.todo).toBe(PROTECTION_PRAYER[style]);
-      expect(t - (shown?.shownAt ?? t)).toBeGreaterThanOrEqual(5);
+      expect(t - (shown?.shownAt ?? t)).toBe(5);
+      // Before its tell it is listed without its style, which the game does not show sooner.
+      expect(warned(seen, t, /^Void blast$/)?.line.todo).toBe("Its tell shows which prayer");
     }
     const marks = events.flatMap(([t, e]) => (e.kind === "explosion-marked" ? [{ t, e }] : []));
     const impacts = events.flatMap(([t, e]) => (e.kind === "explosion-resolved" ? [{ t, e }] : []));

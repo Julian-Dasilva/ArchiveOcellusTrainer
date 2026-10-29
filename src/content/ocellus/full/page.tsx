@@ -428,7 +428,7 @@ function MechanicsCard({ region }: Readonly<{ region: FightRegion }>) {
         {lines.slice(0, MECHANICS_SHOWN).map((line) => (
           <li key={line.id}>
             <span className="mechanics-guide-when" style={{ color: hex(TONE_COLOUR[line.tone]) }}>{`${line.inTicks}t`}</span>
-            <span className="mechanics-guide-what">{line.what}</span>
+            <span className="mechanics-guide-what">{line.count > 1 ? `${line.what} ×${line.count}` : line.what}</span>
             {line.todo !== "" && <div className="mechanics-guide-todo">{line.todo}</div>}
           </li>
         ))}

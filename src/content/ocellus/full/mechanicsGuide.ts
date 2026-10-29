@@ -10,7 +10,7 @@ import { bodyCentre, bodyCentreTile, lineBetween } from "../fight/geometry";
 export const TONE_COLOUR: Readonly<Record<Tone, number>> = { harm: 0xff9f1a, heal: 0xe040fb, beat: 0xf2f2f2 };
 
 /** One line of the card: what comes, in how many ticks, and what to do. */
-export type MechanicLine = Readonly<{ id: string; what: string; todo: string; tone: Tone; inTicks: number }>;
+export type MechanicLine = Readonly<{ id: string; what: string; todo: string; tone: Tone; inTicks: number; count: number }>;
 /** A countdown drawn in the scene, at a point on the arena's tile grid (a tile's centre is its whole coordinates). */
 export type MechanicLabel = Readonly<{ x: number; z: number; text: string; colour: number }>;
 /** Where he and the player stand now, read as the frame draws. */
@@ -67,11 +67,17 @@ export function prayerThreat(cue: PrayerCue): Threat<ATile> {
   return { what: `${cue.attack} (${cue.style})`, todo: cue.caution === null ? prayer : `${prayer}. ${cue.caution}`, tone: "harm", where, id: `prayer-${cue.id}`, told: cue.told, lands: cue.lands };
 }
 
+/** The card's lines, soonest first. The same mechanic landing on the same tick, such as a bomb's copies, is one line. */
 export function mechanicLines(timed: readonly Timed[]): readonly MechanicLine[] {
-  return timed
-    .map(({ threat, now }) => ({ id: threat.id, what: threat.what, todo: threat.todo, tone: threat.tone, inTicks: threat.lands - now }))
-    .filter((line) => line.inTicks > 0)
-    .sort((a, b) => a.inTicks - b.inTicks);
+  const lines = new Map<string, MechanicLine>();
+  for (const { threat, now } of timed) {
+    const inTicks = threat.lands - now;
+    if (inTicks <= 0) continue;
+    const key = `${inTicks}|${threat.what}|${threat.todo}`;
+    const held = lines.get(key);
+    lines.set(key, held ? { ...held, count: held.count + 1 } : { id: threat.id, what: threat.what, todo: threat.todo, tone: threat.tone, inTicks, count: 1 });
+  }
+  return [...lines.values()].sort((a, b) => a.inTicks - b.inTicks);
 }
 
 function spotTile(spot: Spot<ATile>, where: Whereabouts): ATile | null {
