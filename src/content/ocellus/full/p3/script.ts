@@ -2,6 +2,7 @@ import type { Tick, TickSpan } from "../../../../sim/brands";
 import { after, span } from "../../../../sim/brands";
 import type { Style } from "../../../../sim/combat";
 import type { Entries } from "../../../../sim/encounter";
+import type { Foretold } from "../../../../sim/prayerCue";
 import type { Script } from "../../../../sim/script";
 import type { Sourced } from "../../../../sim/sourced";
 import { each, minus, plus } from "../../../../sim/sourced";
@@ -40,6 +41,20 @@ const GOD_NAME: Readonly<Record<God, string>> = { bandos: "Bandosian", saradomin
 const GOD_GLOW: Readonly<Record<God, Sourced<number>>> = { bandos: SPOT.glowBandos, saradomin: SPOT.glowSaradomin, armadyl: SPOT.glowArmadyl, zaros: SPOT.glowZaros };
 const VINE_LINES = ["The void... will take you...", "Await... the void...", "Your panic... is futile..."] as const;
 const ESCAPE_LINES = ["You can't... escape... the end...", "This end... comes...", "Everything... ends..."] as const;
+/** What the prayer guide names for each of his prayable attacks, and what gives each away. */
+const SPIN_OPENING_TELL: Foretold = {
+  style: "melee",
+  attack: "spin opening",
+  tell: "Ocellus draws his blade in to spin (melee), hitting anyone in reach",
+  caution: null,
+  on: { kind: "boss" },
+};
+const SEVER_CAUTION = "Overheads off the tick before the cut, or he severs them; Melee on for the cut itself";
+const SAW_TELL: Foretold = { style: "melee", attack: "saw blade", tell: "saw blade spinning on Ocellus (melee cut)", caution: SEVER_CAUTION, on: { kind: "boss" } };
+const LAST_SAW_TELL: Foretold = { ...SAW_TELL, attack: "last saw blade", tell: "last saw blade on Ocellus, as the spin ends (melee cut)" };
+const PANIC_TELL: Foretold = { style: "magic", attack: "panic shot", tell: "\"Your panic... is futile...\": a purple magic shot flying at you", caution: null, on: { kind: "target" } };
+const UNTETHER_TELL: Foretold = { style: "magic", attack: "Untether magic", tell: "purple magic shot from Ocellus during Untether, flying at you", caution: null, on: { kind: "target" } };
+
 /** He starts phase 3 in the middle, facing the south entrance. */
 const MIDDLE_FACING = at(0, 10);
 const ARENA_CENTRE = at(0, 0);
@@ -358,22 +373,23 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     m.boss.play(SEQ.p3PrayerIn);
     m.boss.spotanim(SPOT.meleePrayerIn, "spin");
     m.after(this.segment === 0 ? T.debrisIntoSpin.first : T.debrisIntoSpin.later, (n) => this.debris(n));
-    m.after(T.spinOpens, (n) => {
-      if (reach(n.player.tile, n.boss.at) <= V.spinReach.value) n.hitPrayable({ kind: "spin-opening" }, "melee", V.spinOpeningDamage);
+    m.foretell(T.spinOpens, "segment", { cause: { kind: "spin-opening" }, ...SPIN_OPENING_TELL }, (n, strike) => {
+      if (reach(n.player.tile, n.boss.at) <= V.spinReach.value) strike(V.spinOpeningDamage);
     });
     const loops = this.world.destroyed.size;
     let cut: Sourced<TickSpan> = T.sawFirstCut;
     for (let i = 0; i <= loops; i++) {
       const last = i === loops;
       if (i > 0) cut = plus(cut, T.sawEvery);
-      m.after(minus(cut, T.sawShowsBefore), (n) => n.boss.spotanim(last ? SPOT.meleePrayerOut : SPOT.meleePrayer, "spin"));
-      m.after(minus(cut, T.severBefore), (n) => this.sever(n));
-      m.after(cut, (n) => {
-        n.boss.play(last ? SEQ.p3PrayerOut : SEQ.p3PrayerLoop);
-        if (last) this.stage = { kind: "chain" };
-        if (reach(n.player.tile, n.boss.at) > V.spinReach.value) return;
-        n.hitPrayable({ kind: "saw" }, "melee", V.spinDamage);
+      m.after(minus(cut, T.sawShowsBefore), (n) => {
+        n.boss.spotanim(last ? SPOT.meleePrayerOut : SPOT.meleePrayer, "spin");
+        n.foretell(T.sawShowsBefore, "segment", { cause: { kind: "saw" }, ...(last ? LAST_SAW_TELL : SAW_TELL) }, (o, strike) => {
+          o.boss.play(last ? SEQ.p3PrayerOut : SEQ.p3PrayerLoop);
+          if (last) this.stage = { kind: "chain" };
+          if (reach(o.player.tile, o.boss.at) <= V.spinReach.value) strike(V.spinDamage);
+        });
       });
+      m.after(minus(cut, T.severBefore), (n) => this.sever(n));
     }
     this.quadrantSpins++;
     const vine = V.vineAfterSpins.value.some((n) => n === this.quadrantSpins);
@@ -400,7 +416,8 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
 
   private shoot(m: P3Ctx<E>, flight: Sourced<TickSpan>, cause: "panic" | "untether-magic"): void {
     m.show({ kind: "projectile", id: SPOT.magicProjectile.value, from: "boss", to: "player", flight: flight.value });
-    m.afterPhase(flight, (n) => n.hitPrayable({ kind: cause }, "magic", cause === "panic" ? V.volleyDamage : V.untether.magicDamage));
+    const tell = cause === "panic" ? PANIC_TELL : UNTETHER_TELL;
+    m.foretell(flight, "phase", { cause: { kind: cause }, ...tell }, (_, strike) => strike(cause === "panic" ? V.volleyDamage : V.untether.magicDamage));
   }
 
   /**

@@ -1,9 +1,11 @@
 import type { Player } from "osrs-sdk";
 import { tick } from "../../../../../sim/brands";
+import type { Tick } from "../../../../../sim/brands";
+import type { CueChange } from "../../../../../sim/prayerCue";
 import type { Enter, Entries, Mounted, PhaseDef } from "../../../../../sim/encounter";
 import { identity } from "../../../../../sim/frame";
 import type { BossChange } from "../../../../../sim/script";
-import { ScriptRun } from "../../../../../sim/script";
+import { ScriptRun, cueChanges } from "../../../../../sim/script";
 import type { EncounterBinding, Hooks } from "../../../../../sim/sdk/EncounterBinding";
 import type { PlayerInput } from "../../../../../sim/sdk/EncounterPlayer";
 import type { EncounterHost } from "../../../../../sim/sdk/EncounterRegion";
@@ -38,6 +40,8 @@ export type P1Options<E extends Entries> = Readonly<{
   intoP2: (from: number) => Enter<E>;
   /** The page follows a death or a victory that happens between ticks. */
   changed: () => void;
+  /** The prayer guide takes each closed row's cue changes, on this phase's clock. */
+  told: (now: Tick, changes: readonly CueChange[]) => void;
 }>;
 
 const HOODED = at(-1, -4);
@@ -175,7 +179,9 @@ export function p1Phase<E extends Entries & Readonly<{ p1: P1Entry }>>(options: 
         openTick: () => bound.openTick(),
         finishTick: () => {
           const row = bound.finishTick();
-          if (row) views.present(row);
+          if (!row) return;
+          views.present(row);
+          options.told(row.tick, cueChanges(row.events));
         },
         rows: () => bound.rows,
         leave() {

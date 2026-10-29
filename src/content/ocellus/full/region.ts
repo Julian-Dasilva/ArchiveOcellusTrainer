@@ -5,8 +5,10 @@ import { ArenaFloor, fullRoom } from "../fight/arena";
 import { NPC, VOID_LOC, scaledHp } from "./data/looks";
 import { P1 } from "./data/p1";
 import { P2 } from "./data/p2";
-import type { ATile } from "../fight/geometry";
+import type { ATile, Body } from "../fight/geometry";
 import { GRID, at, fromSdk, toSdk } from "../fight/geometry";
+import type { TileMark } from "../fight/effects";
+import { TileMarks } from "../fight/effects";
 import type { LocView } from "../fight/locs";
 import { LocField } from "../fight/locs";
 import { FightPlayer } from "../fight/units";
@@ -16,12 +18,15 @@ import { OCELLUS_P4, fullFightConfig } from "../js/OcellusTimings";
 import type { P4Entry, P4Watch } from "../js/p4/phase";
 import { p4Phase } from "../js/p4/phase";
 import { seed, tile } from "../../../sim/brands";
+import type { Style } from "../../../sim/combat";
 import type { Room } from "../../../sim/encounter";
 import { identity, toRoom } from "../../../sim/frame";
 import type { EncounterPlayerHooks } from "../../../sim/sdk/EncounterPlayer";
 import { EncounterRegion } from "../../../sim/sdk/EncounterRegion";
 import { fence, seal } from "../../../sim/sdk/fence";
 import { carriedEntry, drainedFall, phase4Opening } from "./fall";
+import type { GuideCard } from "./prayerGuide";
+import { PrayerGuide } from "./prayerGuide";
 import type { ChatLine, FullFightOptions, StartPhase } from "./options";
 import type { P1Entry } from "./p1/types";
 import type { P1Watch } from "./p1/sdk/phase";
@@ -65,6 +70,8 @@ class Run {
   floor: () => FloorState = () => OPEN_ROOM;
   voids: readonly LocView[] = [];
   readonly chat: ChatLine[] = [];
+  /** Fed by every phase as its rows close, whether or not the sidebar shows it, so turning it on mid-fight shows what is coming. */
+  readonly guide = new PrayerGuide();
   p2From = 0;
   p3From = 0;
   p4From = 0;
@@ -111,6 +118,7 @@ function phasesOf(run: Run, p1: P1Watch, p2: P2Watch, p3: P3Watch, p4: P4Watch, 
         return { phase: "p2", entry: { kind: "followed" } };
       },
       changed: () => run.notify(),
+      told: (now, changes) => run.guide.present(now, changes),
     }),
     p2: p2Phase<FullEntries>({
       settings: { practice: () => run.options.invincible, hazardTiles: () => run.options.hazardTiles, skipMarkers: () => run.options.skipMarkers, patternMarkers: () => run.options.patternMarkers, defenceDrained: () => run.options.defenceDrained },
@@ -137,8 +145,9 @@ function phasesOf(run: Run, p1: P1Watch, p2: P2Watch, p3: P3Watch, p4: P4Watch, 
         return { phase: "p4", entry: carriedEntry(fall, p4Config) };
       },
       say: (line) => run.chat.push(line),
+      told: (now, changes) => run.guide.present(now, changes),
     }),
-    p4: p4Phase<FullEntries>(p4),
+    p4: p4Phase<FullEntries>(p4, (now, changes) => run.guide.present(now, changes)),
   };
 }
 
@@ -159,6 +168,17 @@ function opened(start: StartPhase, config: DrillConfig, defenceDrained: boolean)
     }
   }
 }
+
+/** The SDK names each protection prayer's style by its feature. */
+const PRAYER_FEATURE: Readonly<Record<Style, string>> = { melee: "melee", ranged: "range", magic: "magic" };
+
+/** What the prayer guide says while nothing prayable is on its way. */
+const GUIDE_IDLE: Readonly<Record<keyof FullEntries, string>> = {
+  p1: "No volley in the air. Each orb's colour names the next prayer.",
+  p2: "Phase 2 has no prayable attacks.",
+  p3: "No tell showing. Next to him, Protect from Melee takes most of his swings.",
+  p4: "No transition attack coming.",
+};
 
 /** The reference video's tile markers, converted from region local tiles to arena offsets. */
 const VIDEO_SQUARES: readonly (readonly [number, number])[] = [
@@ -243,7 +263,9 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
 
   /** Region.reset writes default stats after construction, so the worn set goes on once that is done. */
   override reset(startWorld = true): { player: Player } {
+    this.run.guide.reset();
     const result = super.reset(false);
+    this.addEntity(new TileMarks(this, () => this.prayerHighlight()));
     this.dress(result.player);
     this.warmHeldGraphics();
     if (startWorld) {
@@ -292,6 +314,58 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
   /** Danger-tile highlights, on for this fight and for the fight a restart builds. */
   setHazardTiles(on: boolean): void {
     this.run.options = { ...this.run.options, hazardTiles: on };
+  }
+
+  /** The prayer guide, the same way: its highlight shows from the next frame, and the page redraws its card now. */
+  setPrayerGuide(on: boolean): void {
+    this.run.options = { ...this.run.options, prayerGuide: on };
+    this.listeners.forEach((listener) => listener());
+  }
+
+  /** The SDK's own overhead icon for the prayer that blocks `style`, as the card shows it. */
+  prayerIcon(style: Style): string | null {
+    const prayer = this.players[0]?.prayerController.prayers.find((each) => each.isOverhead() && each.feature() === PRAYER_FEATURE[style]);
+    return prayer ? prayer.overheadImageReference() : null;
+  }
+
+  /** The guide's card for the HUD, or null while the sidebar has it off. */
+  prayerCard(): GuideCard | null {
+    return this.run.options.prayerGuide ? this.run.guide.card(GUIDE_IDLE[this.current]) : null;
+  }
+
+  /** The tiles the guide lights under the soonest attack's tell. Empty while the sidebar has it off. */
+  prayerHighlight(): readonly TileMark[] {
+    if (!this.run.options.prayerGuide) return [];
+    return this.run.guide.marks({
+      boss: () => this.bossBody(),
+      player: () => {
+        const player = this.players[0];
+        return player ? fromSdk(player.location) : null;
+      },
+    });
+  }
+
+  /** His body in the running phase, as the SDK places it. */
+  private bossBody(): Body | null {
+    const boss = this.bossUnit();
+    return boss && { sw: fromSdk(boss.location), size: boss.size };
+  }
+
+  private bossUnit(): Readonly<{ location: Readonly<{ x: number; y: number }>; size: number }> | null {
+    switch (this.current) {
+      case "p1":
+        return this.p1.mounted?.boss ?? null;
+      case "p2":
+        return this.p2.mounted?.boss ?? null;
+      case "p3":
+        return this.p3.mounted?.boss ?? null;
+      case "p4":
+        return this.p4.mounted?.ocellus ?? null;
+      default: {
+        const unhandled: never = this.current;
+        return unhandled;
+      }
+    }
   }
 
   /**
@@ -349,6 +423,7 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
     if (this.current === "p3" && this.players.some((player) => player.dying === 0)) this.p3.mounted?.script.lose();
     super.postTick();
     if (this.current !== this.shownPhase) {
+      if (this.shownPhase !== null) this.run.guide.reset();
       this.shownPhase = this.current;
       this.listeners.forEach((listener) => listener());
     }

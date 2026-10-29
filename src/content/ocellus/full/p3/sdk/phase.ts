@@ -1,10 +1,12 @@
 import { Unit } from "osrs-sdk";
 import type { Player } from "osrs-sdk";
 import { tick } from "../../../../../sim/brands";
+import type { Tick } from "../../../../../sim/brands";
+import type { CueChange } from "../../../../../sim/prayerCue";
 import type { AttackTarget, Enter, Entries, Mounted, PhaseDef } from "../../../../../sim/encounter";
 import { identity } from "../../../../../sim/frame";
 import type { BossChange } from "../../../../../sim/script";
-import { ScriptRun } from "../../../../../sim/script";
+import { ScriptRun, cueChanges } from "../../../../../sim/script";
 import type { EncounterBinding, Hooks } from "../../../../../sim/sdk/EncounterBinding";
 import type { PlayerInput } from "../../../../../sim/sdk/EncounterPlayer";
 import type { EncounterHost } from "../../../../../sim/sdk/EncounterRegion";
@@ -38,6 +40,8 @@ export type P3Options<E extends Entries> = Readonly<{
   fallInto: (fall: Fall) => Enter<E> | null;
   /** The chatbox outlives the phase, so its lines go to whoever keeps it. */
   say: (line: ChatLine) => void;
+  /** The prayer guide takes each closed row's cue changes, on this phase's clock. */
+  told: (now: Tick, changes: readonly CueChange[]) => void;
 }>;
 
 /** The vine roots you on its own tile, and the SDK will not let you attack what you stand under. Solo, you cut it from there. */
@@ -178,7 +182,9 @@ export function p3Phase<E extends Entries & Readonly<{ p3: P3Entry }>>(options: 
         openTick: () => bound.openTick(),
         finishTick: () => {
           const row = bound.finishTick();
-          if (row) views.present(row);
+          if (!row) return;
+          views.present(row);
+          options.told(row.tick, cueChanges(row.events));
         },
         rows: () => bound.rows,
         leave() {

@@ -4,7 +4,8 @@ import type { DrillConfig } from "../OcellusTimings";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import { dressOcellus } from "../OcellusLoadout";
 import type { LingeringVoid, TickRow } from "../P4Types";
-import type { TickSpan } from "../../../../sim/brands";
+import type { Tick, TickSpan } from "../../../../sim/brands";
+import type { CueChange } from "../../../../sim/prayerCue";
 import { after, span } from "../../../../sim/brands";
 import type { Entries, PhaseDef, Rules } from "../../../../sim/encounter";
 import type { Frame } from "../../../../sim/frame";
@@ -18,6 +19,7 @@ import { PLATFORM_ROOM } from "../rooms/platform";
 import { PLATFORM } from "./floor";
 import type { Views } from "./present";
 import { presentRow } from "./present";
+import { specialCues } from "./cues";
 
 /**
  * A drill entry dresses a fresh player on P4's own platform, which only the mechanic tests run. The full fight's third fall carries the player as it stands, so
@@ -94,7 +96,8 @@ function rules(player: EncounterPlayer): Rules {
   };
 }
 
-export function p4Phase<E extends Entries & Readonly<{ p4: P4Entry }>>(watch: P4Watch): PhaseDef<E, "p4", TickRow, EncounterHost<E>> {
+/** `told` takes each closed row's transition-attack cues for the prayer guide, on P4's clock. */
+export function p4Phase<E extends Entries & Readonly<{ p4: P4Entry }>>(watch: P4Watch, told: (now: Tick, changes: readonly CueChange[]) => void): PhaseDef<E, "p4", TickRow, EncounterHost<E>> {
   return {
     name: "p4",
     enter({ region, room, player, bind }, entry) {
@@ -128,7 +131,9 @@ export function p4Phase<E extends Entries & Readonly<{ p4: P4Entry }>>(watch: P4
         openTick: () => ocellus.binding.openTick(),
         finishTick: () => {
           const row = ocellus.binding.finishTick();
-          if (row) presentRow(row, views, frame);
+          if (!row) return;
+          presentRow(row, views, frame);
+          told(row.tick, specialCues(row));
         },
         rows: () => ocellus.binding.rows,
         leave: () => {

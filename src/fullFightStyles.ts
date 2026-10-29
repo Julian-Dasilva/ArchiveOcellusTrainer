@@ -116,7 +116,64 @@ export const FULL_FIGHT_CSS = `
   color: #ff981f;
 }
 
+.prayer-guide {
+  position: absolute;
+  top: 96px;
+  left: 92px;
+  max-width: 280px;
+  padding: 6px 10px;
+  background: rgba(16, 12, 8, 0.8);
+  border: 2px solid #5a4a2e;
+  border-radius: 2px;
+  font-family: "OSRS", sans-serif;
+  font-size: 14px;
+  color: #c8b88a;
+  text-shadow: 1px 1px 0 black;
+  pointer-events: none;
+}
+
+.prayer-guide-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prayer-guide-icon {
+  width: 25px;
+  height: 25px;
+  image-rendering: pixelated;
+}
+
+.prayer-guide-prayer {
+  font-size: 18px;
+}
+
+.prayer-guide-when {
+  color: #fff;
+}
+
+.prayer-guide-why,
+.prayer-guide-next,
+.prayer-guide-caution {
+  margin-top: 4px;
+}
+
+.prayer-guide-caution {
+  color: #ff981f;
+}
+
 @media (max-width: 900px), (max-height: 600px) {
+  .prayer-guide {
+    top: 56px;
+    max-width: 200px;
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  .prayer-guide-prayer {
+    font-size: 12px;
+  }
+
   .fight-hud {
     padding: 2px 6px;
     min-width: 0;
