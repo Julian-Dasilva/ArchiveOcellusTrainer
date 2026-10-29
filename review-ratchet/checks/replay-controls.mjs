@@ -25,8 +25,7 @@ top-level declarations are identical at both revisions; when they differ,
 every test whose own source is unchanged stays a control. Either way, a test
 whose own source is unchanged is BROKEN when, after the overlay, it has no
 result, is skipped, or one of its hooks, its describe blocks or its file
-failed. Vitest files report through replay-controls-reporter.mjs; *.test.sh
-files print PASS name or FAIL name.
+failed. *.test.sh files print PASS name or FAIL name.
 Each test run may take up to --timeout seconds (default 600).
 
 Exits 0 when every control still passes, 1 when one breaks, and 2 when a
