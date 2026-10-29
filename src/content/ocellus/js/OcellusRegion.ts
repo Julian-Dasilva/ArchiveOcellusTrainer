@@ -2,7 +2,7 @@ import { loadoutIds, parseLoadout } from "osrs-sdk";
 import type { CatalogLoadout } from "osrs-sdk";
 import type { DrillConfig, StartWeapon } from "./OcellusTimings";
 import { OCELLUS_P4 } from "./OcellusTimings";
-import { OCELLUS_LOADOUTS, loadoutSnapshot } from "./OcellusLoadout";
+import { OCELLUS_LOADOUTS, loadoutSnapshot, startTier } from "./OcellusLoadout";
 import type { FightLog, FightSnapshot } from "./P4Types";
 import { warmSpotAnim } from "./entities/P4Views";
 import { EncounterRegion } from "../../../sim/sdk/EncounterRegion";
@@ -24,9 +24,7 @@ function drillLoadout(config: DrillConfig): CatalogLoadout {
   const blowpipe = OCELLUS_P4.gear.blowpipe.value.itemId;
   const parsed = parseLoadout(OCELLUS_LOADOUTS.catalog, { ...ids, inventory: ids.inventory.map((id) => (id === blowpipe ? SARADOMIN_BREW : id)) });
   if (parsed.kind === "refused") throw new Error(`the drill loadout is refused: ${JSON.stringify(parsed.rejections)}`);
-  const started = OCELLUS_LOADOUTS.start({ preset, loadout: parsed.loadout }, DRILL_START[config.choices.setup.key]);
-  if (started.kind === "refused") throw new Error(`the drill loadout cannot start: ${JSON.stringify(started.rejections)}`);
-  return started.loadout;
+  return startTier("raid", DRILL_START[config.choices.setup.key], parsed.loadout);
 }
 
 /** Phase 4 alone on its flat platform: the in-process bed for P4's mechanic tests. The site enters phase 4 only from the full fight. */

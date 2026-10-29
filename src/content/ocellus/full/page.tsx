@@ -11,10 +11,10 @@ import type { Pause } from "../../../sim/sdk/RunClock";
 import type { CreditLink } from "../../../menu/credits";
 import { CONTRIBUTOR, MAKER_LINKS } from "../../../menu/credits";
 import Sidebar from "../../../menu/Sidebar";
-import { dressFullFight, startWeapon } from "../fight/blowpipe";
-import { startingLoadout } from "../js/OcellusLoadout";
-import type { StartWeapon } from "../js/OcellusTimings";
-import { OCELLUS_P4, START_WEAPONS } from "../js/OcellusTimings";
+import { dressFullFight } from "../fight/blowpipe";
+import { OCELLUS_PRESETS, parseTier, startingLoadout, tierStart } from "../js/OcellusLoadout";
+import type { StartWeapon, Tier, TierItem } from "../js/OcellusTimings";
+import { TIERS } from "../js/OcellusTimings";
 import { installBossBar } from "../fight/bossBar";
 import type { ChatLine, StartPhase } from "./options";
 import { START_PHASES, formatTicks } from "./options";
@@ -63,7 +63,7 @@ const UPDATE_LINKS: readonly CreditLink[] = [
   xHandle(CONTRIBUTOR),
 ];
 
-type Params = FullFightOptions & Readonly<{ weapon: StartWeapon }>;
+type Params = FullFightOptions & Readonly<{ tier: Tier; weapon: StartWeapon }>;
 
 function readParams(): Params {
   const url = new URL(window.location.href);
@@ -71,6 +71,7 @@ function readParams(): Params {
   const startPhase = START_PHASES.find((phase) => String(phase) === get("phase")) ?? 4;
   const rawSeed = get("seed");
   const seed = rawSeed !== null && /^\d{1,10}$/.test(rawSeed) ? Number(rawSeed) % 4294967296 : crypto.getRandomValues(new Uint32Array(1))[0];
+  const tier = parseTier(get("tier"));
   const flag = (name: string, fallback: boolean) => {
     const value = get(name);
     return value === null ? fallback : value === "1";
@@ -85,7 +86,8 @@ function readParams(): Params {
     soloVine: flag("vine", true),
     invincible: flag("practice", false),
     defenceDrained: flag("drained", false),
-    weapon: startWeapon(get("weapon")),
+    tier,
+    weapon: tierStart(tier, get("weapon")),
   };
 }
 
@@ -100,6 +102,7 @@ function writeParams(params: Params, fresh = true): void {
   url.searchParams.set("phase", String(params.startPhase));
   url.searchParams.delete("party");
   url.searchParams.delete("setup");
+  url.searchParams.set("tier", params.tier);
   url.searchParams.set("weapon", params.weapon);
   url.searchParams.set("drained", params.defenceDrained ? "1" : "0");
   url.searchParams.set("tiles", params.hazardTiles ? "1" : "0");
@@ -118,7 +121,7 @@ function createTrainer() {
   void CacheRender.bundle().then(({ manifest }) => reportUnservedAssets(manifest), (error: unknown) => console.error("assets: osrs-assets/manifest.json did not load", error));
   readSettings();
   const params = readParams();
-  const region = fullFightStaged(params, (player) => dressFullFight(player, params.weapon));
+  const region = fullFightStaged(params, (player) => dressFullFight(player, params.weapon, params.tier));
   installBossBar((r: Region) => {
     if (!(r instanceof FightRegion)) return null;
     const p1 = r.current === "p1" ? r.p1.mounted : null;
@@ -455,6 +458,12 @@ const TIPS: Readonly<Record<StartPhase, readonly string[]>> = {
   ],
 };
 
+function countedNames(items: readonly TierItem[]): string {
+  const counts = new Map<string, number>();
+  for (const { name } of items) counts.set(name, (counts.get(name) ?? 0) + 1);
+  return [...counts].map(([name, count]) => (count === 1 ? name : `${name} ×${count}`)).join(", ");
+}
+
 function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: Params; region: FightRegion; stage: Stage | null; clock: RunClock }>) {
   const [draft, setDraft] = useState<Params>(params);
   const set = (patch: Partial<Params>) => setDraft((current) => ({ ...current, ...patch }));
@@ -469,9 +478,23 @@ function FullFightSidebar({ params, region, stage, clock }: Readonly<{ params: P
             </select>
           </label>
           <label>
+            Tier
+            <select
+              id="start_tier"
+              value={draft.tier}
+              onChange={(event) => {
+                const tier = parseTier(event.target.value);
+                set({ tier, weapon: tierStart(tier, draft.weapon) });
+              }}
+            >
+              {TIERS.map((tier) => <option key={tier} value={tier}>{OCELLUS_PRESETS[tier].label}</option>)}
+            </select>
+            {OCELLUS_PRESETS[draft.tier].notSimulated.length > 0 && <small id="tier_not_simulated">{`Not simulated yet, so left out: ${countedNames(OCELLUS_PRESETS[draft.tier].notSimulated)}`}</small>}
+          </label>
+          <label>
             Start with
-            <select id="start_weapon" value={draft.weapon} onChange={(event) => set({ weapon: startWeapon(event.target.value) })}>
-              {START_WEAPONS.map((weapon) => <option key={weapon} value={weapon}>{OCELLUS_P4.gear.starts.value[weapon].label}</option>)}
+            <select id="start_weapon" value={draft.weapon} onChange={(event) => set({ weapon: tierStart(draft.tier, event.target.value) })}>
+              {OCELLUS_PRESETS[draft.tier].starts.map(({ weapon, label }) => <option key={weapon} value={weapon}>{label}</option>)}
             </select>
           </label>
           <label>
@@ -674,7 +697,7 @@ export function FullFightPage() {
     document.head.append(style);
     if (process.env.NODE_ENV !== "production") {
       exposeProbe(trainer, region);
-      exposeP4Probe(trainer, region, clock, region.p4Config, startingLoadout(params.weapon));
+      exposeP4Probe(trainer, region, clock, region.p4Config, startingLoadout(params.tier, params.weapon));
     }
     return () => style.remove();
   }, [trainer, region, clock]);

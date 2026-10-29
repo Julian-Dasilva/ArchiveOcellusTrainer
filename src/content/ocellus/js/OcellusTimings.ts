@@ -34,7 +34,7 @@ const FIGHT_LOGS: Readonly<Record<FightLog, FightLogEntry>> = {
   L8: { recorded: "2026-10-23", fight: "raid", players: 7, reached: "a wipe in phase 3, after one quadrant fell", records: "as L6" },
 };
 
-type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24" | "2026-10-27" | "2026-10-28";
+type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24" | "2026-10-25" | "2026-10-27" | "2026-10-28";
 
 export type Source =
   | Readonly<{ kind: "fight-log"; log: FightLog; at: string }>
@@ -260,9 +260,20 @@ export type ItemStats = Readonly<{
 }>;
 type TrainerItem = Readonly<{ itemId: Selected<number>; stats: Selected<ItemStats> }>;
 
-export const START_WEAPONS = ["twistedBow", "blowpipe", "melee"] as const;
+export const TIERS = ["raid", "max", "high", "mid", "low", "poor"] as const;
+export type Tier = (typeof TIERS)[number];
+export const START_WEAPONS = ["twistedBow", "blowpipe", "melee", "ralos"] as const;
 export type StartWeapon = (typeof START_WEAPONS)[number];
-type StartRecipe = Readonly<{ label: string; wear: readonly number[] }>;
+export type TierStart = Readonly<{ weapon: StartWeapon; label: string; wear: readonly number[] }>;
+export type TierStarts = readonly [TierStart, ...TierStart[]];
+export type TierItem = Readonly<{ id: number; name: string; simulation: "simulated" | "no-item-class" | "stats-differ" }>;
+export type TierSlot = Selected<TierItem> | null;
+export type TierRecipe = Readonly<{
+  label: string;
+  equipment: Readonly<Record<EquipmentSlot, TierSlot>>;
+  inventory: readonly TierSlot[];
+  starts: TierStarts;
+}>;
 type WornSet = Readonly<Record<Exclude<EquipmentSlot, "offhand">, string>>;
 type BlowpipeRecipe = Readonly<{
   itemId: number;
@@ -285,7 +296,8 @@ type GearRecipe = Readonly<{
   sdkIcons: Readonly<Record<SdkIconKey, Selected<number>>>;
   blowpipe: Selected<BlowpipeRecipe>;
   loadout: Selected<LoadoutIds>;
-  starts: Selected<Readonly<Record<StartWeapon, StartRecipe>>>;
+  starts: Selected<TierStarts>;
+  tiers: Readonly<Record<Exclude<Tier, "raid">, Selected<TierRecipe>>>;
   twistedBow: Selected<StanceSpeeds<TwistedBow["attackSpeed"]>>;
   ralos: Selected<StanceSpeeds & Readonly<{ range: number; longrangeRange: number; hits: number; hitMaxFraction: number }>>;
   division: Selected<Readonly<{ energy: number; accuracyFactor: number; defenceDrainOfMagic: number }>>;
@@ -950,6 +962,176 @@ const item = (itemId: number, page: string, oldid: number, itemStats: ItemStats)
 const sdkIcon = (itemId: number, page: WikiRef): Selected<number> =>
   selected(itemId, "spec-single", "unscaled", "infobox item id of an SDK item whose inventory icon the trainer draws from cache 2746; the SDK's bundled Masori body (f) image matches the wiki's 2022 upload and differs from the cache render in 107 pixels", page, cache(`item ${itemId} inventory model`));
 
+const tierItem = (id: number, name: string, simulation: TierItem["simulation"], page: string, oldid: number, note = "infobox item id"): Selected<TierItem> =>
+  selected({ id, name, simulation }, "spec-single", "unscaled", note, wiki(`${OSRS_WIKI}${page}`, oldid));
+
+const TIER_ITEMS = {
+  inquisitorsGreatHelm: tierItem(24419, "Inquisitor's great helm", "simulated", "Inquisitor%27s_great_helm", 15352822),
+  inquisitorsHauberk: tierItem(24420, "Inquisitor's hauberk", "simulated", "Inquisitor%27s_hauberk", 15352823),
+  inquisitorsPlateskirt: tierItem(24421, "Inquisitor's plateskirt", "simulated", "Inquisitor%27s_plateskirt", 15352824),
+  oathplateHelm: tierItem(30750, "Oathplate helm", "simulated", "Oathplate_helm", 15378889),
+  oathplateChest: tierItem(30753, "Oathplate chest", "simulated", "Oathplate_chest", 15378890),
+  oathplateLegs: tierItem(30756, "Oathplate legs", "simulated", "Oathplate_legs", 15378891),
+  magmaHelm: tierItem(13199, "Magma helm", "no-item-class", "Magma_helm", 15276020),
+  voidMeleeHelm: tierItem(11665, "Void melee helm", "no-item-class", "Void_melee_helm", 15260466),
+  voidRangerHelm: tierItem(11664, "Void ranger helm", "no-item-class", "Void_ranger_helm", 15260468),
+  eliteVoidTop: tierItem(13072, "Elite void top", "no-item-class", "Elite_void_top", 15260476),
+  eliteVoidRobe: tierItem(13073, "Elite void robe", "no-item-class", "Elite_void_robe", 15260481),
+  voidKnightGloves: tierItem(8842, "Void knight gloves", "no-item-class", "Void_knight_gloves", 15304461),
+  eclipseMoonChestplate: tierItem(29004, "Eclipse Moon chestplate", "no-item-class", "Eclipse_Moon_chestplate", 15354977),
+  eclipseMoonTassets: tierItem(29007, "Eclipse Moon tassets", "no-item-class", "Eclipse_Moon_tassets", 15354995),
+  infernalCape: tierItem(21295, "Infernal cape", "simulated", "Infernal_cape", 15359317),
+  amuletOfRancour: tierItem(29801, "Amulet of rancour", "simulated", "Amulet_of_rancour", 15343231),
+  amuletOfBloodFury: tierItem(24780, "Amulet of blood fury", "no-item-class", "Amulet_of_blood_fury", 15355928),
+  necklaceOfRupture: tierItem(33639, "Necklace of rupture", "simulated", "Necklace_of_rupture", 15379787),
+  necklaceOfAnguishOr: tierItem(22249, "Necklace of anguish (or)", "no-item-class", "Necklace_of_anguish_(or)", 15188731),
+  seekingDragonArrow: tierItem(33595, "Seeking dragon arrow", "simulated", "Seeking_dragon_arrow", 15314450, "infobox item id; the SDK draws it as Dragon arrow 11212 and does not simulate its minimum hit of 3"),
+  tonalzticsOfRalos: tierItem(28922, "Tonalztics of Ralos", "simulated", "Tonalztics_of_Ralos", 15368852),
+  dragonWarhammer: tierItem(13576, "Dragon warhammer", "no-item-class", "Dragon_warhammer", 15362680),
+  dragonWarhammerCr: tierItem(28035, "Dragon warhammer (cr)", "no-item-class", "Dragon_warhammer_(cr)", 15191336, "infobox item id; the nearest match to the high tier's dark-headed warhammer with a red shaft, not confirmed"),
+  emberlight: tierItem(29589, "Emberlight", "no-item-class", "Emberlight", 15358485),
+  sanguineScytheOfVitur: tierItem(25739, "Sanguine scythe of Vitur", "no-item-class", "Sanguine_Scythe_of_Vitur", 15345737),
+  twistedBow: tierItem(20997, "Twisted bow", "simulated", "Twisted_bow", 15363157),
+  toxicBlowpipe: tierItem(12926, "Toxic blowpipe", "simulated", "Toxic_blowpipe", 15376390, "infobox item id; the sim's blowpipe is charged with dragon darts, Ranged strength +20 and +35"),
+  zaryteCrossbow: tierItem(26374, "Zaryte crossbow", "no-item-class", "Zaryte_crossbow", 15382611),
+  dragonCrossbow: tierItem(21902, "Dragon crossbow", "no-item-class", "Dragon_crossbow", 15352978),
+  scorchingBow: tierItem(29591, "Scorching bow", "no-item-class", "Scorching_bow", 15317455),
+  bookOfTheDead: tierItem(25818, "Book of the Dead", "no-item-class", "Book_of_the_Dead", 15317141),
+  ghommalsAvernicDefender6: tierItem(27552, "Ghommal's avernic defender 6", "no-item-class", "Ghommal%27s_avernic_defender_6", 15324597),
+  twistedBuckler: tierItem(21000, "Twisted buckler", "no-item-class", "Twisted_buckler", 15188072),
+  ferociousGloves: tierItem(22981, "Ferocious gloves", "stats-differ", "Ferocious_gloves", 15301367, "infobox item id; the SDK's Ferocious gloves have Magic defence +6, the wiki's 0"),
+  barrowsGloves: tierItem(7462, "Barrows gloves", "simulated", "Barrows_gloves", 15322401),
+  zaryteVambraces: tierItem(26235, "Zaryte vambraces", "simulated", "Zaryte_vambraces", 15190607),
+  avernicTreadsMax: tierItem(31097, "Avernic treads (max)", "simulated", "Avernic_treads_(max)", 15320239),
+  dragonBoots: tierItem(11840, "Dragon boots", "no-item-class", "Dragon_boots", 15364734),
+  ultorRing: selected<TierItem>(
+    { id: 25485, name: "Ultor ring", simulation: "simulated" },
+    "assumption",
+    "unscaled",
+    "the wiki's Ultor ring is item 28307; the SDK's Ultor ring class carries id 25485, which names no wiki item, with the wiki's bonuses, so the loadout holds 25485",
+    wiki(`${OSRS_WIKI}Ultor_ring`, 15191287),
+  ),
+  berserkerRingI: tierItem(11773, "Berserker ring (i)", "stats-differ", "Berserker_ring_(i)", 15345632, "infobox item id of the Nightmare Zone imbue, whose icon and bonuses the Soul Wars and Emir's Arena imbues 25264 and 26770 share; the SDK's Berserker ring (i) has Crush defence 0, the wiki's +8"),
+  lightbearer: tierItem(25975, "Lightbearer", "no-item-class", "Lightbearer", 15299656),
+  blessedDizanasQuiver: tierItem(28955, "Blessed Dizana's quiver", "no-item-class", "Blessed_Dizana%27s_quiver", 15357222),
+  masoriMaskF: tierItem(27235, "Masori mask (f)", "simulated", "Masori_mask_(f)", 15190975),
+  masoriBodyF: tierItem(27238, "Masori body (f)", "simulated", "Masori_body_(f)", 15190976),
+  masoriChapsF: tierItem(27241, "Masori chaps (f)", "simulated", "Masori_chaps_(f)", 15190977),
+  rangingPotion: tierItem(2444, "Ranging potion", "no-item-class", "Ranging_potion", 15293943),
+  divineSuperCombatPotion: tierItem(23685, "Divine super combat potion", "no-item-class", "Divine_super_combat_potion", 15331555),
+  superCombatPotion: tierItem(12695, "Super combat potion", "simulated", "Super_combat_potion", 15281186),
+  superRestore: tierItem(3024, "Super restore", "simulated", "Super_restore", 15183989),
+  saradominBrew: tierItem(6685, "Saradomin brew", "simulated", "Saradomin_brew", 15322175),
+  sanfewSerum: tierItem(10925, "Sanfew serum", "no-item-class", "Sanfew_serum", 15236706),
+  divineRunePouch: tierItem(27281, "Divine rune pouch", "no-item-class", "Divine_rune_pouch", 15359154),
+} as const satisfies Readonly<Record<string, Selected<TierItem>>>;
+
+const I = TIER_ITEMS;
+const tierStart = (weapon: StartWeapon, set: string | null, held: Selected<TierItem>, ...armour: Selected<TierItem>[]): TierStart => ({
+  weapon,
+  label: set === null ? held.value.name : `${held.value.name} (${set})`,
+  wear: [held, ...armour].map(({ value }) => value.id),
+});
+const TIER_GRAPHIC = [
+  noWiki("a community gear graphic, not game data"),
+  owner("five gear tier screenshots; worn gear solved against each stats panel, the bag read row by row", "2026-10-25"),
+  owner("use the icons where the icon and the stats panel disagree", "2026-10-28"),
+] as const;
+const gearTier = (recipe: TierRecipe, note: string): Selected<TierRecipe> =>
+  selected(recipe, "inferred", "unscaled", `the worn melee setup and the bag four slots a row; an empty slot is one of the graphic's role squares for other bosses; ${note}`, ...TIER_GRAPHIC);
+
+const TIERS_GEAR: GearRecipe["tiers"] = {
+  max: gearTier(
+    {
+      label: "Max",
+      equipment: { weapon: I.tonalzticsOfRalos, offhand: I.bookOfTheDead, helmet: I.inquisitorsGreatHelm, chest: I.inquisitorsHauberk, legs: I.inquisitorsPlateskirt, gloves: I.ferociousGloves, cape: I.infernalCape, necklace: I.amuletOfRancour, feet: I.avernicTreadsMax, ring: I.ultorRing, ammo: I.seekingDragonArrow },
+      inventory: [
+        I.zaryteCrossbow, I.zaryteVambraces, I.blessedDizanasQuiver, I.masoriMaskF,
+        I.necklaceOfRupture, I.masoriBodyF, I.masoriChapsF, I.lightbearer,
+        I.toxicBlowpipe, I.twistedBow, I.rangingPotion, I.rangingPotion,
+        I.sanguineScytheOfVitur, null, I.divineSuperCombatPotion, I.superCombatPotion,
+        null, null, I.superRestore, I.superRestore,
+        I.saradominBrew, I.saradominBrew, I.superRestore, I.superRestore,
+        I.saradominBrew, I.saradominBrew, I.sanfewSerum, I.divineRunePouch,
+      ],
+      starts: [
+        tierStart("twistedBow", "Masori", I.twistedBow, I.masoriMaskF, I.masoriBodyF, I.masoriChapsF, I.zaryteVambraces, I.necklaceOfRupture),
+        tierStart("blowpipe", "Masori", I.toxicBlowpipe, I.masoriMaskF, I.masoriBodyF, I.masoriChapsF, I.zaryteVambraces, I.necklaceOfRupture),
+        tierStart("ralos", "Inquisitor's", I.tonalzticsOfRalos),
+      ],
+    },
+    "the head is the icon's Inquisitor's great helm, where the panel sums only with a Torva full helm; the potion beside the ranging potion is lighter blue and read as a second ranging potion; the Divine rune pouch is inferred from a four-rune overlay",
+  ),
+  high: gearTier(
+    {
+      label: "High",
+      equipment: { weapon: I.dragonWarhammer, offhand: I.bookOfTheDead, helmet: I.oathplateHelm, chest: I.oathplateChest, legs: I.oathplateLegs, gloves: I.barrowsGloves, cape: I.infernalCape, necklace: I.amuletOfBloodFury, feet: I.avernicTreadsMax, ring: I.ultorRing, ammo: I.seekingDragonArrow },
+      inventory: [
+        I.dragonCrossbow, I.masoriBodyF, I.blessedDizanasQuiver, I.divineRunePouch,
+        I.necklaceOfRupture, I.masoriChapsF, I.twistedBuckler, I.dragonWarhammerCr,
+        I.scorchingBow, I.toxicBlowpipe, I.superCombatPotion, I.superCombatPotion,
+        null, null, I.rangingPotion, I.rangingPotion,
+        null, null, I.superRestore, I.superRestore,
+        I.saradominBrew, I.saradominBrew, I.superRestore, I.superRestore,
+        I.saradominBrew, I.saradominBrew, I.superRestore, I.sanfewSerum,
+      ],
+      starts: [tierStart("blowpipe", "Masori", I.toxicBlowpipe, I.masoriBodyF, I.masoriChapsF, I.necklaceOfRupture)],
+    },
+    "every worn slot's icon agrees with the panel; the warhammer in row 2 is the nearest match to a dark head on a red shaft, not confirmed",
+  ),
+  mid: gearTier(
+    {
+      label: "Mid",
+      equipment: { weapon: I.emberlight, offhand: I.ghommalsAvernicDefender6, helmet: I.oathplateHelm, chest: I.oathplateChest, legs: I.oathplateLegs, gloves: I.barrowsGloves, cape: I.infernalCape, necklace: I.amuletOfRancour, feet: I.avernicTreadsMax, ring: I.ultorRing, ammo: I.seekingDragonArrow },
+      inventory: [
+        I.dragonCrossbow, I.masoriBodyF, I.blessedDizanasQuiver, I.twistedBuckler,
+        I.necklaceOfAnguishOr, I.masoriChapsF, I.masoriMaskF, I.divineRunePouch,
+        I.scorchingBow, I.toxicBlowpipe, I.superCombatPotion, I.superCombatPotion,
+        I.dragonWarhammer, null, I.rangingPotion, I.rangingPotion,
+        null, null, I.superRestore, I.superRestore,
+        I.saradominBrew, I.saradominBrew, I.superRestore, I.superRestore,
+        I.saradominBrew, I.saradominBrew, I.sanfewSerum, I.bookOfTheDead,
+      ],
+      starts: [tierStart("blowpipe", "Masori", I.toxicBlowpipe, I.masoriMaskF, I.masoriBodyF, I.masoriChapsF)],
+    },
+    "every worn slot's icon agrees with the panel",
+  ),
+  low: gearTier(
+    {
+      label: "Low",
+      equipment: { weapon: I.emberlight, offhand: I.ghommalsAvernicDefender6, helmet: I.magmaHelm, chest: I.eclipseMoonChestplate, legs: I.eclipseMoonTassets, gloves: I.barrowsGloves, cape: I.infernalCape, necklace: I.amuletOfBloodFury, feet: I.dragonBoots, ring: I.berserkerRingI, ammo: I.seekingDragonArrow },
+      inventory: [
+        I.dragonCrossbow, null, I.blessedDizanasQuiver, I.divineRunePouch,
+        I.necklaceOfAnguishOr, null, I.twistedBuckler, I.bookOfTheDead,
+        I.scorchingBow, I.toxicBlowpipe, I.superCombatPotion, I.superCombatPotion,
+        I.dragonWarhammer, null, I.rangingPotion, I.rangingPotion,
+        null, null, I.superRestore, I.superRestore,
+        I.saradominBrew, I.saradominBrew, I.superRestore, I.superRestore,
+        I.saradominBrew, I.saradominBrew, I.superRestore, I.sanfewSerum,
+      ],
+      starts: [tierStart("blowpipe", null, I.toxicBlowpipe)],
+    },
+    "the body, boots and ring are the icons' Eclipse Moon chestplate, Dragon boots and Berserker ring (i), where the panel sums only with Masori body (f), Avernic treads (max) and an Ultor ring",
+  ),
+  poor: gearTier(
+    {
+      label: "Poor",
+      equipment: { weapon: I.emberlight, offhand: I.ghommalsAvernicDefender6, helmet: I.voidMeleeHelm, chest: I.eliteVoidTop, legs: I.eliteVoidRobe, gloves: I.voidKnightGloves, cape: I.infernalCape, necklace: I.amuletOfBloodFury, feet: I.dragonBoots, ring: I.berserkerRingI, ammo: I.seekingDragonArrow },
+      inventory: [
+        I.dragonCrossbow, I.voidRangerHelm, I.blessedDizanasQuiver, I.divineRunePouch,
+        I.necklaceOfAnguishOr, I.twistedBuckler, I.toxicBlowpipe, I.bookOfTheDead,
+        I.scorchingBow, I.dragonWarhammer, I.superCombatPotion, I.superCombatPotion,
+        null, null, I.rangingPotion, I.rangingPotion,
+        null, null, I.superRestore, I.superRestore,
+        I.saradominBrew, I.saradominBrew, I.superRestore, I.superRestore,
+        I.saradominBrew, I.saradominBrew, I.superRestore, I.sanfewSerum,
+      ],
+      starts: [tierStart("blowpipe", null, I.toxicBlowpipe)],
+    },
+    "the boots and ring are the icons' Dragon boots and Berserker ring (i), where the panel sums only with Avernic treads (max) and an Ultor ring",
+  ),
+};
+
 const GEAR: GearRecipe = {
   items: {
     inquisitorsGreatHelm: item(24419, "Inquisitor%27s_great_helm", 15352822, stats([0, 0, 10, -5, -5], [19, 10, 21, 0, 12], [6, 0, 0, 1])),
@@ -999,18 +1181,19 @@ const GEAR: GearRecipe = {
     owner("special attack weapon"),
     owner("keep a blowpipe for the whole fight", "2026-10-27"),
   ),
-  starts: selected<Readonly<Record<StartWeapon, StartRecipe>>>(
-    {
-      twistedBow: { label: "Twisted bow (Masori)", wear: [20997, 27235, 27238, 27241, 26235, 28951, 33639, 28310] },
-      blowpipe: { label: "Toxic blowpipe (Masori)", wear: [12926, 27235, 27238, 27241, 26235, 28951, 33639, 28310] },
-      melee: { label: "Scythe (Inquisitor's)", wear: [22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485] },
-    },
+  starts: selected<TierStarts>(
+    [
+      { weapon: "twistedBow", label: "Twisted bow (Masori)", wear: [20997, 27235, 27238, 27241, 26235, 28951, 33639, 28310] },
+      { weapon: "blowpipe", label: "Toxic blowpipe (Masori)", wear: [12926, 27235, 27238, 27241, 26235, 28951, 33639, 28310] },
+      { weapon: "melee", label: "Scythe (Inquisitor's)", wear: [22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485] },
+    ],
     "assumption",
     "unscaled",
     "each start wears its weapon and that setup's armour, cape, necklace and ring from the loadout, and each worn item it displaces takes the slot the new item left, so every start carries the same items; the twisted bow is the default",
     NO_WIKI_PRACTICE,
     owner("tbow start in hand or blowpipe start or melee start with tbow as default", "2026-10-28"),
   ),
+  tiers: TIERS_GEAR,
   twistedBow: selected({ rapidSpeed: 5, otherSpeed: 6 }, "spec-single", "unscaled", "attack speed by stance: 5 ticks on Rapid, 6 on Accurate and Longrange", TWISTED_BOW_PAGE),
   ralos: selected({ rapidSpeed: span(6), otherSpeed: span(7), range: 7, longrangeRange: 9, hits: 2, hitMaxFraction: 0.75 }, "spec-single", "unscaled", "charged, one-handed thrown: two independent hits, each 0 to 75% of the max ranged hit", RALOS_PAGE),
   division: selected({ energy: 50, accuracyFactor: 1.5, defenceDrainOfMagic: 0.125 }, "spec-single", "unscaled", "+50% accuracy; each hit that deals damage lowers Defence by 12.5% of Magic (10% before 2026-07-22) and, on NPCs, before the second roll; the drain applies as each glaive lands, so a hit the target rejects drains nothing (inferred); rounding not stated, floored (inferred)", RALOS_PAGE),
