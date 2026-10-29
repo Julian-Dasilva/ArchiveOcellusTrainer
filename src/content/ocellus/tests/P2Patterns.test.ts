@@ -61,7 +61,7 @@ describe("phase 2's gaps follow the recorded sequences", () => {
     expect(firsts.size).toBeGreaterThan(1);
   });
 
-  test("seed 1's first round is orange, with its six safe spots where the recorded sequence puts them", () => {
+  test("guard: seed 1's first round is orange, with its six safe spots where the recorded sequence puts them", () => {
     const f = startP2({ seed: 1 });
     close = f.close;
     f.tickTo(P2.rounds[1]);

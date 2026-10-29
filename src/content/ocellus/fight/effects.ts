@@ -213,7 +213,6 @@ const LABEL_PX = 64;
 const LABEL_GUTTER = 4;
 const LABEL_CELL = LABEL_PX + 2 * LABEL_GUTTER;
 
-/** Every distinct colour and label pair, drawn once as RuneLite's ground markers draw a tile: its outline, its label. */
 function labelAtlas(tiles: readonly LabelledTile[]): { texture: THREE.CanvasTexture; cells: ReadonlyMap<string, number>; columns: number; rows: number } {
   const cells = new Map<string, number>();
   for (const { colour, label } of tiles) if (!cells.has(`${colour} ${label}`)) cells.set(`${colour} ${label}`, cells.size);
@@ -243,7 +242,6 @@ function labelAtlas(tiles: readonly LabelledTile[]): { texture: THREE.CanvasText
   return { texture, cells, columns, rows };
 }
 
-/** All the tiles as one mesh: a quad per tile on a shared label atlas, so the whole set is one draw call. */
 class LabelledTilesModel implements Model {
   private readonly geometry = new THREE.BufferGeometry();
   private readonly material: THREE.MeshBasicMaterial;
@@ -263,7 +261,7 @@ class LabelledTilesModel implements Model {
       const top = 1 - (Math.floor(cell / columns) * LABEL_CELL + LABEL_GUTTER) / tall;
       const bottom = top - LABEL_PX / tall;
       const s = toSdk(tile);
-      // The texture's top edge to the tile's north (SDK y - 1), as the rotated PlaneGeometry each tile used to get.
+      // The texture's top row on the tile's north edge (SDK y - 1).
       positions.push(s.x, height, s.y - 1, s.x + 1, height, s.y - 1, s.x, height, s.y, s.x + 1, height, s.y);
       uvs.push(u0, top, u1, top, u0, bottom, u1, bottom);
       const v = 4 * i;
