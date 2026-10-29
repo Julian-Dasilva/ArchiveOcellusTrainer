@@ -21,8 +21,8 @@ Each test run may take up to --timeout seconds (default 600).
 A head that changes a shared fixture on purpose acknowledges the controls it
 makes fail in review-ratchet/replay-acknowledged.json:
   { "acknowledged": [{ "test": "FILE::TEST", "reason": "..." }] }
-Only entries the head adds relative to the base apply; entries already at the
-base are history. An acknowledged control that fails after the overlay is
+Only entries the head adds or changes apply; an entry identical at the base
+is ignored. An acknowledged control that fails after the overlay is
 reported as ACKNOWLEDGED instead of BROKEN. An entry that names no control of
 a replayed file, or whose control passes after the overlay, is STALE and
 fails the check. An acknowledged control with no result or a skipped result
