@@ -1,8 +1,8 @@
-import { loadoutIds, parseLoadout } from "osrs-sdk";
+import { parseLoadout } from "osrs-sdk";
 import type { CatalogLoadout } from "osrs-sdk";
 import type { DrillConfig, StartWeapon } from "./OcellusTimings";
 import { OCELLUS_P4 } from "./OcellusTimings";
-import { OCELLUS_LOADOUTS, loadoutSnapshot, startTier } from "./OcellusLoadout";
+import { OCELLUS_LOADOUTS, OCELLUS_PRESETS, loadoutSnapshot, startTier } from "./OcellusLoadout";
 import type { FightLog, FightSnapshot } from "./P4Types";
 import { warmSpotAnim } from "./entities/P4Views";
 import { EncounterRegion } from "../../../sim/sdk/EncounterRegion";
@@ -16,13 +16,10 @@ type DrillPhases = Readonly<{ p4: ReturnType<typeof p4Phase<DrillEntries>> }>;
 const SARADOMIN_BREW = 6685;
 const DRILL_START: Readonly<Record<DrillConfig["choices"]["setup"]["key"], StartWeapon>> = { ranged: "twistedBow", melee: "melee" };
 
-/** The raid preset started by the drill's setup, with a Saradomin brew in the slot where the full fight carries the blowpipe. */
 function drillLoadout(config: DrillConfig): CatalogLoadout {
-  const preset = OCELLUS_LOADOUTS.presets.find(({ id }) => id === OCELLUS_LOADOUTS.defaultPreset);
-  if (!preset) throw new Error("the Ocellus loadouts have no default preset");
-  const ids = loadoutIds(preset.loadout);
+  const { equipment, inventory } = OCELLUS_PRESETS.raid.loadout;
   const blowpipe = OCELLUS_P4.gear.blowpipe.value.itemId;
-  const parsed = parseLoadout(OCELLUS_LOADOUTS.catalog, { ...ids, inventory: ids.inventory.map((id) => (id === blowpipe ? SARADOMIN_BREW : id)) });
+  const parsed = parseLoadout(OCELLUS_LOADOUTS.catalog, { equipment, inventory: inventory.map((id) => (id === blowpipe ? SARADOMIN_BREW : id)) });
   if (parsed.kind === "refused") throw new Error(`the drill loadout is refused: ${JSON.stringify(parsed.rejections)}`);
   return startTier("raid", DRILL_START[config.choices.setup.key], parsed.loadout);
 }
