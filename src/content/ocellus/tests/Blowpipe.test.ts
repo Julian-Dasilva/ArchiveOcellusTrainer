@@ -3,7 +3,8 @@ import { BossForm, FightPlayer } from "../fight/units";
 import type { StartPhase } from "../full/options";
 import type { FightRegion } from "../full/prefix";
 import { fullFightStaged } from "../full/prefix";
-import { BLOWPIPE, PHASE_RANGED_DEFENCE, dressFullFight } from "../fight/blowpipe";
+import { PHASE_RANGED_DEFENCE, dressFullFight } from "../fight/blowpipe";
+import { OCELLUS_P4 } from "../js/OcellusTimings";
 import { QUADRANTS, quadrantOf } from "../fight/geometry";
 import { startP3 } from "./p3run";
 
@@ -174,8 +175,8 @@ describe("the full fight's toxic blowpipe", () => {
         phase: run.region.current,
         worn: you.equipment.weapon?.cacheItemId ?? null,
         bow: ids.includes(20997),
-        pipe: you.equipment.weapon?.cacheItemId === BLOWPIPE.value.itemId || ids.includes(BLOWPIPE.value.itemId),
-      }).toEqual({ phase: "p4", worn: BLOWPIPE.value.itemId, bow: true, pipe: true });
+        pipe: you.equipment.weapon?.cacheItemId === OCELLUS_P4.gear.blowpipe.value.itemId || ids.includes(OCELLUS_P4.gear.blowpipe.value.itemId),
+      }).toEqual({ phase: "p4", worn: OCELLUS_P4.gear.blowpipe.value.itemId, bow: true, pipe: true });
     } finally {
       run.close();
     }

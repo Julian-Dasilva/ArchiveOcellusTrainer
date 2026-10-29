@@ -23,7 +23,7 @@
     "entityGrowth3d": 0,
     "projectileGrowth3d": 0,
     "sceneObjectGrowth3d": 0,
-    "bundleKiB": 1950
+    "bundleKiB": 1955
   },
   "timing": {
     "pairs": 5,
@@ -40,6 +40,7 @@
     {"budget": "bundleKiB", "from": 1947, "to": 1948, "reason": "merging the arena's walls, pillars, plinths and stones into two meshes adds 405 bytes to the script", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"},
     {"budget": "bundleKiB", "from": 1948, "to": 1949, "reason": "phase 3's stone crossing adds the exact move and the sourced jump timing, 993 bytes, which takes the page script to 1,994,935 bytes, 183 over the 1948 KiB line", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/159"},
     {"budget": "trianglesMax3d", "from": 13838, "to": 14073, "reason": "the player now starts with the twisted bow in hand, whose model has 235 more triangles than the blowpipe's; the same head bundle measures 13838 with weapon=blowpipe and 13931 with weapon=melee", "evidence": "scripts/verify.sh perf at 3abee108 against 82710f64: base 13838, head 14073; frame p95 ratio 1.000, tick-gap p95 ratio 0.999"},
-    {"budget": "bundleKiB", "from": 1949, "to": 1950, "reason": "the Start with and Defence drained controls and the start weapon table", "evidence": "scripts/verify.sh perf at 3abee108 against 82710f64: 1950 KiB"}
+    {"budget": "bundleKiB", "from": 1949, "to": 1950, "reason": "the Start with and Defence drained controls and the start weapon table", "evidence": "scripts/verify.sh perf at 3abee108 against 82710f64: 1950 KiB"},
+    {"budget": "bundleKiB", "from": 1950, "to": 1955, "reason": "osrs-sdk 1895b442 carries the loadout module (item catalog, loadout store, editLoadout and startWith, defineSimLoadouts), which takes the page script from 1950 KiB to 1956 KiB, 2,002,863 bytes, on the pin bump alone; dressing the trainer through it and deleting its own tables brings it back to 1955 KiB, 2,001,748 bytes", "evidence": "release-bundle at e442e978 in https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40780425970: 1950 KiB; local release build at 8f29d837: 1956 KiB; at a3d797fa: 1955 KiB, as https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40805588768 reports"}
   ]
 }

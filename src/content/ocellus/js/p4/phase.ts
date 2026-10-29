@@ -1,7 +1,8 @@
 import { SoundCache, cacheSound } from "osrs-sdk";
-import type { DrillConfig, Loadout } from "../OcellusTimings";
+import type { CatalogLoadout } from "osrs-sdk";
+import type { DrillConfig } from "../OcellusTimings";
 import { OCELLUS_P4 } from "../OcellusTimings";
-import { dress } from "../OcellusLoadout";
+import { dressOcellus } from "../OcellusLoadout";
 import type { LingeringVoid, TickRow } from "../P4Types";
 import type { TickSpan } from "../../../../sim/brands";
 import { after, span } from "../../../../sim/brands";
@@ -23,7 +24,7 @@ import { presentRow } from "./present";
  * only the boss's HP and Defence, where the platform lies in the room, and phase 3's voids cross.
  */
 export type P4Entry =
-  | Readonly<{ kind: "drill"; config: DrillConfig; loadout: Loadout }>
+  | Readonly<{ kind: "drill"; config: DrillConfig; loadout: CatalogLoadout }>
   | Readonly<{ kind: "carried"; config: DrillConfig; frame: Frame; boss: Readonly<{ hp: number; defence: number }>; voids: readonly LingeringVoid[] }>;
 
 export type P4Mount = Readonly<{ ocellus: Ocellus; player: EncounterPlayer; views: Views; frame: Frame }>;
@@ -52,7 +53,7 @@ function arrival(entry: P4Entry): Arrival {
         frame: identity(PLATFORM_ROOM.size),
         voids: [],
         passed: span(0),
-        enter: (player) => dress(player, entry.loadout),
+        enter: (player) => dressOcellus(player, entry.loadout),
         ready: (ocellus) => ocellus.enterP4(),
       };
     case "carried":

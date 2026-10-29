@@ -1,4 +1,4 @@
-import type { TwistedBow } from "osrs-sdk";
+import type { EquipmentSlot, LoadoutIds, TwistedBow } from "osrs-sdk";
 import type { Cycle, Seed, SoundId, TickSpan, Tile } from "../../../sim/brands";
 import { cycle, seed, soundId, span, tick, tile } from "../../../sim/brands";
 import type { Style } from "../../../sim/combat";
@@ -34,7 +34,7 @@ const FIGHT_LOGS: Readonly<Record<FightLog, FightLogEntry>> = {
   L8: { recorded: "2026-10-23", fight: "raid", players: 7, reached: "a wipe in phase 3, after one quadrant fell", records: "as L6" },
 };
 
-type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24" | "2026-10-27";
+type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24" | "2026-10-27" | "2026-10-28";
 
 export type Source =
   | Readonly<{ kind: "fight-log"; log: FightLog; at: string }>
@@ -260,29 +260,20 @@ export type ItemStats = Readonly<{
 }>;
 type TrainerItem = Readonly<{ itemId: Selected<number>; stats: Selected<ItemStats> }>;
 
-export const GEAR_SLOTS = ["weapon", "helmet", "chest", "legs", "gloves", "cape", "necklace", "feet", "ring", "ammo"] as const;
-export type GearSlot = (typeof GEAR_SLOTS)[number];
-const GEAR_KEYS = {
-  weapon: ["twistedBow", "scytheOfVitur", "tonalzticsOfRalos"],
-  helmet: ["masoriMaskF", "inquisitorsGreatHelm"],
-  chest: ["masoriBodyF", "inquisitorsHauberk"],
-  legs: ["masoriChapsF", "inquisitorsPlateskirt"],
-  gloves: ["zaryteVambraces", "ferociousGloves"],
-  cape: ["dizanasQuiver", "infernalCape"],
-  necklace: ["necklaceOfRupture", "amuletOfRancour"],
-  feet: ["avernicTreadsMax"],
-  ring: ["venatorRing", "ultorRing"],
-  ammo: ["dragonArrows"],
-} as const satisfies { readonly [S in GearSlot]: readonly string[] };
-export type GearKeys = { readonly [S in GearSlot]: (typeof GEAR_KEYS)[S][number] };
-export type Setup = Readonly<{ [S in GearSlot]: GearKeys[S] }>;
-const SUPPLY_KEYS = ["superCombatPotion", "bastionPotion", "saradominBrew", "superRestore"] as const;
-export type SupplyKey = (typeof SUPPLY_KEYS)[number];
-export type CarryKey = GearKeys[GearSlot] | SupplyKey;
-export const INVENTORY_SIZE = 28;
-declare const exactlyInventorySize: unique symbol;
-export type Inventory = readonly (CarryKey | null)[] & { readonly [exactlyInventorySize]: true };
-export type Loadout = Readonly<{ worn: Setup; inventory: Inventory }>;
+export const START_WEAPONS = ["twistedBow", "blowpipe", "melee"] as const;
+export type StartWeapon = (typeof START_WEAPONS)[number];
+type StartRecipe = Readonly<{ label: string; wear: readonly number[] }>;
+type WornSet = Readonly<Record<Exclude<EquipmentSlot, "offhand">, string>>;
+type BlowpipeRecipe = Readonly<{
+  itemId: number;
+  rapidSpeed: 2;
+  otherSpeed: 3;
+  range: 5;
+  longrangeRange: 7;
+  rangedAttack: number;
+  rangedStrength: number;
+  ammunition: AmmunitionClass;
+}>;
 export type TrainerItemKey = "inquisitorsGreatHelm" | "inquisitorsHauberk" | "inquisitorsPlateskirt" | "tonalzticsOfRalos";
 type SdkIconKey = "masoriMaskF" | "masoriBodyF" | "masoriChapsF" | "zaryteVambraces";
 type InquisitorPiece = "inquisitorsGreatHelm" | "inquisitorsHauberk" | "inquisitorsPlateskirt";
@@ -292,7 +283,9 @@ type GearRecipe = Readonly<{
   items: Readonly<Record<TrainerItemKey, TrainerItem>>;
   sdkCacheIds: Readonly<{ necklaceOfRupture: Selected<number> }>;
   sdkIcons: Readonly<Record<SdkIconKey, Selected<number>>>;
-  supplies: Selected<readonly SupplyKey[]>;
+  blowpipe: Selected<BlowpipeRecipe>;
+  loadout: Selected<LoadoutIds>;
+  starts: Selected<Readonly<Record<StartWeapon, StartRecipe>>>;
   twistedBow: Selected<StanceSpeeds<TwistedBow["attackSpeed"]>>;
   ralos: Selected<StanceSpeeds & Readonly<{ range: number; longrangeRange: number; hits: number; hitMaxFraction: number }>>;
   division: Selected<Readonly<{ energy: number; accuracyFactor: number; defenceDrainOfMagic: number }>>;
@@ -300,7 +293,6 @@ type GearRecipe = Readonly<{
   inquisitorCrushPerMille: Selected<Readonly<Record<InquisitorPiece, number>>>;
   scytheStance: Selected<"jab">;
   scytheMaxHitsOnOneTarget: Selected<number>;
-  specialWeapon: Selected<GearKeys["weapon"]>;
 }>;
 
 const BOSS: BossRecipe = {
@@ -940,6 +932,10 @@ const ZARYTE_VAMBRACES_PAGE = wiki(`${OSRS_WIKI}Zaryte_vambraces`, 15190607);
 const RAID_INVENTORY = wiki(`${OSRS_WIKI}The_Fractured_Archive/Strategies`, 15378756);
 const RANGED_SWITCH = wiki(`${OSRS_WIKI}The_Fractured_Archive/Strategies`, 15379033);
 const RANGED_PAGE = wiki(`${OSRS_WIKI}Ranged`, 15373088);
+const BLOWPIPE_PAGE = wiki(`${OSRS_WIKI}Toxic_blowpipe`, 15376390);
+const DRAGON_DART_PAGE = wiki(`${OSRS_WIKI}Dragon_dart`, 15372145);
+const OCELLUS_FIGHT_PAGE = wiki(`${OSRS_WIKI}Ocellus`, 15383870);
+const BLOWPIPE_STRATEGIES = wiki(`${OSRS_WIKI}The_Fractured_Archive/Strategies`, 15383713);
 
 type Five = readonly [stab: number, slash: number, crush: number, magic: number, range: number];
 const stats = (attack: Five, defence: Five, other: readonly [meleeStrength: number, rangedStrength: number, magicDamage: number, prayer: number]): ItemStats => ({
@@ -970,16 +966,50 @@ const GEAR: GearRecipe = {
     masoriChapsF: sdkIcon(27241, MASORI_CHAPS_PAGE),
     zaryteVambraces: sdkIcon(26235, ZARYTE_VAMBRACES_PAGE),
   },
-  supplies: selected<readonly SupplyKey[]>(
-    [
-      "superCombatPotion", "bastionPotion", "saradominBrew", "superRestore",
-      "superCombatPotion", "bastionPotion", "saradominBrew", "superRestore",
-      "saradominBrew", "saradominBrew", "saradominBrew", "superRestore",
-      "saradominBrew", "saradominBrew", "saradominBrew", "superRestore",
-      "saradominBrew", "saradominBrew", "superRestore",
-    ],
-    "spec-single", "unscaled", "slots 9 to 27 of the wiki's recommended raid inventory, in its order: 2 super combat potions, 2 ranging potions, 10 Saradomin brews and 5 super restores, with no fish; the SDK has no ranging potion, so the Bastion potion stands in, with the same Ranged boost plus a Defence boost (inferred)",
-    RAID_INVENTORY, wiki(`${OSRS_WIKI}Ranging_potion`, 15293943), wiki(`${OSRS_WIKI}Bastion_potion`, 15293966),
+  blowpipe: selected<BlowpipeRecipe>(
+    { itemId: 12926, rapidSpeed: 2, otherSpeed: 3, range: 5, longrangeRange: 7, rangedAttack: 30, rangedStrength: 55, ammunition: "light" },
+    "spec-single",
+    "unscaled",
+    "charged, in PvM: Accurate and Longrange are 3 ticks, Rapid is 2; range is 5 tiles, 7 on Longrange; Ranged attack +30 and Ranged strength +20, and dragon darts add +35",
+    BLOWPIPE_PAGE,
+    DRAGON_DART_PAGE,
+    OCELLUS_FIGHT_PAGE,
+    BLOWPIPE_STRATEGIES,
+    owner("keep a blowpipe for the whole fight", "2026-10-27"),
+  ),
+  loadout: selected<LoadoutIds>(
+    {
+      equipment: { weapon: 20997, offhand: null, helmet: 27235, necklace: 33639, chest: 27238, legs: 27241, feet: 31097, gloves: 26235, ring: 28310, cape: 28951, ammo: 11212 },
+      inventory: [
+        28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485,
+        12695, 22461, 6685, 3024, 12695, 22461, 6685, 3024,
+        6685, 6685, 6685, 3024, 6685, 6685, 6685, 3024,
+        6685, 12926, 3024,
+      ],
+    },
+    "assumption",
+    "unscaled",
+    "the ranged setup worn; slot 0 Tonalztics of Ralos, the owner's special attack weapon; slots 1 to 8 the melee setup's scythe, Inquisitor's helm, hauberk and plateskirt, Ferocious gloves, Infernal cape, Amulet of rancour and Ultor ring; slots 9 to 27 the wiki's recommended raid supplies in its order, 2 super combat potions, 2 ranging potions, 10 Saradomin brews and 5 super restores, with no fish, except that the toxic blowpipe takes the last brew's slot 26, so a brew is lost and not a restore; the SDK has no ranging potion, so the Bastion potion stands in, with the same Ranged boost plus a Defence boost (inferred)",
+    RAID_INVENTORY,
+    RANGED_SWITCH,
+    wiki(`${OSRS_WIKI}Ranging_potion`, 15293943),
+    wiki(`${OSRS_WIKI}Bastion_potion`, 15293966),
+    owner("ranged setup"),
+    owner("melee setup"),
+    owner("special attack weapon"),
+    owner("keep a blowpipe for the whole fight", "2026-10-27"),
+  ),
+  starts: selected<Readonly<Record<StartWeapon, StartRecipe>>>(
+    {
+      twistedBow: { label: "Twisted bow (Masori)", wear: [20997, 27235, 27238, 27241, 26235, 28951, 33639, 28310] },
+      blowpipe: { label: "Toxic blowpipe (Masori)", wear: [12926, 27235, 27238, 27241, 26235, 28951, 33639, 28310] },
+      melee: { label: "Scythe (Inquisitor's)", wear: [22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485] },
+    },
+    "assumption",
+    "unscaled",
+    "each start wears its weapon and that setup's armour, cape, necklace and ring from the loadout, and each worn item it displaces takes the slot the new item left, so every start carries the same items; the twisted bow is the default",
+    NO_WIKI_PRACTICE,
+    owner("tbow start in hand or blowpipe start or melee start with tbow as default", "2026-10-28"),
   ),
   twistedBow: selected({ rapidSpeed: 5, otherSpeed: 6 }, "spec-single", "unscaled", "attack speed by stance: 5 ticks on Rapid, 6 on Accurate and Longrange", TWISTED_BOW_PAGE),
   ralos: selected({ rapidSpeed: span(6), otherSpeed: span(7), range: 7, longrangeRange: 9, hits: 2, hitMaxFraction: 0.75 }, "spec-single", "unscaled", "charged, one-handed thrown: two independent hits, each 0 to 75% of the max ranged hit", RALOS_PAGE),
@@ -988,7 +1018,6 @@ const GEAR: GearRecipe = {
   inquisitorCrushPerMille: selected({ inquisitorsGreatHelm: 5, inquisitorsHauberk: 10, inquisitorsPlateskirt: 10 }, "spec-single", "unscaled", "crush accuracy and damage per piece; the 2026-07-22 update moved the 1% set bonus onto the hauberk and plateskirt", wiki(`${OSRS_WIKI}Inquisitor%27s_hauberk`, 15352823), wiki(`${OSRS_WIKI}Inquisitor%27s_plateskirt`, 15352824), INQUISITOR_SET),
   scytheStance: selected("jab", "spec-single", "unscaled", "Jab is the scythe's crush style; the owner wants the Scythe setup on crush", SCYTHE_PAGE, owner("melee setup")),
   scytheMaxHitsOnOneTarget: selected(3, "spec-single", "unscaled", "one hit per tile of the target's width, up to three: a 1x1 target once, 2x2 twice, 3x3 or larger three times; other 1x1 targets in the 1x3 arc take their own hit", SCYTHE_PAGE),
-  specialWeapon: selected("tonalzticsOfRalos", "assumption", "unscaled", "owner: players tend to use Ralos to spec the boss", NO_WIKI_PRACTICE, owner("special attack weapon")),
 };
 
 const EXPLOSION_DAMAGE: DamageRange = { min: 14, max: 16 };
@@ -1024,12 +1053,12 @@ export const OCELLUS_P4 = {
   gear: GEAR,
   choices: {
     setup: choice("ranged", {
-      ranged: selected<Setup>(
+      ranged: selected<WornSet>(
         { weapon: "twistedBow", helmet: "masoriMaskF", chest: "masoriBodyF", legs: "masoriChapsF", gloves: "zaryteVambraces", cape: "dizanasQuiver", necklace: "necklaceOfRupture", feet: "avernicTreadsMax", ring: "venatorRing", ammo: "dragonArrows" },
         "assumption", "unscaled", "owner-named Twisted Bow with Masori mask, body and chaps (f) in place of elite void, the armour the wiki's ranged switch now lists first; Zaryte vambraces, the wiki's first ranged gloves, replace the void knight gloves, which had no bonus but the void set effect (inferred); the owner asked for the best-in-slot ranged necklace, which the wiki names as the Necklace of rupture, and Avernic treads (max) in both setups; arrows, cape and ring are SDK items (assumption); the default because the first void's Deflect Melee leaves ranged open",
         RANGED_SWITCH, MASORI_MASK_PAGE, MASORI_BODY_PAGE, MASORI_CHAPS_PAGE, ZARYTE_VAMBRACES_PAGE, ANGUISH_PAGE, RUPTURE_PAGE, TREADS_PAGE, owner("ranged setup"), owner("ranged armour"), owner("ranged necklace"), owner("boots"),
       ),
-      melee: selected<Setup>(
+      melee: selected<WornSet>(
         { weapon: "scytheOfVitur", helmet: "inquisitorsGreatHelm", chest: "inquisitorsHauberk", legs: "inquisitorsPlateskirt", gloves: "ferociousGloves", cape: "infernalCape", necklace: "amuletOfRancour", feet: "avernicTreadsMax", ring: "ultorRing", ammo: "dragonArrows" },
         "assumption", "unscaled", "owner-named Inquisitor's armour with the Scythe of Vitur on crush, the Amulet of rancour (the owner's first choice over blood fury; both are in cache 2746) and Avernic treads (max) in both setups; gloves, cape and ring are SDK items (assumption)",
         RANCOUR_PAGE, TREADS_PAGE, owner("melee setup"), owner("melee amulet"), owner("boots"),
@@ -1125,21 +1154,6 @@ type OptionKey<K extends ChoiceName> = keyof OptionsOf<K> & string;
 const SCATTERED = "scattered";
 export type DrillSelection = { readonly [K in Exclude<ChoiceName, "floorHoleLayout">]?: OptionKey<K> } & Readonly<{ floorHoleLayout?: OptionKey<"floorHoleLayout"> | typeof SCATTERED }>;
 const CHOICES: { readonly [K in ChoiceName]: Readonly<{ default: OptionKey<K>; options: OptionsOf<K> }> } = OCELLUS_P4.choices;
-
-export function isInventory(slots: readonly (CarryKey | null)[]): slots is Inventory {
-  return slots.length === INVENTORY_SIZE;
-}
-
-export function defaultLoadout(worn: Setup): Loadout {
-  const switches: CarryKey[] = [OCELLUS_P4.gear.specialWeapon.value];
-  for (const option of Object.values(CHOICES.setup.options)) {
-    for (const slot of GEAR_SLOTS) if (option.value[slot] !== worn[slot]) switches.push(option.value[slot]);
-  }
-  const carried = [...switches, ...OCELLUS_P4.gear.supplies.value];
-  const slots = Array.from({ length: INVENTORY_SIZE }, (_, index) => carried[index] ?? null);
-  if (!isInventory(slots)) throw new RangeError(`the default loadout fills ${carried.length} of ${INVENTORY_SIZE} slots`);
-  return { worn, inventory: slots };
-}
 
 class ResolvedChoice<K extends ChoiceName> {
   readonly #name: K;

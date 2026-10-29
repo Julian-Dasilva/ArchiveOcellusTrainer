@@ -2,7 +2,7 @@ import { Settings, TrainerInstance, Viewport } from "osrs-sdk";
 import type { ScriptEvent } from "../../../sim/script";
 import type { ATile, Body, Quadrant } from "../fight/geometry";
 import { QUADRANTS, at, distanceToBody, quadrantOf, quadrantTiles } from "../fight/geometry";
-import type { StartWeapon } from "../fight/blowpipe";
+import type { StartWeapon } from "../js/OcellusTimings";
 import { dressFullFight } from "../fight/blowpipe";
 import { FightPlayer } from "../fight/units";
 import { P3 } from "../full/data/p3";

@@ -1,6 +1,8 @@
-import type { DrillConfig, Loadout } from "./OcellusTimings";
-import { OCELLUS_P4, defaultLoadout } from "./OcellusTimings";
-import { loadoutSnapshot } from "./OcellusLoadout";
+import { loadoutIds, parseLoadout } from "osrs-sdk";
+import type { CatalogLoadout } from "osrs-sdk";
+import type { DrillConfig, StartWeapon } from "./OcellusTimings";
+import { OCELLUS_P4 } from "./OcellusTimings";
+import { OCELLUS_LOADOUTS, loadoutSnapshot } from "./OcellusLoadout";
 import type { FightLog, FightSnapshot } from "./P4Types";
 import { warmSpotAnim } from "./entities/P4Views";
 import { EncounterRegion } from "../../../sim/sdk/EncounterRegion";
@@ -11,13 +13,29 @@ import { PLATFORM_ROOM } from "./rooms/platform";
 type DrillEntries = Readonly<{ p4: P4Entry }>;
 type DrillPhases = Readonly<{ p4: ReturnType<typeof p4Phase<DrillEntries>> }>;
 
+const SARADOMIN_BREW = 6685;
+const DRILL_START: Readonly<Record<DrillConfig["choices"]["setup"]["key"], StartWeapon>> = { ranged: "twistedBow", melee: "melee" };
+
+/** The raid preset started by the drill's setup, with a Saradomin brew in the slot where the full fight carries the blowpipe. */
+function drillLoadout(config: DrillConfig): CatalogLoadout {
+  const preset = OCELLUS_LOADOUTS.presets.find(({ id }) => id === OCELLUS_LOADOUTS.defaultPreset);
+  if (!preset) throw new Error("the Ocellus loadouts have no default preset");
+  const ids = loadoutIds(preset.loadout);
+  const blowpipe = OCELLUS_P4.gear.blowpipe.value.itemId;
+  const parsed = parseLoadout(OCELLUS_LOADOUTS.catalog, { ...ids, inventory: ids.inventory.map((id) => (id === blowpipe ? SARADOMIN_BREW : id)) });
+  if (parsed.kind === "refused") throw new Error(`the drill loadout is refused: ${JSON.stringify(parsed.rejections)}`);
+  const started = OCELLUS_LOADOUTS.start({ preset, loadout: parsed.loadout }, DRILL_START[config.choices.setup.key]);
+  if (started.kind === "refused") throw new Error(`the drill loadout cannot start: ${JSON.stringify(started.rejections)}`);
+  return started.loadout;
+}
+
 /** Phase 4 alone on its flat platform: the in-process bed for P4's mechanic tests. The site enters phase 4 only from the full fight. */
 export class OcellusRegion extends EncounterRegion<DrillEntries, DrillPhases> {
   private readonly watch: P4Watch;
 
-  constructor(private readonly config: DrillConfig, loadout: Loadout = defaultLoadout(config.choices.setup.option.value)) {
+  constructor(private readonly config: DrillConfig) {
     const watch: P4Watch = { invincible: false, mounted: null };
-    super({ room: PLATFORM_ROOM, phases: { p4: p4Phase<DrillEntries>(watch) }, start: { phase: "p4", entry: { kind: "drill", config, loadout } }, seed: config.seed });
+    super({ room: PLATFORM_ROOM, phases: { p4: p4Phase<DrillEntries>(watch) }, start: { phase: "p4", entry: { kind: "drill", config, loadout: drillLoadout(config) } }, seed: config.seed });
     this.watch = watch;
   }
 
