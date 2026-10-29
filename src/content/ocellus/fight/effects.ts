@@ -206,6 +206,94 @@ export class TileMarks extends FloorEntity {
   }
 }
 
+export type LabelledTile = Readonly<{ tile: ATile; colour: string; label: string }>;
+
+const LABEL_PX = 64;
+
+/** A tile's outline with its label in the middle, as RuneLite's ground markers draw one. */
+function labelTexture(colour: string, label: string): THREE.CanvasTexture {
+  const canvas = new OffscreenCanvas(LABEL_PX, LABEL_PX);
+  const context = canvas.getContext("2d");
+  if (context) {
+    context.strokeStyle = colour;
+    context.lineWidth = 4;
+    context.strokeRect(2, 2, LABEL_PX - 4, LABEL_PX - 4);
+    context.font = `bold ${label.length > 2 ? 22 : 34}px sans-serif`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillStyle = "black";
+    context.fillText(label, LABEL_PX / 2 + 2, LABEL_PX / 2 + 2);
+    context.fillStyle = colour;
+    context.fillText(label, LABEL_PX / 2, LABEL_PX / 2);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+class LabelledTilesModel implements Model {
+  private readonly group = new THREE.Group();
+  private readonly geometry = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  private readonly materials: THREE.MeshBasicMaterial[] = [];
+
+  constructor(tiles: readonly LabelledTile[], height: number) {
+    for (const { tile, colour, label } of tiles) {
+      const material = new THREE.MeshBasicMaterial({ map: labelTexture(colour, label), transparent: true, depthWrite: false });
+      this.materials.push(material);
+      const mesh = new THREE.Mesh(this.geometry, material);
+      const s = toSdk(tile);
+      mesh.position.set(s.x + 0.5, height, s.y - 0.5);
+      mesh.renderOrder = 3;
+      this.group.add(mesh);
+    }
+  }
+
+  draw(scene: THREE.Scene, clockDelta: number, tickPercent: number, location: Location3, angleRadians: number, pitchRadians: number, visible: boolean): void {
+    if (this.group.parent !== scene) scene.add(this.group);
+    this.group.visible = visible;
+  }
+
+  destroy(scene: THREE.Scene): void {
+    scene.remove(this.group);
+    this.geometry.dispose();
+    for (const material of this.materials) {
+      material.map?.dispose();
+      material.dispose();
+    }
+  }
+
+  getWorldPosition(): THREE.Vector3 {
+    return new THREE.Vector3();
+  }
+
+  async preload(): Promise<void> {}
+}
+
+/** Fixed tiles drawn with an outline and a label (phase 2's pattern tiles). */
+export class LabelledTiles extends FloorEntity {
+  constructor(region: Region, private readonly tiles: readonly LabelledTile[], private readonly overlayY = GROUND_OVERLAY_Y + 0.006) {
+    super(region, { x: 0, y: 0 });
+  }
+
+  override draw(tickPercent: number, context: OffscreenCanvasRenderingContext2D): void {
+    const scale = Settings.tileSize;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.font = `bold ${Math.round(scale * 0.45)}px sans-serif`;
+    for (const { tile, colour, label } of this.tiles) {
+      const s = toSdk(tile);
+      context.strokeStyle = colour;
+      context.fillStyle = colour;
+      context.strokeRect(s.x * scale, s.y * scale, scale, scale);
+      context.fillText(label, (s.x + 0.5) * scale, (s.y + 0.5) * scale);
+    }
+  }
+
+  protected override create3dModel(): Model {
+    return new LabelledTilesModel(this.tiles, this.overlayY);
+  }
+}
+
 const VOID_LOOK = { void: "#1e2529", stars: "#babcc2", rim: "#9f48bd" } as const;
 const STAR_TILES = 4;
 const STAR_PX = 32;

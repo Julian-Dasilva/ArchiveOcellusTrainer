@@ -18,6 +18,7 @@ export function startP1(options: P1RunOptions = {}) {
     hazardTiles: options.hazardTiles ?? true,
     videoMarkers: false,
     skipMarkers: false,
+    patternMarkers: false,
     soloVine: true,
     invincible: options.practice ?? true,
     defenceDrained: false,

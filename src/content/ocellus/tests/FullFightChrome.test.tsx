@@ -141,7 +141,7 @@ describe("the full fight page", () => {
       practiced: { checked: true, search: "?mode=full&phase=1&seed=1&weapon=blowpipe&practice=1" },
       tab: "SETTINGS",
       assigned: [
-        "http://localhost/?mode=full&phase=3&weapon=blowpipe&practice=1&tier=raid&drained=0&tiles=1&markers=0&skip=0&vine=1",
+        "http://localhost/?mode=full&phase=3&weapon=blowpipe&practice=1&tier=raid&drained=0&tiles=1&markers=0&skip=0&pattern=0&vine=1",
       ],
     });
   });
@@ -167,7 +167,7 @@ describe("the full fight page", () => {
     navigation.restore();
     page.close();
 
-    expect(assigned).toEqual(["http://localhost/?seed=7&weapon=melee&practice=1&phase=4&tier=raid&drained=0&tiles=1&markers=0&skip=0&vine=1"]);
+    expect(assigned).toEqual(["http://localhost/?seed=7&weapon=melee&practice=1&phase=4&tier=raid&drained=0&tiles=1&markers=0&skip=0&pattern=0&vine=1"]);
   });
 
   test("Start with is the twisted bow unless the link names another, and only the weapon in hand changes", () => {
@@ -241,7 +241,7 @@ describe("the full fight page", () => {
       maxStarts: ["twistedBow Twisted bow (Masori)", "blowpipe Toxic blowpipe (Masori)", "ralos Tonalztics of Ralos (Inquisitor's)"],
       maxChosen: "blowpipe",
       maxLeftOut: "Not simulated yet, so left out: Book of the Dead, Ferocious gloves, Zaryte crossbow, Blessed Dizana's quiver, Lightbearer, Ranging potion ×2, Sanguine scythe of Vitur, Divine super combat potion, Sanfew serum, Divine rune pouch",
-      assigned: ["http://localhost/?seed=7&weapon=ralos&phase=4&tier=max&drained=0&tiles=1&markers=0&skip=0&vine=1&practice=0"],
+      assigned: ["http://localhost/?seed=7&weapon=ralos&phase=4&tier=max&drained=0&tiles=1&markers=0&skip=0&pattern=0&vine=1&practice=0"],
     });
   });
 
@@ -273,7 +273,7 @@ describe("the full fight page", () => {
     expect({ full, drained, assigned }).toEqual({
       full: { drained: false, defence: 250 },
       drained: { drained: true, defence: 150 },
-      assigned: ["http://localhost/?seed=7&phase=4&tier=raid&weapon=melee&drained=1&tiles=1&markers=0&skip=0&vine=1&practice=0"],
+      assigned: ["http://localhost/?seed=7&phase=4&tier=raid&weapon=melee&drained=1&tiles=1&markers=0&skip=0&pattern=0&vine=1&practice=0"],
     });
   });
 
@@ -303,7 +303,7 @@ describe("the full fight page", () => {
 
     expect({ fromUrl, assigned }).toEqual({
       fromUrl: { offered: ["1", "2", "3", "4"], value: "4", title: "Phase 4" },
-      assigned: ["http://localhost/?mode=full&phase=4&weapon=blowpipe&tier=raid&drained=0&tiles=1&markers=0&skip=0&vine=1&practice=0"],
+      assigned: ["http://localhost/?mode=full&phase=4&weapon=blowpipe&tier=raid&drained=0&tiles=1&markers=0&skip=0&pattern=0&vine=1&practice=0"],
     });
   });
 
@@ -669,7 +669,7 @@ describe("the loadout editor", () => {
     expect({ before, marked, assigned, stored, bag, header }).toEqual({
       before: "Max",
       marked: "Max (edited)",
-      assigned: ["http://localhost/?seed=1&tier=max&weapon=ralos&phase=4&drained=0&tiles=1&markers=0&skip=0&vine=1&practice=0"],
+      assigned: ["http://localhost/?seed=1&tier=max&weapon=ralos&phase=4&drained=0&tiles=1&markers=0&skip=0&pattern=0&vine=1&practice=0"],
       stored: { version: 1, values: { selected: "max", edits: { max: { presetRevision: 1, loadout: { equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) } } } } },
       bag: withBag({ 0: 6685 }),
       header: { preset: "max", edited: true, equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) },

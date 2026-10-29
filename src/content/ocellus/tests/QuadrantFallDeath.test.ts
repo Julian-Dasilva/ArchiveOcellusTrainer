@@ -30,6 +30,7 @@ describe("a falling quadrant", () => {
       hazardTiles: false,
       videoMarkers: false,
       skipMarkers: false,
+      patternMarkers: false,
       soloVine: true,
       invincible: practice,
       defenceDrained: false,

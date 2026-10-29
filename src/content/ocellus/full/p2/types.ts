@@ -33,7 +33,7 @@ export type P2Look =
   | Readonly<{ kind: "player-spot"; id: number; channel: string }>
   | Readonly<{ kind: "sound"; id: number; at: ATile }>;
 
-export type P2Roll = "arm-order" | "gap" | "gap-step" | "pool-tile" | "safe-tile" | "escape-tile";
+export type P2Roll = "gap-sequence" | "pool-tile" | "safe-tile" | "escape-tile";
 
 export type P2Types = Readonly<{
   tile: ATile;

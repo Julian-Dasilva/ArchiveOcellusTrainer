@@ -113,7 +113,7 @@ function phasesOf(run: Run, p1: P1Watch, p2: P2Watch, p3: P3Watch, p4: P4Watch, 
       changed: () => run.notify(),
     }),
     p2: p2Phase<FullEntries>({
-      settings: { practice: () => run.options.invincible, hazardTiles: () => run.options.hazardTiles, skipMarkers: () => run.options.skipMarkers, defenceDrained: () => run.options.defenceDrained },
+      settings: { practice: () => run.options.invincible, hazardTiles: () => run.options.hazardTiles, skipMarkers: () => run.options.skipMarkers, patternMarkers: () => run.options.patternMarkers, defenceDrained: () => run.options.defenceDrained },
       watch: p2,
       say: (line) => run.chat.push(line),
       intoP3: (hp) => {
@@ -281,6 +281,12 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
   setSkipMarkers(on: boolean): void {
     this.run.options = { ...this.run.options, skipMarkers: on };
     this.p2.mounted?.views.syncSkip();
+  }
+
+  /** The sidebar's phase 2 pattern tiles, the same way. */
+  setPatternMarkers(on: boolean): void {
+    this.run.options = { ...this.run.options, patternMarkers: on };
+    this.p2.mounted?.views.syncPattern();
   }
 
   /** Danger-tile highlights, on for this fight and for the fight a restart builds. */

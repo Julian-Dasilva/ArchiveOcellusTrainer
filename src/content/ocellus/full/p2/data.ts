@@ -33,5 +33,8 @@ export const T = {
   allFireAt: ticks(D.allFireAt),
 } as const;
 
+/** One of the three gap sequences a round runs. */
+export type GapSequence = (typeof D.gapOrder.value)[number];
+
 /** Damage, counts and other values the script reads unconverted. */
 export const V = D;
