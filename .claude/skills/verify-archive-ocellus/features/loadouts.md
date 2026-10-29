@@ -10,11 +10,13 @@ The player enters phase 4 with the weapon that Start with names in hand. The twi
 - `set-effects` gives Inquisitor's armour its crush bonus on Jab. The ranged setup has no set effect. Vitest owns the attack-roll and max-hit literals, because the browser cannot force a max roll.
 - `division` spends 50 special energy and, as the glaives land, drains the boss's Defence by 37 for each glaive that deals damage.
 - `setup-selector` reloads the page on the same seed with the start chosen in the `Start with` selector when Restart is clicked.
+- `tier-select` dresses the tier that the link's `tier` or the `Tier` selector names: `raid`, the default and the loadout above, or one of the five gear tiers `max`, `high`, `mid`, `low` and `poor` (`gear.tiers` in the data file). A tier holds only the items the sim can build with the wiki's bonuses, and the panel lists the rest under the selector as "Not simulated yet, so left out". `Start with` lists only the selected tier's starts. A `weapon` the tier does not offer starts with the tier's first start instead.
 - `defence-drained` opens phase 4 with his Defence at the 60% floor, 150, when `Defence drained` is ticked or the link has `drained=1`.
 
 ## How to get to it (user POV)
 
 - Open `http://127.0.0.1:8002/`, `?weapon=blowpipe` or `?weapon=melee`.
+- Open `?tier=low`, or pick a tier in the `Tier` selector above `Start with`, and press `Restart`.
 - Pick a weapon in the `Start with` selector in the side panel's Fight section, or tick `Defence drained`, and press `Restart`.
 - Open the inventory tab (the backpack icon in the bottom row of the side panel) and click items to switch them.
 - Click the special attack orb (the crossed swords beside the minimap) with Ralos wielded, then click Ocellus.
@@ -33,7 +35,8 @@ Preconditions:
 - **Division.** Click slot 0 to wield Ralos and click the special orb at the panel point (1140, 157) so it lights up. Then click Ocellus with `click_boss`, which finds the height above (5, 5) where the right-click menu offers Attack first. Wait with `agent-browser wait --fn "window.__archiveOcellusProbe.snapshot().fight.player.specialEnergy < 100"`, then wait until `log().rows` holds two `player-hit-judged` events, because each glaive drains only as it lands. `specialEnergy` is 50, and `fight.boss.defence` has dropped from 250 by `LOADOUT_DIVISION_DRAIN` (37) for each glaive that kept damage. A glaive that lands during the explosions keeps 40% of its damage, rounded down, so a glaive of 1 keeps 0 and drains nothing. The verdict reads the two glaives from `log()` and counts one drain for each glaive whose damage after the reduction is above 0. Two splats show on the boss and the orb reads 50.
 - **Selector.** Run `agent-browser select "#start_weapon" melee` and `agent-browser click "#restart_fight"`. The page reloads with `weapon=melee` on the same seed. `equipped` is `LOADOUT_MELEE_WORN`, with the scythe, 22325, as the weapon, and `inventory` holds the blowpipe, 12926.
 - **Defaults and Defence drained.** Open `?seed=6&practice=1&drained=1` (`START_OPTIONS_QUERY`) and wait for P4 tick 1. The weapon is the twisted bow, 20997 (`START_DEFAULT_WEAPON`), `inventory` holds the blowpipe, and `fight.boss.defence` is 150 (`START_DRAINED_DEFENCE`).
-- **Scripted.** `scripts/verify.sh browser --unit loadouts` runs these steps and records `rangedSetupWorn`, `switchesWornByClick`, `divisionSpentHalfTheBar`, `divisionDrainedBossDefence`, `startWeaponSelectorApplied`, `twistedBowStartsByDefault`, `drainedStartsAtDefenceFloor` and `trainerItemsShowCacheIcons` in `units/loadouts/verdict.json`.
+- **Tier.** Open `?seed=6&practice=1&tier=low&weapon=twistedBow` (`TIER_QUERY`) and wait for P4 tick 1. The low tier carries no twisted bow, so the blowpipe, 12926, is in hand. `equipped` is `TIER_LOW_WORN`, `{"weapon":12926,"offhand":null,"helmet":null,"chest":null,"legs":null,"gloves":7462,"cape":21295,"necklace":null,"feet":null,"ring":null,"ammo":11212}`; the snapshot reads each item's drawn id, and the SDK draws Seeking dragon arrows (33595) as Dragon arrow 11212, while `log().header.loadout` records 33595. `#start_tier` reads `low`, `#start_weapon` offers only `blowpipe`, and `#tier_not_simulated` starts with "Not simulated yet, so left out: Emberlight".
+- **Scripted.** `scripts/verify.sh browser --unit loadouts` runs these steps and records `rangedSetupWorn`, `switchesWornByClick`, `divisionSpentHalfTheBar`, `divisionDrainedBossDefence`, `startWeaponSelectorApplied`, `twistedBowStartsByDefault`, `drainedStartsAtDefenceFloor`, `tierLinkDressesTheTier` and `trainerItemsShowCacheIcons` in `units/loadouts/verdict.json`.
 
 ## Gotchas
 
