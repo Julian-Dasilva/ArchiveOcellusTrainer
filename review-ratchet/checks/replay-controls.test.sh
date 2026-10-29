@@ -18,31 +18,21 @@ ready() {
 SUITE='src/sections.test.ts::sections'
 
 CASES="$(cat <<EOF
-shell_clean|clean||0|1 file(s) replayed, 1 unchanged control(s), 0 test(s) reading changed declarations
+shell_clean|clean||0|1 file(s) replayed, 1 unchanged control(s), 0 acknowledged
 guard:shell_violation|violation||1|BROKEN scripts/drive.test.sh::walk_passes passes on the base but not after the overlay
-shared_fixture|vitest||0|1 file(s) replayed, 2 unchanged control(s), 2 test(s) reading changed declarations;NOT A CONTROL ${SUITE} > a healthy page has no problems reads HEALTHY, which the head changed;NOT A CONTROL ${SUITE} > a page without About misses only About reads HEALTHY, which the head changed
-transitive_helper|vitest|transitive-helper|0|1 file(s) replayed, 2 unchanged control(s), 2 test(s) reading changed declarations;NOT A CONTROL ${SUITE} > a page without About misses only About reads healthyPage, which the head changed
-unchanged_fixture|vitest|unchanged-fixture|1|BROKEN ${SUITE} > an empty page misses Fight passes on the base but not after the overlay;BROKEN ${SUITE} > a healthy page has no problems reads HEALTHY, which the head changed, but its file does not pass on the base with the exempt test bodies emptied
 guard:before_each|vitest|before-each|1|BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay
 guard:top_level_side_effect|vitest|top-level-side-effect|1|BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay
 guard:changed_import|vitest|changed-import|1|BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay
-all_exempt_collection_crash|vitest|all-exempt-collection-crash|1|0 unchanged control(s);BROKEN ${SUITE} > a healthy page has no problems reads HEALTHY, which the head changed, but its file does not pass on the base with the exempt test bodies emptied: no section Display
-all_exempt_import_crash|vitest|all-exempt-import-crash|1|0 unchanged control(s);BROKEN ${SUITE} > a healthy page has no problems reads HEALTHY, which the head changed, but its file does not pass on the base with the exempt test bodies emptied: 
-read_declaration_crash|vitest|read-declaration-crash|1|0 unchanged control(s);BROKEN ${SUITE} > Display follows Fight reads DISPLAY_FOLLOWS_FIGHT, which the head changed, but its file does not pass on the base with the exempt test bodies emptied: no section Display
-all_exempt_assertion_failure|vitest|all-exempt-assertion-failure|0|1 file(s) replayed, 0 unchanged control(s), 1 test(s) reading changed declarations;NOT A CONTROL ${SUITE} > a healthy page has no problems reads HEALTHY, which the head changed
-sibling_declarator|vitest|sibling-declarator|1|2 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > an empty page misses Fight passes on the base but not after the overlay
-type_only_read|vitest|type-only-read|1|2 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > an empty page misses Fight passes on the base but not after the overlay
-write_only_read|vitest|write-only-read|1|2 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > an empty page misses Fight passes on the base but not after the overlay
-describe_local_helper|vitest|describe-local-helper|0|1 file(s) replayed, 1 unchanged control(s), 1 test(s) reading changed declarations;NOT A CONTROL ${SUITE} > a healthy page has no problems reads HEALTHY, which the head changed
-describe_local_value|vitest|describe-local-value|0|1 file(s) replayed, 1 unchanged control(s), 1 test(s) reading changed declarations;NOT A CONTROL ${SUITE} > a healthy page has no problems reads HEALTHY, which the head changed
-unchanged_before_all|vitest|unchanged-before-all|1|1 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > hooked > a healthy page has no problems reads HEALTHY, which the head changed, but its file does not pass on the base with the exempt test bodies emptied
-unchanged_before_each|vitest|unchanged-before-each|1|1 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > hooked > a healthy page has no problems reads HEALTHY, which the head changed, but its file does not pass on the base with the exempt test bodies emptied
-unchanged_after_each|vitest|unchanged-after-each|1|1 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > hooked > the healthy page lists sections reads HEALTHY, which the head changed, but its file does not pass on the base with the exempt test bodies emptied
-unchanged_after_all|vitest|unchanged-after-all|1|1 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > hooked > the healthy page lists sections reads HEALTHY, which the head changed, but its file does not pass on the base with the exempt test bodies emptied
-before_each_cleanup|vitest|before-each-cleanup|1|1 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > hooked > the healthy page lists sections reads HEALTHY, which the head changed, but its file does not pass on the base with the exempt test bodies emptied
-implements_type_only|vitest|implements-type-only|1|2 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > the helper is ready passes on the base but not after the overlay
-parenthesized_write|vitest|parenthesized-write|1|2 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > the helper is ready passes on the base but not after the overlay
-destructuring_write|vitest|destructuring-write|1|2 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > the helper is ready passes on the base but not after the overlay
+guard:unacknowledged_fixture|vitest||1|BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay;BROKEN ${SUITE} > a page without About misses only About passes on the base but not after the overlay
+acknowledged_fixture|vitest|acknowledged|0|1 file(s) replayed, 4 unchanged control(s), 2 acknowledged;ACKNOWLEDGED ${SUITE} > a healthy page has no problems fails after the overlay: HEALTHY lists Display;ACKNOWLEDGED ${SUITE} > a page without About misses only About fails after the overlay: HEALTHY lists Display
+partly_acknowledged|vitest|partly-acknowledged|1|1 acknowledged;ACKNOWLEDGED ${SUITE} > a healthy page has no problems fails after the overlay: HEALTHY lists Display;BROKEN ${SUITE} > a page without About misses only About passes on the base but not after the overlay
+stale_missing|vitest|stale-missing|1|2 acknowledged;STALE ${SUITE} > a page that does not exist is acknowledged but is not a control of a replayed file
+stale_passing|vitest|stale-passing|1|2 acknowledged;STALE ${SUITE} > Fight comes first is acknowledged but passes after the overlay
+inherited_acknowledgement|vitest|inherited|0|4 unchanged control(s), 2 acknowledged
+acknowledged_collection_crash|vitest|acknowledged-collection-crash|1|0 acknowledged;BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay
+acknowledged_before_all|vitest|acknowledged-before-all|1|0 acknowledged;BROKEN ${SUITE} > hooked > a healthy page has no problems passes on the base but not after the overlay
+acknowledged_file_error|vitest|acknowledged-file-error|1|0 acknowledged;BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay: no section Display
+malformed_acknowledgement|vitest|malformed|2|review-ratchet/replay-acknowledged.json at 
 EOF
 )"
 
