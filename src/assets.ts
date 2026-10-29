@@ -37,8 +37,15 @@ export const ARCHIVE_OCELLUS_OVERRIDES = {
   items: Object.fromEntries(Object.entries(gear.sdkCacheIds).map(([key, id]) => [key, { id: id.value }])),
 } as const satisfies CacheAssets;
 
+/**
+ * The fixed-mode frame's sprites, as osrs-sdk's `FixedLayout` places them from the client's interface 548 and chatbox 162:
+ * the borders, minimap sides and cover, tab rows and their red open-tab stones, the side panel and the chatbox.
+ */
+export const FIXED_FRAME_SPRITES: readonly number[] = [4, 1017, 1018, 1026, 1027, 1028, 1029, 1030, 1031, 1032, 1033, 1034, 1035, 1036, 1037, 1038, 1039, 1182, 1441, 1611];
+
 /** The asset tool extracts no sprites, so scripts/extract-sprites.mjs writes these beside its output. */
 export const ARCHIVE_OCELLUS_SPRITES: readonly SpriteFrame[] = [
   ...Object.values(presentation.overheadIcons).map((icon) => icon.value),
   PROTECT_MELEE_ICON,
+  ...FIXED_FRAME_SPRITES.map((archive) => ({ archive, frame: 0 })),
 ];

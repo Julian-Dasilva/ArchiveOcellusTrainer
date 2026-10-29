@@ -12,7 +12,7 @@ import { CONTRIBUTOR, CREDIT_LINE, MAKER, MAKER_LINKS } from "./credits";
 
 const [LATEST_RELEASE] = CHANGELOG;
 
-type SettingToggle = "targetTileEnabled" | "trueTileEnabled" | "hoveredTileEnabled" | "entityIndicatorEnabled" | "playsAudio" | "playsAreaAudio";
+type SettingToggle = "targetTileEnabled" | "trueTileEnabled" | "hoveredTileEnabled" | "entityIndicatorEnabled" | "playsAudio" | "playsAreaAudio" | "fixedMode";
 
 type Toggle = Readonly<{ id: string; setting: SettingToggle; label: string; hint: string | null }>;
 
@@ -21,6 +21,10 @@ const TILE_INDICATORS: readonly Toggle[] = [
   { id: "true_tile", setting: "trueTileEnabled", label: "True tile", hint: "Where the server has you" },
   { id: "hovered_tile", setting: "hoveredTileEnabled", label: "Hovered tile", hint: null },
   { id: "entity_outlines", setting: "entityIndicatorEnabled", label: "Outlines", hint: "Players and NPCs" },
+];
+
+const DISPLAY: readonly Toggle[] = [
+  { id: "fixed_mode", setting: "fixedMode", label: "Fixed mode", hint: "The classic 765 by 503 interface" },
 ];
 
 const SOUNDS: readonly Toggle[] = [
@@ -258,6 +262,9 @@ export default function Sidebar({ fight, aids, tips }: SidebarSlots) {
             {aids}
             <SettingToggles toggles={TILE_INDICATORS} />
             {tips}
+          </Section>
+          <Section id="sidebar_display" title="Display">
+            <SettingToggles toggles={DISPLAY} />
           </Section>
           <Section id="sidebar_sound" title="Sound">
             <SettingToggles toggles={SOUNDS} />
