@@ -1,22 +1,28 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { tsImport } from "tsx/esm/api";
 
-const usage = `usage: release-notes.mjs [--since VERSION] [CHANGELOG]
+const usage = `usage: release-notes.mjs [--since VERSION | --record-shipped] [CHANGELOG]
 
 Prints the newest release in CHANGELOG (default: src/content/ocellus/changelog.ts)
 as Markdown, for gh release create VERSION --notes-file -.
 With --since VERSION, prints every release newer than VERSION, newest first.
 VERSION is YYYY.MM.DD or YYYY.MM.DD.N, and that release is not included.
-Exits 1 when the newest version is not YYYY.MM.DD or YYYY.MM.DD.N, or repeats
-an earlier release's version.
+With --record-shipped, adds the newest release and the digest of its notes to
+shipped-releases.json beside CHANGELOG, and prints nothing.
+Exits 1 when the newest version is not YYYY.MM.DD or YYYY.MM.DD.N, repeats
+an earlier release's version, or when a release in shipped-releases.json is
+missing from CHANGELOG or its notes no longer match their digest.
 `;
 
 const VERSION = /^\d{4}\.\d{2}\.\d{2}(\.[1-9]\d*)?$/;
 
 const args = process.argv.slice(2);
 let since = null;
+let recordShipped = false;
 const positional = [];
 for (let index = 0; index < args.length; index += 1) {
   const arg = args[index];
@@ -25,13 +31,17 @@ for (let index = 0; index < args.length; index += 1) {
     index += 1;
     continue;
   }
+  if (arg === "--record-shipped") {
+    recordShipped = true;
+    continue;
+  }
   if (arg.startsWith("-")) {
     process.stderr.write(usage);
     process.exit(2);
   }
   positional.push(arg);
 }
-if (positional.length > 1) {
+if (positional.length > 1 || (recordShipped && since !== null)) {
   process.stderr.write(usage);
   process.exit(2);
 }
@@ -39,15 +49,37 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const file = path.resolve(positional[0] ?? path.join(root, "src/content/ocellus/changelog.ts"));
 const { CHANGELOG } = await tsImport(pathToFileURL(file).href, import.meta.url);
 const [newest, ...earlier] = CHANGELOG;
+const shippedFile = path.join(path.dirname(file), "shipped-releases.json");
+const shipped = fs.existsSync(shippedFile) ? JSON.parse(fs.readFileSync(shippedFile, "utf8")) : {};
 
-const problem = !VERSION.test(newest.version)
-  ? `newest version ${JSON.stringify(newest.version)} is not YYYY.MM.DD or YYYY.MM.DD.N`
-  : earlier.some((release) => release.version === newest.version)
-    ? `newest version ${newest.version} repeats an earlier release`
-    : null;
-if (problem !== null) {
-  process.stderr.write(`release-notes: ${problem}\n`);
+function notesDigest(release) {
+  return createHash("sha256").update(JSON.stringify(release.notes)).digest("hex");
+}
+
+function shippedProblem([version, digest]) {
+  const release = CHANGELOG.find((candidate) => candidate.version === version);
+  if (release === undefined) return `${version} shipped but is missing from the changelog`;
+  if (notesDigest(release) !== digest) return `${version} shipped, so its notes cannot change; put new notes in a newer release`;
+  return null;
+}
+
+const problems = [
+  !VERSION.test(newest.version)
+    ? `newest version ${JSON.stringify(newest.version)} is not YYYY.MM.DD or YYYY.MM.DD.N`
+    : earlier.some((release) => release.version === newest.version)
+      ? `newest version ${newest.version} repeats an earlier release`
+      : null,
+  ...Object.entries(shipped).map(shippedProblem),
+].filter((problem) => problem !== null);
+if (problems.length > 0) {
+  process.stderr.write(problems.map((problem) => `release-notes: ${problem}\n`).join(""));
   process.exit(1);
+}
+
+if (recordShipped) {
+  const recorded = { [newest.version]: notesDigest(newest), ...shipped };
+  fs.writeFileSync(shippedFile, `${JSON.stringify(recorded, null, 2)}\n`);
+  process.exit(0);
 }
 
 function versionOrder(version) {
