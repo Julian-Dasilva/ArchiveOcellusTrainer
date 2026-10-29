@@ -17,6 +17,7 @@ export const P3_REPLAYS: Replays<P3Types, FightLog> = {
   "superior-slash": { kind: "log", log: "L1", at: "L1.txt:3387 floor 4336 at P3 +171", ticks: [171, 176, 181] },
   "rift-detonation": { kind: "unlogged", why: "raiders killed every rift in L1 and L6; his K case pins the 30-tick detonation" },
   "rift-heal": { kind: "unlogged", why: "the logs do not tell a siphon's heal from the boss's other HP changes" },
+  "siphon-kill": { kind: "unlogged", why: "raiders kill siphons; the tick is theirs, and the 22 is the wiki's" },
   "void-patch": { kind: "unlogged", why: "a patch hits only a raider standing on it, and the logs carry no patch hits apart from others" },
   "untether-magic": { kind: "log", log: "L1", at: "L1.txt:2837 magic at P3 +69, Untether at +59", ticks: [69, 73, 77, 81] },
   slam: { kind: "log", log: "L1", at: "L1.txt:2981 the raider outside takes 36 at P3 +88", ticks: [88] },

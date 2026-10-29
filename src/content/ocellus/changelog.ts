@@ -8,7 +8,7 @@ export const CHANGELOG: Changelog = [
       "Start with lists the weapons in the tier you picked. Raid still starts with the twisted bow by default.",
       "Loadout in Fight edits a tier's gear and inventory before the start or while paused, with the raid's Alliance Supplies as the shop. Apply restarts the fight with your edit.",
       "Each tier keeps your edit for the next run, until you press Reset.",
-      "Phase 2's portal gaps follow the game's three set patterns, orange, red and green, in the game's order after a random first. In Learning aids, Phase 2 patterns numbers every wave's safe spot, 1 to 6, in its pattern's colour.",
+      "Phase 2's portal gaps follow the game's three set patterns, orange, red and green, in the game's order after a random first, and Phase 2 patterns in Learning aids numbers every wave's safe spot, 1 to 6, in its pattern's colour. In phase 3, the Void Rift, Void Siphon and Void Augmenter now play their spawn, despawn and detonate animations, and killing a Void Siphon heals you 22.",
     ],
   },
   {

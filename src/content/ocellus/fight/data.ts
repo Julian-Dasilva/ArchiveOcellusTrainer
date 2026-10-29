@@ -70,6 +70,23 @@ export const SEQ = {
   p3Death: 14872,
   /** HUMAN_YAMA_SHORTJUMP01, the player's jump onto and off each stepping stone */
   humanYamaShortJump: 12196,
+  /**
+   * Each rift's four sequences, in the cache's order after its stand animation (npc 16678-16680 stand on 14895, 14899
+   * and 14903): idle, spawn (1 tick), despawn (1 tick) and detonate (2 ticks). The rift models are effects, so without
+   * them they sit in their bind pose, a thin sliver.
+   */
+  riftBasicIdle: 14895,
+  riftBasicSpawn: 14896,
+  riftBasicDespawn: 14897,
+  riftBasicDetonate: 14898,
+  riftHealIdle: 14899,
+  riftHealSpawn: 14900,
+  riftHealDespawn: 14901,
+  riftHealDetonate: 14902,
+  riftBuffIdle: 14903,
+  riftBuffSpawn: 14904,
+  riftBuffDespawn: 14905,
+  riftBuffDetonate: 14906,
 } as const;
 
 /**
@@ -449,6 +466,8 @@ export const P3 = {
   riftDetonationDamage: range(39, 41),
   /** Killing a Void Augmenter: Attack and Strength to 116, Magic and Ranged to 112, from 99s. [W] Void Augmenter */
   augmenterBoost: { melee: 17, rangedMagic: 13 },
+  /** Killing a Void Siphon gives its killer 22 health, half its 44. [W] https://oldschool.runescape.wiki/w/Void_Siphon */
+  siphonHeal: 22,
   healRiftEvery: 4,
   healRiftHeal: [12, 14],
   /** Untether, from U. [R] [W] [K] */

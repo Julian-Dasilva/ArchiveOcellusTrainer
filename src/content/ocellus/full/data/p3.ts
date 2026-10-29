@@ -512,6 +512,13 @@ export const p3Sourced = {
       ocellusSim("data.ts:401"),
     ),
   },
+  siphonHeal: selected(
+    22,
+    "spec-single",
+    "unscaled",
+    "Killing a Void Siphon gives its killer 22 health, half its 44. [W] https://oldschool.runescape.wiki/w/Void_Siphon",
+    wiki("https://oldschool.runescape.wiki/w/Void_Siphon", null),
+  ),
   healRiftEvery: selected(
     4,
     "inferred",
@@ -898,6 +905,7 @@ export const P3 = {
     melee: p3Sourced.augmenterBoost.melee.value,
     rangedMagic: p3Sourced.augmenterBoost.rangedMagic.value,
   },
+  siphonHeal: p3Sourced.siphonHeal.value,
   healRiftEvery: p3Sourced.healRiftEvery.value,
   healRiftHeal: p3Sourced.healRiftHeal.value,
   untether: {

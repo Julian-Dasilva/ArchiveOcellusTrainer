@@ -283,6 +283,14 @@ const ADD: Readonly<Record<AddKind, Readonly<{ npc: number; name: string; level:
   "rift-buff": { npc: NPC.riftBuff, name: "Void Augmenter", level: 138, meleeDefence: 0 },
 };
 
+type RiftPoses = Readonly<{ idle: number; spawn: number; despawn: number; detonate: number }>;
+
+const RIFT_POSES: Readonly<Record<Exclude<AddKind, "vine">, RiftPoses>> = {
+  "rift-basic": { idle: SEQ.riftBasicIdle, spawn: SEQ.riftBasicSpawn, despawn: SEQ.riftBasicDespawn, detonate: SEQ.riftBasicDetonate },
+  "rift-heal": { idle: SEQ.riftHealIdle, spawn: SEQ.riftHealSpawn, despawn: SEQ.riftHealDespawn, detonate: SEQ.riftHealDetonate },
+  "rift-buff": { idle: SEQ.riftBuffIdle, spawn: SEQ.riftBuffSpawn, despawn: SEQ.riftBuffDespawn, detonate: SEQ.riftBuffDetonate },
+};
+
 /** Phase 3 and 4's small targets: the Void Vine and the three kinds of rift. 44 HP each. */
 export class VoidAdd extends Mob {
   killed = false;
@@ -291,10 +299,31 @@ export class VoidAdd extends Mob {
   /** Phase 4's rifts: standard ranged attacks always max hit them. */
   rangedAlwaysMaxHits = false;
 
+  private detonated = false;
+
   constructor(region: Region, tile: ATile, readonly kind: AddKind, private readonly onKilled: (add: VoidAdd) => void) {
     super(region, toSdk(tile));
     this.stats = { attack: 1, strength: 1, defence: kind === "vine" ? 1 : 175, range: 1, magic: 300, hitpoint: P3.riftHp };
     this.currentStats = { ...this.stats };
+    const poses = this.poses();
+    if (poses !== null) void this.playAnimation(poses.spawn);
+  }
+
+  private poses(): RiftPoses | null {
+    return this.kind === "vine" ? null : RIFT_POSES[this.kind];
+  }
+
+  override get idlePoseId(): number {
+    return this.poses()?.idle ?? super.idlePoseId;
+  }
+
+  override get walkingPoseId(): number {
+    return this.idlePoseId;
+  }
+
+  override get deathAnimationId(): number | null {
+    const poses = this.poses();
+    return poses === null || this.detonated ? super.deathAnimationId : poses.despawn;
   }
 
   override setStats(): void {
@@ -359,6 +388,18 @@ export class VoidAdd extends Mob {
   remove(): void {
     this.killed = true;
     this.dying = 0;
+  }
+
+  /**
+   * Left alive, a rift releases its charge: the 2-tick detonate animation, then it is gone. [K] `detectDeath` counts
+   * `dying` down on this same tick, so 3 leaves it standing for the two ticks the animation plays.
+   */
+  detonate(): void {
+    this.killed = true;
+    this.detonated = true;
+    const poses = this.poses();
+    if (poses !== null) void this.playAnimation(poses.detonate);
+    this.dying = 3;
   }
 }
 

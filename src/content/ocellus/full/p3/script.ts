@@ -162,6 +162,7 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
       case "superior-slash":
       case "rift-detonation":
       case "rift-heal":
+      case "siphon-kill":
       case "void-patch":
       case "slam":
       case "aftershock":
@@ -536,7 +537,7 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     m.afterPhase(T.riftDetonatesAfter, (n) => {
       if (!rift.alive || !this.rifts.includes(rift)) return;
       this.rifts = this.rifts.filter((r) => r !== rift);
-      rift.remove();
+      rift.detonate();
       n.show({ kind: "rift-detonated", tile });
       n.hit({ kind: "rift-detonation" }, V.riftDetonationDamage);
     });
@@ -554,7 +555,10 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
   private riftKilled(m: P3Ctx<E>, add: Add, kind: RiftKind): void {
     this.rifts = this.rifts.filter((r) => r !== add);
     m.log({ kind: "rift-killed", at: m.now, rift: kind });
-    if (kind === "rift-heal") return;
+    if (kind === "rift-heal") {
+      m.heal({ kind: "siphon-kill" }, V.siphonHeal.value, "player");
+      return;
+    }
     this.chat(m, `Destroying the ${kind === "rift-buff" ? "void augmenter" : "void rift"} empowers you!`, "purple");
     this.playerSpot(m, kind === "rift-buff" ? SPOT.glowZaros : SPOT.glowArmadyl, "empower");
     if (kind === "rift-buff") this.world.fighter.boost(V.augmenterBoost.melee.value, V.augmenterBoost.rangedMagic.value);
