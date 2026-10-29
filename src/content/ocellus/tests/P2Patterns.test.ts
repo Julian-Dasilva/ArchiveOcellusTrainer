@@ -1,5 +1,7 @@
+import * as THREE from "three";
+import { LabelledTiles } from "../fight/effects";
 import type { ATile } from "../fight/geometry";
-import { sideOf } from "../fight/geometry";
+import { sideOf, toSdk } from "../fight/geometry";
 import { P2 } from "../full/data/p2";
 import { patternTiles } from "../full/p2/pattern";
 import { startP2 } from "./p2run";
@@ -57,6 +59,52 @@ describe("phase 2's gaps follow the recorded sequences", () => {
       close = null;
     }
     expect(firsts.size).toBeGreaterThan(1);
+  });
+
+  test("seed 1's first round is orange, with its six safe spots where the recorded sequence puts them", () => {
+    const f = startP2({ seed: 1 });
+    close = f.close;
+    f.tickTo(P2.rounds[1]);
+    const [round] = roundsOf(f);
+    const orange = patternTiles().filter((t) => t.sequence === "orange");
+    const safe = round.map(({ quadrant, hit }) => [quadrant, ...orange.filter((t) => sideOf(t.tile) === quadrant && !hit.has(tileKey(t.tile))).map((t) => tileKey(t.tile))]);
+    expect(safe).toEqual([
+      ["SE", "3,-3"],
+      ["SE", "3,-7"],
+      ["SE", "7,-3"],
+      ["SE", "3,-3"],
+      ["SE", "5,-5"],
+      ["SE", "3,-9"],
+    ]);
+  });
+
+  test("the pattern tiles draw as one mesh, each tile showing its own label's cell of the atlas", () => {
+    const f = startP2({ seed: 1, patternMarkers: true });
+    close = f.close;
+    f.tickTo(1);
+    const scene = new THREE.Scene();
+    for (const entity of f.region.entities) if (entity instanceof LabelledTiles) entity.get3dModel()?.draw(scene, 0, 0, entity.getPerceivedLocation(0), 0, 0, true, []);
+    scene.updateMatrixWorld(true);
+    const meshes: THREE.Mesh[] = [];
+    scene.traverse((object) => {
+      if (object instanceof THREE.Mesh) meshes.push(object);
+    });
+    const tiles = patternTiles();
+    expect(meshes).toHaveLength(1);
+    expect(meshes[0]?.geometry.getIndex()?.count).toBe(6 * tiles.length);
+    const cellOf = new Map<string, string>();
+    const looked = tiles.map(({ tile, colour, label }) => {
+      const s = toSdk(tile);
+      const [hit] = new THREE.Raycaster(new THREE.Vector3(s.x + 0.5, 10, s.y - 0.5), new THREE.Vector3(0, -1, 0)).intersectObject(scene);
+      const uv = hit?.uv;
+      if (uv === undefined) return `${tileKey(tile)} unseen`;
+      const cell = `${Math.floor(uv.x * 100)},${Math.floor(uv.y * 100)}`;
+      const pair = `${colour} ${label}`;
+      if (!cellOf.has(pair)) cellOf.set(pair, cell);
+      return cellOf.get(pair) === cell ? "ok" : `${tileKey(tile)} shows another label`;
+    });
+    expect(looked.filter((l) => l !== "ok")).toEqual([]);
+    expect(new Set(cellOf.values()).size).toBe(cellOf.size);
   });
 
   test("the pattern tiles number six waves of three sequences in each of the four quadrants", () => {
