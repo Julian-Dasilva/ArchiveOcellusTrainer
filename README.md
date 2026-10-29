@@ -27,7 +27,7 @@ Read [CODE_REVIEW.md](CODE_REVIEW.md) before you review a change. It lists the p
 
 ## Releases
 
-Each pull request that changes what players see adds one plain-language line to `src/content/ocellus/changelog.ts`. The line goes in the newest release if that release has not shipped yet. Otherwise it goes in a new release, versioned by the day it ships: `YYYY.MM.DD`, or `YYYY.MM.DD.2` for a second release that day. Players read the notes under **Settings**, then **What's new**, and `node scripts/release-notes.mjs` prints the newest release as Markdown for a GitHub release.
+Each pull request that changes what players see adds one plain-language line to `src/content/ocellus/changelog.ts`. The line goes in the newest release if `src/content/ocellus/shipped-releases.json` does not list that release. Otherwise it goes in a new release, versioned by the day it ships: `YYYY.MM.DD`, or `YYYY.MM.DD.2` for a second release that day. Players read the notes under **About**, then **What's new**, and `node scripts/release-notes.mjs` prints the newest release as Markdown for a GitHub release. Before a deploy, `node scripts/release-notes.mjs --record-shipped --since VERSION`, where VERSION is the last shipped release, adds every release that the deploy publishes to `shipped-releases.json` and prints their notes for the GitHub release. Without `--since`, it records and prints the newest release only. From then on the script rejects the changelog if a recorded release's notes change or the release is removed.
 
 ## Privacy
 
