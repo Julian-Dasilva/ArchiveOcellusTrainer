@@ -14,12 +14,14 @@ const FIRST_RELEASE = {
 };
 
 const NEXT_RELEASE = {
-  version: "2026.10.27",
-  date: "2026-10-27",
+  version: "2026.10.28",
+  date: "2026-10-28",
   notes: [
-    "The full fight is in beta. Full fight (beta) on the drill page opens it, and the phase selector starts you in phase 1, 2, or 3.",
-    "The credit line sits under the game, so it no longer covers the tabs on a phone.",
-    "Chat stays above the inventory on a narrow screen, so the lines no longer cover it.",
+    "Insolence's three waves now leave the damaging void field on every tile they hit, as in game.",
+    "In the full fight's phase 3, you cross a chasm in four quick jumps, one a tick, from the bank onto each stepping stone and off the far one, as in game.",
+    "About 1 run in 10 sends an anonymous performance summary, so we can find what causes lag. To turn it off, untick Performance data under About.",
+    "The site opens straight into the full fight, starting at phase 4, with every phase in the Start at selector. The separate phase 4 drill page is gone.",
+    "Settings is one panel: Fight, Learning aids, Sound, Controls, then About, which keeps What's new and the Performance data box. In Fight, Start with picks the weapon in your hand: the twisted bow (the default), the toxic blowpipe, or the scythe in melee gear, with the same inventory either way. Tick Defence drained to start each phase with his Defence as low as it goes.",
   ],
 };
 
@@ -72,14 +74,14 @@ describe("What's new", () => {
   });
 
   test("a player who saw the last shipped release sees the dot again, and What's new opens on the unshipped releases, newest first, with the next shipped one below them", () => {
-    localStorage.setItem(SEEN_RELEASE_KEY, "2026.10.27");
+    localStorage.setItem(SEEN_RELEASE_KEY, "2026.10.28");
     const page = loadPage("/");
     const { menuDot } = whatsNew(page);
     page.click("whats_new");
     const { releases } = whatsNew(page);
     page.close();
     expect({ menuDot, unshipped: releases.slice(0, 1).map((release) => release.version), next: releases[1] }).toEqual({
-      menuDot: true, unshipped: ["2026.10.28"], next: NEXT_RELEASE,
+      menuDot: true, unshipped: ["2026.10.29"], next: NEXT_RELEASE,
     });
   });
 

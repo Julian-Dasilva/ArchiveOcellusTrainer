@@ -2,13 +2,22 @@ import type { Changelog } from "../../releases";
 
 export const CHANGELOG: Changelog = [
   {
+    version: "2026.10.29",
+    notes: [
+      "Tier in Fight picks your gear: Raid, or one of the five community gear tiers, Max to Poor. A tier keeps only the items the trainer simulates, with their wiki stats, and lists the items it leaves out.",
+      "Start with lists the weapons in the tier you picked. Raid still starts with the twisted bow by default.",
+      "Loadout in Fight edits a tier's gear and inventory before the start or while paused, with the raid's Alliance Supplies as the shop. Apply restarts the fight with your edit.",
+      "Each tier keeps your edit for the next run, until you press Reset.",
+    ],
+  },
+  {
     version: "2026.10.28",
     notes: [
       "Insolence's three waves now leave the damaging void field on every tile they hit, as in game.",
       "In the full fight's phase 3, you cross a chasm in four quick jumps, one a tick, from the bank onto each stepping stone and off the far one, as in game.",
       "About 1 run in 10 sends an anonymous performance summary, so we can find what causes lag. To turn it off, untick Performance data under About.",
       "The site opens straight into the full fight, starting at phase 4, with every phase in the Start at selector. The separate phase 4 drill page is gone.",
-      "Settings is one panel: Fight, Learning aids, Sound, Controls, then About, which keeps What's new and the Performance data box. In Fight, Tier picks your gear: Raid, or one of the five community gear tiers, Max to Poor, which keep only the items the trainer simulates with their wiki stats and list the rest. Start with picks the weapon in your hand from that gear: for Raid, the twisted bow (the default), the toxic blowpipe, or the scythe in melee gear, with the same inventory either way. Loadout edits a tier's gear and inventory before the start or while paused, with the raid's Alliance Supplies as the shop, and keeps your edit for the next run. Tick Defence drained to start each phase with his Defence as low as it goes.",
+      "Settings is one panel: Fight, Learning aids, Sound, Controls, then About, which keeps What's new and the Performance data box. In Fight, Start with picks the weapon in your hand: the twisted bow (the default), the toxic blowpipe, or the scythe in melee gear, with the same inventory either way. Tick Defence drained to start each phase with his Defence as low as it goes.",
     ],
   },
   {
