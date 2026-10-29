@@ -14,7 +14,6 @@ const presetIds = (tier: Tier) => {
 
 const SUPPLIES_ROWS_5_TO_7 = [null, null, 3024, 3024, 6685, 6685, 3024, 3024, 6685, 6685];
 
-/** Research section 2 with every item the sim cannot build left out. Ultor ring is the SDK's id 25485. */
 const TIER_IDS = {
   max: {
     equipment: { weapon: 28922, offhand: null, helmet: 24419, chest: 24420, legs: 24421, gloves: null, cape: 21295, necklace: 29801, feet: 31097, ring: 25485, ammo: 33595 },
@@ -38,8 +37,10 @@ const TIER_IDS = {
   },
 };
 
-/** Infobox bonuses at the cited revision: attack stab to range, defence stab to range, then melee strength, ranged strength, magic damage % and prayer. */
-const WIKI_BONUSES: readonly (readonly [id: number, page: string, attack: readonly number[], defence: readonly number[], other: readonly number[]])[] = [
+type StyleBonuses = readonly [stab: number, slash: number, crush: number, magic: number, range: number];
+type OtherBonuses = readonly [meleeStrength: number, rangedStrength: number, magicDamagePercent: number, prayer: number];
+
+const WIKI_BONUSES: readonly (readonly [id: number, page: string, attack: StyleBonuses, defence: StyleBonuses, other: OtherBonuses])[] = [
   [24419, "Inquisitor's great helm rev 15352822", [0, 0, 10, -5, -5], [19, 10, 21, 0, 12], [6, 0, 0, 1]],
   [24420, "Inquisitor's hauberk rev 15352823", [0, 0, 16, -11, -10], [67, 55, 71, 0, 35], [4, 0, 0, 2]],
   [24421, "Inquisitor's plateskirt rev 15352824", [0, 0, 12, -9, -5], [42, 30, 49, 0, 22], [2, 0, 0, 2]],
