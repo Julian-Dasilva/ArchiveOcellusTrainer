@@ -79,7 +79,7 @@ repeated_version_is_rejected() {
 }
 
 record_shipped() {
-  node "$SCRIPT" --record-shipped "$CHANGELOG" 2>"$WORK/err.txt" || { cat "$WORK/err.txt"; fail "release-notes did not record the newest release"; }
+  node "$SCRIPT" --record-shipped "$CHANGELOG" >/dev/null 2>"$WORK/err.txt" || { cat "$WORK/err.txt"; fail "release-notes did not record the newest release"; }
 }
 
 recording_a_shipped_release_keeps_the_earlier_ones() {
@@ -109,6 +109,36 @@ removed_shipped_release_is_rejected() {
   expect_rejected "2026.11.01 shipped but is missing from the changelog"
 }
 
+recording_a_batch_freezes_every_release_it_publishes() {
+  changelog '{ version: "2026.10.26", notes: ["3D view."] },'
+  record_shipped
+  changelog '{ version: "2026.10.27", notes: ["Full fight."] },
+{ version: "2026.10.26.2", notes: ["Explosions."] },
+{ version: "2026.10.26.1", notes: ["Start panel."] },
+{ version: "2026.10.26", notes: ["3D view."] },'
+  local batch="$CHANGELOG"
+  ready
+  node "$SCRIPT" --record-shipped --since 2026.10.26 "$batch" >"$WORK/recorded.md" 2>"$WORK/err.txt" || { cat "$WORK/err.txt"; fail "release-notes did not record the releases --since 2026.10.26 publishes"; }
+  node "$SCRIPT" --since 2026.10.26 "$batch" >"$WORK/published.md" 2>"$WORK/err.txt" || { cat "$WORK/err.txt"; fail "release-notes rejected the recorded batch"; }
+  cmp -s "$WORK/recorded.md" "$WORK/published.md" || { cat "$WORK/recorded.md"; fail "recording printed other notes than the batch publishes"; }
+  [[ "$(grep -c '^## ' "$WORK/published.md")" == 3 ]] || { cat "$WORK/published.md"; fail "the batch does not publish three releases"; }
+  changelog '{ version: "2026.10.27", notes: ["Full fight."] },
+{ version: "2026.10.26.2", notes: ["Explosions. Rewritten after shipping."] },
+{ version: "2026.10.26.1", notes: ["Start panel."] },
+{ version: "2026.10.26", notes: ["3D view."] },'
+  expect_rejected "2026.10.26.2 shipped, so its notes cannot change; put new notes in a newer release"
+  changelog '{ version: "2026.10.27", notes: ["Full fight."] },
+{ version: "2026.10.26.2", notes: ["Explosions."] },
+{ version: "2026.10.26", notes: ["3D view."] },'
+  expect_rejected "2026.10.26.1 shipped but is missing from the changelog"
+  changelog '{ version: "2026.10.28", notes: ["Tiers."] },
+{ version: "2026.10.27", notes: ["Full fight."] },
+{ version: "2026.10.26.2", notes: ["Explosions."] },
+{ version: "2026.10.26.1", notes: ["Start panel."] },
+{ version: "2026.10.26", notes: ["3D view."] },'
+  node "$SCRIPT" "$CHANGELOG" >/dev/null 2>"$WORK/err.txt" || { cat "$WORK/err.txt"; fail "release-notes rejected a new release after the batch"; }
+}
+
 failed=0
 for t in \
   newest_release_prints_as_markdown \
@@ -120,7 +150,8 @@ for t in \
   repeated_version_is_rejected \
   recording_a_shipped_release_keeps_the_earlier_ones \
   edited_shipped_release_is_rejected \
-  removed_shipped_release_is_rejected; do
+  removed_shipped_release_is_rejected \
+  recording_a_batch_freezes_every_release_it_publishes; do
   if ("$t") >"$WORK/$t.log" 2>&1; then
     echo "PASS $t"
   else

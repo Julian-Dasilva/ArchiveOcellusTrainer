@@ -5,14 +5,14 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { tsImport } from "tsx/esm/api";
 
-const usage = `usage: release-notes.mjs [--since VERSION | --record-shipped] [CHANGELOG]
+const usage = `usage: release-notes.mjs [--record-shipped] [--since VERSION] [CHANGELOG]
 
 Prints the newest release in CHANGELOG (default: src/content/ocellus/changelog.ts)
 as Markdown, for gh release create VERSION --notes-file -.
 With --since VERSION, prints every release newer than VERSION, newest first.
 VERSION is YYYY.MM.DD or YYYY.MM.DD.N, and that release is not included.
-With --record-shipped, adds the newest release and the digest of its notes to
-shipped-releases.json beside CHANGELOG, and prints nothing.
+With --record-shipped, also adds every release it prints, each with the digest
+of its notes, to shipped-releases.json beside CHANGELOG.
 Exits 1 when the newest version is not YYYY.MM.DD or YYYY.MM.DD.N, repeats
 an earlier release's version, or when a release in shipped-releases.json is
 missing from CHANGELOG or its notes no longer match their digest.
@@ -41,7 +41,7 @@ for (let index = 0; index < args.length; index += 1) {
   }
   positional.push(arg);
 }
-if (positional.length > 1 || (recordShipped && since !== null)) {
+if (positional.length > 1) {
   process.stderr.write(usage);
   process.exit(2);
 }
@@ -76,12 +76,6 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-if (recordShipped) {
-  const recorded = { [newest.version]: notesDigest(newest), ...shipped };
-  fs.writeFileSync(shippedFile, `${JSON.stringify(recorded, null, 2)}\n`);
-  process.exit(0);
-}
-
 function versionOrder(version) {
   const [year, month, day, suffix] = version.split(".");
   return [Number(year), Number(month), Number(day), suffix === undefined ? 0 : Number(suffix)];
@@ -100,17 +94,18 @@ function markdown(release) {
   return `## ${release.version}\n\n${release.notes.map((note) => `- ${note}`).join("\n")}\n`;
 }
 
-if (since !== null) {
-  if (!VERSION.test(since)) {
-    process.stderr.write(`release-notes: --since ${JSON.stringify(since)} is not YYYY.MM.DD or YYYY.MM.DD.N\n`);
-    process.exit(1);
-  }
-  const later = CHANGELOG.filter((release) => isAfter(release.version, since));
-  if (later.length === 0) {
-    process.stderr.write(`release-notes: no release is newer than ${since}\n`);
-    process.exit(1);
-  }
-  process.stdout.write(later.map(markdown).join("\n"));
-} else {
-  process.stdout.write(markdown(newest));
+if (since !== null && !VERSION.test(since)) {
+  process.stderr.write(`release-notes: --since ${JSON.stringify(since)} is not YYYY.MM.DD or YYYY.MM.DD.N\n`);
+  process.exit(1);
 }
+const published = since === null ? [newest] : CHANGELOG.filter((release) => isAfter(release.version, since));
+if (published.length === 0) {
+  process.stderr.write(`release-notes: no release is newer than ${since}\n`);
+  process.exit(1);
+}
+
+if (recordShipped) {
+  const recorded = { ...Object.fromEntries(published.map((release) => [release.version, notesDigest(release)])), ...shipped };
+  fs.writeFileSync(shippedFile, `${JSON.stringify(recorded, null, 2)}\n`);
+}
+process.stdout.write(published.map(markdown).join("\n"));

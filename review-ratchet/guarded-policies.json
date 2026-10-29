@@ -117,8 +117,16 @@
           "mutation": [{ "find": "if (release === undefined) return `${version} shipped but is missing from the changelog`;", "replace": "if (release === undefined) return null;" }]
         },
         {
-          "policy": "recording the newest release keeps the earlier shipped releases",
-          "mutation": [{ "find": "{ [newest.version]: notesDigest(newest), ...shipped }", "replace": "{ [newest.version]: notesDigest(newest) }" }]
+          "policy": "recording keeps the earlier shipped releases",
+          "mutation": [{ "find": ", ...shipped };", "replace": " };" }]
+        },
+        {
+          "policy": "recording covers every release the same arguments publish",
+          "mutation": [{ "find": "Object.fromEntries(published.map(", "replace": "Object.fromEntries([newest].map(" }]
+        },
+        {
+          "policy": "recording prints the notes it records",
+          "mutation": [{ "find": "  fs.writeFileSync(shippedFile, `${JSON.stringify(recorded, null, 2)}\\n`);\n}\nprocess.stdout.write(", "replace": "  fs.writeFileSync(shippedFile, `${JSON.stringify(recorded, null, 2)}\\n`);\n} else process.stdout.write(" }]
         }
       ]
     },
