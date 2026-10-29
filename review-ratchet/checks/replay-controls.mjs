@@ -18,12 +18,31 @@ no failure in that replay is evidence about the base's behaviour. Vitest files
 report through their JSON reporter; *.test.sh files print PASS name or FAIL name.
 Each test run may take up to --timeout seconds (default 600).
 
-Exits 0 when every control still passes, 1 when one breaks, and 2 when a
-revision, the worktree or a test runner cannot be used.
+A head that changes a shared fixture on purpose acknowledges the controls it
+makes fail in review-ratchet/replay-acknowledged.json:
+  { "acknowledged": [{ "test": "FILE::TEST", "reason": "..." }] }
+Only entries the head adds or changes apply; an entry identical at the base
+is ignored. An acknowledged control that fails after the overlay is
+reported as ACKNOWLEDGED instead of BROKEN. An entry that names no control of
+a replayed file, or whose control passes after the overlay, is STALE and
+fails the check. An entry whose name more than one test has on the base or
+after the overlay is AMBIGUOUS: it does not apply and fails the check. An
+acknowledged control with no result or a skipped result after the overlay,
+or in a file that reports an error outside its tests, is still BROKEN.
+
+The check guards against honest mistakes, not an author who means to deceive
+it. Vitest's report does not say whether a failed test failed in its own body
+or in a beforeEach, afterEach or cleanup around it, so the review of each
+acknowledgement owns that judgement.
+
+Exits 0 when every control still passes or fails as acknowledged, 1 when one
+breaks or an acknowledgement is stale or ambiguous, and 2 when a revision, the
+acknowledgement file, the worktree or a test runner cannot be used.
 `;
 
 const TEST_FILE = /\.test\.(?:[cm]?[jt]sx?|sh)$/;
 const SUPPORT = /(^|\/)tests?\//;
+const ACKNOWLEDGEMENTS = "review-ratchet/replay-acknowledged.json";
 
 class Undecidable extends Error {}
 
@@ -58,6 +77,20 @@ function git(repo, args) {
 
 function exists(repo, revision, file) {
   return run("git", ["cat-file", "-e", `${revision}:${file}`], repo).status === 0;
+}
+
+function acknowledgements(repo, revision) {
+  if (!exists(repo, revision, ACKNOWLEDGEMENTS)) return [];
+  let parsed;
+  try {
+    parsed = JSON.parse(git(repo, ["show", `${revision}:${ACKNOWLEDGEMENTS}`]));
+  } catch (error) {
+    throw new Undecidable(`${ACKNOWLEDGEMENTS} at ${revision} is not JSON: ${error.message}`);
+  }
+  const entries = parsed?.acknowledged;
+  const valid = (entry) => typeof entry?.test === "string" && entry.test.includes("::") && typeof entry.reason === "string" && entry.reason.trim() !== "";
+  if (!Array.isArray(entries) || !entries.every(valid)) throw new Undecidable(`${ACKNOWLEDGEMENTS} at ${revision} must be { "acknowledged": [{ "test": "FILE::TEST", "reason": "..." }] }`);
+  return entries;
 }
 
 function shellSource(text, name) {
@@ -104,7 +137,7 @@ function runShell(worktree, suite) {
     const match = line.match(/^(PASS|FAIL) (\S+)\s*$/);
     if (!match) return;
     const detail = output.slice(index + 1).filter((next) => /^\s+\S/.test(next)).slice(0, 2).map((next) => next.trim()).join(" / ");
-    outcomes.set(match[2], { status: match[1] === "PASS" ? "pass" : "fail", detail });
+    outcomes.set(match[2], { status: match[1] === "PASS" ? "pass" : "fail", detail, error: "", fileFailed: false, ambiguous: outcomes.has(match[2]) });
   });
   return outcomes;
 }
@@ -119,9 +152,13 @@ function runVitest(worktree, suites, report) {
   for (const file of JSON.parse(fs.readFileSync(report, "utf8")).testResults) {
     const suite = path.relative(root, fs.realpathSync(file.name));
     const tests = outcomes.get(suite) ?? new Map();
+    const fileFailed = (file.message ?? "") !== "";
+    const error = (file.message ?? "").trim().split("\n")[0];
     for (const test of file.assertionResults) {
       const detail = (test.failureMessages[0] ?? "").split("\n")[0];
-      tests.set([...test.ancestorTitles, test.title].join(" > "), { status: test.status === "passed" ? "pass" : "fail", detail });
+      const status = test.status === "passed" ? "pass" : test.status === "failed" ? "fail" : "skip";
+      const name = [...test.ancestorTitles, test.title].join(" > ");
+      tests.set(name, { status, detail, error, fileFailed, ambiguous: tests.has(name) });
     }
     outcomes.set(suite, tests);
   }
@@ -151,9 +188,14 @@ function replay({ base: baseRevision, head: headRevision, repo }) {
     .filter((file) => TEST_FILE.test(file) && exists(repo, head, file))
     .filter((file) => blob(base, file) !== blob(head, file) || (supportChanged && !file.endsWith(".sh")));
   const short = (sha) => sha.slice(0, 7);
+  const inherited = new Set(acknowledgements(repo, base).map(({ test, reason }) => JSON.stringify([test, reason])));
+  const acknowledged = new Map(acknowledgements(repo, head).filter(({ test, reason }) => !inherited.has(JSON.stringify([test, reason]))).map(({ test, reason }) => [test, reason]));
+  const stale = (judged) => [...acknowledged].filter(([test]) => !judged.has(test)).map(([test]) => `STALE ${test} is acknowledged but is not a control of a replayed file`);
   if (suites.length === 0) {
     console.log(`replay-controls: base ${short(base)}, head ${short(head)}: no test file exists at both with changed test code; nothing to replay`);
-    return 0;
+    const unmatched = stale(new Set());
+    for (const line of unmatched) console.log(line);
+    return unmatched.length === 0 ? 0 : 1;
   }
 
   const sources = new Map();
@@ -185,6 +227,9 @@ function replay({ base: baseRevision, head: headRevision, repo }) {
     const replayed = runSuites(worktree, suites, scratch, "replay");
 
     const broken = [];
+    const accepted = [];
+    const passing = [];
+    const judged = new Set();
     let controls = 0;
     for (const suite of suites) {
       for (const [name, outcome] of native.get(suite) ?? new Map()) {
@@ -192,15 +237,28 @@ function replay({ base: baseRevision, head: headRevision, repo }) {
         const source = sourceOf(base, suite, name);
         if (source === null || source !== sourceOf(head, suite, name)) continue;
         controls++;
+        const test = `${suite}::${name}`;
+        judged.add(test);
         const after = replayed.get(suite)?.get(name);
-        if (after?.status !== "pass") broken.push({ suite, name, detail: after ? after.detail : "no result after the overlay" });
+        const ambiguous = outcome.ambiguous || after?.ambiguous === true;
+        const acknowledgement = acknowledged.has(test) && !ambiguous;
+        if (acknowledged.has(test) && ambiguous) passing.push(`AMBIGUOUS ${test} is acknowledged but more than one test has that name on the base or after the overlay`);
+        if (after?.status === "pass") {
+          if (acknowledgement) passing.push(`STALE ${test} is acknowledged but passes after the overlay`);
+        } else if (acknowledgement && after?.status === "fail" && !after.fileFailed) {
+          accepted.push(`ACKNOWLEDGED ${test} fails after the overlay: ${acknowledged.get(test)}`);
+        } else {
+          broken.push({ suite, name, detail: after ? after.error || after.detail : "no result after the overlay" });
+        }
       }
     }
-    console.log(`replay-controls: base ${short(base)}, head ${short(head)}: ${suites.length} file(s) replayed, ${controls} unchanged control(s)`);
+    const unmatched = [...stale(judged), ...passing];
+    console.log(`replay-controls: base ${short(base)}, head ${short(head)}: ${suites.length} file(s) replayed, ${controls} unchanged control(s), ${accepted.length} acknowledged`);
+    for (const line of accepted) console.log(line);
+    for (const line of unmatched) console.log(line);
     for (const { suite, name, detail } of broken) console.log(`BROKEN ${suite}::${name} passes on the base but not after the overlay${detail ? `: ${detail}` : ""}`);
-    if (broken.length === 0) return 0;
-    console.log(`replay-controls: ${broken.length} control(s) broke, so the head's test code does not run on the base and failures in this replay are not evidence against it`);
-    return 1;
+    if (broken.length > 0) console.log(`replay-controls: ${broken.length} control(s) broke, so the head's test code does not run on the base and failures in this replay are not evidence against it`);
+    return broken.length === 0 && unmatched.length === 0 ? 0 : 1;
   } finally {
     run("git", ["worktree", "remove", "--force", worktree], repo);
     fs.rmSync(scratch, { recursive: true, force: true });

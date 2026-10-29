@@ -1,0 +1,16 @@
+{
+  "acknowledged": [
+    {
+      "test": "src/sections.test.ts::sections > Fight comes first",
+      "reason": "an earlier change"
+    },
+    {
+      "test": "src/sections.test.ts::sections > a healthy page has no problems",
+      "reason": "HEALTHY lists Display"
+    },
+    {
+      "test": "src/sections.test.ts::sections > a page without About misses only About",
+      "reason": "HEALTHY lists Display"
+    }
+  ]
+}

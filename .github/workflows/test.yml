@@ -43,6 +43,7 @@ jobs:
       - run: scripts/verify/ci-verdict.test.sh
       - run: scripts/install-beta-sdk.test.sh
       - run: review-ratchet/checks/shell-test-runs-entry.test.sh
+      - run: review-ratchet/checks/replay-controls.test.sh
       - run: node review-ratchet/checks/shell-test-runs-entry.mjs .
       - run: npm test
       - name: Replay the test changes over the base
