@@ -168,8 +168,9 @@ EXPLOSION_OUTSIDE_TICKS="15 29"
 EXPLOSION_GLOW_SHOT_FRACTION=0.85
 EXPLOSION_MARKED_SHOT_FRACTIONS="0.75 0.85"
 EXPLOSION_RUN_END_QUERY="?seed=38&practice=1&weapon=blowpipe"
-# The page's first dart compiles its shaders on the tick after it is fired, which can stall a software renderer for the
-# rest of that tick. Two darts kill him, so that first draw lands on 15, not on mark 17's tick.
+# Three.js compiles a dart's WebGL programs on its first draw, the tick after it is fired, which can stall a software
+# renderer for the rest of that tick, and reuses them for every later dart. The boss's HP takes two darts, so the
+# compile lands on 15 and the killing dart draws on mark 17's tick with nothing to compile.
 EXPLOSION_KILL_CLICK_TICK=13
 EXPLOSION_RUN_END_BOSS_HP=10
 EXPLOSION_RUN_END_EXPECTED='{"marked":[[17,{"x":5,"y":1}]],"ended":[[18,"kill"]],"resolved":[]}'
