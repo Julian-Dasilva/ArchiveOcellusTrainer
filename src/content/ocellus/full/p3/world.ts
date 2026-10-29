@@ -11,6 +11,8 @@ export interface Add {
   readonly tile: ATile;
   readonly alive: boolean;
   remove(): void;
+  /** Left alive: it plays its detonate animation and goes. */
+  detonate(): void;
 }
 
 export interface Fighter {
