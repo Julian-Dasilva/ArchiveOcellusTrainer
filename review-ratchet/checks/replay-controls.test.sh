@@ -35,6 +35,13 @@ type_only_read|vitest|type-only-read|1|2 unchanged control(s), 0 test(s) reading
 write_only_read|vitest|write-only-read|1|2 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > an empty page misses Fight passes on the base but not after the overlay
 describe_local_helper|vitest|describe-local-helper|0|1 file(s) replayed, 1 unchanged control(s), 1 test(s) reading changed declarations;NOT A CONTROL ${SUITE} > a healthy page has no problems reads HEALTHY, which the head changed
 describe_local_value|vitest|describe-local-value|0|1 file(s) replayed, 1 unchanged control(s), 1 test(s) reading changed declarations;NOT A CONTROL ${SUITE} > a healthy page has no problems reads HEALTHY, which the head changed
+unchanged_before_all|vitest|unchanged-before-all|1|1 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > hooked > a healthy page has no problems passes on the base but not after the overlay: no section Display
+unchanged_before_each|vitest|unchanged-before-each|1|1 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > hooked > a healthy page has no problems passes on the base but not after the overlay: no section Display
+unchanged_after_each|vitest|unchanged-after-each|1|1 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > hooked > the healthy page lists sections passes on the base but not after the overlay: no section Display
+unchanged_after_all|vitest|unchanged-after-all|1|1 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > hooked > the healthy page lists sections passes on the base but not after the overlay: no section Display
+implements_type_only|vitest|implements-type-only|1|2 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > the helper is ready passes on the base but not after the overlay
+parenthesized_write|vitest|parenthesized-write|1|2 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > the helper is ready passes on the base but not after the overlay
+destructuring_write|vitest|destructuring-write|1|2 unchanged control(s), 0 test(s) reading changed declarations;BROKEN ${SUITE} > the helper is ready passes on the base but not after the overlay
 EOF
 )"
 
