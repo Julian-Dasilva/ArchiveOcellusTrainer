@@ -32,6 +32,9 @@ inherited_acknowledgement|vitest|inherited|0|4 unchanged control(s), 2 acknowled
 acknowledged_collection_crash|vitest|acknowledged-collection-crash|1|0 acknowledged;BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay
 acknowledged_before_all|vitest|acknowledged-before-all|1|0 acknowledged;BROKEN ${SUITE} > hooked > a healthy page has no problems passes on the base but not after the overlay
 acknowledged_file_error|vitest|acknowledged-file-error|1|0 acknowledged;BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay: no section Display
+ambiguous_duplicate|vitest|ambiguous-duplicate|1|0 acknowledged;AMBIGUOUS ${SUITE} > a healthy page has no problems is acknowledged but more than one test has that name;BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay
+ambiguous_collision|vitest|ambiguous-collision|1|0 acknowledged;AMBIGUOUS ${SUITE} > hooked > a healthy page has no problems is acknowledged but more than one test has that name;BROKEN ${SUITE} > hooked > a healthy page has no problems passes on the base but not after the overlay
+multiline_file_error|vitest|multiline-file-error|1|0 acknowledged;BROKEN ${SUITE} > a healthy page has no problems passes on the base but not after the overlay: cleanup failed
 malformed_acknowledgement|vitest|malformed|2|review-ratchet/replay-acknowledged.json at 
 EOF
 )"
