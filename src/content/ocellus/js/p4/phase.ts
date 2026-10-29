@@ -4,8 +4,7 @@ import type { DrillConfig } from "../OcellusTimings";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import { dressOcellus } from "../OcellusLoadout";
 import type { LingeringVoid, TickRow } from "../P4Types";
-import type { Tick, TickSpan } from "../../../../sim/brands";
-import type { CueChange } from "../../../../sim/prayerCue";
+import type { TickSpan } from "../../../../sim/brands";
 import { after, span } from "../../../../sim/brands";
 import type { Entries, PhaseDef, Rules } from "../../../../sim/encounter";
 import type { Frame } from "../../../../sim/frame";
@@ -19,7 +18,11 @@ import { PLATFORM_ROOM } from "../rooms/platform";
 import { PLATFORM } from "./floor";
 import type { Views } from "./present";
 import { presentRow } from "./present";
-import { specialCues } from "./cues";
+
+/** What the full fight's guides read off a running P4: its prayer cues, its explosion marks and its schedule ahead. */
+export { specialCues } from "./cues";
+export { markedOn, p4Threats } from "./threats";
+export type { Marked } from "./threats";
 
 /**
  * A drill entry dresses a fresh player on P4's own platform, which only the mechanic tests run. The full fight's third fall carries the player as it stands, so
@@ -96,8 +99,8 @@ function rules(player: EncounterPlayer): Rules {
   };
 }
 
-/** `told` takes each closed row's transition-attack cues for the prayer guide, on P4's clock. */
-export function p4Phase<E extends Entries & Readonly<{ p4: P4Entry }>>(watch: P4Watch, told: (now: Tick, changes: readonly CueChange[]) => void): PhaseDef<E, "p4", TickRow, EncounterHost<E>> {
+/** `closed` takes each closed row, for the guides that read P4 as it runs. */
+export function p4Phase<E extends Entries & Readonly<{ p4: P4Entry }>>(watch: P4Watch, closed: (row: TickRow) => void): PhaseDef<E, "p4", TickRow, EncounterHost<E>> {
   return {
     name: "p4",
     enter({ region, room, player, bind }, entry) {
@@ -133,7 +136,7 @@ export function p4Phase<E extends Entries & Readonly<{ p4: P4Entry }>>(watch: P4
           const row = ocellus.binding.finishTick();
           if (!row) return;
           presentRow(row, views, frame);
-          told(row.tick, specialCues(row));
+          closed(row);
         },
         rows: () => ocellus.binding.rows,
         leave: () => {

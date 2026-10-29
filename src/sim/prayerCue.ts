@@ -1,6 +1,9 @@
 import type { Tick } from "./brands";
 import type { Style } from "./combat";
 
+/** Each protection prayer by the style it blocks, as the game names it. */
+export const PROTECTION_PRAYER: Readonly<Record<Style, string>> = { magic: "Protect from Magic", ranged: "Protect from Missiles", melee: "Protect from Melee" };
+
 /** What the guide lights up for a tell: his footprint while the telling spotanim plays, or the tile a projectile flies to. */
 export type Highlight = Readonly<{ kind: "boss" }> | Readonly<{ kind: "target" }>;
 

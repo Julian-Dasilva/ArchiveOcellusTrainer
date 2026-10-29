@@ -15,8 +15,8 @@ import { FightPlayer } from "../fight/units";
 import { releasePhase1Actors, warmPhase1Actors, warmStartPhase } from "../fight/warmup";
 import type { DrillConfig } from "../js/OcellusTimings";
 import { OCELLUS_P4, fullFightConfig } from "../js/OcellusTimings";
-import type { P4Entry, P4Watch } from "../js/p4/phase";
-import { p4Phase } from "../js/p4/phase";
+import type { Marked, P4Entry, P4Watch } from "../js/p4/phase";
+import { markedOn, p4Phase, p4Threats, specialCues } from "../js/p4/phase";
 import { seed, tile } from "../../../sim/brands";
 import type { Style } from "../../../sim/combat";
 import type { Room } from "../../../sim/encounter";
@@ -27,6 +27,12 @@ import { fence, seal } from "../../../sim/sdk/fence";
 import { carriedEntry, drainedFall, phase4Opening } from "./fall";
 import type { GuideCard } from "./prayerGuide";
 import { PrayerGuide } from "./prayerGuide";
+import type { MechanicLabel, MechanicLine, Timed, Whereabouts } from "./mechanicsGuide";
+import { ThreatStore, mechanicLabels, mechanicLines, mechanicMarks, prayerThreat } from "./mechanicsGuide";
+import { SceneLabels } from "../fight/effects";
+import type { Spot, Threat, Where } from "../../../sim/threat";
+import type { Frame } from "../../../sim/frame";
+import type { Tile } from "../../../sim/brands";
 import type { ChatLine, FullFightOptions, StartPhase } from "./options";
 import type { P1Entry } from "./p1/types";
 import type { P1Watch } from "./p1/sdk/phase";
@@ -72,6 +78,10 @@ class Run {
   readonly chat: ChatLine[] = [];
   /** Fed by every phase as its rows close, whether or not the sidebar shows it, so turning it on mid-fight shows what is coming. */
   readonly guide = new PrayerGuide();
+  /** The mechanics guide's warnings from phases 1 to 3, fed the same way. Phase 4's come off its schedule as they are read. */
+  readonly threats = new ThreatStore();
+  /** Phase 4's explosion marks still to land, so each impact names its tile. */
+  marked: readonly Marked[] = [];
   p2From = 0;
   p3From = 0;
   p4From = 0;
@@ -119,6 +129,7 @@ function phasesOf(run: Run, p1: P1Watch, p2: P2Watch, p3: P3Watch, p4: P4Watch, 
       },
       changed: () => run.notify(),
       told: (now, changes) => run.guide.present(now, changes),
+      warned: (now, changes) => run.threats.present(now, changes),
     }),
     p2: p2Phase<FullEntries>({
       settings: { practice: () => run.options.invincible, hazardTiles: () => run.options.hazardTiles, skipMarkers: () => run.options.skipMarkers, patternMarkers: () => run.options.patternMarkers, defenceDrained: () => run.options.defenceDrained },
@@ -146,8 +157,12 @@ function phasesOf(run: Run, p1: P1Watch, p2: P2Watch, p3: P3Watch, p4: P4Watch, 
       },
       say: (line) => run.chat.push(line),
       told: (now, changes) => run.guide.present(now, changes),
+      warned: (now, changes) => run.threats.present(now, changes),
     }),
-    p4: p4Phase<FullEntries>(p4, (now, changes) => run.guide.present(now, changes)),
+    p4: p4Phase<FullEntries>(p4, (row) => {
+      run.guide.present(row.tick, specialCues(row));
+      run.marked = [...run.marked, ...markedOn(row)].slice(-MARKS_KEPT);
+    }),
   };
 }
 
@@ -164,6 +179,37 @@ function opened(start: StartPhase, config: DrillConfig, defenceDrained: boolean)
       return { phase: "p4", entry: carriedEntry(defenceDrained ? drainedFall(PHASE_4.fall) : PHASE_4.fall, config) };
     default: {
       const unhandled: never = start;
+      return unhandled;
+    }
+  }
+}
+
+/** Enough explosion marks to cover every one still waiting to land. */
+const MARKS_KEPT = 16;
+/** How far ahead the mechanics guide reads phase 4's schedule. */
+const P4_LOOKAHEAD = 30;
+
+/** A phase 4 room tile as an arena tile. */
+function arenaTile(frame: Frame, at: Tile): ATile {
+  return fromSdk(toRoom(frame, at));
+}
+
+function arenaSpot(frame: Frame, spot: Spot<Tile>): Spot<ATile> {
+  return spot.kind === "tile" ? { kind: "tile", tile: arenaTile(frame, spot.tile) } : spot;
+}
+
+function arenaWhere(frame: Frame, where: Where<Tile>): Where<ATile> {
+  switch (where.kind) {
+    case "tiles":
+      return { kind: "tiles", tiles: where.tiles.map((at) => arenaTile(frame, at)) };
+    case "spot":
+      return { kind: "spot", at: arenaSpot(frame, where.at) };
+    case "flight":
+      return { ...where, from: arenaSpot(frame, where.from), to: arenaSpot(frame, where.to) };
+    case "none":
+      return where;
+    default: {
+      const unhandled: never = where;
       return unhandled;
     }
   }
@@ -263,9 +309,11 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
 
   /** Region.reset writes default stats after construction, so the worn set goes on once that is done. */
   override reset(startWorld = true): { player: Player } {
-    this.run.guide.reset();
+    this.resetGuides();
     const result = super.reset(false);
     this.addEntity(new TileMarks(this, () => this.prayerHighlight()));
+    this.addEntity(new TileMarks(this, () => this.mechanicMarks()));
+    this.addEntity(new SceneLabels(this, () => this.mechanicLabels()));
     this.dress(result.player);
     this.warmHeldGraphics();
     if (startWorld) {
@@ -326,6 +374,70 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
   prayerIcon(style: Style): string | null {
     const prayer = this.players[0]?.prayerController.prayers.find((each) => each.isOverhead() && each.feature() === PRAYER_FEATURE[style]);
     return prayer ? prayer.overheadImageReference() : null;
+  }
+
+  /** The mechanics guide, the same way. */
+  setMechanicsGuide(on: boolean): void {
+    this.run.options = { ...this.run.options, mechanicsGuide: on };
+    this.listeners.forEach((listener) => listener());
+  }
+
+  /** Every mechanic still to land, soonest first, or null while the sidebar has the mechanics guide off. */
+  mechanicsCard(): readonly MechanicLine[] | null {
+    return this.run.options.mechanicsGuide ? mechanicLines(this.timedThreats()) : null;
+  }
+
+  /** The tiles the mechanics guide lights. Empty while it is off. */
+  mechanicMarks(): readonly TileMark[] {
+    return this.run.options.mechanicsGuide ? mechanicMarks(this.timedThreats(), this.whereabouts()) : [];
+  }
+
+  /** The countdowns the mechanics guide draws in the scene. Empty while it is off. */
+  mechanicLabels(): readonly MechanicLabel[] {
+    return this.run.options.mechanicsGuide ? mechanicLabels(this.timedThreats(), this.whereabouts(), this.world?.tickPercent ?? 0) : [];
+  }
+
+  private resetGuides(): void {
+    this.run.guide.reset();
+    this.run.threats.reset();
+    this.run.marked = [];
+    this.p4Read = null;
+  }
+
+  private p4Read: Readonly<{ at: number; threats: readonly Timed[] }> | null = null;
+
+  /**
+   * Phases 1 to 3's warnings and their prayer cues, or phase 4's schedule read ahead from the tick it stands on. Phase 4's
+   * read is kept for the tick, so every frame of it costs nothing.
+   */
+  private timedThreats(): readonly Timed[] {
+    if (this.current !== "p4") {
+      const now = this.run.threats.now;
+      return [...this.run.threats.coming(), ...this.run.guide.coming().map(prayerThreat)].map((threat) => ({ threat, now }));
+    }
+    const mounted = this.p4.mounted;
+    const state = mounted?.ocellus.runState();
+    if (!mounted || state?.kind !== "running") return [];
+    if (this.p4Read?.at === state.tick) return this.p4Read.threats;
+    const now = state.tick;
+    const ahead = p4Threats(now, state.phase, mounted.ocellus.upcoming(now, P4_LOOKAHEAD), this.run.marked);
+    const threats = ahead.map((threat): Timed => ({ threat: this.inArena(mounted.frame, threat), now }));
+    this.p4Read = { at: now, threats };
+    return threats;
+  }
+
+  private inArena(frame: Frame, threat: Threat<Tile>): Threat<ATile> {
+    return { ...threat, where: arenaWhere(frame, threat.where) };
+  }
+
+  private whereabouts(): Whereabouts {
+    return {
+      boss: () => this.bossBody(),
+      player: () => {
+        const player = this.players[0];
+        return player ? fromSdk(player.location) : null;
+      },
+    };
   }
 
   /** The guide's card for the HUD, or null while the sidebar has it off. */
@@ -423,7 +535,7 @@ export class FightRegion extends EncounterRegion<FullEntries, FullPhases> {
     if (this.current === "p3" && this.players.some((player) => player.dying === 0)) this.p3.mounted?.script.lose();
     super.postTick();
     if (this.current !== this.shownPhase) {
-      if (this.shownPhase !== null) this.run.guide.reset();
+      if (this.shownPhase !== null) this.resetGuides();
       this.shownPhase = this.current;
       this.listeners.forEach((listener) => listener());
     }

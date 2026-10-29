@@ -116,10 +116,54 @@ export const FULL_FIGHT_CSS = `
   color: #ff981f;
 }
 
-.prayer-guide {
+.guide-stack {
   position: absolute;
   top: 96px;
   left: 92px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.mechanics-guide {
+  max-width: 300px;
+  padding: 6px 10px;
+  background: rgba(16, 12, 8, 0.8);
+  border: 1px solid #5a4a2e;
+  border-radius: 2px;
+  font-family: "OSRS", sans-serif;
+  font-size: 13px;
+  color: #c8b88a;
+  text-shadow: 1px 1px 0 black;
+}
+
+.mechanics-guide ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mechanics-guide li + li {
+  margin-top: 3px;
+}
+
+.mechanics-guide-when {
+  display: inline-block;
+  min-width: 28px;
+  font-weight: bold;
+}
+
+.mechanics-guide-what {
+  color: #fff;
+}
+
+.mechanics-guide-todo {
+  padding-left: 28px;
+  font-size: 12px;
+}
+
+.prayer-guide {
   max-width: 280px;
   padding: 6px 10px;
   background: rgba(16, 12, 8, 0.8);
@@ -163,8 +207,16 @@ export const FULL_FIGHT_CSS = `
 }
 
 @media (max-width: 900px), (max-height: 600px) {
-  .prayer-guide {
+  .guide-stack {
     top: 56px;
+  }
+
+  .mechanics-guide {
+    max-width: 200px;
+    font-size: 10px;
+  }
+
+  .prayer-guide {
     max-width: 200px;
     padding: 2px 6px;
     font-size: 10px;

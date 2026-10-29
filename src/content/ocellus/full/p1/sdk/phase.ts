@@ -2,14 +2,16 @@ import type { Player } from "osrs-sdk";
 import { tick } from "../../../../../sim/brands";
 import type { Tick } from "../../../../../sim/brands";
 import type { CueChange } from "../../../../../sim/prayerCue";
+import type { ThreatChange } from "../../../../../sim/threat";
 import type { Enter, Entries, Mounted, PhaseDef } from "../../../../../sim/encounter";
 import { identity } from "../../../../../sim/frame";
 import type { BossChange } from "../../../../../sim/script";
-import { ScriptRun, cueChanges } from "../../../../../sim/script";
+import { ScriptRun, cueChanges, threatChanges } from "../../../../../sim/script";
 import type { EncounterBinding, Hooks } from "../../../../../sim/sdk/EncounterBinding";
 import type { PlayerInput } from "../../../../../sim/sdk/EncounterPlayer";
 import type { EncounterHost } from "../../../../../sim/sdk/EncounterRegion";
 import { GRID } from "../../../fight/geometry";
+import type { ATile } from "../../../fight/geometry";
 import { at } from "../../../fight/geometry";
 import { FightPlayer } from "../../../fight/units";
 import type { P1Cause, P1Entry, P1Row, P1Types } from "../types";
@@ -42,6 +44,8 @@ export type P1Options<E extends Entries> = Readonly<{
   changed: () => void;
   /** The prayer guide takes each closed row's cue changes, on this phase's clock. */
   told: (now: Tick, changes: readonly CueChange[]) => void;
+  /** The mechanics guide takes each closed row's warnings, on this phase's clock. */
+  warned: (now: Tick, changes: readonly ThreatChange<ATile>[]) => void;
 }>;
 
 const HOODED = at(-1, -4);
@@ -182,6 +186,7 @@ export function p1Phase<E extends Entries & Readonly<{ p1: P1Entry }>>(options: 
           if (!row) return;
           views.present(row);
           options.told(row.tick, cueChanges(row.events));
+          options.warned(row.tick, threatChanges(row.events));
         },
         rows: () => bound.rows,
         leave() {

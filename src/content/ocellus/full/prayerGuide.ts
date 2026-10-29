@@ -1,13 +1,14 @@
 import type { Tick } from "../../../sim/brands";
 import type { Style } from "../../../sim/combat";
 import type { CueChange, PrayerCue } from "../../../sim/prayerCue";
+import { PROTECTION_PRAYER } from "../../../sim/prayerCue";
 import type { TileMark } from "../fight/effects";
 import type { ATile, Body } from "../fight/geometry";
 import { at } from "../fight/geometry";
 
 /** Magic blue, ranged green, melee red: the colour of the card's style and of the highlight under the tell. */
 export const STYLE_COLOUR: Readonly<Record<Style, number>> = { magic: 0x3b8bff, ranged: 0x2fd05a, melee: 0xff3b30 };
-export const PRAYER_NAME: Readonly<Record<Style, string>> = { magic: "Protect from Magic", ranged: "Protect from Missiles", melee: "Protect from Melee" };
+export const PRAYER_NAME = PROTECTION_PRAYER;
 
 /** One attack on the card: what to pray, how many ticks until it lands, and why. */
 export type CardLine = Readonly<{ cue: PrayerCue; inTicks: number }>;

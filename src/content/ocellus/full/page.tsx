@@ -38,6 +38,7 @@ import type { FullFightOptions } from "./region";
 import { FightRegion, START_NPC, fullFightStaged } from "./region";
 import { exposeP4Probe } from "./p4Probe";
 import { PRAYER_NAME, STYLE_COLOUR } from "./prayerGuide";
+import { TONE_COLOUR } from "./mechanicsGuide";
 
 declare global {
   interface Window {
@@ -86,6 +87,7 @@ function readParams(): Params {
     hazardTiles: flag("tiles", true),
     videoMarkers: flag("markers", false),
     prayerGuide: flag("prayer", false),
+    mechanicsGuide: flag("tells", false),
     skipMarkers: flag("skip", false),
     patternMarkers: flag("pattern", false),
     soloVine: flag("vine", true),
@@ -114,6 +116,7 @@ function writeParams(params: Params, fresh = true): void {
   url.searchParams.set("tiles", params.hazardTiles ? "1" : "0");
   url.searchParams.set("markers", params.videoMarkers ? "1" : "0");
   url.searchParams.set("prayer", params.prayerGuide ? "1" : "0");
+  url.searchParams.set("tells", params.mechanicsGuide ? "1" : "0");
   url.searchParams.set("skip", params.skipMarkers ? "1" : "0");
   url.searchParams.set("pattern", params.patternMarkers ? "1" : "0");
   url.searchParams.set("vine", params.soloVine ? "1" : "0");
@@ -410,6 +413,30 @@ function PrayerCard({ region }: Readonly<{ region: FightRegion }>) {
   );
 }
 
+/** How many of the coming mechanics the card lists. */
+const MECHANICS_SHOWN = 6;
+
+/** The mechanics guide's card: the next few mechanics, each with its countdown and what to do. */
+function MechanicsCard({ region }: Readonly<{ region: FightRegion }>) {
+  useRegionTicks(region);
+  const lines = region.mechanicsCard();
+  if (lines === null) return null;
+  return (
+    <div id="mechanics_guide_card" className="mechanics-guide">
+      {lines.length === 0 && <div className="mechanics-guide-todo">Nothing telegraphed is on its way.</div>}
+      <ol>
+        {lines.slice(0, MECHANICS_SHOWN).map((line) => (
+          <li key={line.id}>
+            <span className="mechanics-guide-when" style={{ color: hex(TONE_COLOUR[line.tone]) }}>{`${line.inTicks}t`}</span>
+            <span className="mechanics-guide-what">{line.what}</span>
+            {line.todo !== "" && <div className="mechanics-guide-todo">{line.todo}</div>}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 type Ending = Readonly<{ won: boolean; ticks: number; phase: string }>;
 
 function endingOf(stage: Stage): Ending | null {
@@ -448,7 +475,7 @@ function Result({ stage, region, params, clock }: Readonly<{ stage: Stage; regio
   const ending = endingOf(stage);
   if (ending === null) return null;
   const now = region.currentOptions();
-  const again = (fresh: boolean) => writeParams({ ...params, hazardTiles: now.hazardTiles, prayerGuide: now.prayerGuide, invincible: now.invincible, skipMarkers: now.skipMarkers, patternMarkers: now.patternMarkers }, fresh);
+  const again = (fresh: boolean) => writeParams({ ...params, hazardTiles: now.hazardTiles, prayerGuide: now.prayerGuide, mechanicsGuide: now.mechanicsGuide, invincible: now.invincible, skipMarkers: now.skipMarkers, patternMarkers: now.patternMarkers }, fresh);
   return (
     <div className="fight-result">
       <h2>{ending.won ? "Ocellus defeated" : "Oh dear, you are dead!"}</h2>
@@ -608,6 +635,21 @@ function FullFightSidebar({ params, region, stage, clock, loadouts }: Readonly<{
                 set({ prayerGuide: on });
                 region.setPrayerGuide(on);
                 rememberFlag("prayer", on);
+              }}
+            />
+          </label>
+          <label>
+            Mechanics guide
+            <small>Each attack in flight and on the floor, with its tick countdown and what to do</small>
+            <input
+              id="mechanics_guide"
+              type="checkbox"
+              checked={draft.mechanicsGuide}
+              onChange={(event) => {
+                const on = event.target.checked;
+                set({ mechanicsGuide: on });
+                region.setMechanicsGuide(on);
+                rememberFlag("tells", on);
               }}
             />
           </label>
@@ -804,7 +846,10 @@ export function FullFightPage() {
       <GameOverlay>
         <LoadingSplash state={loading} download={download} />
         {stage && stage.phase !== "p4" && <Hud stage={stage} region={region} />}
-        <PrayerCard region={region} />
+        <div className="guide-stack">
+          <PrayerCard region={region} />
+          <MechanicsCard region={region} />
+        </div>
         <div id="hud_corner">
           <Chatbox stage={stage} region={region} />
         </div>
