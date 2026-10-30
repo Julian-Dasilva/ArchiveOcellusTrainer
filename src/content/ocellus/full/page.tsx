@@ -13,7 +13,7 @@ import type { CreditLink } from "../../../menu/credits";
 import { CONTRIBUTOR, MAKER_LINKS } from "../../../menu/credits";
 import Sidebar from "../../../menu/Sidebar";
 import { dressStartedFight } from "../fight/blowpipe";
-import { OCELLUS_PRESETS, TierLoadouts, parseTier, startingLoadout, tierStart, tierStarts } from "../js/OcellusLoadout";
+import { GEAR_SCOPES, OCELLUS_PRESETS, TierLoadouts, parseTier, startingLoadout, tierStart, tierStarts } from "../js/OcellusLoadout";
 import type { StartWeapon, Tier, TierItem } from "../js/OcellusTimings";
 import { START_WEAPONS, TIERS } from "../js/OcellusTimings";
 import { LoadoutSection, useTierLoadout } from "./loadout";
@@ -126,7 +126,7 @@ function createTrainer() {
   void CacheRender.bundle().then(({ manifest }) => reportUnservedAssets(manifest), (error: unknown) => console.error("assets: osrs-assets/manifest.json did not load", error));
   readSettings();
   const link = readParams();
-  const loadouts = new TierLoadouts(saved, link.tier, process.env.ARCHIVE_LOADOUT === "off" ? "off" : "on");
+  const loadouts = new TierLoadouts(saved, link.tier, GEAR_SCOPES.find((scope) => scope === process.env.ARCHIVE_LOADOUT) ?? "editor");
   const started = startingLoadout(loadouts.active(), link.weapon);
   const params: Params = { ...link, weapon: started.start };
   const region = fullFightStaged(params, (player) => dressStartedFight(player, started.loadout));
@@ -491,20 +491,22 @@ function FullFightSidebar({ params, region, stage, clock, loadouts }: Readonly<{
               {START_PHASES.map((phase) => <option key={phase} value={phase}>{START_LABEL[phase]}</option>)}
             </select>
           </label>
-          <label>
-            Tier
-            <select id="start_tier" value={tier} disabled={editing} onChange={(event) => loadouts.selectTier(parseTier(event.target.value))}>
-              {TIERS.map((option) => <option key={option} value={option}>{OCELLUS_PRESETS[option].label}</option>)}
-            </select>
-            {OCELLUS_PRESETS[tier].notSimulated.length > 0 && <small id="tier_not_simulated">{`Not simulated yet, so left out: ${countedNames(OCELLUS_PRESETS[tier].notSimulated)}`}</small>}
-          </label>
+          {loadouts.scope !== "raid" && (
+            <label>
+              Tier
+              <select id="start_tier" value={tier} disabled={editing} onChange={(event) => loadouts.selectTier(parseTier(event.target.value))}>
+                {TIERS.map((option) => <option key={option} value={option}>{OCELLUS_PRESETS[option].label}</option>)}
+              </select>
+              {OCELLUS_PRESETS[tier].notSimulated.length > 0 && <small id="tier_not_simulated">{`Not simulated yet, so left out: ${countedNames(OCELLUS_PRESETS[tier].notSimulated)}`}</small>}
+            </label>
+          )}
           <label>
             Start with
             <select id="start_weapon" value={tierStart(active, draft.weapon) ?? ""} onChange={(event) => set({ weapon: tierStart(active, event.target.value) })}>
               {starts.length === 0 ? <option value="">As worn</option> : starts.map(({ weapon, label }) => <option key={weapon} value={weapon}>{label}</option>)}
             </select>
           </label>
-          {loadouts.editing === "on" && <LoadoutSection loadouts={loadouts} clock={clock} onApply={() => writeParams(chosen(), false)} open={editing} setOpen={setEditing} />}
+          {loadouts.scope === "editor" && <LoadoutSection loadouts={loadouts} clock={clock} onApply={() => writeParams(chosen(), false)} open={editing} setOpen={setEditing} />}
           <label>
             Defence drained
             <small>He starts each phase at his lowest Defence</small>
