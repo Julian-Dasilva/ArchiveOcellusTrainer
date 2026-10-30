@@ -14,7 +14,7 @@ const HEALTHY_PHONE: WalkObservation = {
   creditLines: LINES,
   startPhase: "4",
   phases: ["1", "2", "3", "4"],
-  sections: ["Fight", "Learning aids", "Sound", "Controls", "About"],
+  sections: ["Fight", "Learning aids", "Display", "Sound", "Controls", "About"],
   aboutReachable: true,
   retiredToggles: [],
   worldWidth: 390,
@@ -58,7 +58,7 @@ describe("release browser walk", () => {
       "With help from Alessandro Rodi is not on screen",
       "Start at is missing, not phase 4",
       "Start at offers nothing, not phases 1 to 4",
-      "the panel's sections are , not Fight, Learning aids, Sound, Controls, About",
+      "the panel's sections are , not Fight, Learning aids, Display, Sound, Controls, About",
       "Performance data and What's new are not reachable at the bottom of the panel",
       "no chat line",
       "the game is 0px wide",
@@ -67,10 +67,10 @@ describe("release browser walk", () => {
   });
 
   test("a page that opens at phase 1, hides phase 3 or puts About first fails", () => {
-    expect(walkProblems({ ...HEALTHY_PHONE, startPhase: "1", phases: ["1", "2", "4"], sections: ["About", "Fight", "Learning aids", "Sound", "Controls"] })).toEqual([
+    expect(walkProblems({ ...HEALTHY_PHONE, startPhase: "1", phases: ["1", "2", "4"], sections: ["About", "Fight", "Learning aids", "Display", "Sound", "Controls"] })).toEqual([
       "Start at is phase 1, not phase 4",
       "Start at offers 1, 2, 4, not phases 1 to 4",
-      "the panel's sections are About, Fight, Learning aids, Sound, Controls, not Fight, Learning aids, Sound, Controls, About",
+      "the panel's sections are About, Fight, Learning aids, Display, Sound, Controls, not Fight, Learning aids, Display, Sound, Controls, About",
     ]);
   });
 

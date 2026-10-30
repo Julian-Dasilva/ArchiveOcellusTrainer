@@ -99,14 +99,7 @@ function missingCredits(lines: readonly string[]): readonly string[] {
   return creditLines().flatMap((line) => (lines.includes(line) ? [] : [`${line} is not on screen`]));
 }
 
-const SECTIONS = ["Fight", "Learning aids", "Sound", "Controls", "About"] as const;
-/** Display holds the fixed-mode toggle; the sidebar's own test requires it, and the walk accepts it after Learning aids. */
-const OPTIONAL_SECTION = { name: "Display", after: "Learning aids" } as const;
-
-function panelSections(sections: readonly string[]): readonly string[] {
-  const at = sections.indexOf(OPTIONAL_SECTION.name);
-  return at > 0 && sections[at - 1] === OPTIONAL_SECTION.after ? sections.filter((_, index) => index !== at) : sections;
-}
+const SECTIONS = ["Fight", "Learning aids", "Display", "Sound", "Controls", "About"] as const;
 
 export function walkProblems(observed: WalkObservation): readonly string[] {
   const problems: string[] = [];
@@ -115,7 +108,7 @@ export function walkProblems(observed: WalkObservation): readonly string[] {
   problems.push(...missingCredits(observed.creditLines));
   if (observed.startPhase !== "4") problems.push(`Start at is ${observed.startPhase === "" ? "missing" : `phase ${observed.startPhase}`}, not phase 4`);
   if (observed.phases.join(",") !== "1,2,3,4") problems.push(`Start at offers ${observed.phases.join(", ") || "nothing"}, not phases 1 to 4`);
-  if (panelSections(observed.sections).join(",") !== SECTIONS.join(",")) problems.push(`the panel's sections are ${observed.sections.join(", ")}, not ${SECTIONS.join(", ")}`);
+  if (observed.sections.join(",") !== SECTIONS.join(",")) problems.push(`the panel's sections are ${observed.sections.join(", ")}, not ${SECTIONS.join(", ")}`);
   if (!observed.aboutReachable) problems.push("Performance data and What's new are not reachable at the bottom of the panel");
   problems.push(...observed.retiredToggles.map((toggle) => `${toggle} is still on the page`));
   if (observed.chatLine === "") problems.push("no chat line");
