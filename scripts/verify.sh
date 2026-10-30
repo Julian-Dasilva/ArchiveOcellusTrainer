@@ -48,7 +48,6 @@ START_OPTIONS_QUERY="?seed=6&practice=1&drained=1"
 START_DEFAULT_WEAPON=20997
 START_DRAINED_DEFENCE=150
 TIER_QUERY="?seed=6&practice=1&tier=low&weapon=twistedBow"
-TIER_LOW_WORN='{"weapon":12926,"offhand":null,"helmet":null,"chest":null,"legs":null,"gloves":7462,"cape":21295,"necklace":null,"feet":null,"ring":null,"ammo":11212}'
 EDITOR_QUERY="?seed=6&practice=1&tier=max&weapon=ralos"
 EDITOR_SHOP_ITEM="Saradomin Brew"
 EDITOR_SHOP_ITEM_ID=6685
@@ -853,7 +852,13 @@ glaives_landed() {
     --timeout 15000 >/dev/null
 }
 
+loadout_expectations() {
+  TIER_LOADOUT_EXPECTATIONS="$(node_modules/.bin/tsx scripts/verify/loadout-expectations.ts)" || return 1
+  export TIER_LOADOUT_EXPECTATIONS
+}
+
 drive_loadouts() {
+  loadout_expectations || return 1
   local slot box
   ab open "${URL}${LOADOUT_QUERY}" >/dev/null || return 1
   fight_tick_at_least 9 120000 || { log "the loadout drill never stepped to P4 tick 9"; return 1; }
@@ -2586,6 +2591,7 @@ ci_verdict() {
 }
 
 judge_evidence() {
+  loadout_expectations || return 1
   local dir=$1 unit units=("${@:2}")
   [[ ${#units[@]} -gt 0 ]] || mapfile -t units < <(ls "$dir/units")
   for unit in "${units[@]}"; do
