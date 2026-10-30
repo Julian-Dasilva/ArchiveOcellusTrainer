@@ -824,6 +824,17 @@ describe("the loadout editor", () => {
     }
   });
 
+  test("the editor omits the unavailable-stock notice when every supply is stocked", () => {
+    const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
+    try {
+      page.click("loadout");
+      expect(document.getElementById("loadout_editor")).not.toBeNull();
+      expect(document.getElementById("shop_not_simulated")).toBeNull();
+    } finally {
+      page.close();
+    }
+  });
+
   test("an open editor keeps the Max draft across a trip to High and back", () => {
     const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
     page.click("loadout");
