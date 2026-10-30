@@ -57,7 +57,7 @@ const SPIN_OPENING_TELL: Foretold = {
 const SEVER_CAUTION = "Overheads off the tick before the cut, or he severs them; Melee on for the cut itself";
 const SAW_TELL: Foretold = { style: "melee", attack: "saw blade", tell: "saw blade spinning on Ocellus (melee cut)", caution: SEVER_CAUTION, on: { kind: "boss" } };
 const LAST_SAW_TELL: Foretold = { ...SAW_TELL, attack: "last saw blade", tell: "last saw blade on Ocellus, as the spin ends (melee cut)" };
-const PANIC_TELL: Foretold = { style: "magic", attack: "panic shot", tell: "\"Your panic... is futile...\": a purple magic shot flying at you", caution: null, on: { kind: "target" } };
+const PANIC_TELL: Foretold = { style: "magic", attack: "panic shot", tell: "his purple magic cast, no shout: a magic shot flying at you", caution: null, on: { kind: "target" } };
 const UNTETHER_TELL: Foretold = { style: "magic", attack: "Untether magic", tell: "purple magic shot from Ocellus during Untether, flying at you", caution: null, on: { kind: "target" } };
 
 /** "12 to 18 damage", read from his data. */

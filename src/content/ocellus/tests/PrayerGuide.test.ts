@@ -137,7 +137,7 @@ describe("the prayer guide", () => {
       f.player().hop(at(8, 8));
       f.tickTo(S + 10);
       const [panic] = prayableHits(f.rows(), ["panic"]);
-      expect(firstWarning(f.seen, panic)).toEqual({ shownAt: S + 4, inTicks: 2, attack: "panic shot", tell: "\"Your panic... is futile...\": a purple magic shot flying at you" });
+      expect(firstWarning(f.seen, panic)).toEqual({ shownAt: S + 4, inTicks: 2, attack: "panic shot", tell: "his purple magic cast, no shout: a magic shot flying at you" });
       expect(f.seen.find(({ tick }) => tick === S + 4)?.lit).toEqual([{ tile: at(8, 8), colour: STYLE_COLOUR.magic }]);
     });
 
