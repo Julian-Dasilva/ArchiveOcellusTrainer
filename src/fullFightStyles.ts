@@ -77,6 +77,17 @@ export const FULL_FIGHT_CSS = `
   min-width: 300px;
 }
 
+.fixed_game_view .fight-result {
+  top: calc(var(--game-view-top) + var(--game-view-height) / 2);
+  left: calc(var(--game-view-left) + var(--game-view-width) / 2);
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: var(--game-view-width);
+  max-height: var(--game-view-height);
+  overflow: auto;
+}
+
 .fight-result h2 {
   margin: 0 0 8px;
   font-weight: normal;

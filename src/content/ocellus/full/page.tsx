@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useState, useSyncExternalStore } fro
 import { CacheRender, TrainerInstance, Viewport } from "osrs-sdk";
 import type { Location3, Region, TrainerLoadingState } from "osrs-sdk";
 import { GameOverlay, RuneScapeButton, TrainerApp } from "osrs-sdk-react";
+import { loadFixedFrame } from "../../../fixedFrame";
 import { readSettings, RunGate, RunPauseButton } from "../../../runGate";
 import { keepStorageUsable } from "../../../browserStorage";
 import { reportUnservedAssets } from "../../../servedAssets";
@@ -134,6 +135,7 @@ function createTrainer() {
     const p1 = r.current === "p1" ? r.p1.mounted : null;
     return { meter: p1 ? p1.script.meter : null, teal: p1 !== null };
   });
+  loadFixedFrame();
   const trainer = new TrainerInstance(region, { readyTimer: 5 });
   const clock = new RunClock(trainer);
   loadWebAnalytics();

@@ -1,0 +1,9 @@
+{
+  "acknowledged": [
+    { "test": "src/releaseBundle/walk.test.ts::release browser walk > a phone page at phase 4 with every phase, the five sections, About at the bottom, both credit lines, and a chat line under the tabs passes", "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds" },
+    { "test": "src/releaseBundle/walk.test.ts::release browser walk > with no Full fight toggle to reach, a phone page without the maker credit fails on that line alone", "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds" },
+    { "test": "src/releaseBundle/walk.test.ts::release browser walk > with no Full fight toggle to reach, a phone page without the contributor credit fails on that line alone", "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds" },
+    { "test": "src/releaseBundle/walk.test.ts::release browser walk > with no Full fight toggle to reach, a phone page that leaves the menu open after Keybinds fails on that alone", "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds" },
+    { "test": "src/releaseBundle/walk.test.ts::release browser walk > with no Full fight toggle to reach, a desktop page that stays up after a chat line passes", "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds" }
+  ]
+}

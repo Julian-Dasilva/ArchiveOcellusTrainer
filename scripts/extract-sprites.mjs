@@ -37,8 +37,12 @@ try {
     const canvas = createCanvas(frame.width, frame.height);
     const context = canvas.getContext("2d");
     const image = context.createImageData(frame.width, frame.height);
+    // Some sprites (the fixed-mode tab stones among them) decode with every alpha at 0; as in a sprite without an alpha
+    // channel, palette index 0 is then the only transparent colour.
+    const noAlpha = frame.pixels.every((pixel) => pixel >>> 24 === 0);
     frame.pixels.forEach((pixel, index) => {
-      image.data.set([(pixel >> 16) & 255, (pixel >> 8) & 255, pixel & 255, (pixel >>> 24) & 255], index * 4);
+      const alpha = noAlpha ? (frame.pixelIdx[index] === 0 ? 0 : 255) : (pixel >>> 24) & 255;
+      image.data.set([(pixel >> 16) & 255, (pixel >> 8) & 255, pixel & 255, alpha], index * 4);
     });
     context.putImageData(image, 0, 0);
     await mkdir(path.dirname(file), { recursive: true });

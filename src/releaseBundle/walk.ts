@@ -99,7 +99,7 @@ function missingCredits(lines: readonly string[]): readonly string[] {
   return creditLines().flatMap((line) => (lines.includes(line) ? [] : [`${line} is not on screen`]));
 }
 
-const SECTIONS = ["Fight", "Learning aids", "Sound", "Controls", "About"] as const;
+const SECTIONS = ["Fight", "Learning aids", "Display", "Sound", "Controls", "About"] as const;
 
 export function walkProblems(observed: WalkObservation): readonly string[] {
   const problems: string[] = [];

@@ -115,6 +115,13 @@
         font-size: 14px;
       }
 
+      .fixed_game_view #start_panel,
+      .fixed_game_view #paused_panel {
+        top: calc(var(--game-view-top) + var(--game-view-height) * 0.2);
+        left: calc(var(--game-view-left) + var(--game-view-width) / 2);
+        max-width: calc(var(--game-view-width) - 16px);
+      }
+
       #start_panel h2,
       #paused_panel h2 {
         margin: 0 0 6px;
@@ -134,6 +141,13 @@
         font-size: 14px;
         text-shadow: 1px 1px 0 black;
         pointer-events: none;
+      }
+
+      /* Fixed mode: black lines on the chatbox's parchment, as the client draws them. */
+      #hud_corner.fixed_chatbox #game_chat {
+        font-size: inherit;
+        color: #000;
+        text-shadow: none;
       }
     </style>
   </head>

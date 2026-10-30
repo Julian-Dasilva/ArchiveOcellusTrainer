@@ -1,5 +1,5 @@
 import { useLayoutEffect } from "react";
-import { ControlPanelController, Settings } from "osrs-sdk";
+import { CHATBOX, ControlPanelController, FixedLayout, Settings } from "osrs-sdk";
 
 // The SDK draws the open panel from a 204 by 275 sprite and each tab from a 33 by 36 sprite, in canvas CSS pixels.
 const PANEL_SPRITE = { width: 204, height: 275 } as const;
@@ -59,10 +59,64 @@ function controlChrome(canvas: HTMLCanvasElement): readonly Box[] | null {
   return pieces.length === 0 ? null : pieces;
 }
 
+/** The chatbox's inside, in frame pixels: inside its border and above the stones along its bottom. */
+const FIXED_CHAT_INSET = { left: 9, right: 9, top: 8, bottom: 32 } as const;
+/** The chatbox font's size in frame pixels; the lines scale with the frame. */
+const FIXED_CHAT_FONT_PX = 12;
+
+/** Fixed mode: the chat lines fill the frame's chatbox from the bottom up, as the client's do. */
+function placeInFixedChatbox(corner: HTMLElement, area: HTMLElement, canvas: HTMLCanvasElement): void {
+  const areaBox = area.getBoundingClientRect();
+  const frame = canvas.getBoundingClientRect();
+  const scale = FixedLayout.scaleOf(frame.width);
+  const left = frame.left - areaBox.left + (CHATBOX.x + FIXED_CHAT_INSET.left) * scale;
+  const bottom = areaBox.bottom - (frame.top + (CHATBOX.y + CHATBOX.height - FIXED_CHAT_INSET.bottom) * scale);
+  corner.style.left = `${left}px`;
+  corner.style.bottom = `${bottom}px`;
+  corner.style.maxWidth = `${(CHATBOX.width - FIXED_CHAT_INSET.left - FIXED_CHAT_INSET.right) * scale}px`;
+  corner.style.maxHeight = `${(CHATBOX.height - FIXED_CHAT_INSET.top - FIXED_CHAT_INSET.bottom) * scale}px`;
+  corner.style.overflow = "hidden";
+  corner.style.fontSize = `${FIXED_CHAT_FONT_PX * scale}px`;
+  corner.classList.add("fixed_chatbox");
+}
+
+function clearFixedChatbox(corner: HTMLElement): void {
+  corner.style.left = "";
+  corner.style.maxWidth = "";
+  corner.style.maxHeight = "";
+  corner.style.overflow = "";
+  corner.style.fontSize = "";
+  corner.classList.remove("fixed_chatbox");
+}
+
+/** Fixed mode: the Ready, Paused and result dialogs read the game view's box from these, so they sit over the game view, not the frame. */
+function markFixedGameView(area: HTMLElement, canvas: HTMLCanvasElement): void {
+  const areaBox = area.getBoundingClientRect();
+  const frame = canvas.getBoundingClientRect();
+  const view = FixedLayout.gameView(FixedLayout.scaleOf(frame.width));
+  area.style.setProperty("--game-view-left", `${frame.left - areaBox.left + view.x}px`);
+  area.style.setProperty("--game-view-top", `${frame.top - areaBox.top + view.y}px`);
+  area.style.setProperty("--game-view-width", `${view.width}px`);
+  area.style.setProperty("--game-view-height", `${view.height}px`);
+  area.classList.add("fixed_game_view");
+}
+
+function clearFixedGameView(area: HTMLElement): void {
+  for (const name of ["--game-view-left", "--game-view-top", "--game-view-width", "--game-view-height"]) area.style.removeProperty(name);
+  area.classList.remove("fixed_game_view");
+}
+
 function place(corner: HTMLElement): void {
   const area = corner.offsetParent;
   const canvas = document.getElementById("world");
   if (!(area instanceof HTMLElement) || !(canvas instanceof HTMLCanvasElement)) return;
+  if (Settings.fixedMode) {
+    markFixedGameView(area, canvas);
+    placeInFixedChatbox(corner, area, canvas);
+    return;
+  }
+  clearFixedGameView(area);
+  clearFixedChatbox(corner);
   const blocked = controlChrome(canvas);
   const chat = corner.querySelector("#game_chat");
   if (blocked === null || !(chat instanceof HTMLElement) || chat.childElementCount === 0) {
@@ -88,7 +142,9 @@ export function useKeepChatAboveInventory(transcript: string): void {
     window.addEventListener("mousedown", run);
     window.addEventListener("click", run);
     window.addEventListener("keydown", run);
+    const unsubscribe = Settings.subscribe(run);
     return () => {
+      unsubscribe();
       observer.disconnect();
       window.removeEventListener("resize", run);
       window.removeEventListener("mousedown", run);

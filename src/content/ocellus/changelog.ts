@@ -6,8 +6,8 @@ export const CHANGELOG: Changelog = [
     notes: [
       "Tier in Fight picks your gear: Raid, or one of the five community gear tiers, Max to Poor. A tier keeps only the items the trainer simulates, with their wiki stats, and lists the items it leaves out.",
       "Start with lists the weapons in the tier you picked. Raid still starts with the twisted bow by default.",
-      "Loadout in Fight edits a tier's gear and inventory before the start or while paused, with the raid's Alliance Supplies as the shop. Apply restarts the fight with your edit.",
-      "Each tier keeps your edit for the next run, until you press Reset.",
+      "Loadout in Fight edits a tier's gear and inventory before the start or while paused, with the raid's Alliance Supplies as the shop. Apply restarts the fight with your edit, and each tier keeps it for the next run until you press Reset.",
+      "Tick Fixed mode under Display for the classic fixed interface: the 765 by 503 frame, scaled to fit the window, with its minimap, orbs, tabs and side panel where the fixed client puts them. Chat sits in the frame's chatbox in black text, and the camera turns and zooms only from the game view, as in game.",
       "Phase 2's portal gaps follow the game's three set patterns, orange, red and green, in the game's order after a random first, and Phase 2 patterns in Learning aids numbers every wave's safe spot, 1 to 6, in its pattern's colour. In phase 3, the Void Rift, Void Siphon and Void Augmenter now play their spawn, despawn and detonate animations, and killing a Void Siphon heals you 22.",
     ],
   },
