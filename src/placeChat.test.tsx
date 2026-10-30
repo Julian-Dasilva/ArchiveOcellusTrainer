@@ -127,4 +127,33 @@ describe("chat above a closed side panel", () => {
     });
     page.close();
   });
+
+  test("fixed mode gives the dialogs the game view's box, and turning it off takes the box away", async () => {
+    stubOffsetParent();
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      if (this.id === "play") return rect(0, 0, 1550, 1050);
+      if (this.id === "world") return rect(10, 20, 1540, 1026);
+      if (this.id === "hud_corner") return rect(28, 900, 300, 962);
+      return new DOMRect();
+    });
+    const { sdk, keep } = await placeOn(DESKTOP);
+    sdk.Settings.fixedMode = true;
+    const page = mount("Ocellus manipulates your lifeforce!", keep);
+    const area = page.corner.parentElement;
+    if (!area) throw new Error("the chat corner has no playable area");
+    const box = () => ({
+      marked: area.classList.contains("fixed_game_view"),
+      left: area.style.getPropertyValue("--game-view-left"),
+      top: area.style.getPropertyValue("--game-view-top"),
+      width: area.style.getPropertyValue("--game-view-width"),
+      height: area.style.getPropertyValue("--game-view-height"),
+    });
+    const fixed = box();
+    act(() => sdk.Settings.set({ fixedMode: false }));
+    expect({ fixed, resizable: box() }).toEqual({
+      fixed: { marked: true, left: "18px", top: "28px", width: "1024px", height: "668px" },
+      resizable: { marked: false, left: "", top: "", width: "", height: "" },
+    });
+    page.close();
+  });
 });

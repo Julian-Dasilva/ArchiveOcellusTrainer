@@ -89,14 +89,33 @@ function clearFixedChatbox(corner: HTMLElement): void {
   corner.classList.remove("fixed_chatbox");
 }
 
+/** Fixed mode: the Ready, Paused and result dialogs read the game view's box from these, so they sit over the game view, not the frame. */
+function markFixedGameView(area: HTMLElement, canvas: HTMLCanvasElement): void {
+  const areaBox = area.getBoundingClientRect();
+  const frame = canvas.getBoundingClientRect();
+  const view = FixedLayout.gameView(FixedLayout.scaleOf(frame.width));
+  area.style.setProperty("--game-view-left", `${frame.left - areaBox.left + view.x}px`);
+  area.style.setProperty("--game-view-top", `${frame.top - areaBox.top + view.y}px`);
+  area.style.setProperty("--game-view-width", `${view.width}px`);
+  area.style.setProperty("--game-view-height", `${view.height}px`);
+  area.classList.add("fixed_game_view");
+}
+
+function clearFixedGameView(area: HTMLElement): void {
+  for (const name of ["--game-view-left", "--game-view-top", "--game-view-width", "--game-view-height"]) area.style.removeProperty(name);
+  area.classList.remove("fixed_game_view");
+}
+
 function place(corner: HTMLElement): void {
   const area = corner.offsetParent;
   const canvas = document.getElementById("world");
   if (!(area instanceof HTMLElement) || !(canvas instanceof HTMLCanvasElement)) return;
   if (Settings.fixedMode) {
+    markFixedGameView(area, canvas);
     placeInFixedChatbox(corner, area, canvas);
     return;
   }
+  clearFixedGameView(area);
   clearFixedChatbox(corner);
   const blocked = controlChrome(canvas);
   const chat = corner.querySelector("#game_chat");
@@ -123,7 +142,9 @@ export function useKeepChatAboveInventory(transcript: string): void {
     window.addEventListener("mousedown", run);
     window.addEventListener("click", run);
     window.addEventListener("keydown", run);
+    const unsubscribe = Settings.subscribe(run);
     return () => {
+      unsubscribe();
       observer.disconnect();
       window.removeEventListener("resize", run);
       window.removeEventListener("mousedown", run);
