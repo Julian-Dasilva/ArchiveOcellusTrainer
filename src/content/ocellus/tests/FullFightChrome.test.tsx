@@ -234,13 +234,13 @@ describe("the full fight page", () => {
         starts: ["blowpipe Toxic blowpipe"],
         chosen: "blowpipe",
         leftOut:
-          "Not simulated yet, so left out: Ghommal's avernic defender 6, Magma helm, Eclipse Moon chestplate, Eclipse Moon tassets, Dragon boots, Berserker ring (i), Divine rune pouch, Necklace of anguish (or), Twisted buckler, Book of the Dead",
-        worn: [12926, null, 7462, 21295],
+          null,
+        worn: [12926, 13199, 7462, 21295],
       },
       raidShown: { tier: "raid", starts: ["twistedBow Twisted bow (Masori)", "blowpipe Toxic blowpipe (Masori)", "melee Scythe (Inquisitor's)"], chosen: "blowpipe", leftOut: null, worn: [12926, 27235, 26235, 28951] },
       maxStarts: ["twistedBow Twisted bow (Masori)", "blowpipe Toxic blowpipe (Masori)", "ralos Tonalztics of Ralos (Inquisitor's)"],
       maxChosen: "blowpipe",
-      maxLeftOut: "Not simulated yet, so left out: Book of the Dead, Ferocious gloves, Divine rune pouch",
+      maxLeftOut: null,
       assigned: ["http://localhost/?seed=7&weapon=ralos&phase=4&tier=max&drained=0&tiles=1&markers=0&skip=0&pattern=0&vine=1&practice=0"],
     });
   });
@@ -626,8 +626,8 @@ function fightRegion(): FightRegion {
 }
 
 const LOADOUTS_KEY = "osrs-sdk:loadouts:archive-ocellus";
-const MAX_WORN = { ammo: 33595, cape: 21295, chest: 24420, feet: 31097, gloves: null, helmet: 24419, legs: 24421, necklace: 29801, offhand: null, ring: 25485, weapon: 28922 };
-const MAX_BAG = [26374, 26235, 28955, 27235, 33639, 27238, 27241, 25975, 12926, 20997, 2444, 2444, 25739, null, 23685, 12695, null, null, 3024, 3024, 6685, 6685, 3024, 3024, 6685, 6685, 10925, null];
+const MAX_WORN = { ammo: 33595, cape: 21295, chest: 24420, feet: 31097, gloves: 22981, helmet: 24419, legs: 24421, necklace: 29801, offhand: 25818, ring: 25485, weapon: 28922 };
+const MAX_BAG = [26374, 26235, 28955, 27235, 33639, 27238, 27241, 25975, 12926, 20997, 2444, 2444, 25739, null, 23685, 12695, null, null, 3024, 3024, 6685, 6685, 3024, 3024, 6685, 6685, 10925, 27281];
 const MAX_STARTS = ["Twisted bow (Masori)", "Toxic blowpipe (Masori)", "Tonalztics of Ralos (Inquisitor's)"];
 const RAID_BAG = [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, 12695, 2444, 6685, 3024, 12695, 2444, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 12926, 3024];
 const RAID_STARTS = ["Twisted bow (Masori)", "Toxic blowpipe (Masori)", "Scythe (Inquisitor's)"];

@@ -17,24 +17,24 @@ const SUPPLIES_ROWS_5_TO_7 = [null, null, 3024, 3024, 6685, 6685, 3024, 3024, 66
 
 const TIER_IDS = {
   max: {
-    equipment: { weapon: 28922, offhand: null, helmet: 24419, chest: 24420, legs: 24421, gloves: null, cape: 21295, necklace: 29801, feet: 31097, ring: 25485, ammo: 33595 },
-    inventory: [26374, 26235, 28955, 27235, 33639, 27238, 27241, 25975, 12926, 20997, 2444, 2444, 25739, null, 23685, 12695, ...SUPPLIES_ROWS_5_TO_7, 10925, null],
+    equipment: { weapon: 28922, offhand: 25818, helmet: 24419, chest: 24420, legs: 24421, gloves: 22981, cape: 21295, necklace: 29801, feet: 31097, ring: 25485, ammo: 33595 },
+    inventory: [26374, 26235, 28955, 27235, 33639, 27238, 27241, 25975, 12926, 20997, 2444, 2444, 25739, null, 23685, 12695, ...SUPPLIES_ROWS_5_TO_7, 10925, 27281],
   },
   high: {
-    equipment: { weapon: 13576, offhand: null, helmet: 30750, chest: 30753, legs: 30756, gloves: 7462, cape: 21295, necklace: 24780, feet: 31097, ring: 25485, ammo: 33595 },
-    inventory: [21902, 27238, 28955, null, 33639, 27241, null, 28035, 29591, 12926, 12695, 12695, null, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
+    equipment: { weapon: 13576, offhand: 25818, helmet: 30750, chest: 30753, legs: 30756, gloves: 7462, cape: 21295, necklace: 24780, feet: 31097, ring: 25485, ammo: 33595 },
+    inventory: [21902, 27238, 28955, 27281, 33639, 27241, 21000, 28035, 29591, 12926, 12695, 12695, null, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
   },
   mid: {
-    equipment: { weapon: 29589, offhand: null, helmet: 30750, chest: 30753, legs: 30756, gloves: 7462, cape: 21295, necklace: 29801, feet: 31097, ring: 25485, ammo: 33595 },
-    inventory: [21902, 27238, 28955, null, null, 27241, 27235, null, 29591, 12926, 12695, 12695, 13576, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 10925, null],
+    equipment: { weapon: 29589, offhand: 27552, helmet: 30750, chest: 30753, legs: 30756, gloves: 7462, cape: 21295, necklace: 29801, feet: 31097, ring: 25485, ammo: 33595 },
+    inventory: [21902, 27238, 28955, 21000, 22249, 27241, 27235, 27281, 29591, 12926, 12695, 12695, 13576, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 10925, 25818],
   },
   low: {
-    equipment: { weapon: 29589, offhand: null, helmet: null, chest: null, legs: null, gloves: 7462, cape: 21295, necklace: 24780, feet: null, ring: null, ammo: 33595 },
-    inventory: [21902, null, 28955, null, null, null, null, null, 29591, 12926, 12695, 12695, 13576, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
+    equipment: { weapon: 29589, offhand: 27552, helmet: 13199, chest: 29004, legs: 29007, gloves: 7462, cape: 21295, necklace: 24780, feet: 11840, ring: 11773, ammo: 33595 },
+    inventory: [21902, null, 28955, 27281, 22249, null, 21000, 25818, 29591, 12926, 12695, 12695, 13576, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
   },
   poor: {
-    equipment: { weapon: 29589, offhand: null, helmet: null, chest: null, legs: null, gloves: null, cape: 21295, necklace: 24780, feet: null, ring: null, ammo: 33595 },
-    inventory: [21902, null, 28955, null, null, null, 12926, null, 29591, 13576, 12695, 12695, null, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
+    equipment: { weapon: 29589, offhand: 27552, helmet: 11665, chest: 13072, legs: 13073, gloves: 8842, cape: 21295, necklace: 24780, feet: 11840, ring: 11773, ammo: 33595 },
+    inventory: [21902, 11664, 28955, 27281, 22249, 21000, 12926, 25818, 29591, 13576, 12695, 12695, null, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
   },
 };
 
@@ -52,6 +52,19 @@ const WIKI_BONUSES: readonly (readonly [id: number, page: string, attack: StyleB
   [25975, "Lightbearer rev 15299656", [0,0,0,0,0], [0,0,0,0,0], [0,0,0,0]],
   [24780, "Amulet of blood fury rev 15355928", [10,10,10,10,10], [15,15,15,15,15], [8,0,0,5]],
   [28955, "Blessed Dizana's quiver rev 15357222", [0,0,0,0,18], [0,0,0,0,0], [0,3,0,0]],
+  [13199, "Magma helm rev 15276020", [0.0, 0.0, 0.0, -5.0, -5.0], [52.0, 55.0, 58.0, 0.0, 50.0], [5.0, 0.0, 0.0, 0.0]],
+  [11665, "Void melee helm rev 15260466", [0.0, 0.0, 0.0, 0.0, 0.0], [6.0, 6.0, 6.0, 6.0, 6.0], [0.0, 0.0, 0.0, 0.0]],
+  [11664, "Void ranger helm rev 15260468", [0.0, 0.0, 0.0, 0.0, 0.0], [6.0, 6.0, 6.0, 6.0, 6.0], [0.0, 0.0, 0.0, 0.0]],
+  [13072, "Elite void top rev 15260476", [0.0, 0.0, 0.0, 0.0, 0.0], [45.0, 45.0, 45.0, 45.0, 45.0], [0.0, 0.0, 0.0, 3.0]],
+  [13073, "Elite void robe rev 15260481", [0.0, 0.0, 0.0, 0.0, 0.0], [30.0, 30.0, 30.0, 30.0, 30.0], [0.0, 0.0, 0.0, 3.0]],
+  [8842, "Void knight gloves rev 15304461", [0.0, 0.0, 0.0, 0.0, 0.0], [6.0, 6.0, 6.0, 4.0, 6.0], [0.0, 0.0, 0.0, 0.0]],
+  [29004, "Eclipse Moon chestplate rev 15354977", [0.0, 0.0, 0.0, -15.0, 31.0], [15.0, 18.0, 57.0, 55.0, 32.0], [3.0, 0.0, 0.0, 0.0]],
+  [29007, "Eclipse Moon tassets rev 15354995", [0.0, 0.0, 0.0, -15.0, 17.0], [9.0, 13.0, 37.0, 31.0, 17.0], [1.0, 0.0, 0.0, 0.0]],
+  [22249, "Necklace of anguish (or) rev 15188731", [0.0, 0.0, 0.0, 0.0, 15.0], [0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 5.0, 0.0, 2.0]],
+  [27552, "Ghommal's avernic defender 6 rev 15324597", [30.0, 29.0, 28.0, -5.0, -4.0], [30.0, 29.0, 28.0, -5.0, -4.0], [8.0, 0.0, 0.0, 0.0]],
+  [21000, "Twisted buckler rev 15188072", [-7.0, -8.0, -7.0, -10.0, 18.0], [22.0, 24.0, 22.0, 26.0, 58.0], [0.0, 10.0, 0.0, 0.0]],
+  [11840, "Dragon boots rev 15364734", [0.0, 0.0, 0.0, -3.0, -1.0], [16.0, 17.0, 18.0, 0.0, 0.0], [4.0, 0.0, 0.0, 0.0]],
+  [25818, "Book of the Dead rev 15317141", [0.0, 0.0, 0.0, 6.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 3.0]],
   [24419, "Inquisitor's great helm rev 15352822", [0, 0, 10, -5, -5], [19, 10, 21, 0, 12], [6, 0, 0, 1]],
   [24420, "Inquisitor's hauberk rev 15352823", [0, 0, 16, -11, -10], [67, 55, 71, 0, 35], [4, 0, 0, 2]],
   [24421, "Inquisitor's plateskirt rev 15352824", [0, 0, 12, -9, -5], [42, 30, 49, 0, 22], [2, 0, 0, 2]],
@@ -115,16 +128,17 @@ describe("Ocellus loadouts", () => {
       poor: [start("poor", "Toxic blowpipe", 12926)],
     });
     expect(heldItems(startingLoadout(presetChoice("raid"), "melee").loadout).length).toBe(38);
+    expect(startingLoadout(presetChoice("poor"), "blowpipe").loadout.equipment.helmet?.id).toBe(11664);
   });
 
   test("each tier names every item it leaves out", () => {
     expect(Object.fromEntries(TIERS.map((tier) => [tier, OCELLUS_PRESETS[tier].notSimulated.map(({ name }) => name)]))).toEqual({
       raid: [],
-      max: ["Book of the Dead", "Ferocious gloves", "Divine rune pouch"],
-      high: ["Book of the Dead", "Divine rune pouch", "Twisted buckler"],
-      mid: ["Ghommal's avernic defender 6", "Twisted buckler", "Necklace of anguish (or)", "Divine rune pouch", "Book of the Dead"],
-      low: ["Ghommal's avernic defender 6", "Magma helm", "Eclipse Moon chestplate", "Eclipse Moon tassets", "Dragon boots", "Berserker ring (i)", "Divine rune pouch", "Necklace of anguish (or)", "Twisted buckler", "Book of the Dead"],
-      poor: ["Ghommal's avernic defender 6", "Void melee helm", "Elite void top", "Elite void robe", "Void knight gloves", "Dragon boots", "Berserker ring (i)", "Void ranger helm", "Divine rune pouch", "Necklace of anguish (or)", "Twisted buckler", "Book of the Dead"],
+      max: [],
+      high: [],
+      mid: [],
+      low: [],
+      poor: [],
     });
   });
 
