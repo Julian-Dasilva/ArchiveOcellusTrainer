@@ -35,6 +35,7 @@ export type WalkObservation = Readonly<{
   sections: readonly string[];
   aboutReachable: boolean;
   retiredToggles: readonly string[];
+  loadoutButton: boolean;
   worldWidth: number;
   chatBottom: string;
   chatLine: string;
@@ -64,6 +65,7 @@ const FACTS = `(() => {
     sections: [...document.querySelectorAll("#sidebar > section > .sidebar_title")].map((title) => title.textContent || ""),
     aboutReachable: onScreen(document.getElementById("perf_data")) && onScreen(document.getElementById("whats_new")),
     retiredToggles: [...document.querySelectorAll("button, a")].map((el) => (el.textContent || "").trim()).filter((text) => ${JSON.stringify(RETIRED_TOGGLES)}.includes(text)),
+    loadoutButton: document.getElementById("loadout") !== null,
     worldWidth: box ? box.width : 0,
     worldLeft: box ? box.left : 0,
     worldTop: box ? box.top : 0,
@@ -84,6 +86,7 @@ type PageFacts = Readonly<{
   sections: readonly string[];
   aboutReachable: boolean;
   retiredToggles: readonly string[];
+  loadoutButton: boolean;
   worldWidth: number;
   worldLeft: number;
   worldTop: number;
@@ -111,6 +114,7 @@ export function walkProblems(observed: WalkObservation): readonly string[] {
   if (observed.sections.join(",") !== SECTIONS.join(",")) problems.push(`the panel's sections are ${observed.sections.join(", ")}, not ${SECTIONS.join(", ")}`);
   if (!observed.aboutReachable) problems.push("Performance data and What's new are not reachable at the bottom of the panel");
   problems.push(...observed.retiredToggles.map((toggle) => `${toggle} is still on the page`));
+  if (observed.loadoutButton) problems.push("the Loadout button is on the release page");
   if (observed.chatLine === "") problems.push("no chat line");
   if (observed.surface === "phone") {
     if (observed.worldWidth < 300) problems.push(`the game is ${observed.worldWidth}px wide`);
@@ -178,6 +182,7 @@ function parseFacts(value: unknown): PageFacts {
     sections: stringListField(record, "sections"),
     aboutReachable: booleanField(record, "aboutReachable"),
     retiredToggles: stringListField(record, "retiredToggles"),
+    loadoutButton: booleanField(record, "loadoutButton"),
     worldWidth: numberField(record, "worldWidth"),
     worldLeft: numberField(record, "worldLeft"),
     worldTop: numberField(record, "worldTop"),
@@ -321,6 +326,7 @@ function driveSurface(surface: WalkSurface, origin: string): readonly string[] {
       sections: loaded.sections,
       aboutReachable: bottom.aboutReachable,
       retiredToggles: loaded.retiredToggles,
+      loadoutButton: loaded.loadoutButton,
       worldWidth,
       chatBottom: settled.chatBottom,
       chatLine: settled.chatLine,

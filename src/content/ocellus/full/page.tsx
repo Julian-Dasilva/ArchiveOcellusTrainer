@@ -126,7 +126,7 @@ function createTrainer() {
   void CacheRender.bundle().then(({ manifest }) => reportUnservedAssets(manifest), (error: unknown) => console.error("assets: osrs-assets/manifest.json did not load", error));
   readSettings();
   const link = readParams();
-  const loadouts = new TierLoadouts(saved, link.tier);
+  const loadouts = new TierLoadouts(saved, link.tier, process.env.ARCHIVE_LOADOUT === "off" ? "off" : "on");
   const started = startingLoadout(loadouts.active(), link.weapon);
   const params: Params = { ...link, weapon: started.start };
   const region = fullFightStaged(params, (player) => dressStartedFight(player, started.loadout));
@@ -504,7 +504,7 @@ function FullFightSidebar({ params, region, stage, clock, loadouts }: Readonly<{
               {starts.length === 0 ? <option value="">As worn</option> : starts.map(({ weapon, label }) => <option key={weapon} value={weapon}>{label}</option>)}
             </select>
           </label>
-          <LoadoutSection loadouts={loadouts} clock={clock} onApply={() => writeParams(chosen(), false)} open={editing} setOpen={setEditing} />
+          {loadouts.editing === "on" && <LoadoutSection loadouts={loadouts} clock={clock} onApply={() => writeParams(chosen(), false)} open={editing} setOpen={setEditing} />}
           <label>
             Defence drained
             <small>He starts each phase at his lowest Defence</small>
