@@ -234,13 +234,13 @@ describe("the full fight page", () => {
         starts: ["blowpipe Toxic blowpipe"],
         chosen: "blowpipe",
         leftOut:
-          "Not simulated yet, so left out: Emberlight, Ghommal's avernic defender 6, Magma helm, Eclipse Moon chestplate, Eclipse Moon tassets, Amulet of blood fury, Dragon boots, Berserker ring (i), Dragon crossbow, Blessed Dizana's quiver, Divine rune pouch, Necklace of anguish (or), Twisted buckler, Book of the Dead, Scorching bow, Dragon warhammer",
-        worn: [12926, null, 7462, 21295],
+          "Not simulated yet, so left out: Emberlight, Amulet of blood fury, Dragon crossbow, Blessed Dizana's quiver, Scorching bow, Dragon warhammer",
+        worn: [12926, 13199, 7462, 21295],
       },
       raidShown: { tier: "raid", starts: ["twistedBow Twisted bow (Masori)", "blowpipe Toxic blowpipe (Masori)", "melee Scythe (Inquisitor's)"], chosen: "blowpipe", leftOut: null, worn: [12926, 27235, 26235, 28951] },
       maxStarts: ["twistedBow Twisted bow (Masori)", "blowpipe Toxic blowpipe (Masori)", "ralos Tonalztics of Ralos (Inquisitor's)"],
       maxChosen: "blowpipe",
-      maxLeftOut: "Not simulated yet, so left out: Book of the Dead, Ferocious gloves, Zaryte crossbow, Blessed Dizana's quiver, Lightbearer, Sanguine scythe of Vitur, Divine rune pouch",
+      maxLeftOut: "Not simulated yet, so left out: Zaryte crossbow, Blessed Dizana's quiver, Lightbearer, Sanguine scythe of Vitur",
       assigned: ["http://localhost/?seed=7&weapon=ralos&phase=4&tier=max&drained=0&tiles=1&markers=0&skip=0&pattern=0&vine=1&practice=0"],
     });
   });
@@ -626,8 +626,8 @@ function fightRegion(): FightRegion {
 }
 
 const LOADOUTS_KEY = "osrs-sdk:loadouts:archive-ocellus";
-const MAX_WORN = { ammo: 33595, cape: 21295, chest: 24420, feet: 31097, gloves: null, helmet: 24419, legs: 24421, necklace: 29801, offhand: null, ring: 25485, weapon: 28922 };
-const MAX_BAG = [null, 26235, null, 27235, 33639, 27238, 27241, null, 12926, 20997, 2444, 2444, null, null, 23685, 12695, null, null, 3024, 3024, 6685, 6685, 3024, 3024, 6685, 6685, 10925, null];
+const MAX_WORN = { ammo: 33595, cape: 21295, chest: 24420, feet: 31097, gloves: 22981, helmet: 24419, legs: 24421, necklace: 29801, offhand: 25818, ring: 25485, weapon: 28922 };
+const MAX_BAG = [null, 26235, null, 27235, 33639, 27238, 27241, null, 12926, 20997, 2444, 2444, null, null, 23685, 12695, null, null, 3024, 3024, 6685, 6685, 3024, 3024, 6685, 6685, 10925, 27281];
 const withBag = (changes: Readonly<Record<number, number | null>>) => MAX_BAG.map((id, index) => (index in changes ? changes[index] : id));
 const savedMax = (edit: unknown, version = 1) => JSON.stringify({ version, values: { selected: "max", edits: { max: edit } } });
 
@@ -719,7 +719,7 @@ describe("the loadout editor", () => {
     { row: "a worn item in a slot it no longer fits", edit: { equipment: { ...MAX_WORN, helmet: 20997 }, inventory: MAX_BAG }, reason: "Your Max edit wears 1 item in a slot that no longer fits (helmet slot)" },
     { row: "a bag that is not 28 slots", edit: { equipment: MAX_WORN, inventory: MAX_BAG.slice(1) }, reason: "Your Max edit could not be read (inventory has 27 slots, expected 28)" },
     { row: "more supplies than the tier and the shop allow", edit: { equipment: MAX_WORN, inventory: withBag({ 0: 6685, 2: 6685, 7: 6685, 10: 6685, 11: 6685, 12: 6685, 13: 6685 }) }, reason: "Your Max edit carries more than the supplies allow (Saradomin Brew 11 of 10)" },
-    { row: "more of a supply the shop does not stock than the tier carries", edit: { equipment: MAX_WORN, inventory: Array<number>(28).fill(12695) }, reason: "Your Max edit carries more than the supplies allow (Super combat potion 28 of 1)" },
+    { row: "more of a supply the shop does not stock than the tier carries", edit: { equipment: MAX_WORN, inventory: Array<number>(28).fill(12695) }, reason: "Your Max edit carries more than the supplies allow (Super combat potion(4) 28 of 1)" },
   ])("a saved edit with $row starts on the preset, names why with Reset, and stays stored until Reset", ({ edit, reason }) => {
     const raw = savedMax({ presetRevision: 1, loadout: edit });
     localStorage.setItem(LOADOUTS_KEY, raw);
