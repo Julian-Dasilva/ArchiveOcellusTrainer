@@ -2,7 +2,7 @@
 set -euo pipefail
 
 OSRS_SDK_REPO="${OSRS_SDK_REPO:-https://github.com/Julian-Dasilva/osrs-sdk.git}"
-OSRS_SDK_COMMIT="${OSRS_SDK_COMMIT:-e1459fd79c259914e147ba048b60221a12a0fea1}"
+OSRS_SDK_COMMIT="${OSRS_SDK_COMMIT:-5e5741d7cae28b97ba78c441060388c007b32b8b}"
 OSRS_SDK_PACKS="${OSRS_SDK_PACKS:-}"
 PACKAGES=(osrs-sdk osrs-sdk-assets osrs-sdk-react)
 PACKS=('osrs-sdk-[0-9]*.tgz' 'osrs-sdk-assets-*.tgz' 'osrs-sdk-react-*.tgz')
