@@ -272,7 +272,11 @@ export const P1 = {
   strikeDamage: range(17, 19),
   /** One more shot per 24 of meter (unverified past 10 of 96: never recorded). [R] */
   meterPerExtraShot: 24,
-  walkOnAfterShout: 8,
+  /**
+   * After the strike's "Death... awaits..." his first volley comes 9 ticks on: 11 of 11 strikes in fight logs L1, L3 to
+   * L8 (e.g. L1.txt "Death... awaits..." at P1 +139, anim 14806 at +148), and 2 of 2 in a 2026-10-30 raid log.
+   */
+  walkOnAfterShout: 9,
   /** Next corner: anticlockwise 10, clockwise 3, across 6 of 19 recorded. [R] */
   routeWeights: { anticlockwise: 10, clockwise: 3, across: 6 },
   cornerLineLength: 9,
@@ -364,7 +368,7 @@ export const P3 = {
   /**
    * His attacks are a chain, each move timed from the one before, not a clock from the segment start. Two swings 3
    * ticks apart, the shadow slash 3 after the second, and his next move 4 after the slash. After two such sets comes a
-   * special. "Your panic... is futile..." (nobody in his reach) takes a swing's place, and the next move comes 6 ticks
+   * special. With nobody in his reach a purple magic shot (anim 14851, no shout) takes a swing's place, and the next move comes 6 ticks
    * after it, so the rest of the chain runs 3 ticks late. [K], which reproduces [R]'s fixed segment timelines.
    */
   firstMove: 4,
@@ -406,8 +410,13 @@ export const P3 = {
   /** A melee hit on everyone 1 tick into the spin, 0 through Protect from Melee. Every spin in fight logs L1 to L8. */
   spinOpens: 1,
   spinOpeningDamage: range(0, 18),
-  /** "Severing your prayer!" locks protection prayers this long: back on 3 ticks later in [V] duo 18:53-18:55. */
-  severTicks: 3,
+  /**
+   * "Severing your prayer!" locks protection prayers for the tick after the sever only: a prayer clicked then is
+   * refused, the next click works. Fight log L6 P3 +563 sever, +564 "You've been injured and can't use that prayer!",
+   * Protect from Melee back on every raider at +565; L4 t8712 sever, t8713 refused. With the sdk applying clicks before
+   * the count, 1 refuses the click on the cut tick and takes the one after.
+   */
+  severTicks: 1,
   /** The overhead severed is the one up on the tick before each cut. ocellus-sim phase3.ts:351 */
   severBefore: 1,
   panicLands: 2,
@@ -434,7 +443,7 @@ export const P3 = {
   debrisDamage: range(6, 11),
   vineHp: 44,
   /**
-   * "The void... will take you..." comes with his first move after a quadrant's 1st and 3rd spins (13 of 15 first
+   * A vine shout ("The void... will take you...", "Await... the void..." or "Your panic... is futile...") comes with his first move after a quadrant's 1st and 3rd spins (13 of 15 first
    * spins and 5 of 5 third ones in eight fights; never an even one, rarely a later odd one), and the vine roots its
    * target where they stand 3 ticks later. [K]
    */
@@ -518,7 +527,11 @@ export const P3 = {
     /** The vine's and the fall's shouts stay 4 ticks. ocellus-sim phase3.ts:452, 699 */
     long: 4,
   },
-  /** He says either of his two vine shouts, and either of his two fall shouts, evenly. ocellus-sim phase3.ts:452, 699 */
+  /**
+   * He says either of his two fall shouts evenly. ocellus-sim phase3.ts:699. His vine shouts are three: "Your panic...
+   * is futile..." is one, a vine 3 ticks after it in every case (L3 +1028, L4 +566, L6 +39, L7 +39, twice in a
+   * 2026-10-30 raid log), never with his magic shot (anim 14851 has no shout in L1, L7, L8). ocellus-sim phase3.ts:452
+   */
   shoutChance: 0.5,
   /** His Untether and fall loops take over 2 ticks into their opening animations. ocellus-sim phase3.ts:602, 704 */
   poseLoopAfter: 2,

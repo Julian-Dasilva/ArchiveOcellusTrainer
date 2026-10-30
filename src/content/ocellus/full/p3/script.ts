@@ -38,6 +38,7 @@ type Crossing = Readonly<{ from: Quadrant; to: Quadrant; bank: ATile; jumps: rea
 const RIFT_ORDER: readonly [RiftKind, ...RiftKind[]] = ["rift-buff", "rift-basic", "rift-heal"];
 const GOD_NAME: Readonly<Record<God, string>> = { bandos: "Bandosian", saradomin: "Saradomin", armadyl: "Armadylean", zaros: "Zarosian" };
 const GOD_GLOW: Readonly<Record<God, Sourced<number>>> = { bandos: SPOT.glowBandos, saradomin: SPOT.glowSaradomin, armadyl: SPOT.glowArmadyl, zaros: SPOT.glowZaros };
+const VINE_LINES = ["The void... will take you...", "Await... the void...", "Your panic... is futile..."] as const;
 const ESCAPE_LINES = ["You can't... escape... the end...", "This end... comes...", "Everything... ends..."] as const;
 /** He starts phase 3 in the middle, facing the south entrance. */
 const MIDDLE_FACING = at(0, 10);
@@ -262,8 +263,8 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
   }
 
   /**
-   * One of a set's two swings: melee at everyone near him, landing on its animation. With nobody in his reach, "Your
-   * panic... is futile..." takes the swing's place and the chain runs 3 ticks late.
+   * One of a set's two swings: melee at everyone near him, landing on its animation. With nobody in his reach, his magic
+   * shot (no shout) takes the swing's place and the chain runs 3 ticks late.
    */
   private swing(m: P3Ctx<E>, set: number, swung: 0 | 1): void {
     this.stage = { kind: "chain" };
@@ -390,9 +391,8 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     this.chat(m, "You've been injured and can't use protection prayers!", "red");
   }
 
-  /** "Your panic... is futile...": a magic shot at everyone, landing 2 ticks on, that leaves a void patch. */
+  /** His magic shot at everyone, landing 2 ticks on, that leaves a void patch. He says nothing with it. */
   private panic(m: P3Ctx<E>): void {
-    m.boss.say("Your panic... is futile...", T.shoutLasts.short);
     m.boss.play(SEQ.p3ProjectileAll);
     m.boss.spotanim(SPOT.magicOnBoss, "magic");
     this.shoot(m, T.panicLands, "panic");
@@ -455,9 +455,9 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     m.show({ kind: "patch", tile, placed: m.now, end, loc });
   }
 
-  /** "The void... will take you...", and 3 ticks later a vine roots you where you stand then. */
+  /** One of his three vine shouts, and 3 ticks later a vine roots you where you stand then. */
   private spawnVine(m: P3Ctx<E>): void {
-    m.boss.say(m.chance("shout", V.shoutChance) ? "The void... will take you..." : "Await... the void...", T.shoutLasts.long);
+    m.boss.say(m.pick("shout", VINE_LINES), T.shoutLasts.long);
     m.after(T.vineRootsAfter, (n) => {
       if (!this.airborne()) this.rootInVine(n);
     });

@@ -220,7 +220,7 @@ describe("phase 1's health thresholds", () => {
       f.tickTo(tick);
       tiles.push([tick, f.bossAt(), f.live().boss.hidden]);
     }
-    f.tickTo(52);
+    f.tickTo(53);
     const said = f.events().flatMap(([tick, event]) => (event.kind === "boss-changed" && event.change.kind === "said" && tick > 0 ? [[tick, event.change.text]] : []));
     expect({
       tiles,
@@ -239,7 +239,8 @@ describe("phase 1's health thresholds", () => {
       strike: [[44, 1]],
       said: [[44, "Death... awaits..."]],
       hits: [[47, 18, 81, "magic"]],
-      volley: [52],
+      // Fight logs L1, L3 to L8: his first volley 9 ticks after "Death... awaits...", 11 of 11.
+      volley: [53],
     });
   });
 
@@ -248,12 +249,12 @@ describe("phase 1's health thresholds", () => {
     close = f.close;
     f.tickTo(1);
     f.live().boss.currentStats.hitpoint = 1650;
-    f.tickTo(51);
-    f.live().boss.currentStats.hitpoint = 626;
     f.tickTo(52);
+    f.live().boss.currentStats.hitpoint = 626;
+    f.tickTo(53);
     expect({ middle: f.ofKind("middle").map(([tick]) => tick), volley: volleys(f).map(([tick]) => tick) }).toEqual({
       middle: [4],
-      volley: [52],
+      volley: [53],
     });
   });
 
@@ -262,11 +263,11 @@ describe("phase 1's health thresholds", () => {
     close = f.close;
     f.tickTo(1);
     f.live().boss.currentStats.hitpoint = 1650;
-    f.tickTo(51);
-    f.live().boss.currentStats.hitpoint = 625;
     f.tickTo(52);
+    f.live().boss.currentStats.hitpoint = 625;
+    f.tickTo(53);
     expect({ middle: f.ofKind("middle").map(([tick]) => tick), volley: volleys(f).map(([tick]) => tick) }).toEqual({
-      middle: [4, 52],
+      middle: [4, 53],
       volley: [],
     });
   });
