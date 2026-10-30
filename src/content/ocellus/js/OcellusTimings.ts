@@ -304,6 +304,7 @@ type GearRecipe = Readonly<{
   twistedBow: Selected<StanceSpeeds<TwistedBow["attackSpeed"]>>;
   ralos: Selected<StanceSpeeds & Readonly<{ range: number; longrangeRange: number; hits: number; hitMaxFraction: number }>>;
   division: Selected<Readonly<{ energy: number; accuracyFactor: number; defenceDrainOfMagic: number }>>;
+  quiverAmmo: Selected<Readonly<{ dragonCrossbow: number; zaryteCrossbow: number }>>;
   ammunition: Selected<Readonly<{ twistedBow: AmmunitionClass; tonalzticsOfRalos: AmmunitionClass; dragonCrossbow: AmmunitionClass; zaryteCrossbow: AmmunitionClass }>>;
   inquisitorCrushPerMille: Selected<Readonly<Record<InquisitorPiece, number>>>;
   scytheStance: Selected<"jab">;
@@ -1228,6 +1229,17 @@ const GEAR: GearRecipe = {
   twistedBow: selected({ rapidSpeed: 5, otherSpeed: 6 }, "spec-single", "unscaled", "attack speed by stance: 5 ticks on Rapid, 6 on Accurate and Longrange", TWISTED_BOW_PAGE),
   ralos: selected({ rapidSpeed: span(6), otherSpeed: span(7), range: 7, longrangeRange: 9, hits: 2, hitMaxFraction: 0.75 }, "spec-single", "unscaled", "charged, one-handed thrown: two independent hits, each 0 to 75% of the max ranged hit", RALOS_PAGE),
   division: selected({ energy: 50, accuracyFactor: 1.5, defenceDrainOfMagic: 0.125 }, "spec-single", "unscaled", "+50% accuracy; each hit that deals damage lowers Defence by 12.5% of Magic (10% before 2026-07-22) and, on NPCs, before the second roll; the drain applies as each glaive lands, so a hit the target rejects drains nothing (inferred); rounding not stated, floored (inferred)", RALOS_PAGE),
+  quiverAmmo: selected(
+    { dragonCrossbow: 9242, zaryteCrossbow: 21944 },
+    "inferred",
+    "unscaled",
+    "assumed on 2026-10-30: the community graphics do not name a second ammo stack. Max's Zaryte crossbow uses ruby dragon bolts (e); High, Mid, Low and Poor use ruby bolts (e) with their Dragon crossbow, following the Strategies ranged recommendations. The bolts occupy the carried Blessed Dizana's quiver's second stack; the worn arrows retain priority when compatible",
+    wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15386591),
+    TIER_GRAPHIC[1],
+    TIER_GRAPHIC[2],
+    wiki("https://oldschool.runescape.wiki/w/Dizana%27s_quiver", 15376019),
+    wiki("https://oldschool.runescape.wiki/w/Ruby_dragon_bolts_(e)", 15274049),
+  ),
   ammunition: selected({ twistedBow: "standard", tonalzticsOfRalos: "light", dragonCrossbow: "heavy", zaryteCrossbow: "heavy" }, "spec-single", "unscaled", "the Twisted Bow fires dragon arrows, and arrows roll against standard ranged defence; Ralos rolls against light; crossbow bolts roll against heavy", RANGED_PAGE, RALOS_PAGE),
   inquisitorCrushPerMille: selected({ inquisitorsGreatHelm: 5, inquisitorsHauberk: 10, inquisitorsPlateskirt: 10 }, "spec-single", "unscaled", "crush accuracy and damage per piece; the 2026-07-22 update moved the 1% set bonus onto the hauberk and plateskirt", wiki(`${OSRS_WIKI}Inquisitor%27s_hauberk`, 15352823), wiki(`${OSRS_WIKI}Inquisitor%27s_plateskirt`, 15352824), INQUISITOR_SET),
   scytheStance: selected("jab", "spec-single", "unscaled", "Jab is the scythe's crush style; the owner wants the Scythe setup on crush", SCYTHE_PAGE, owner("melee setup")),
