@@ -1,9 +1,44 @@
 {
   "acknowledged": [
-    { "test": "src/releaseBundle/walk.test.ts::release browser walk > a phone page at phase 4 with every phase, the five sections, About at the bottom, both credit lines, and a chat line under the tabs passes", "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds" },
-    { "test": "src/releaseBundle/walk.test.ts::release browser walk > with no Full fight toggle to reach, a phone page without the maker credit fails on that line alone", "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds" },
-    { "test": "src/releaseBundle/walk.test.ts::release browser walk > with no Full fight toggle to reach, a phone page without the contributor credit fails on that line alone", "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds" },
-    { "test": "src/releaseBundle/walk.test.ts::release browser walk > with no Full fight toggle to reach, a phone page that leaves the menu open after Keybinds fails on that alone", "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds" },
-    { "test": "src/releaseBundle/walk.test.ts::release browser walk > with no Full fight toggle to reach, a desktop page that stays up after a chat line passes", "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds" }
+    {
+      "test": "src/releaseBundle/walk.test.ts::release browser walk > a phone page at phase 4 with every phase, the five sections, About at the bottom, both credit lines, and a chat line under the tabs passes",
+      "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds"
+    },
+    {
+      "test": "src/releaseBundle/walk.test.ts::release browser walk > with no Full fight toggle to reach, a phone page without the maker credit fails on that line alone",
+      "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds"
+    },
+    {
+      "test": "src/releaseBundle/walk.test.ts::release browser walk > with no Full fight toggle to reach, a phone page without the contributor credit fails on that line alone",
+      "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds"
+    },
+    {
+      "test": "src/releaseBundle/walk.test.ts::release browser walk > with no Full fight toggle to reach, a phone page that leaves the menu open after Keybinds fails on that alone",
+      "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds"
+    },
+    {
+      "test": "src/releaseBundle/walk.test.ts::release browser walk > with no Full fight toggle to reach, a desktop page that stays up after a chat line passes",
+      "reason": "HEALTHY_PHONE lists the Display section that fixed mode adds"
+    },
+    {
+      "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > Apply saves the tier's edit and restarts on the same seed, and the reloaded run wears, carries and logs the edit",
+      "reason": "MAX_BAG now includes the two ranging potions, divine super combat and Sanfew carried by the Max preset. The base preset intentionally omits them."
+    },
+    {
+      "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > an edit of an older tier revision still starts the run, says the tier changed, and Reset returns to the tier",
+      "reason": "Reset now returns the Max preset with its supported ranging, divine super combat and Sanfew supplies, so MAX_BAG differs from the base preset."
+    },
+    {
+      "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > storage the browser refuses still runs the tier, says edits won't be kept, and Apply's edit starts the next run in this tab",
+      "reason": "The shared MAX_BAG fixture includes newly supported Max supplies in both fallback and applied loadouts. The base intentionally leaves those inventory slots empty."
+    },
+    {
+      "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > Start with lists only the tier's starts the edit can make, and none means the run starts as worn",
+      "reason": "The stored edit uses MAX_BAG, which now carries four supported supplies that the base preset omits. The weapon filtering contract is unchanged."
+    },
+    {
+      "test": "src/content/ocellus/tests/OcellusLoadouts.test.ts::Ocellus loadouts > offer the raid preset by default and the five gear tiers, each holding exactly the tier's items the sim can build",
+      "reason": "TIER_IDS now includes ranging potions, divine super combat and Sanfew in their existing tier slots. The base intentionally filters those supplies out."
+    }
   ]
 }
