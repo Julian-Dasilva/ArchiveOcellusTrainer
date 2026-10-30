@@ -1,98 +1,110 @@
 {
   "full-correct-1": {
-    "head": "b3416b41c35fd54bf4031db0dc2dff02577a4cacdb2ffc376b224d46a7af3761",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: inner orb expiry S+27 -> S+28 at 35 ... 156 (6 rows); transition hit amount at 37 ... 157 (5 rows); knock-on: player HP, tile or boss HP at 38 ... 154 (101 rows); orb-returned follows at 49 ... 145 (4 rows); rift count and tiles at 67 ... 127 (2 rows); rift-burst follows at 97 ... 157 (2 rows)"
+    "head": "f69db557a1c1719266ec6e2d1f9938f5686e7fec9377f1188dc000d58af8ae52",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "full-correct-2": {
-    "head": "9df2a0e9aaf362026f6dd1c26b616ea1412d49e3be5b271f5fef2608b9eb35bb",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: inner orb expiry S+27 -> S+28 at 35 ... 156 (6 rows); transition hit amount at 37 ... 157 (5 rows); knock-on: player HP, tile or boss HP at 38 ... 154 (106 rows); orb-returned follows at 49 ... 145 (4 rows); rift count and tiles at 67 ... 127 (2 rows); rift-burst follows at 97 ... 157 (2 rows)"
+    "head": "c842a45444253cc67df37954af09cb684428e3c38307ae250de2da19715e5c17",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "full-correct-3": {
-    "head": "e637b77ea7543932953af7f110fd1bbce73a0c5afa45e4049c1b845f5c8d7543",
-    "why": "explosion damage is 14 to 16 in the run's choices; no row changes"
+    "head": "f604af0f5e0fec1787a138c63edc3b9d26ee5543a0e5c261730b4ba561272c85",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "full-correct-4": {
-    "head": "b3b8dad2af0eb9bab7a2128e90b952107786022f45aaeb57790707a5d5f1b7d3",
-    "why": "explosion damage is 14 to 16 in the run's choices; no row changes"
+    "head": "94ab6f56bad8942c4f39aebfda6fb95874ded3c824d49c74ca47cc47626bbb29",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "full-correct-5": {
-    "head": "e9d71ececc112e1498d2c0f41a03bc468335c25f1bf691653f3ba28653b9d0c3",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: inner orb expiry S+27 -> S+28 at 35 ... 155 (5 rows); transition hit amount at 37 ... 157 (5 rows); knock-on: player HP, tile or boss HP at 38 ... 156 (96 rows); orb-returned follows at 49 ... 145 (4 rows); rift count and tiles at 67 ... 127 (2 rows); rift-burst follows at 97 ... 157 (2 rows); run-ended follows at 125 ... 157 (2 rows); explosion damage 14 to 16 at 138 ... 148 (6 rows)"
+    "head": "a15b0674542084f9c07e71f246252484a4ca2598738728d16a38fd52b81e293e",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "full-correct-6": {
-    "head": "ffc5cf413aa388a9bb2a9cb2742179b9f3dec06599500ada17f1b8d127716a39",
-    "why": "explosion damage is 14 to 16 in the run's choices; no row changes"
+    "head": "6ce8957aafdfa082f470d999389be6dce0729cc91884e3bc94c012b7e3412dcf",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "full-correct-7": {
-    "head": "fef1f36144d29e6d53d1dcb80277a13205c179723865b865012432e5a8a04efd",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: inner orb expiry S+27 -> S+28 at 35 ... 156 (6 rows); transition hit amount at 37 ... 157 (5 rows); knock-on: player HP, tile or boss HP at 38 ... 154 (100 rows); orb-returned follows at 50 ... 144 (4 rows); rift count and tiles at 67 ... 127 (2 rows); rift-burst follows at 97 ... 157 (2 rows)"
+    "head": "c1eae6fb9353976197ab46f63473c16da94288567b87968ec5110b38a2926910",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "full-correct-8": {
-    "head": "8cf91f5f79da8105d428f763323eb834ad46244240d4829ae54141a2fe631bba",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: inner orb expiry S+27 -> S+28 at 35 ... 156 (6 rows); transition hit amount at 37 ... 157 (5 rows); knock-on: player HP, tile or boss HP at 38 ... 154 (101 rows); orb-returned follows at 49 ... 145 (4 rows); rift count and tiles at 67 ... 127 (2 rows); rift-burst follows at 97 ... 157 (2 rows)"
+    "head": "cb968bed51ae7f4e24627fc43f4324f42f524036315d38d5af50ee7f4e12d373",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
+  },
+  "full-correct-100": {
+    "head": "9d5f518b1432fba85085cf832722734882922efbdbcaa1215b76b4aa9bb69e0e",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "full-idle-1": {
-    "head": "ca35f136b0e659bdfa1b820440b91cea8bbb64d09928fb89ac48a44a8769a564",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: explosion damage 14 to 16 at 22 ... 24 (2 rows); knock-on: player HP, tile or boss HP at 23"
+    "head": "d735923dfc791d6b3ec7644a2a815975bf47f8dbde1ad4e7a0915a222ee2616a",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "full-idle-2": {
-    "head": "a61769d6662a34940a2dc6c1629d6fc8923823a2280ab9b6748870db19812f54",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: explosion damage 14 to 16 at 20 ... 24 (3 rows); knock-on: player HP, tile or boss HP at 21 ... 23 (2 rows)"
+    "head": "c086a37c476a3d9a560f963da267189fb9a244e08135d0ac0498894eaa8c2037",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
+  },
+  "full-idle-4": {
+    "head": "d74be71d3188603b279ac023e766c2b942b2189c4ac42857bca74d841795f258",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
+  },
+  "full-idle-100": {
+    "head": "2b6958dd138cd7d85c63ab0ba7dde683b628e6d2ed32c8d5061bcccaa8082552",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "void-floor-correct": {
-    "head": "a538c7e9115ebc0660dc9cb3cc2ee40db887bec8737c5f9d0e74ebb8fa756cca",
-    "why": "explosion damage is 14 to 16 in the run's choices; no row changes"
+    "head": "b06e959c15e139d99773282cda613fb44c062bf3d35755860cbc0e1cac2f31ae",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "void-floor-cycle-start": {
-    "head": "ccce4a8c1da5d9cb7980d6b49fdb820d84c0c84ca1093f7823400280051e7de1",
-    "why": "explosion damage is 14 to 16 in the run's choices; no row changes"
+    "head": "c891d7afd150564d74619e0da236bcc5e4b2de7ca26499d9274954160e74ec30",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "floor-holes-correct": {
-    "head": "5cd6d348ab11c03259f222727e9a4f652ec2e2ee82d46930a1bb4af68f1bdd0b",
-    "why": "explosion damage is 14 to 16 in the run's choices; no row changes"
+    "head": "38e9ce562d2abebb25ddf916f25894e78dafc1b5e642d4147bce3f32e7ceaafa",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "floor-holes-cycle-start": {
-    "head": "b635cd64760f96dd05de46abcfb6af98525663b2ffd29cc10ecfd17680e5b6a9",
-    "why": "explosion damage is 14 to 16 in the run's choices; no row changes"
+    "head": "55281e88579733e94b6703f5ead107f439fdece0537f2fc36beed6c67e940950",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "lifeforce-orb-correct": {
-    "head": "23d047fb49d3ce7dc07709fe659933d5f6e4c92c951eda0eeef000070e03875c",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: inner orb expiry S+27 -> S+28 at 35 ... 156 (6 rows)"
+    "head": "c87b07c89379b2279a179675527136d6bf83d48a89113ac69b6c12ea8ebdd6b5",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "lifeforce-orb-cycle-start": {
-    "head": "2cc23b27cae837dae2daaf44b0b84c8376db2bd38ef63a58bf1296b355ce6deb",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: inner orb expiry S+27 -> S+28 at 35 ... 156 (6 rows)"
+    "head": "5218791191c146825fa5026928e24e7e87014349ee8eb7ab9ca5b3013309913b",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "explosions-correct": {
-    "head": "019fd09b2fbe987309f09630c34ba8871f244620e250cbd0f64aa6148de9e914",
-    "why": "explosion damage is 14 to 16 in the run's choices; no row changes"
+    "head": "751ef8ba11171b212fbc03bea8f58f9fa579f383d4ccdaf0805376ae32ba37b7",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "explosions-cycle-start": {
-    "head": "bb01b1977cca85348ad1da5facce493e8f1bfddbb747a237404fc244fb369e67",
-    "why": "explosion damage is 14 to 16 in the run's choices; no row changes"
+    "head": "57627f50cc2daaa4d8d0e4b93bc77b7066dfd7cb11bd8d6a6dee30517fba1579",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "transition-attacks-correct": {
-    "head": "89f82e7dbc0645998b6342daea86bc01962198d4738c7983eeba5f55eea0998b",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: transition hit amount at 65 ... 185 (5 rows); knock-on: player HP, tile or boss HP at 66 ... 200 (131 rows)"
+    "head": "66504b7fbca5d878847ebf0b19aeeef27393e958f5cf6231f659fa64550d9e59",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "transition-attacks-cycle-start": {
-    "head": "9176f93da1b5d7bd0fe01aef3d81c9932031d0ac51c239b07f49d962f11df19e",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: transition hit amount at 37 ... 185 (6 rows); knock-on: player HP, tile or boss HP at 38 ... 200 (158 rows)"
+    "head": "582617eceb8e7b1b6d957232fb7d0dfda3a3e3a539b880ddaee7acbf9123c17a",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "rifts-correct": {
-    "head": "58747dfb3a42cbb0ccacfa034433958b3d6149789b2bfb7a83ae47f21c02734c",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: rift count and tiles at 67 ... 187 (3 rows); rift-burst follows at 157"
+    "head": "711c459815b7c44cfa52cc2fe5b14e88e13f5d11189b7c9f860f090ff2a8bbc7",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "rifts-cycle-start": {
-    "head": "d552291060e9f4cf2bc789bd6345af75e378d339a2629b967e1cc27039704630",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: rift count and tiles at 67 ... 187 (3 rows); rift-burst follows at 157"
+    "head": "34e1802efcfb6a43d5ebd3d281edcbd99e1bb8c86e2e877192865fd7226d38ca",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "replay-v2-correct": {
-    "head": "a60f374a409bbdd45837c0e4c7cd00827f654368c5341714009ff11508c6bcac",
-    "why": "explosion damage is 14 to 16 in the run's choices; rows: inner orb expiry S+27 -> S+28 at 35 ... 156 (6 rows); transition hit amount at 37 ... 157 (5 rows); knock-on: player HP, tile or boss HP at 38 ... 154 (101 rows); orb-returned follows at 49 ... 145 (4 rows); rift count and tiles at 67 ... 127 (2 rows); rift-burst follows at 97 ... 157 (2 rows)"
+    "head": "c6213909f120811fee65ec197afa9ab3a1e8254f296ddabc3bcb1777d4f10052",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   },
   "holes-v1-turn": {
-    "head": "c7baeb251683831d9cdd0cc64b98b91957fe04642bb8f569b65e6355f653bc9a",
-    "why": "explosion damage is 14 to 16 in the run's choices; no row changes"
+    "head": "b4610ea7d666e689344612c628a49d586fdaf0d99a70e03235945a61811880b4",
+    "why": "Replace Bastion stand-ins 22461 with ranging potions 2444 in inventory slots 10 and 14. Every fight-log row is unchanged."
   }
 }
