@@ -4,7 +4,7 @@ export const captures = () => [
   "loadout-before.json", "loadout-ranged.png", "icons.json", "equipment-ranged.png", "loadout-after.json", "loadout-melee.png", "loadout-spec.json", "loadout-spec-log.json",
   "loadout-spec.png", "equipment-melee.png", "loadout-console.log", "loadout-page-errors.json", "loadout-selector.json", "loadout-selector-page-errors.json",
   "loadout-start-options.json", "loadout-start-options-page-errors.json", "loadout-tier.json", "loadout-tier-panel.json", "loadout-tier-page-errors.json",
-  "loadout-editor-draft.json", "loadout-editor-applied.json", "loadout-editor-page-errors.json",
+  "loadout-editor-fit.json", "loadout-editor-draft.json", "loadout-editor-applied.json", "loadout-editor-page-errors.json",
 ];
 
 export function judge({ read, env }) {
@@ -14,13 +14,13 @@ export function judge({ read, env }) {
   const [dressed, switched, spec, selector, start] = ["loadout-before.json", "loadout-after.json", "loadout-spec.json", "loadout-selector.json", "loadout-start-options.json"].map(read);
   const icons = read("icons.json");
   const [tier, tierPanel] = ["loadout-tier.json", "loadout-tier-panel.json"].map(read);
-  const [draft, applied] = ["loadout-editor-draft.json", "loadout-editor-applied.json"].map(read);
+  const [fit, draft, applied] = ["loadout-editor-fit.json", "loadout-editor-draft.json", "loadout-editor-applied.json"].map(read);
   const observed = {
     loadout: {
       worn: [dressed.player.equipped, switched.player.equipped, selector.player.equipped, start.player.equipped],
       startDefence: start.boss.defence,
       lowTier: { worn: tier.player.equipped, panel: tierPanel },
-      editor: { draft, applied },
+      editor: { fit, draft, applied },
       specialEnergy: [switched.player.specialEnergy, spec.player.specialEnergy],
       bossDefence: [switched.boss.defence, spec.boss.defence],
     },
@@ -39,6 +39,11 @@ export function judge({ read, env }) {
     twistedBowStartsByDefault: start.player.equipped.weapon === Number(defaultWeapon) && start.player.inventory.includes(JSON.parse(rangedWorn).weapon),
     drainedStartsAtDefenceFloor: start.boss.defence === Number(drainedDefence),
     tierLinkDressesTheTier: sameJson(tier.player.equipped, lowWorn) && sameJson(tierPanel.starts, '["blowpipe"]') && tierPanel.tier === "low" && /^Not simulated yet, so left out: Emberlight, /.test(tierPanel.leftOut ?? ""),
+    editorFitsThePanel: (() => {
+      const [weapon, chest, offhand] = fit.wornRow;
+      const wornLayoutKept = weapon.top === chest.top && chest.top === offhand.top && weapon.left < chest.left && chest.left < offhand.left;
+      return fit.panel.scrollWidth <= fit.panel.clientWidth && fit.editorPastSidebar <= 0 && fit.pastEditor.length === 0 && wornLayoutKept && fit.inventoryColumns === 4 && fit.inventoryRows === 7;
+    })(),
     editorEditStartsTheRestartedRun:
       draft.paused && draft.preset === "Max (edited)" && draft.shop.some((entry) => entry.startsWith(shopItem)) &&
       applied.preset === "max" && applied.edited === true && applied.inventory[0] === Number(shopItemId),
