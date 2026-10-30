@@ -17,6 +17,7 @@ const HEALTHY_PHONE: WalkObservation = {
   sections: ["Fight", "Learning aids", "Display", "Sound", "Controls", "About"],
   aboutReachable: true,
   retiredToggles: [],
+  loadoutButton: false,
   worldWidth: 390,
   chatBottom: "4px",
   chatLine: "Ocellus manipulates your lifeforce!",
@@ -33,6 +34,7 @@ const CRASHED_PHONE: WalkObservation = {
   sections: [],
   aboutReachable: false,
   retiredToggles: [],
+  loadoutButton: false,
   worldWidth: 0,
   chatBottom: "",
   chatLine: "",
@@ -96,6 +98,10 @@ describe("release browser walk", () => {
     const page: WalkObservation = { ...HEALTHY_PHONE, surface: "desktop", worldWidth: 1040, chatBottom: "76px" };
     expect(walkProblems(page)).toEqual([]);
     expect(walkProblems({ ...page, retiredToggles: ["Phase 4 drill", "Full fight (beta)"] })).toEqual(["Phase 4 drill is still on the page", "Full fight (beta) is still on the page"]);
+  });
+
+  test("a release page that shows the Loadout button fails on that alone", () => {
+    expect(walkProblems({ ...HEALTHY_PHONE, loadoutButton: true })).toEqual(["the Loadout button is on the release page"]);
   });
 
   test("an old drill link must open phase 4 and an old full-fight link keeps its phase", () => {
