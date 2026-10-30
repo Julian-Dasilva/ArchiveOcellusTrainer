@@ -48,7 +48,7 @@ START_OPTIONS_QUERY="?seed=6&practice=1&drained=1"
 START_DEFAULT_WEAPON=20997
 START_DRAINED_DEFENCE=150
 TIER_QUERY="?seed=6&practice=1&tier=low&weapon=twistedBow"
-TIER_LOW_WORN='{"weapon":12926,"offhand":null,"helmet":null,"chest":null,"legs":null,"gloves":7462,"cape":21295,"necklace":null,"feet":null,"ring":null,"ammo":11212}'
+TIER_LOW_WORN='{"ammo":11212,"cape":21295,"chest":29004,"feet":11840,"gloves":7462,"helmet":13199,"legs":29007,"necklace":null,"offhand":null,"ring":11773,"weapon":12926}'
 EDITOR_QUERY="?seed=6&practice=1&tier=max&weapon=ralos"
 EDITOR_SHOP_ITEM="Saradomin Brew"
 EDITOR_SHOP_ITEM_ID=6685
