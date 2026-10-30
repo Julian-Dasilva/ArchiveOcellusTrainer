@@ -36,6 +36,9 @@ export type WalkObservation = Readonly<{
   aboutReachable: boolean;
   retiredToggles: readonly string[];
   loadoutButton: boolean;
+  tierPicker: boolean;
+  startWith: readonly string[];
+  startWeapon: string;
   worldWidth: number;
   chatBottom: string;
   chatLine: string;
@@ -57,6 +60,7 @@ const FACTS = `(() => {
   const menu = document.getElementById("phone_menu");
   const panel = document.getElementById("right_panel");
   const start = document.getElementById("start_phase");
+  const weapon = document.getElementById("start_weapon");
   return {
     rootChildren: document.getElementById("root")?.childElementCount ?? 0,
     creditLines,
@@ -66,6 +70,9 @@ const FACTS = `(() => {
     aboutReachable: onScreen(document.getElementById("perf_data")) && onScreen(document.getElementById("whats_new")),
     retiredToggles: [...document.querySelectorAll("button, a")].map((el) => (el.textContent || "").trim()).filter((text) => ${JSON.stringify(RETIRED_TOGGLES)}.includes(text)),
     loadoutButton: document.getElementById("loadout") !== null,
+    tierPicker: document.getElementById("start_tier") !== null,
+    startWith: weapon instanceof HTMLSelectElement ? [...weapon.options].map((option) => option.text) : [],
+    startWeapon: weapon instanceof HTMLSelectElement ? weapon.selectedOptions[0]?.text ?? "" : "",
     worldWidth: box ? box.width : 0,
     worldLeft: box ? box.left : 0,
     worldTop: box ? box.top : 0,
@@ -87,6 +94,9 @@ type PageFacts = Readonly<{
   aboutReachable: boolean;
   retiredToggles: readonly string[];
   loadoutButton: boolean;
+  tierPicker: boolean;
+  startWith: readonly string[];
+  startWeapon: string;
   worldWidth: number;
   worldLeft: number;
   worldTop: number;
@@ -104,6 +114,19 @@ function missingCredits(lines: readonly string[]): readonly string[] {
 
 const SECTIONS = ["Fight", "Learning aids", "Display", "Sound", "Controls", "About"] as const;
 
+/** The Start with of 2026.10.28, the live release, which the release must keep while the gear tiers are held out. */
+const RELEASE_START_WITH = ["Twisted bow (Masori)", "Toxic blowpipe (Masori)", "Scythe (Inquisitor's)"] as const;
+const RELEASE_START_WEAPON = RELEASE_START_WITH[0];
+
+type StartWith = Readonly<{ startWith: readonly string[]; startWeapon: string }>;
+
+function startWithProblems({ startWith, startWeapon }: StartWith): readonly string[] {
+  const problems: string[] = [];
+  if (startWith.join(",") !== RELEASE_START_WITH.join(",")) problems.push(`Start with offers ${startWith.join(", ") || "nothing"}, not ${RELEASE_START_WITH.join(", ")}`);
+  if (startWeapon !== RELEASE_START_WEAPON) problems.push(`Start with is ${startWeapon || "nothing"}, not ${RELEASE_START_WEAPON}`);
+  return problems;
+}
+
 export function walkProblems(observed: WalkObservation): readonly string[] {
   const problems: string[] = [];
   if (observed.rootChildren < 1) problems.push("the page has no root");
@@ -115,6 +138,8 @@ export function walkProblems(observed: WalkObservation): readonly string[] {
   if (!observed.aboutReachable) problems.push("Performance data and What's new are not reachable at the bottom of the panel");
   problems.push(...observed.retiredToggles.map((toggle) => `${toggle} is still on the page`));
   if (observed.loadoutButton) problems.push("the Loadout button is on the release page");
+  if (observed.tierPicker) problems.push("the Tier picker is on the release page");
+  problems.push(...startWithProblems(observed));
   if (observed.chatLine === "") problems.push("no chat line");
   if (observed.surface === "phone") {
     if (observed.worldWidth < 300) problems.push(`the game is ${observed.worldWidth}px wide`);
@@ -183,6 +208,9 @@ function parseFacts(value: unknown): PageFacts {
     aboutReachable: booleanField(record, "aboutReachable"),
     retiredToggles: stringListField(record, "retiredToggles"),
     loadoutButton: booleanField(record, "loadoutButton"),
+    tierPicker: booleanField(record, "tierPicker"),
+    startWith: stringListField(record, "startWith"),
+    startWeapon: stringField(record, "startWeapon"),
     worldWidth: numberField(record, "worldWidth"),
     worldLeft: numberField(record, "worldLeft"),
     worldTop: numberField(record, "worldTop"),
@@ -327,6 +355,9 @@ function driveSurface(surface: WalkSurface, origin: string): readonly string[] {
       aboutReachable: bottom.aboutReachable,
       retiredToggles: loaded.retiredToggles,
       loadoutButton: loaded.loadoutButton,
+      tierPicker: loaded.tierPicker,
+      startWith: loaded.startWith,
+      startWeapon: loaded.startWeapon,
       worldWidth,
       chatBottom: settled.chatBottom,
       chatLine: settled.chatLine,
@@ -338,13 +369,14 @@ function driveSurface(surface: WalkSurface, origin: string): readonly string[] {
   }
 }
 
-/** Links from before the drill was retired: each lands in the full fight at phase 4. */
-const OLD_LINKS = ["?mode=full", "?mode=full&phase=1", "?seed=1&invincible=on", "?seed=4&bosshp=1&focus=void-floor&drillStart=cycle-start", "?phase=p3&seed=1"] as const;
+/** Links from before the drill was retired, which land in the full fight at phase 4, and tier links, which start on the default gear. */
+const OLD_LINKS = ["?mode=full", "?mode=full&phase=1", "?seed=1&invincible=on", "?seed=4&bosshp=1&focus=void-floor&drillStart=cycle-start", "?phase=p3&seed=1", "?tier=max", "?seed=1&tier=max&weapon=ralos"] as const;
 
-export function oldLinkProblems(link: string, observed: Readonly<{ startPhase: string; errors: readonly string[] }>): readonly string[] {
+export function oldLinkProblems(link: string, observed: StartWith & Readonly<{ startPhase: string; errors: readonly string[] }>): readonly string[] {
   const want = new URLSearchParams(link).get("phase") === "1" ? "1" : "4";
   const problems: string[] = [];
   if (observed.startPhase !== want) problems.push(`${link} opens Start at ${observed.startPhase === "" ? "nothing" : `phase ${observed.startPhase}`}, not phase ${want}`);
+  problems.push(...startWithProblems(observed).map((problem) => `${link} ${problem}`));
   if (observed.errors.length > 0) problems.push(`${link} page errors: ${observed.errors.join("; ")}`);
   return problems;
 }
@@ -356,7 +388,8 @@ function driveOldLinks(origin: string): readonly string[] {
     return OLD_LINKS.flatMap((link) => {
       agent(["open", `${origin}/${link}`]);
       agent(["wait", "--fn", "document.getElementById('start')?.checkVisibility() === true", "--timeout", "120000"]);
-      return oldLinkProblems(link, { startPhase: readFacts().startPhase, errors: readErrors() });
+      const { startPhase, startWith, startWeapon } = readFacts();
+      return oldLinkProblems(link, { startPhase, startWith, startWeapon, errors: readErrors() });
     });
   } finally {
     closeBrowser();

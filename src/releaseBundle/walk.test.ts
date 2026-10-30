@@ -7,6 +7,8 @@ const LINES = [
   "With help from Alessandro Rodi",
 ] as const;
 
+const RELEASE_START_WITH = ["Twisted bow (Masori)", "Toxic blowpipe (Masori)", "Scythe (Inquisitor's)"];
+
 const HEALTHY_PHONE: WalkObservation = {
   surface: "phone",
   rootChildren: 1,
@@ -18,6 +20,9 @@ const HEALTHY_PHONE: WalkObservation = {
   aboutReachable: true,
   retiredToggles: [],
   loadoutButton: false,
+  tierPicker: false,
+  startWith: RELEASE_START_WITH,
+  startWeapon: "Twisted bow (Masori)",
   worldWidth: 390,
   chatBottom: "4px",
   chatLine: "Ocellus manipulates your lifeforce!",
@@ -35,6 +40,9 @@ const CRASHED_PHONE: WalkObservation = {
   aboutReachable: false,
   retiredToggles: [],
   loadoutButton: false,
+  tierPicker: false,
+  startWith: [],
+  startWeapon: "",
   worldWidth: 0,
   chatBottom: "",
   chatLine: "",
@@ -62,6 +70,8 @@ describe("release browser walk", () => {
       "Start at offers nothing, not phases 1 to 4",
       "the panel's sections are , not Fight, Learning aids, Display, Sound, Controls, About",
       "Performance data and What's new are not reachable at the bottom of the panel",
+      "Start with offers nothing, not Twisted bow (Masori), Toxic blowpipe (Masori), Scythe (Inquisitor's)",
+      "Start with is nothing, not Twisted bow (Masori)",
       "no chat line",
       "the game is 0px wide",
       "the chat corner is missing, not under the tabs",
@@ -104,10 +114,28 @@ describe("release browser walk", () => {
     expect(walkProblems({ ...HEALTHY_PHONE, loadoutButton: true })).toEqual(["the Loadout button is on the release page"]);
   });
 
+  test("a release page with the Tier picker, or a Start with other than 2026.10.28's with the twisted bow chosen, fails on that alone", () => {
+    expect(walkProblems({ ...HEALTHY_PHONE, tierPicker: true })).toEqual(["the Tier picker is on the release page"]);
+    expect(walkProblems({ ...HEALTHY_PHONE, startWith: ["Twisted bow (Masori)", "Toxic blowpipe (Masori)", "Tonalztics of Ralos (Inquisitor's)"] })).toEqual([
+      "Start with offers Twisted bow (Masori), Toxic blowpipe (Masori), Tonalztics of Ralos (Inquisitor's), not Twisted bow (Masori), Toxic blowpipe (Masori), Scythe (Inquisitor's)",
+    ]);
+    expect(walkProblems({ ...HEALTHY_PHONE, startWeapon: "Toxic blowpipe (Masori)" })).toEqual(["Start with is Toxic blowpipe (Masori), not Twisted bow (Masori)"]);
+  });
+
+  test("a tier link must start on the default gear", () => {
+    const raid = { startPhase: "4", errors: [], startWith: RELEASE_START_WITH, startWeapon: "Twisted bow (Masori)" };
+    expect(oldLinkProblems("?seed=1&tier=max&weapon=ralos", raid)).toEqual([]);
+    expect(oldLinkProblems("?seed=1&tier=max&weapon=ralos", { ...raid, startWith: ["Twisted bow (Masori)", "Toxic blowpipe (Masori)", "Tonalztics of Ralos (Inquisitor's)"], startWeapon: "Tonalztics of Ralos (Inquisitor's)" })).toEqual([
+      "?seed=1&tier=max&weapon=ralos Start with offers Twisted bow (Masori), Toxic blowpipe (Masori), Tonalztics of Ralos (Inquisitor's), not Twisted bow (Masori), Toxic blowpipe (Masori), Scythe (Inquisitor's)",
+      "?seed=1&tier=max&weapon=ralos Start with is Tonalztics of Ralos (Inquisitor's), not Twisted bow (Masori)",
+    ]);
+  });
+
   test("an old drill link must open phase 4 and an old full-fight link keeps its phase", () => {
-    expect(oldLinkProblems("?seed=1&invincible=on", { startPhase: "4", errors: [] })).toEqual([]);
-    expect(oldLinkProblems("?mode=full&phase=1", { startPhase: "1", errors: [] })).toEqual([]);
-    expect(oldLinkProblems("?phase=p3&seed=1", { startPhase: "1", errors: ["TypeError: broke"] })).toEqual([
+    const raid = { startWith: RELEASE_START_WITH, startWeapon: "Twisted bow (Masori)" };
+    expect(oldLinkProblems("?seed=1&invincible=on", { ...raid, startPhase: "4", errors: [] })).toEqual([]);
+    expect(oldLinkProblems("?mode=full&phase=1", { ...raid, startPhase: "1", errors: [] })).toEqual([]);
+    expect(oldLinkProblems("?phase=p3&seed=1", { ...raid, startPhase: "1", errors: ["TypeError: broke"] })).toEqual([
       "?phase=p3&seed=1 opens Start at phase 1, not phase 4",
       "?phase=p3&seed=1 page errors: TypeError: broke",
     ]);
