@@ -23,7 +23,7 @@
     "entityGrowth3d": 0,
     "projectileGrowth3d": 0,
     "sceneObjectGrowth3d": 0,
-    "bundleKiB": 2020
+    "bundleKiB": 2021
   },
   "timing": {
     "pairs": 5,
@@ -48,6 +48,6 @@
     {"budget": "bundleKiB", "from": 1979, "to": 1983, "reason": "phase 3's rifts: the twelve sourced rift sequences (idle, spawn, despawn and detonate for each of the three kinds) with their cache records, the rift poses and detonation on VoidAdd, the Void Siphon's heal on a kill, and its What's new note take 4,215 bytes, so the page script grows from 2,025,587 to 2,029,802 bytes", "evidence": "local production builds with webpack --mode production, measured by src/perf/pageScripts: 8fdca812 2,025,587 bytes (1979 KiB), this branch 2,029,802 (1983 KiB)"},
     {"budget": "bundleKiB", "from": 1983, "to": 1989, "reason": "phase 2's recorded gap sequences, the pattern tiles that number each wave's safe spot, drawn as one mesh on a shared label atlas, the Phase 2 patterns box and its tip, and its sentence folded into the phase 3 rifts note grow the page script from 2,029,832 to 2,035,752 bytes", "evidence": "local production builds with scripts/release-build.sh, measured by src/perf/pageScripts: main 41f3f123 2,029,832 bytes (1983 KiB), its merge into #167 2,035,752 bytes (1989 KiB)"},
     {"budget": "bundleKiB", "from": 1989, "to": 2006, "reason": "fixed mode: osrs-sdk's FixedLayout and its branches in the viewport, camera, control panel and minimap, with the Display toggle, the chatbox and dialog placement and the What's new note, 17,889 bytes; fixed mode is off by default, so the workload draws as before", "evidence": "webpack --mode production of 4e6ea7c8 with osrs-sdk accb6c09 (2,035,752 bytes) against this head with osrs-sdk 883d2c09 (2,053,641 bytes)"},
-    {"budget": "bundleKiB", "from": 2006, "to": 2020, "reason": "the missing supply classes, potion dose catalog variants, sourced values, ordinary boost decay and divine expiry add 14,525 bytes to the production page, from 2,053,641 to 2,068,166; the shared dose class replaces the copied super combat dose branches, and the trainer reuses its existing tier and shop filters", "evidence": "production webpack builds measured by src/perf/pageScripts: db8160f4 with SDK 36677b18 is 2,053,641 bytes (2006 KiB); 3e738a4 with SDK 4e518e3 is 2,068,166 bytes (2020 KiB); release CI reports 2020 KiB at https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/41097341814/job/124207100849"}
+    {"budget": "bundleKiB", "from": 2006, "to": 2021, "reason": "the supply classes, dose catalog, shared combat-stat decay, divine expiry and dose-qualified names grow the release page from 2,053,555 to 2,069,393 bytes; this includes the review repair that removes history-dependent decay and labels the four new potion families; the shared dose class replaces copied potion branches", "evidence": "c6abeec8 with SDK 36677b18 and ARCHIVE_LOADOUT=off: 2,053,555 bytes (2006 KiB), recorded by the review; local ARCHIVE_LOADOUT=off npm run build with SDK 6f554c4b, measured by src/perf/pageScripts: 2,069,393 bytes (2021 KiB); original supply increase also measured by release CI at https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/41097341814/job/124207100849"}
   ]
 }

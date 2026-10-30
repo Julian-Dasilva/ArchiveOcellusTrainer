@@ -830,6 +830,7 @@ describe("the loadout editor", () => {
       page.click("loadout");
       expect(document.getElementById("loadout_editor")).not.toBeNull();
       expect(document.getElementById("shop_not_simulated")).toBeNull();
+      expect(page.element("loadout_editor").textContent).not.toContain("Not simulated yet, so not stocked:");
     } finally {
       page.close();
     }
