@@ -22,23 +22,23 @@
     },
     {
       "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > Apply saves the tier's edit and restarts on the same seed, and the reloaded run wears, carries and logs the edit",
-      "reason": "MAX_BAG now includes the two ranging potions, divine super combat and Sanfew carried by the Max preset. The base preset intentionally omits them."
+      "reason": "MAX_WORN now includes Ferocious gloves and Book of the Dead, and MAX_BAG includes Divine rune pouch. The base preset omits these armour-slice items. The editor lifecycle contract is unchanged."
     },
     {
       "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > an edit of an older tier revision still starts the run, says the tier changed, and Reset returns to the tier",
-      "reason": "Reset now returns the Max preset with its supported ranging, divine super combat and Sanfew supplies, so MAX_BAG differs from the base preset."
+      "reason": "MAX_WORN now includes Ferocious gloves and Book of the Dead, and MAX_BAG includes Divine rune pouch. The base preset omits these armour-slice items. The editor lifecycle contract is unchanged."
     },
     {
       "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > storage the browser refuses still runs the tier, says edits won't be kept, and Apply's edit starts the next run in this tab",
-      "reason": "The shared MAX_BAG fixture includes newly supported Max supplies in both fallback and applied loadouts. The base intentionally leaves those inventory slots empty."
+      "reason": "MAX_WORN now includes Ferocious gloves and Book of the Dead, and MAX_BAG includes Divine rune pouch. The base preset omits these armour-slice items. The editor lifecycle contract is unchanged."
     },
     {
       "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > Start with lists only the tier's starts the edit can make, and none means the run starts as worn",
-      "reason": "The stored edit uses MAX_BAG, which now carries four supported supplies that the base preset omits. The weapon filtering contract is unchanged."
+      "reason": "MAX_WORN now includes Ferocious gloves and Book of the Dead, and MAX_BAG includes Divine rune pouch. The base preset omits these armour-slice items. The editor lifecycle contract is unchanged."
     },
     {
       "test": "src/content/ocellus/tests/OcellusLoadouts.test.ts::Ocellus loadouts > offer the raid preset by default and the five gear tiers, each holding exactly the tier's items the sim can build",
-      "reason": "TIER_IDS now includes ranging potions, divine super combat and Sanfew in their existing tier slots. The base intentionally filters those supplies out."
+      "reason": "TIER_IDS now includes the armour and utility items in their existing recipe slots. The base intentionally filters those unsupported items out."
     }
   ]
 }
