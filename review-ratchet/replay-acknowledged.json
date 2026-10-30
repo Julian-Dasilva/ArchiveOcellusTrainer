@@ -38,7 +38,7 @@
     },
     {
       "test": "src/content/ocellus/tests/OcellusLoadouts.test.ts::Ocellus loadouts > offer the raid preset by default and the five gear tiers, each holding exactly the tier's items the sim can build",
-      "reason": "TIER_IDS now includes ranging potions, divine super combat and Sanfew in their existing tier slots. The base intentionally filters those supplies out."
+      "reason": "TIER_IDS now includes the ten weapons and combat accessories in their existing tier slots. The base intentionally filters those items out; all unrelated tier items and supplies retain their positions."
     }
   ]
 }
