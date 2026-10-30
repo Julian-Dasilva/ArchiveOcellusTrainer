@@ -22,19 +22,19 @@
     },
     {
       "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > Apply saves the tier's edit and restarts on the same seed, and the reloaded run wears, carries and logs the edit",
-      "reason": "MAX_WORN now includes Ferocious gloves and Book of the Dead, and MAX_BAG includes Divine rune pouch. The base preset omits these armour-slice items. The editor lifecycle contract is unchanged."
+      "reason": "MAX_WORN now includes Ferocious gloves and Book of the Dead, and MAX_BAG includes Divine rune pouch. The base preset omits these items. The editor lifecycle contract is unchanged."
     },
     {
       "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > an edit of an older tier revision still starts the run, says the tier changed, and Reset returns to the tier",
-      "reason": "MAX_WORN now includes Ferocious gloves and Book of the Dead, and MAX_BAG includes Divine rune pouch. The base preset omits these armour-slice items. The editor lifecycle contract is unchanged."
+      "reason": "MAX_WORN now includes Ferocious gloves and Book of the Dead, and MAX_BAG includes Divine rune pouch. The base preset omits these items. The editor lifecycle contract is unchanged."
     },
     {
       "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > storage the browser refuses still runs the tier, says edits won't be kept, and Apply's edit starts the next run in this tab",
-      "reason": "MAX_WORN now includes Ferocious gloves and Book of the Dead, and MAX_BAG includes Divine rune pouch. The base preset omits these armour-slice items. The editor lifecycle contract is unchanged."
+      "reason": "MAX_WORN now includes Ferocious gloves and Book of the Dead, and MAX_BAG includes Divine rune pouch. The base preset omits these items. The editor lifecycle contract is unchanged."
     },
     {
       "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > Start with lists only the tier's starts the edit can make, and none means the run starts as worn",
-      "reason": "MAX_WORN now includes Ferocious gloves and Book of the Dead, and MAX_BAG includes Divine rune pouch. The base preset omits these armour-slice items. The editor lifecycle contract is unchanged."
+      "reason": "MAX_WORN now includes Ferocious gloves and Book of the Dead, and MAX_BAG includes Divine rune pouch. The base preset omits these items. The weapon filtering contract is unchanged."
     },
     {
       "test": "src/content/ocellus/tests/OcellusLoadouts.test.ts::Ocellus loadouts > offer the raid preset by default and the five gear tiers, each holding exactly the tier's items the sim can build",
