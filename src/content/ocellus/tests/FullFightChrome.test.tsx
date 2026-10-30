@@ -677,6 +677,44 @@ describe("the loadout editor", () => {
   });
 
   test.each([
+    {
+      name: "guard: a build with ARCHIVE_LOADOUT=on shows Loadout, starts on the saved edit and keeps it stored",
+      editing: "on",
+      edit: { equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) },
+      shown: { button: true, note: null, bag: withBag({ 0: 6685 }), edited: true },
+    },
+    {
+      name: "a build with ARCHIVE_LOADOUT=off has no Loadout button, starts on the preset and keeps the saved edit stored",
+      editing: "off",
+      edit: { equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) },
+      shown: { button: false, note: null, bag: MAX_BAG, edited: false },
+    },
+    {
+      name: "a build with ARCHIVE_LOADOUT=off shows no can't-load note for a saved edit that can't load",
+      editing: "off",
+      edit: { equipment: MAX_WORN, inventory: withBag({ 0: 99999 }) },
+      shown: { button: false, note: null, bag: MAX_BAG, edited: false },
+    },
+  ])("$name", ({ editing, edit, shown }) => {
+    const raw = savedMax({ presetRevision: 1, loadout: edit });
+    localStorage.setItem(LOADOUTS_KEY, raw);
+    vi.stubEnv("ARCHIVE_LOADOUT", editing);
+    try {
+      const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
+      const observed = {
+        button: document.getElementById("loadout") !== null,
+        note: document.getElementById("loadout_note")?.textContent ?? null,
+        bag: dressedBag(),
+        edited: window.__archiveOcellusProbe?.log().header.loadout.edited,
+      };
+      page.close();
+      expect({ ...observed, kept: localStorage.getItem(LOADOUTS_KEY) === raw }).toEqual({ ...shown, kept: true });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  test.each([
     { row: "an unknown id", edit: { equipment: MAX_WORN, inventory: withBag({ 0: 99999 }) }, reason: "Your Max edit uses 1 item this version doesn't have (inventory slot 1)" },
     { row: "a worn item in a slot it no longer fits", edit: { equipment: { ...MAX_WORN, helmet: 20997 }, inventory: MAX_BAG }, reason: "Your Max edit wears 1 item in a slot that no longer fits (helmet slot)" },
     { row: "a bag that is not 28 slots", edit: { equipment: MAX_WORN, inventory: MAX_BAG.slice(1) }, reason: "Your Max edit could not be read (inventory has 27 slots, expected 28)" },

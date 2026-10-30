@@ -166,6 +166,8 @@ function tierLoadout(store: LoadoutStore, storage: ActiveLoadout["storage"]): Ti
   return { tier, active: { preset, storage, source: "preset", loadout: preset.loadout, refusedEdit: [] }, overStock };
 }
 
+export type LoadoutEditing = "on" | "off";
+
 type Envelope = Readonly<Record<string, unknown>> & Readonly<{ values: Readonly<Record<string, unknown>> }>;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -188,13 +190,15 @@ export class TierLoadouts {
   readonly #saved: SavedStorage;
   readonly #store: LoadoutStore;
   readonly #listeners = new Set<() => void>();
+  readonly editing: LoadoutEditing;
   #tier: Tier;
   #snapshot: TierLoadout;
 
-  constructor(saved: SavedStorage, tier: Tier) {
+  constructor(saved: SavedStorage, tier: Tier, editing: LoadoutEditing) {
     this.#saved = saved;
     this.#tier = tier;
-    this.#store = OCELLUS_LOADOUTS.store({ getItem: (key) => this.#read(key), setItem: (key, value) => this.#write(key, value) });
+    this.editing = editing;
+    this.#store = OCELLUS_LOADOUTS.store(editing === "on" ? { getItem: (key) => this.#read(key), setItem: (key, value) => this.#write(key, value) } : this.#presetOnlyStorage());
     this.#store.select(tierPresetOf(tier).id);
     this.#snapshot = this.#current();
   }
@@ -230,9 +234,17 @@ export class TierLoadouts {
     this.select(tierPresetOf(tier).id);
   }
 
+  #unedited(): string {
+    return JSON.stringify({ version: 1, values: { selected: this.#tier, edits: {} } });
+  }
+
+  #presetOnlyStorage(): Pick<Storage, "getItem" | "setItem"> {
+    return { getItem: () => this.#unedited(), setItem: () => undefined };
+  }
+
   #read(key: string): string | null {
     const raw = this.#saved.getItem(key);
-    if (raw === null) return JSON.stringify({ version: 1, values: { selected: this.#tier, edits: {} } });
+    if (raw === null) return this.#unedited();
     const envelope = envelopeOf(raw);
     return envelope === null ? raw : JSON.stringify({ ...envelope, values: { ...envelope.values, selected: this.#tier } });
   }
