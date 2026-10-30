@@ -1,5 +1,5 @@
 import { creditLines } from "../menu/credits";
-import { oldLinkProblems, visibleCreditLines, walkProblems } from "./walk";
+import { releaseLinkProblems, visibleCreditLines, walkProblems } from "./walk";
 import type { WalkObservation } from "./walk";
 
 const LINES = [
@@ -124,8 +124,8 @@ describe("release browser walk", () => {
 
   test("a tier link must start on the default gear", () => {
     const raid = { startPhase: "4", errors: [], startWith: RELEASE_START_WITH, startWeapon: "Twisted bow (Masori)" };
-    expect(oldLinkProblems("?seed=1&tier=max&weapon=ralos", raid)).toEqual([]);
-    expect(oldLinkProblems("?seed=1&tier=max&weapon=ralos", { ...raid, startWith: ["Twisted bow (Masori)", "Toxic blowpipe (Masori)", "Tonalztics of Ralos (Inquisitor's)"], startWeapon: "Tonalztics of Ralos (Inquisitor's)" })).toEqual([
+    expect(releaseLinkProblems("?seed=1&tier=max&weapon=ralos", raid)).toEqual([]);
+    expect(releaseLinkProblems("?seed=1&tier=max&weapon=ralos", { ...raid, startWith: ["Twisted bow (Masori)", "Toxic blowpipe (Masori)", "Tonalztics of Ralos (Inquisitor's)"], startWeapon: "Tonalztics of Ralos (Inquisitor's)" })).toEqual([
       "?seed=1&tier=max&weapon=ralos Start with offers Twisted bow (Masori), Toxic blowpipe (Masori), Tonalztics of Ralos (Inquisitor's), not Twisted bow (Masori), Toxic blowpipe (Masori), Scythe (Inquisitor's)",
       "?seed=1&tier=max&weapon=ralos Start with is Tonalztics of Ralos (Inquisitor's), not Twisted bow (Masori)",
     ]);
@@ -133,9 +133,9 @@ describe("release browser walk", () => {
 
   test("an old drill link must open phase 4 and an old full-fight link keeps its phase", () => {
     const raid = { startWith: RELEASE_START_WITH, startWeapon: "Twisted bow (Masori)" };
-    expect(oldLinkProblems("?seed=1&invincible=on", { ...raid, startPhase: "4", errors: [] })).toEqual([]);
-    expect(oldLinkProblems("?mode=full&phase=1", { ...raid, startPhase: "1", errors: [] })).toEqual([]);
-    expect(oldLinkProblems("?phase=p3&seed=1", { ...raid, startPhase: "1", errors: ["TypeError: broke"] })).toEqual([
+    expect(releaseLinkProblems("?seed=1&invincible=on", { ...raid, startPhase: "4", errors: [] })).toEqual([]);
+    expect(releaseLinkProblems("?mode=full&phase=1", { ...raid, startPhase: "1", errors: [] })).toEqual([]);
+    expect(releaseLinkProblems("?phase=p3&seed=1", { ...raid, startPhase: "1", errors: ["TypeError: broke"] })).toEqual([
       "?phase=p3&seed=1 opens Start at phase 1, not phase 4",
       "?phase=p3&seed=1 page errors: TypeError: broke",
     ]);

@@ -114,16 +114,15 @@ function missingCredits(lines: readonly string[]): readonly string[] {
 
 const SECTIONS = ["Fight", "Learning aids", "Display", "Sound", "Controls", "About"] as const;
 
-/** The Start with of 2026.10.28, the live release, which the release must keep while the gear tiers are held out. */
-const RELEASE_START_WITH = ["Twisted bow (Masori)", "Toxic blowpipe (Masori)", "Scythe (Inquisitor's)"] as const;
-const RELEASE_START_WEAPON = RELEASE_START_WITH[0];
+const RAID_START_WITH = ["Twisted bow (Masori)", "Toxic blowpipe (Masori)", "Scythe (Inquisitor's)"] as const;
+const RAID_START_WEAPON = RAID_START_WITH[0];
 
 type StartWith = Readonly<{ startWith: readonly string[]; startWeapon: string }>;
 
 function startWithProblems({ startWith, startWeapon }: StartWith): readonly string[] {
   const problems: string[] = [];
-  if (startWith.join(",") !== RELEASE_START_WITH.join(",")) problems.push(`Start with offers ${startWith.join(", ") || "nothing"}, not ${RELEASE_START_WITH.join(", ")}`);
-  if (startWeapon !== RELEASE_START_WEAPON) problems.push(`Start with is ${startWeapon || "nothing"}, not ${RELEASE_START_WEAPON}`);
+  if (startWith.join(",") !== RAID_START_WITH.join(",")) problems.push(`Start with offers ${startWith.join(", ") || "nothing"}, not ${RAID_START_WITH.join(", ")}`);
+  if (startWeapon !== RAID_START_WEAPON) problems.push(`Start with is ${startWeapon || "nothing"}, not ${RAID_START_WEAPON}`);
   return problems;
 }
 
@@ -369,10 +368,9 @@ function driveSurface(surface: WalkSurface, origin: string): readonly string[] {
   }
 }
 
-/** Links from before the drill was retired, which land in the full fight at phase 4, and tier links, which start on the default gear. */
-const OLD_LINKS = ["?mode=full", "?mode=full&phase=1", "?seed=1&invincible=on", "?seed=4&bosshp=1&focus=void-floor&drillStart=cycle-start", "?phase=p3&seed=1", "?tier=max", "?seed=1&tier=max&weapon=ralos"] as const;
+const RELEASE_LINKS = ["?mode=full", "?mode=full&phase=1", "?seed=1&invincible=on", "?seed=4&bosshp=1&focus=void-floor&drillStart=cycle-start", "?phase=p3&seed=1", "?tier=max", "?seed=1&tier=max&weapon=ralos"] as const;
 
-export function oldLinkProblems(link: string, observed: StartWith & Readonly<{ startPhase: string; errors: readonly string[] }>): readonly string[] {
+export function releaseLinkProblems(link: string, observed: StartWith & Readonly<{ startPhase: string; errors: readonly string[] }>): readonly string[] {
   const want = new URLSearchParams(link).get("phase") === "1" ? "1" : "4";
   const problems: string[] = [];
   if (observed.startPhase !== want) problems.push(`${link} opens Start at ${observed.startPhase === "" ? "nothing" : `phase ${observed.startPhase}`}, not phase ${want}`);
@@ -381,15 +379,15 @@ export function oldLinkProblems(link: string, observed: StartWith & Readonly<{ s
   return problems;
 }
 
-function driveOldLinks(origin: string): readonly string[] {
+function driveReleaseLinks(origin: string): readonly string[] {
   process.env.AGENT_BROWSER_SESSION = `release-links-${process.pid}`;
   try {
     agent(["set", "viewport", "1280", "800"]);
-    return OLD_LINKS.flatMap((link) => {
+    return RELEASE_LINKS.flatMap((link) => {
       agent(["open", `${origin}/${link}`]);
       agent(["wait", "--fn", "document.getElementById('start')?.checkVisibility() === true", "--timeout", "120000"]);
       const { startPhase, startWith, startWeapon } = readFacts();
-      return oldLinkProblems(link, { startPhase, startWith, startWeapon, errors: readErrors() });
+      return releaseLinkProblems(link, { startPhase, startWith, startWeapon, errors: readErrors() });
     });
   } finally {
     closeBrowser();
@@ -397,10 +395,10 @@ function driveOldLinks(origin: string): readonly string[] {
 }
 
 function main(origin: string): void {
-  const problems = [...driveSurface("desktop", origin), ...driveSurface("phone", origin), ...driveOldLinks(origin)];
+  const problems = [...driveSurface("desktop", origin), ...driveSurface("phone", origin), ...driveReleaseLinks(origin)];
   for (const problem of problems) console.error(`release-browser: ${problem}`);
   if (problems.length > 0) process.exitCode = 1;
-  else console.log("release-browser: desktop, phone and the old links passed");
+  else console.log("release-browser: desktop, phone and the release links passed");
 }
 
 if (process.env.RELEASE_BROWSER === "1") {

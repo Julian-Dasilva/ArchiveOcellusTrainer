@@ -166,7 +166,6 @@ function tierLoadout(store: LoadoutStore, storage: ActiveLoadout["storage"]): Ti
   return { tier, active: { preset, storage, source: "preset", loadout: preset.loadout, refusedEdit: [] }, overStock };
 }
 
-/** How much of the gear choice a build offers, each scope adding to the one before: the Raid gear alone, then the tiers, then the Loadout editor. */
 export const GEAR_SCOPES = ["raid", "tiers", "editor"] as const;
 export type GearScope = (typeof GEAR_SCOPES)[number];
 
