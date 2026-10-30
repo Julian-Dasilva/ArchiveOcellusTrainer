@@ -18,23 +18,23 @@ const SUPPLIES_ROWS_5_TO_7 = [null, null, 3024, 3024, 6685, 6685, 3024, 3024, 66
 const TIER_IDS = {
   max: {
     equipment: { weapon: 28922, offhand: null, helmet: 24419, chest: 24420, legs: 24421, gloves: null, cape: 21295, necklace: 29801, feet: 31097, ring: 25485, ammo: 33595 },
-    inventory: [null, 26235, null, 27235, 33639, 27238, 27241, null, 12926, 20997, 2444, 2444, null, null, 23685, 12695, ...SUPPLIES_ROWS_5_TO_7, 10925, null],
+    inventory: [26374, 26235, 28955, 27235, 33639, 27238, 27241, 25975, 12926, 20997, 2444, 2444, 25739, null, 23685, 12695, ...SUPPLIES_ROWS_5_TO_7, 10925, null],
   },
   high: {
-    equipment: { weapon: null, offhand: null, helmet: 30750, chest: 30753, legs: 30756, gloves: 7462, cape: 21295, necklace: null, feet: 31097, ring: 25485, ammo: 33595 },
-    inventory: [null, 27238, null, null, 33639, 27241, null, null, null, 12926, 12695, 12695, null, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
+    equipment: { weapon: 13576, offhand: null, helmet: 30750, chest: 30753, legs: 30756, gloves: 7462, cape: 21295, necklace: 24780, feet: 31097, ring: 25485, ammo: 33595 },
+    inventory: [21902, 27238, 28955, null, 33639, 27241, null, 28035, 29591, 12926, 12695, 12695, null, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
   },
   mid: {
-    equipment: { weapon: null, offhand: null, helmet: 30750, chest: 30753, legs: 30756, gloves: 7462, cape: 21295, necklace: 29801, feet: 31097, ring: 25485, ammo: 33595 },
-    inventory: [null, 27238, null, null, null, 27241, 27235, null, null, 12926, 12695, 12695, null, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 10925, null],
+    equipment: { weapon: 29589, offhand: null, helmet: 30750, chest: 30753, legs: 30756, gloves: 7462, cape: 21295, necklace: 29801, feet: 31097, ring: 25485, ammo: 33595 },
+    inventory: [21902, 27238, 28955, null, null, 27241, 27235, null, 29591, 12926, 12695, 12695, 13576, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 10925, null],
   },
   low: {
-    equipment: { weapon: null, offhand: null, helmet: null, chest: null, legs: null, gloves: 7462, cape: 21295, necklace: null, feet: null, ring: null, ammo: 33595 },
-    inventory: [null, null, null, null, null, null, null, null, null, 12926, 12695, 12695, null, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
+    equipment: { weapon: 29589, offhand: null, helmet: null, chest: null, legs: null, gloves: 7462, cape: 21295, necklace: 24780, feet: null, ring: null, ammo: 33595 },
+    inventory: [21902, null, 28955, null, null, null, null, null, 29591, 12926, 12695, 12695, 13576, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
   },
   poor: {
-    equipment: { weapon: null, offhand: null, helmet: null, chest: null, legs: null, gloves: null, cape: 21295, necklace: null, feet: null, ring: null, ammo: 33595 },
-    inventory: [null, null, null, null, null, null, 12926, null, null, null, 12695, 12695, null, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
+    equipment: { weapon: 29589, offhand: null, helmet: null, chest: null, legs: null, gloves: null, cape: 21295, necklace: 24780, feet: null, ring: null, ammo: 33595 },
+    inventory: [21902, null, 28955, null, null, null, 12926, null, 29591, 13576, 12695, 12695, null, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
   },
 };
 
@@ -42,6 +42,16 @@ type StyleBonuses = readonly [stab: number, slash: number, crush: number, magic:
 type OtherBonuses = readonly [meleeStrength: number, rangedStrength: number, magicDamagePercent: number, prayer: number];
 
 const WIKI_BONUSES: readonly (readonly [id: number, page: string, attack: StyleBonuses, defence: StyleBonuses, other: OtherBonuses])[] = [
+  [13576, "Dragon warhammer rev 15362680", [-4,-4,95,-4,0], [0,0,0,0,0], [85,0,0,0]],
+  [28035, "Dragon warhammer (cr) rev 15191336", [-4,-4,95,-4,0], [0,0,0,0,0], [85,0,0,0]],
+  [29589, "Emberlight rev 15358485", [63,70,0,0,0], [0,3,2,5,0], [13,0,0,0]],
+  [25739, "Sanguine scythe of Vitur rev 15345737", [70,125,30,-6,0], [-2,8,10,0,0], [75,0,0,0]],
+  [26374, "Zaryte crossbow rev 15382611", [0,0,0,0,110], [14,14,12,15,16], [0,0,0,1]],
+  [21902, "Dragon crossbow rev 15352978", [0,0,0,0,94], [0,0,0,0,0], [0,0,0,0]],
+  [29591, "Scorching bow rev 15317455", [0,0,0,0,124], [0,0,0,0,0], [0,40,0,0]],
+  [25975, "Lightbearer rev 15299656", [0,0,0,0,0], [0,0,0,0,0], [0,0,0,0]],
+  [24780, "Amulet of blood fury rev 15355928", [10,10,10,10,10], [15,15,15,15,15], [8,0,0,5]],
+  [28955, "Blessed Dizana's quiver rev 15357222", [0,0,0,0,18], [0,0,0,0,0], [0,3,0,0]],
   [24419, "Inquisitor's great helm rev 15352822", [0, 0, 10, -5, -5], [19, 10, 21, 0, 12], [6, 0, 0, 1]],
   [24420, "Inquisitor's hauberk rev 15352823", [0, 0, 16, -11, -10], [67, 55, 71, 0, 35], [4, 0, 0, 2]],
   [24421, "Inquisitor's plateskirt rev 15352824", [0, 0, 12, -9, -5], [42, 30, 49, 0, 22], [2, 0, 0, 2]],
@@ -110,11 +120,11 @@ describe("Ocellus loadouts", () => {
   test("each tier names every item it leaves out", () => {
     expect(Object.fromEntries(TIERS.map((tier) => [tier, OCELLUS_PRESETS[tier].notSimulated.map(({ name }) => name)]))).toEqual({
       raid: [],
-      max: ["Book of the Dead", "Ferocious gloves", "Zaryte crossbow", "Blessed Dizana's quiver", "Lightbearer", "Sanguine scythe of Vitur", "Divine rune pouch"],
-      high: ["Dragon warhammer", "Book of the Dead", "Amulet of blood fury", "Dragon crossbow", "Blessed Dizana's quiver", "Divine rune pouch", "Twisted buckler", "Dragon warhammer (cr)", "Scorching bow"],
-      mid: ["Emberlight", "Ghommal's avernic defender 6", "Dragon crossbow", "Blessed Dizana's quiver", "Twisted buckler", "Necklace of anguish (or)", "Divine rune pouch", "Scorching bow", "Dragon warhammer", "Book of the Dead"],
-      low: ["Emberlight", "Ghommal's avernic defender 6", "Magma helm", "Eclipse Moon chestplate", "Eclipse Moon tassets", "Amulet of blood fury", "Dragon boots", "Berserker ring (i)", "Dragon crossbow", "Blessed Dizana's quiver", "Divine rune pouch", "Necklace of anguish (or)", "Twisted buckler", "Book of the Dead", "Scorching bow", "Dragon warhammer"],
-      poor: ["Emberlight", "Ghommal's avernic defender 6", "Void melee helm", "Elite void top", "Elite void robe", "Void knight gloves", "Amulet of blood fury", "Dragon boots", "Berserker ring (i)", "Dragon crossbow", "Void ranger helm", "Blessed Dizana's quiver", "Divine rune pouch", "Necklace of anguish (or)", "Twisted buckler", "Book of the Dead", "Scorching bow", "Dragon warhammer"],
+      max: ["Book of the Dead", "Ferocious gloves", "Divine rune pouch"],
+      high: ["Book of the Dead", "Divine rune pouch", "Twisted buckler"],
+      mid: ["Ghommal's avernic defender 6", "Twisted buckler", "Necklace of anguish (or)", "Divine rune pouch", "Book of the Dead"],
+      low: ["Ghommal's avernic defender 6", "Magma helm", "Eclipse Moon chestplate", "Eclipse Moon tassets", "Dragon boots", "Berserker ring (i)", "Divine rune pouch", "Necklace of anguish (or)", "Twisted buckler", "Book of the Dead"],
+      poor: ["Ghommal's avernic defender 6", "Void melee helm", "Elite void top", "Elite void robe", "Void knight gloves", "Dragon boots", "Berserker ring (i)", "Void ranger helm", "Divine rune pouch", "Necklace of anguish (or)", "Twisted buckler", "Book of the Dead"],
     });
   });
 
@@ -166,3 +176,32 @@ for (const tier of ["max", "low"] as const) {
     }
   });
 }
+
+const WEAPON_SLICE: readonly (readonly [Tier, readonly number[]])[] = [
+  ["max", [26374, 28955, 25975, 25739]],
+  ["high", [13576, 24780, 21902, 28955, 28035, 29591]],
+  ["mid", [29589, 21902, 28955, 29591, 13576]],
+  ["low", [29589, 24780, 21902, 28955, 29591, 13576]],
+  ["poor", [29589, 24780, 21902, 28955, 29591, 13576]],
+];
+
+test.each(WEAPON_SLICE)("the %s weapon slice reaches the player's worn gear and inventory", (tier, expected) => {
+  const drill = startDrill();
+  try {
+    const player = drill.player();
+    dressPlayer(player, presetChoice(tier).loadout);
+    const held = [...Object.values(player.equipment), ...player.inventory].flatMap((item) => item == null ? [] : [item.itemId]);
+    expect(expected.filter((id) => !held.includes(id))).toEqual([]);
+  } finally {
+    drill.dispose();
+  }
+});
+
+test("weapon slice demonbane applies to Ocellus rather than every NPC", () => {
+  const drill = startDrill();
+  try {
+    expect(drill.boss().demonbaneMultiplier).toBe(1);
+  } finally {
+    drill.dispose();
+  }
+});

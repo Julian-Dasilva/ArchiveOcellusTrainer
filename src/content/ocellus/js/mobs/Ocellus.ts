@@ -116,6 +116,10 @@ function specialAttack<V extends Special>(at: Tick, ordinal: Ordinal, variant: V
 }
 
 export class Ocellus extends Mob {
+  override get demonbaneMultiplier(): number {
+    return OCELLUS_P4.boss.demonbaneMultiplier.value;
+  }
+
   private readonly schedule: P4Schedule;
   readonly holes: TileSet;
   readonly binding: OcellusBinding;

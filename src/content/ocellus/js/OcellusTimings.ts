@@ -102,6 +102,7 @@ type BossRecipe = Readonly<{
   npcId: Selected<number>;
   size: Selected<number>;
   combatLevel: Selected<number>;
+  demonbaneMultiplier: Selected<number>;
   stats: Selected<Readonly<{ attack: number; strength: number; defence: number; range: number; magic: number }>>;
   defenceBonuses: Selected<Readonly<{ stab: number; slash: number; crush: number; magic: number }>>;
   rangedDefence: Selected<Readonly<Record<AmmunitionClass, number>>>;
@@ -303,7 +304,7 @@ type GearRecipe = Readonly<{
   twistedBow: Selected<StanceSpeeds<TwistedBow["attackSpeed"]>>;
   ralos: Selected<StanceSpeeds & Readonly<{ range: number; longrangeRange: number; hits: number; hitMaxFraction: number }>>;
   division: Selected<Readonly<{ energy: number; accuracyFactor: number; defenceDrainOfMagic: number }>>;
-  ammunition: Selected<Readonly<{ twistedBow: AmmunitionClass; tonalzticsOfRalos: AmmunitionClass }>>;
+  ammunition: Selected<Readonly<{ twistedBow: AmmunitionClass; tonalzticsOfRalos: AmmunitionClass; dragonCrossbow: AmmunitionClass; zaryteCrossbow: AmmunitionClass }>>;
   inquisitorCrushPerMille: Selected<Readonly<Record<InquisitorPiece, number>>>;
   scytheStance: Selected<"jab">;
   scytheMaxHitsOnOneTarget: Selected<number>;
@@ -313,6 +314,7 @@ const BOSS: BossRecipe = {
   npcId: selected(16677, "inferred", "unscaled", "tfa_ocellus_p3, the only combat form after phase 2; live level 1601 differs from cache 1197 (C7)", BOSS_PAGE, cache("npc 16677")),
   size: selected(3, "spec-confirmed", "unscaled", "3x3 marker in both clips", BOSS_INFOBOX, cache("npc 16677 size"), vod("V1", "G29"), vod("V2", "k44")),
   combatLevel: selected(1601, "footage-repeated", "unscaled", "hover text Attack Ocellus (level-1601)", BOSS_INFOBOX, vod("V1", "frame 3317"), vod("V2", "k44")),
+  demonbaneMultiplier: selected(1, "spec-single", "unscaled", "the wiki marks phases 1 and 3 as Demon; no reduced demonbane effectiveness is listed, so full effectiveness is inferred; phase 2 and the adds have no demon attribute listed", BOSS_PAGE, VOID_RIFT_PAGE),
   stats: selected({ attack: 325, strength: 250, defence: 250, range: 300, magic: 300 }, "spec-confirmed", "unscaled", "the wiki's phase 3 infobox, edited after the 21 October hotfix, lists the cache's levels", BOSS_PAGE, cache("npc 16677 stats [325, 250, 250, 5250, 300, 300]")),
   defenceBonuses: selected({ stab: 150, slash: 100, crush: 30, magic: 200 }, "spec-confirmed", "unscaled", "cache params 5 to 8 match the wiki's phase 3 infobox", BOSS_PAGE, cache("npc 16677 params 5, 6, 7, 8")),
   rangedDefence: selected({ light: 250, standard: 250, heavy: 250 }, "spec-single", "unscaled", "the wiki's phase 3 infobox; the cache decode has no ranged defence param", BOSS_PAGE),
@@ -984,20 +986,20 @@ const TIER_ITEMS = {
   eclipseMoonTassets: tierItem(29007, "Eclipse Moon tassets", "no-item-class", "Eclipse_Moon_tassets", 15354995),
   infernalCape: tierItem(21295, "Infernal cape", "simulated", "Infernal_cape", 15359317),
   amuletOfRancour: tierItem(29801, "Amulet of rancour", "simulated", "Amulet_of_rancour", 15343231),
-  amuletOfBloodFury: tierItem(24780, "Amulet of blood fury", "no-item-class", "Amulet_of_blood_fury", 15355928),
+  amuletOfBloodFury: tierItem(24780, "Amulet of blood fury", "simulated", "Amulet_of_blood_fury", 15355928),
   necklaceOfRupture: tierItem(33639, "Necklace of rupture", "simulated", "Necklace_of_rupture", 15379787),
   necklaceOfAnguishOr: tierItem(22249, "Necklace of anguish (or)", "no-item-class", "Necklace_of_anguish_(or)", 15188731),
   seekingDragonArrow: tierItem(33595, "Seeking dragon arrow", "simulated", "Seeking_dragon_arrow", 15314450, "infobox item id; the SDK draws it as Dragon arrow 11212 and does not simulate its minimum hit of 3"),
   tonalzticsOfRalos: tierItem(28922, "Tonalztics of Ralos", "simulated", "Tonalztics_of_Ralos", 15368852),
-  dragonWarhammer: tierItem(13576, "Dragon warhammer", "no-item-class", "Dragon_warhammer", 15362680),
-  dragonWarhammerCr: tierItem(28035, "Dragon warhammer (cr)", "no-item-class", "Dragon_warhammer_(cr)", 15191336, "infobox item id; the nearest match to the high tier's dark-headed warhammer with a red shaft, not confirmed"),
-  emberlight: tierItem(29589, "Emberlight", "no-item-class", "Emberlight", 15358485),
-  sanguineScytheOfVitur: tierItem(25739, "Sanguine scythe of Vitur", "no-item-class", "Sanguine_Scythe_of_Vitur", 15345737),
+  dragonWarhammer: tierItem(13576, "Dragon warhammer", "simulated", "Dragon_warhammer", 15362680),
+  dragonWarhammerCr: tierItem(28035, "Dragon warhammer (cr)", "simulated", "Dragon_warhammer_(cr)", 15191336, "infobox item id; the nearest match to the high tier's dark-headed warhammer with a red shaft, not confirmed"),
+  emberlight: tierItem(29589, "Emberlight", "simulated", "Emberlight", 15358485),
+  sanguineScytheOfVitur: tierItem(25739, "Sanguine scythe of Vitur", "simulated", "Sanguine_Scythe_of_Vitur", 15345737),
   twistedBow: tierItem(20997, "Twisted bow", "simulated", "Twisted_bow", 15363157),
   toxicBlowpipe: tierItem(12926, "Toxic blowpipe", "simulated", "Toxic_blowpipe", 15376390, "infobox item id; the sim's blowpipe is charged with dragon darts, Ranged strength +20 and +35"),
-  zaryteCrossbow: tierItem(26374, "Zaryte crossbow", "no-item-class", "Zaryte_crossbow", 15382611),
-  dragonCrossbow: tierItem(21902, "Dragon crossbow", "no-item-class", "Dragon_crossbow", 15352978),
-  scorchingBow: tierItem(29591, "Scorching bow", "no-item-class", "Scorching_bow", 15317455),
+  zaryteCrossbow: tierItem(26374, "Zaryte crossbow", "simulated", "Zaryte_crossbow", 15382611),
+  dragonCrossbow: tierItem(21902, "Dragon crossbow", "simulated", "Dragon_crossbow", 15352978),
+  scorchingBow: tierItem(29591, "Scorching bow", "simulated", "Scorching_bow", 15317455),
   bookOfTheDead: tierItem(25818, "Book of the Dead", "no-item-class", "Book_of_the_Dead", 15317141),
   ghommalsAvernicDefender6: tierItem(27552, "Ghommal's avernic defender 6", "no-item-class", "Ghommal%27s_avernic_defender_6", 15324597),
   twistedBuckler: tierItem(21000, "Twisted buckler", "no-item-class", "Twisted_buckler", 15188072),
@@ -1014,8 +1016,8 @@ const TIER_ITEMS = {
     wiki(`${OSRS_WIKI}Ultor_ring`, 15191287),
   ),
   berserkerRingI: tierItem(11773, "Berserker ring (i)", "stats-differ", "Berserker_ring_(i)", 15345632, "infobox item id of the Nightmare Zone imbue, whose icon and bonuses the Soul Wars and Emir's Arena imbues 25264 and 26770 share; the SDK's Berserker ring (i) has Crush defence 0, the wiki's +8"),
-  lightbearer: tierItem(25975, "Lightbearer", "no-item-class", "Lightbearer", 15299656),
-  blessedDizanasQuiver: tierItem(28955, "Blessed Dizana's quiver", "no-item-class", "Blessed_Dizana%27s_quiver", 15357222),
+  lightbearer: tierItem(25975, "Lightbearer", "simulated", "Lightbearer", 15299656),
+  blessedDizanasQuiver: tierItem(28955, "Blessed Dizana's quiver", "simulated", "Blessed_Dizana%27s_quiver", 15357222),
   masoriMaskF: tierItem(27235, "Masori mask (f)", "simulated", "Masori_mask_(f)", 15190975),
   masoriBodyF: tierItem(27238, "Masori body (f)", "simulated", "Masori_body_(f)", 15190976),
   masoriChapsF: tierItem(27241, "Masori chaps (f)", "simulated", "Masori_chaps_(f)", 15190977),
@@ -1226,7 +1228,7 @@ const GEAR: GearRecipe = {
   twistedBow: selected({ rapidSpeed: 5, otherSpeed: 6 }, "spec-single", "unscaled", "attack speed by stance: 5 ticks on Rapid, 6 on Accurate and Longrange", TWISTED_BOW_PAGE),
   ralos: selected({ rapidSpeed: span(6), otherSpeed: span(7), range: 7, longrangeRange: 9, hits: 2, hitMaxFraction: 0.75 }, "spec-single", "unscaled", "charged, one-handed thrown: two independent hits, each 0 to 75% of the max ranged hit", RALOS_PAGE),
   division: selected({ energy: 50, accuracyFactor: 1.5, defenceDrainOfMagic: 0.125 }, "spec-single", "unscaled", "+50% accuracy; each hit that deals damage lowers Defence by 12.5% of Magic (10% before 2026-07-22) and, on NPCs, before the second roll; the drain applies as each glaive lands, so a hit the target rejects drains nothing (inferred); rounding not stated, floored (inferred)", RALOS_PAGE),
-  ammunition: selected({ twistedBow: "standard", tonalzticsOfRalos: "light" }, "spec-single", "unscaled", "the Twisted Bow fires dragon arrows, and arrows roll against standard ranged defence; Ralos rolls against light", RANGED_PAGE, RALOS_PAGE),
+  ammunition: selected({ twistedBow: "standard", tonalzticsOfRalos: "light", dragonCrossbow: "heavy", zaryteCrossbow: "heavy" }, "spec-single", "unscaled", "the Twisted Bow fires dragon arrows, and arrows roll against standard ranged defence; Ralos rolls against light; crossbow bolts roll against heavy", RANGED_PAGE, RALOS_PAGE),
   inquisitorCrushPerMille: selected({ inquisitorsGreatHelm: 5, inquisitorsHauberk: 10, inquisitorsPlateskirt: 10 }, "spec-single", "unscaled", "crush accuracy and damage per piece; the 2026-07-22 update moved the 1% set bonus onto the hauberk and plateskirt", wiki(`${OSRS_WIKI}Inquisitor%27s_hauberk`, 15352823), wiki(`${OSRS_WIKI}Inquisitor%27s_plateskirt`, 15352824), INQUISITOR_SET),
   scytheStance: selected("jab", "spec-single", "unscaled", "Jab is the scythe's crush style; the owner wants the Scythe setup on crush", SCYTHE_PAGE, owner("melee setup")),
   scytheMaxHitsOnOneTarget: selected(3, "spec-single", "unscaled", "one hit per tile of the target's width, up to three: a 1x1 target once, 2x2 twice, 3x3 or larger three times; other 1x1 targets in the 1x3 arc take their own hit", SCYTHE_PAGE),

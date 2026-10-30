@@ -14,6 +14,9 @@ import {
   OcellusMasoriMaskF,
   OcellusNecklaceOfRupture,
   OcellusScythe,
+  OcellusSanguineScythe,
+  OcellusDragonWarhammer,
+  OcellusDragonWarhammerCr,
   OcellusTwistedBow,
   OcellusZaryteVambraces,
   TonalzticsOfRalos,
@@ -57,6 +60,9 @@ export const OCELLUS_LOADOUTS = defineSimLoadouts({
   items: [
     OcellusTwistedBow,
     OcellusScythe,
+    OcellusSanguineScythe,
+    OcellusDragonWarhammer,
+    OcellusDragonWarhammerCr,
     TonalzticsOfRalos,
     OcellusBlowpipe,
     OcellusMasoriMaskF,
@@ -70,7 +76,7 @@ export const OCELLUS_LOADOUTS = defineSimLoadouts({
   ],
   presets: TIERS.map((tier) => {
     const { label, loadout, starts } = OCELLUS_PRESETS[tier];
-    return { id: tier, label, revision: 1, loadout, startOptions: starts.map(({ weapon }) => optionId(tier, weapon)) };
+    return { id: tier, label, revision: tier === "raid" ? 1 : 2, loadout, startOptions: starts.map(({ weapon }) => optionId(tier, weapon)) };
   }),
   defaultPreset: "raid",
   supplyStock: ALLIANCE_SUPPLIES.flatMap(({ item, quantity }) => (item.simulation === "simulated" ? [{ id: item.id, quantity }] : [])),

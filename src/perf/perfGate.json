@@ -23,7 +23,7 @@
     "entityGrowth3d": 0,
     "projectileGrowth3d": 0,
     "sceneObjectGrowth3d": 0,
-    "bundleKiB": 2022
+    "bundleKiB": 2049
   },
   "timing": {
     "pairs": 5,
@@ -33,21 +33,124 @@
     "viewAllocationsPerFrame": 0
   },
   "exceptions": [
-    {"budget": "drawCallsMedian3d", "from": 14, "to": 20, "reason": "`/` is now the full fight, whose phase 4 renders his arena around the platform the drill drew alone; with the arena's walls, torch pillars and censer plinths drawn as one mesh and its stepping stones as another, the head measures a median of 20 and a most of 34 draw calls in the window", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"},
-    {"budget": "drawCallsMax3d", "from": 28, "to": 34, "reason": "`/` is now the full fight, whose phase 4 renders his arena around the platform the drill drew alone; with the arena's walls, torch pillars and censer plinths drawn as one mesh and its stepping stones as another, the head measures a median of 20 and a most of 34 draw calls in the window", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"},
-    {"budget": "bundleKiB", "from": 1753, "to": 1947, "reason": "`/` now loads the full fight, with phases 1 to 3 and his arena, in one 1947 KiB script instead of the drill page", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"},
-    {"budget": "trianglesMax3d", "from": 13698, "to": 13838, "reason": "the arena's stepping stones draw as one mesh, which the camera culls as a whole, so the 5 stones off camera at phase 4 reach the GPU and are clipped there: 140 triangles in every frame, for 6 fewer draw calls", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"},
-    {"budget": "bundleKiB", "from": 1947, "to": 1948, "reason": "merging the arena's walls, pillars, plinths and stones into two meshes adds 405 bytes to the script", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"},
-    {"budget": "bundleKiB", "from": 1948, "to": 1949, "reason": "phase 3's stone crossing adds the exact move and the sourced jump timing, 993 bytes, which takes the page script to 1,994,935 bytes, 183 over the 1948 KiB line", "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/159"},
-    {"budget": "trianglesMax3d", "from": 13838, "to": 14073, "reason": "the player now starts with the twisted bow in hand, whose model has 235 more triangles than the blowpipe's; the same head bundle measures 13838 with weapon=blowpipe and 13931 with weapon=melee", "evidence": "scripts/verify.sh perf at 3abee108 against 82710f64: base 13838, head 14073; frame p95 ratio 1.000, tick-gap p95 ratio 0.999"},
-    {"budget": "bundleKiB", "from": 1949, "to": 1950, "reason": "the Start with and Defence drained controls and the start weapon table", "evidence": "scripts/verify.sh perf at 3abee108 against 82710f64: 1950 KiB"},
-    {"budget": "bundleKiB", "from": 1950, "to": 1955, "reason": "osrs-sdk 1895b442 carries the loadout module (item catalog, loadout store, editLoadout and startWith, defineSimLoadouts), which takes the page script from 1950 KiB to 1956 KiB, 2,002,863 bytes, on the pin bump alone; dressing the trainer through it and deleting its own tables brings it back to 1955 KiB, 2,001,748 bytes", "evidence": "release-bundle at e442e978 in https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40780425970: 1950 KiB; local release build at 8f29d837: 1956 KiB; at a3d797fa: 1955 KiB, as https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40805588768 reports"},
-    {"budget": "bundleKiB", "from": 1955, "to": 1968, "reason": "the five gear tiers: 52 items, each with its name, wiki page and revision, and the five worn sets, bags and starts take 12,595 bytes of the minified script; the Tier select and the What's new note take the other 608, so the page script grows from 2,001,732 to 2,014,935 bytes", "evidence": "local production builds with npm run build: d0f5bd93 2,001,732 bytes (1955 KiB), 451b1610 2,014,935 bytes (1968 KiB)"},
-    {"budget": "bundleKiB", "from": 1968, "to": 1978, "reason": "the loadout editor: the SDK's LoadoutEditor, its menus and the edit reducer, which the page did not use before, with the trainer's Loadout section and tier store take 6,249 bytes; the Alliance Supplies stock with each item's name, wiki page and revision takes 1,231; the editor icons and the storage handle 658; and the What's new sentence 153, so the page script grows from 2,014,941 to 2,023,232 bytes; then the loadout fixes from review: keeping an applied edit in this tab when storage is refused takes 601 bytes, writing only the edits while keeping the rest of the stored value 1,017, bounding every carried supply by the tier and the shop 206, and keeping the editor mounted across tiers 37, so the page script grows from 2,023,240 to 2,025,101 bytes; the SDK pin with the editor's tier drafts and the left-opening menu adds 260 more, to 2,025,361 bytes", "evidence": "local production builds with npm run build: 51b329a8 2,014,941 bytes (1968 KiB), d2b1b7fe 2,016,172, 4309424d 2,016,830, 739970ad 2,023,079, 573edd1d 2,023,232 bytes (1976 KiB); local production builds with webpack --mode production, measured by src/perf/pageScripts: 0b441d89 2,023,240 bytes (1976 KiB), d679e7a7 2,023,446, 558c666a 2,023,483, 52a07227 2,024,500, 586a915a 2,025,101 (1978 KiB), the local pin at osrs-sdk 30a4757 2,025,361 (1978 KiB); release-bundle at 586a915a in https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40825796936 reports 1978 KiB"},
-    {"budget": "bundleKiB", "from": 1978, "to": 1979, "reason": "the 2026.10.29 What's new release: four notes on the gear tiers, Start with per tier and the Loadout editor, less the shorter 2026.10.28 note restored to its shipped text, add 282 bytes, so the page script grows from 2,025,305 to 2,025,587 bytes; the base sat 167 bytes under the 1978 KiB line", "evidence": "local production builds with npm run build, measured by src/perf/pageScripts: 700030b0 2,025,305 bytes (1978 KiB), 65b2c217 2,025,587 bytes (1979 KiB); release-bundle at 65b2c217 in https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40872230441 reports 1979 KiB"},
-    {"budget": "bundleKiB", "from": 1979, "to": 1983, "reason": "phase 3's rifts: the twelve sourced rift sequences (idle, spawn, despawn and detonate for each of the three kinds) with their cache records, the rift poses and detonation on VoidAdd, the Void Siphon's heal on a kill, and its What's new note take 4,215 bytes, so the page script grows from 2,025,587 to 2,029,802 bytes", "evidence": "local production builds with webpack --mode production, measured by src/perf/pageScripts: 8fdca812 2,025,587 bytes (1979 KiB), this branch 2,029,802 (1983 KiB)"},
-    {"budget": "bundleKiB", "from": 1983, "to": 1989, "reason": "phase 2's recorded gap sequences, the pattern tiles that number each wave's safe spot, drawn as one mesh on a shared label atlas, the Phase 2 patterns box and its tip, and its sentence folded into the phase 3 rifts note grow the page script from 2,029,832 to 2,035,752 bytes", "evidence": "local production builds with scripts/release-build.sh, measured by src/perf/pageScripts: main 41f3f123 2,029,832 bytes (1983 KiB), its merge into #167 2,035,752 bytes (1989 KiB)"},
-    {"budget": "bundleKiB", "from": 1989, "to": 2006, "reason": "fixed mode: osrs-sdk's FixedLayout and its branches in the viewport, camera, control panel and minimap, with the Display toggle, the chatbox and dialog placement and the What's new note, 17,889 bytes; fixed mode is off by default, so the workload draws as before", "evidence": "webpack --mode production of 4e6ea7c8 with osrs-sdk accb6c09 (2,035,752 bytes) against this head with osrs-sdk 883d2c09 (2,053,641 bytes)"},
-    {"budget": "bundleKiB", "from": 2006, "to": 2022, "reason": "the supply classes, dose catalog, shared combat-stat decay, divine expiry and dose-qualified names require the increased bundle allowance; the merged SDK also carries the LoadoutEditor fit, taking the measured release page from the prior 2,069,393 bytes to 2,069,555 bytes (2022 KiB); no runtime limit changes", "evidence": "reviewed c6abeec8 with SDK 36677b18 and ARCHIVE_LOADOUT=off: 2,053,555 bytes (2006 KiB); prior SDK 6f554c4b release: 2,069,393 bytes (2021 KiB); scripts/release-build.sh at ab83b26c with merged SDK 57cb5037, measured by src/perf/pageScripts: 2,069,555 bytes (2022 KiB); original supply increase measured at https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/41097341814/job/124207100849"}
+    {
+      "budget": "drawCallsMedian3d",
+      "from": 14,
+      "to": 20,
+      "reason": "`/` is now the full fight, whose phase 4 renders his arena around the platform the drill drew alone; with the arena's walls, torch pillars and censer plinths drawn as one mesh and its stepping stones as another, the head measures a median of 20 and a most of 34 draw calls in the window",
+      "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"
+    },
+    {
+      "budget": "drawCallsMax3d",
+      "from": 28,
+      "to": 34,
+      "reason": "`/` is now the full fight, whose phase 4 renders his arena around the platform the drill drew alone; with the arena's walls, torch pillars and censer plinths drawn as one mesh and its stepping stones as another, the head measures a median of 20 and a most of 34 draw calls in the window",
+      "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 1753,
+      "to": 1947,
+      "reason": "`/` now loads the full fight, with phases 1 to 3 and his arena, in one 1947 KiB script instead of the drill page",
+      "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40658971959"
+    },
+    {
+      "budget": "trianglesMax3d",
+      "from": 13698,
+      "to": 13838,
+      "reason": "the arena's stepping stones draw as one mesh, which the camera culls as a whole, so the 5 stones off camera at phase 4 reach the GPU and are clipped there: 140 triangles in every frame, for 6 fewer draw calls",
+      "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 1947,
+      "to": 1948,
+      "reason": "merging the arena's walls, pillars, plinths and stones into two meshes adds 405 bytes to the script",
+      "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/160"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 1948,
+      "to": 1949,
+      "reason": "phase 3's stone crossing adds the exact move and the sourced jump timing, 993 bytes, which takes the page script to 1,994,935 bytes, 183 over the 1948 KiB line",
+      "evidence": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/pull/159"
+    },
+    {
+      "budget": "trianglesMax3d",
+      "from": 13838,
+      "to": 14073,
+      "reason": "the player now starts with the twisted bow in hand, whose model has 235 more triangles than the blowpipe's; the same head bundle measures 13838 with weapon=blowpipe and 13931 with weapon=melee",
+      "evidence": "scripts/verify.sh perf at 3abee108 against 82710f64: base 13838, head 14073; frame p95 ratio 1.000, tick-gap p95 ratio 0.999"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 1949,
+      "to": 1950,
+      "reason": "the Start with and Defence drained controls and the start weapon table",
+      "evidence": "scripts/verify.sh perf at 3abee108 against 82710f64: 1950 KiB"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 1950,
+      "to": 1955,
+      "reason": "osrs-sdk 1895b442 carries the loadout module (item catalog, loadout store, editLoadout and startWith, defineSimLoadouts), which takes the page script from 1950 KiB to 1956 KiB, 2,002,863 bytes, on the pin bump alone; dressing the trainer through it and deleting its own tables brings it back to 1955 KiB, 2,001,748 bytes",
+      "evidence": "release-bundle at e442e978 in https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40780425970: 1950 KiB; local release build at 8f29d837: 1956 KiB; at a3d797fa: 1955 KiB, as https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40805588768 reports"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 1955,
+      "to": 1968,
+      "reason": "the five gear tiers: 52 items, each with its name, wiki page and revision, and the five worn sets, bags and starts take 12,595 bytes of the minified script; the Tier select and the What's new note take the other 608, so the page script grows from 2,001,732 to 2,014,935 bytes",
+      "evidence": "local production builds with npm run build: d0f5bd93 2,001,732 bytes (1955 KiB), 451b1610 2,014,935 bytes (1968 KiB)"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 1968,
+      "to": 1978,
+      "reason": "the loadout editor: the SDK's LoadoutEditor, its menus and the edit reducer, which the page did not use before, with the trainer's Loadout section and tier store take 6,249 bytes; the Alliance Supplies stock with each item's name, wiki page and revision takes 1,231; the editor icons and the storage handle 658; and the What's new sentence 153, so the page script grows from 2,014,941 to 2,023,232 bytes; then the loadout fixes from review: keeping an applied edit in this tab when storage is refused takes 601 bytes, writing only the edits while keeping the rest of the stored value 1,017, bounding every carried supply by the tier and the shop 206, and keeping the editor mounted across tiers 37, so the page script grows from 2,023,240 to 2,025,101 bytes; the SDK pin with the editor's tier drafts and the left-opening menu adds 260 more, to 2,025,361 bytes",
+      "evidence": "local production builds with npm run build: 51b329a8 2,014,941 bytes (1968 KiB), d2b1b7fe 2,016,172, 4309424d 2,016,830, 739970ad 2,023,079, 573edd1d 2,023,232 bytes (1976 KiB); local production builds with webpack --mode production, measured by src/perf/pageScripts: 0b441d89 2,023,240 bytes (1976 KiB), d679e7a7 2,023,446, 558c666a 2,023,483, 52a07227 2,024,500, 586a915a 2,025,101 (1978 KiB), the local pin at osrs-sdk 30a4757 2,025,361 (1978 KiB); release-bundle at 586a915a in https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40825796936 reports 1978 KiB"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 1978,
+      "to": 1979,
+      "reason": "the 2026.10.29 What's new release: four notes on the gear tiers, Start with per tier and the Loadout editor, less the shorter 2026.10.28 note restored to its shipped text, add 282 bytes, so the page script grows from 2,025,305 to 2,025,587 bytes; the base sat 167 bytes under the 1978 KiB line",
+      "evidence": "local production builds with npm run build, measured by src/perf/pageScripts: 700030b0 2,025,305 bytes (1978 KiB), 65b2c217 2,025,587 bytes (1979 KiB); release-bundle at 65b2c217 in https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/40872230441 reports 1979 KiB"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 1979,
+      "to": 1983,
+      "reason": "phase 3's rifts: the twelve sourced rift sequences (idle, spawn, despawn and detonate for each of the three kinds) with their cache records, the rift poses and detonation on VoidAdd, the Void Siphon's heal on a kill, and its What's new note take 4,215 bytes, so the page script grows from 2,025,587 to 2,029,802 bytes",
+      "evidence": "local production builds with webpack --mode production, measured by src/perf/pageScripts: 8fdca812 2,025,587 bytes (1979 KiB), this branch 2,029,802 (1983 KiB)"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 1983,
+      "to": 1989,
+      "reason": "phase 2's recorded gap sequences, the pattern tiles that number each wave's safe spot, drawn as one mesh on a shared label atlas, the Phase 2 patterns box and its tip, and its sentence folded into the phase 3 rifts note grow the page script from 2,029,832 to 2,035,752 bytes",
+      "evidence": "local production builds with scripts/release-build.sh, measured by src/perf/pageScripts: main 41f3f123 2,029,832 bytes (1983 KiB), its merge into #167 2,035,752 bytes (1989 KiB)"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 1989,
+      "to": 2006,
+      "reason": "fixed mode: osrs-sdk's FixedLayout and its branches in the viewport, camera, control panel and minimap, with the Display toggle, the chatbox and dialog placement and the What's new note, 17,889 bytes; fixed mode is off by default, so the workload draws as before",
+      "evidence": "webpack --mode production of 4e6ea7c8 with osrs-sdk accb6c09 (2,035,752 bytes) against this head with osrs-sdk 883d2c09 (2,053,641 bytes)"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 2006,
+      "to": 2022,
+      "reason": "the supply classes, dose catalog, shared combat-stat decay, divine expiry and dose-qualified names require the increased bundle allowance; the merged SDK also carries the LoadoutEditor fit, taking the measured release page from the prior 2,069,393 bytes to 2,069,555 bytes (2022 KiB); no runtime limit changes",
+      "evidence": "reviewed c6abeec8 with SDK 36677b18 and ARCHIVE_LOADOUT=off: 2,053,555 bytes (2006 KiB); prior SDK 6f554c4b release: 2,069,393 bytes (2021 KiB); scripts/release-build.sh at ab83b26c with merged SDK 57cb5037, measured by src/perf/pageScripts: 2,069,555 bytes (2022 KiB); original supply increase measured at https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/41097341814/job/124207100849"
+    },
+    {
+      "budget": "bundleKiB",
+      "from": 2022,
+      "to": 2049,
+      "reason": "The ten weapon and combat accessory classes, special attacks, bolt effects and tier integration add 27,621 bytes to the release page. No frame or tick budget changes.",
+      "evidence": "scripts/release-build.sh with ARCHIVE_LOADOUT=off and SDK e1459fd: 2,097,178 bytes (2049 KiB). Base cd2df5b7 with SDK 57cb5037: 2,069,557 bytes (2022 KiB), measured by src/perf/pageScripts. Logs and JSON receipts are in /Users/jdas/.local/state/helm/programs/archive-ocellus/artifacts/items-weapons/."
+    }
   ]
 }
