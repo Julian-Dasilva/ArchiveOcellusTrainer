@@ -184,7 +184,7 @@ describe("the full fight page", () => {
       page.close();
       return shown;
     };
-    const supplies = [12695, 22461, 6685, 3024, 12695, 22461, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 6685, 3024, 6685];
+    const supplies = [12695, 2444, 6685, 3024, 12695, 2444, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 6685, 3024, 6685];
     expect({ unnamed: dressed("/?seed=1"), blowpipe: dressed("/?seed=1&weapon=blowpipe"), melee: dressed("/?seed=1&weapon=melee"), unknown: dressed("/?seed=1&weapon=bow") }).toEqual({
       unnamed: { chosen: "twistedBow", weapon: 20997, helmet: 27235, bag: [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, ...supplies, 12926, 3024] },
       blowpipe: { chosen: "blowpipe", weapon: 12926, helmet: 27235, bag: [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, ...supplies, 20997, 3024] },
@@ -234,13 +234,13 @@ describe("the full fight page", () => {
         starts: ["blowpipe Toxic blowpipe"],
         chosen: "blowpipe",
         leftOut:
-          "Not simulated yet, so left out: Emberlight, Ghommal's avernic defender 6, Magma helm, Eclipse Moon chestplate, Eclipse Moon tassets, Amulet of blood fury, Dragon boots, Berserker ring (i), Dragon crossbow, Blessed Dizana's quiver, Divine rune pouch, Necklace of anguish (or), Twisted buckler, Book of the Dead, Scorching bow, Dragon warhammer, Ranging potion ×2, Sanfew serum",
+          "Not simulated yet, so left out: Emberlight, Ghommal's avernic defender 6, Magma helm, Eclipse Moon chestplate, Eclipse Moon tassets, Amulet of blood fury, Dragon boots, Berserker ring (i), Dragon crossbow, Blessed Dizana's quiver, Divine rune pouch, Necklace of anguish (or), Twisted buckler, Book of the Dead, Scorching bow, Dragon warhammer",
         worn: [12926, null, 7462, 21295],
       },
       raidShown: { tier: "raid", starts: ["twistedBow Twisted bow (Masori)", "blowpipe Toxic blowpipe (Masori)", "melee Scythe (Inquisitor's)"], chosen: "blowpipe", leftOut: null, worn: [12926, 27235, 26235, 28951] },
       maxStarts: ["twistedBow Twisted bow (Masori)", "blowpipe Toxic blowpipe (Masori)", "ralos Tonalztics of Ralos (Inquisitor's)"],
       maxChosen: "blowpipe",
-      maxLeftOut: "Not simulated yet, so left out: Book of the Dead, Ferocious gloves, Zaryte crossbow, Blessed Dizana's quiver, Lightbearer, Ranging potion ×2, Sanguine scythe of Vitur, Divine super combat potion, Sanfew serum, Divine rune pouch",
+      maxLeftOut: "Not simulated yet, so left out: Book of the Dead, Ferocious gloves, Zaryte crossbow, Blessed Dizana's quiver, Lightbearer, Sanguine scythe of Vitur, Divine rune pouch",
       assigned: ["http://localhost/?seed=7&weapon=ralos&phase=4&tier=max&drained=0&tiles=1&markers=0&skip=0&pattern=0&vine=1&practice=0"],
     });
   });
@@ -627,7 +627,7 @@ function fightRegion(): FightRegion {
 
 const LOADOUTS_KEY = "osrs-sdk:loadouts:archive-ocellus";
 const MAX_WORN = { ammo: 33595, cape: 21295, chest: 24420, feet: 31097, gloves: null, helmet: 24419, legs: 24421, necklace: 29801, offhand: null, ring: 25485, weapon: 28922 };
-const MAX_BAG = [null, 26235, null, 27235, 33639, 27238, 27241, null, 12926, 20997, null, null, null, null, null, 12695, null, null, 3024, 3024, 6685, 6685, 3024, 3024, 6685, 6685, null, null];
+const MAX_BAG = [null, 26235, null, 27235, 33639, 27238, 27241, null, 12926, 20997, 2444, 2444, null, null, 23685, 12695, null, null, 3024, 3024, 6685, 6685, 3024, 3024, 6685, 6685, 10925, null];
 const withBag = (changes: Readonly<Record<number, number | null>>) => MAX_BAG.map((id, index) => (index in changes ? changes[index] : id));
 const savedMax = (edit: unknown, version = 1) => JSON.stringify({ version, values: { selected: "max", edits: { max: edit } } });
 
