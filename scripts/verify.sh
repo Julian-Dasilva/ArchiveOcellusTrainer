@@ -916,6 +916,7 @@ drive_loadouts() {
   fight_tick_at_least 1 120000 || { log "the max tier page never stepped to P4 tick 1"; return 1; }
   ab click "#loadout" >/dev/null || { log "Loadout was not clicked"; return 1; }
   ab wait --fn "document.getElementById('resume')?.checkVisibility() === true && document.getElementById('loadout_editor') !== null" --timeout 10000 >/dev/null || { log "Loadout did not pause the run and open the editor"; return 1; }
+  loadout_editor_fit >"$VERIFY_DIR/loadout-editor-fit.json" || { log "the editor fit was not measured"; return 1; }
   ab click "#loadout_editor [aria-label='Take ${EDITOR_SHOP_ITEM}']" >/dev/null || { log "the shop did not offer ${EDITOR_SHOP_ITEM}"; return 1; }
   ab --json eval "({ paused: document.getElementById('resume')?.checkVisibility() === true, preset: document.querySelector('#loadout_editor select')?.selectedOptions[0]?.text ?? null, shop: [...document.querySelectorAll('#loadout_editor [aria-label^=\"Take \"]')].map((entry) => entry.textContent) })" | json data.result >"$VERIFY_DIR/loadout-editor-draft.json"
   loaded="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
@@ -924,6 +925,25 @@ drive_loadouts() {
   fight_tick_at_least 1 120000 || { log "the edited max tier never stepped to P4 tick 1"; return 1; }
   probe "log().header.loadout" >"$VERIFY_DIR/loadout-editor-applied.json"
   ab --json errors | json data.errors >"$VERIFY_DIR/loadout-editor-page-errors.json" || { log "page error capture failed"; return 1; }
+}
+
+loadout_editor_fit() {
+  ab --json eval "(() => {
+    const panel = document.getElementById('right_panel');
+    const editor = document.getElementById('loadout_editor');
+    const box = editor.getBoundingClientRect();
+    const contentRight = box.right - editor.clientLeft - parseFloat(getComputedStyle(editor).paddingRight);
+    const slot = (label) => editor.querySelector('[aria-label=\"' + label + '\"]').getBoundingClientRect();
+    const bag = [...editor.querySelectorAll('[aria-label^=\"Inventory slot \"]')].map((element) => element.getBoundingClientRect());
+    return {
+      panel: { scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth },
+      editorPastSidebar: Math.round(box.right - document.getElementById('sidebar').getBoundingClientRect().right),
+      pastEditor: [...editor.querySelectorAll('*')].filter((element) => element.getBoundingClientRect().right > contentRight + 0.5).map((element) => element.getAttribute('aria-label') ?? element.tagName.toLowerCase()),
+      wornRow: ['Weapon', 'Chest', 'Offhand'].map((label) => ({ left: Math.round(slot(label).left), top: Math.round(slot(label).top) })),
+      inventoryColumns: new Set(bag.map(({ left }) => Math.round(left))).size,
+      inventoryRows: new Set(bag.map(({ top }) => Math.round(top))).size,
+    };
+  })()" | json data.result
 }
 
 drive_defence_floor() {
