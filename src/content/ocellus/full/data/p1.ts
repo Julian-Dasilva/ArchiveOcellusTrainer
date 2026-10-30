@@ -360,10 +360,10 @@ export const p1Sourced = {
     ocellusSim("data.ts:255"),
   ),
   walkOnAfterShout: selected(
-    8,
+    9,
     "inferred",
     "unscaled",
-    "P1.walkOnAfterShout",
+    "After the strike's \"Death... awaits...\" his first volley comes 9 ticks on: 11 of 11 strikes in fight logs L1, L3 to L8 (e.g. L1.txt \"Death... awaits...\" at P1 +139, anim 14806 at +148), and 2 of 2 in a 2026-10-30 raid log.",
     noWiki("the wiki's phase 1 text gives the order of the attacks but no tick count for this"),
     ocellusSim("data.ts:256"),
   ),

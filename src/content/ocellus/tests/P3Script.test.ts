@@ -7,7 +7,7 @@ import { S, startP3 } from "./p3run";
 const SWING = SEQ.p3MeleeBasic;
 const SLASH = SEQ.p3MeleeSlash;
 const PANIC = SEQ.p3ProjectileAll;
-const VINE_SHOUTS = ["The void... will take you...", "Await... the void..."];
+const VINE_SHOUTS = ["The void... will take you...", "Await... the void...", "Your panic... is futile..."];
 
 describe("phase 3 on the engine follows the recorded kill [K]", () => {
   let close: (() => void) | null = null;
@@ -181,6 +181,22 @@ describe("phase 3 on the engine follows the recorded kill [K]", () => {
     // Fight log L2, P = t276: 4325 with the spin, 4327 for its one saw at t279, 2 ticks before the cut.
     const spots = f.events().flatMap(([t, e]) => (e.kind === "boss-changed" && e.change.kind === "spotanim" && e.change.channel === "spin" ? [[t - P, e.change.id]] : []));
     expect(spots).toEqual([[0, 4325], [3, 4326], [6, 4326], [9, 4327]]);
+  });
+
+  test("a sever refuses protection prayers on the cut's tick only, and the next click puts Melee back", () => {
+    const f = open();
+    const P = S + 24;
+    f.tickTo(P + 3, f.stayInReach);
+    const melee = f.player().prayerController.findPrayerByName("Protect from Melee");
+    melee.toggle(f.player());
+    f.tickTo(P + 4, f.stayInReach);
+    // Fight log L6: severed at P3 +563, "can't use that prayer!" at +564, Protect from Melee back on every raider at +565.
+    melee.toggle(f.player());
+    f.tickTo(P + 5, f.stayInReach);
+    const refused = melee.isActive;
+    melee.toggle(f.player());
+    f.tickTo(P + 6, f.stayInReach);
+    expect({ severed: f.chat("Ocellus disrupts your concentration, severing your prayer!", P)[0], refused, back: melee.isActive }).toEqual({ severed: 4, refused: false, back: true });
   });
 
   test("each void bomb shows over you 5 ticks before it drops, then on its tile 2 before", () => {
