@@ -1,6 +1,6 @@
 import { Equipment, dressPlayer, loadoutIds, mapInventory } from "osrs-sdk";
 import type { CatalogLoadout } from "osrs-sdk";
-import { OCELLUS_LOADOUTS, OCELLUS_PRESETS, presetChoice, startingLoadout } from "../js/OcellusLoadout";
+import { OCELLUS_LOADOUTS, OCELLUS_PRESETS, dressOcellus, presetChoice, startingLoadout } from "../js/OcellusLoadout";
 import type { Tier } from "../js/OcellusTimings";
 import { TIERS } from "../js/OcellusTimings";
 import { startDrill } from "./drill";
@@ -201,6 +201,41 @@ test("weapon slice demonbane applies to Ocellus rather than every NPC", () => {
   const drill = startDrill();
   try {
     expect(drill.boss().demonbaneMultiplier).toBe(1);
+  } finally {
+    drill.dispose();
+  }
+});
+
+const CROSSBOW_AMMO: readonly (readonly [Tier, number, number])[] = [
+  ["max", 26374, 21944],
+  ["high", 21902, 9242],
+  ["mid", 21902, 9242],
+  ["low", 21902, 9242],
+  ["poor", 21902, 9242],
+];
+
+test.each(CROSSBOW_AMMO)("the %s tier fires its crossbow from the carried quiver", (tier, crossbowId, boltId) => {
+  const drill = startDrill();
+  try {
+    const player = drill.player();
+    dressOcellus(player, presetChoice(tier).loadout);
+    player.inventory.find((item) => item?.itemId === crossbowId)?.inventoryLeftClick(player);
+    const weapon = player.equipment.weapon;
+    if (!weapon) throw new Error("the tier has no weapon");
+    player.setAggro(drill.boss());
+    expect(player.equipment.ammo?.cacheItemId).toBe(11212);
+    expect(player.equipment.cape?.itemId).not.toBe(28955);
+    expect(player.attack()).toBe(true);
+    player.useSpecialAttack = true;
+    expect(player.attack()).toBe(true);
+    expect(player.currentStats.specialAttack).toBe(crossbowId === 26374 ? 25 : 40);
+    const quiver = player.inventory.find((item) => item?.itemId === 28955);
+    quiver?.inventoryLeftClick(player);
+    expect(player.equipment.cape?.itemId).toBe(28955);
+    expect(player.equipment.cape?.bonuses.attack.range).toBe(28);
+    expect(player.equipment.cape?.bonuses.other.rangedStrength).toBe(4);
+    expect(player.ammunitionFor(weapon)?.itemId).toBe(boltId);
+    expect(player.equipment.ammo?.cacheItemId).toBe(11212);
   } finally {
     drill.dispose();
   }
