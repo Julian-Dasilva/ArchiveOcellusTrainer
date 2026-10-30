@@ -32,6 +32,7 @@ jobs:
       - run: scripts/check-types.test.sh
       - run: scripts/release-notes.test.sh
       - run: scripts/verify/verdicts.test.sh
+      - run: node --test scripts/verify/loadouts.test.mjs
       - run: scripts/verify/parity.test.sh
       - run: scripts/verify/parity-harness.test.sh
       - run: scripts/verify/t2.test.sh
