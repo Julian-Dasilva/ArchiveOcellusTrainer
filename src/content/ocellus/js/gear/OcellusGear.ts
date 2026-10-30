@@ -3,6 +3,9 @@ import {
   AttackStyleTypes,
   Blowpipe,
   Chest,
+  DragonWarhammer,
+  DragonWarhammerCr,
+  SanguineScytheOfVitur,
   Helmet,
   ImageLoader,
   ItemName,
@@ -332,5 +335,25 @@ export class TonalzticsOfRalos extends RangedWeapon {
       thrown = true;
     }
     return thrown;
+  }
+}
+
+const SANGUINE_SCYTHE_IMAGE = new SanguineScytheOfVitur().inventoryImage;
+
+export class OcellusSanguineScythe extends OcellusScythe {
+  override get cacheItemId(): number { return 25739; }
+  override get itemName(): ItemName { return ItemName.SANGUINE_SCYTHE_OF_VITUR; }
+  override get inventoryImage(): string { return SANGUINE_SCYTHE_IMAGE; }
+}
+
+export class OcellusDragonWarhammer extends DragonWarhammer {
+  override attack(from: Unit, to: Unit, bonuses: AttackBonuses = {}, options: ProjectileOptions = {}): boolean {
+    return super.attack(from, to, { ...bonuses, gearMeleeMultiplier: (bonuses.gearMeleeMultiplier ?? 1) * inquisitorFactor(from.equipment) }, options);
+  }
+}
+
+export class OcellusDragonWarhammerCr extends DragonWarhammerCr {
+  override attack(from: Unit, to: Unit, bonuses: AttackBonuses = {}, options: ProjectileOptions = {}): boolean {
+    return super.attack(from, to, { ...bonuses, gearMeleeMultiplier: (bonuses.gearMeleeMultiplier ?? 1) * inquisitorFactor(from.equipment) }, options);
   }
 }

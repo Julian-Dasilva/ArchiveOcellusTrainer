@@ -49,7 +49,7 @@ export function LoadoutSection({ loadouts, clock, onApply, open, setOpen }: Load
             </p>
           )}
           <LoadoutEditor sim={OCELLUS_LOADOUTS} store={loadouts} onApply={onApply} choices={editorChoices} />
-          <small id="shop_not_simulated">{`Not simulated yet, so not stocked: ${NOT_STOCKED}`}</small>
+          {NOT_STOCKED !== "" && <small id="shop_not_simulated">{`Not simulated yet, so not stocked: ${NOT_STOCKED}`}</small>}
           <RuneScapeButton id="loadout_close" type="button" onClick={() => setOpen(false)}>
             Close
           </RuneScapeButton>

@@ -1,5 +1,6 @@
-import { AttackStyle, AttackStylesController, defineSimLoadouts, dressPlayer, remainingStock } from "osrs-sdk";
+import { Ammo, BlessedDizanasQuiver, AttackStyle, AttackStylesController, defineSimLoadouts, dressPlayer, remainingStock } from "osrs-sdk";
 import type { ActiveLoadout, CarriedItem, CatalogItem, CatalogLoadout, EquipmentSlot, Item, LoadoutIds, LoadoutStore, Player, Preset, PresetId } from "osrs-sdk";
+import { CACHE_ASSETS } from "osrs-sdk/asset-manifest";
 import type { SavedStorage } from "../../../browserStorage";
 import type { StartWeapon, Tier, TierItem, TierRecipe, TierSlot, TierStart, TierStarts } from "./OcellusTimings";
 import { OCELLUS_P4, TIERS } from "./OcellusTimings";
@@ -14,6 +15,9 @@ import {
   OcellusMasoriMaskF,
   OcellusNecklaceOfRupture,
   OcellusScythe,
+  OcellusSanguineScythe,
+  OcellusDragonWarhammer,
+  OcellusDragonWarhammerCr,
   OcellusTwistedBow,
   OcellusZaryteVambraces,
   TonalzticsOfRalos,
@@ -57,6 +61,9 @@ export const OCELLUS_LOADOUTS = defineSimLoadouts({
   items: [
     OcellusTwistedBow,
     OcellusScythe,
+    OcellusSanguineScythe,
+    OcellusDragonWarhammer,
+    OcellusDragonWarhammerCr,
     TonalzticsOfRalos,
     OcellusBlowpipe,
     OcellusMasoriMaskF,
@@ -70,7 +77,7 @@ export const OCELLUS_LOADOUTS = defineSimLoadouts({
   ],
   presets: TIERS.map((tier) => {
     const { label, loadout, starts } = OCELLUS_PRESETS[tier];
-    return { id: tier, label, revision: 1, loadout, startOptions: starts.map(({ weapon }) => optionId(tier, weapon)) };
+    return { id: tier, label, revision: tier === "raid" ? 1 : 2, loadout, startOptions: starts.map(({ weapon }) => optionId(tier, weapon)) };
   }),
   defaultPreset: "raid",
   supplyStock: ALLIANCE_SUPPLIES.flatMap(({ item, quantity }) => (item.simulation === "simulated" ? [{ id: item.id, quantity }] : [])),
@@ -166,7 +173,8 @@ function tierLoadout(store: LoadoutStore, storage: ActiveLoadout["storage"]): Ti
   return { tier, active: { preset, storage, source: "preset", loadout: preset.loadout, refusedEdit: [] }, overStock };
 }
 
-export type LoadoutEditing = "on" | "off";
+export const GEAR_SCOPES = ["raid", "tiers", "editor"] as const;
+export type GearScope = (typeof GEAR_SCOPES)[number];
 
 type Envelope = Readonly<Record<string, unknown>> & Readonly<{ values: Readonly<Record<string, unknown>> }>;
 
@@ -190,16 +198,16 @@ export class TierLoadouts {
   readonly #saved: SavedStorage;
   readonly #store: LoadoutStore;
   readonly #listeners = new Set<() => void>();
-  readonly editing: LoadoutEditing;
+  readonly scope: GearScope;
   #tier: Tier;
   #snapshot: TierLoadout;
 
-  constructor(saved: SavedStorage, tier: Tier, editing: LoadoutEditing) {
+  constructor(saved: SavedStorage, tier: Tier, scope: GearScope) {
     this.#saved = saved;
-    this.#tier = tier;
-    this.editing = editing;
-    this.#store = OCELLUS_LOADOUTS.store(editing === "on" ? { getItem: (key) => this.#read(key), setItem: (key, value) => this.#write(key, value) } : this.#presetOnlyStorage());
-    this.#store.select(tierPresetOf(tier).id);
+    this.scope = scope;
+    this.#tier = this.#offered(tier);
+    this.#store = OCELLUS_LOADOUTS.store(scope === "editor" ? { getItem: (key) => this.#read(key), setItem: (key, value) => this.#write(key, value) } : this.#presetOnlyStorage());
+    this.#store.select(tierPresetOf(this.#tier).id);
     this.#snapshot = this.#current();
   }
 
@@ -225,13 +233,17 @@ export class TierLoadouts {
   }
 
   select(id: PresetId): void {
-    this.#tier = parseTier(id);
-    this.#store.select(id);
+    this.#tier = this.#offered(parseTier(id));
+    this.#store.select(tierPresetOf(this.#tier).id);
     this.#changed();
   }
 
   selectTier(tier: Tier): void {
     this.select(tierPresetOf(tier).id);
+  }
+
+  #offered(tier: Tier): Tier {
+    return this.scope === "raid" ? "raid" : tier;
   }
 
   #unedited(): string {
@@ -271,6 +283,17 @@ const STANCES: Readonly<Record<typeof gear.scytheStance.value, AttackStyle>> = {
 
 export function dressOcellus(player: Player, loadout: CatalogLoadout): void {
   dressPlayer(player, loadout);
+  const held = [...Object.values(player.equipment), ...player.inventory];
+  const boltId = held.some((item) => item?.cacheItemId === CACHE_ASSETS.items.zaryteCrossbow.id)
+    ? gear.quiverAmmo.value.zaryteCrossbow
+    : gear.quiverAmmo.value.dragonCrossbow;
+  for (const item of held) {
+    if (!(item instanceof BlessedDizanasQuiver)) continue;
+    const ammo = OCELLUS_LOADOUTS.catalog.get(boltId)?.build();
+    if (!(ammo instanceof Ammo)) throw new Error(`item ${boltId} is not ammunition in the Ocellus catalog`);
+    item.storeAmmo(ammo);
+  }
+  player.equipmentChanged();
   AttackStylesController.controller.setWeaponAttackStyle(new OcellusScythe(), STANCES[gear.scytheStance.value]);
 }
 

@@ -7,7 +7,7 @@ if [[ -n "${CF_WEB_ANALYTICS_TOKEN:-}" ]]; then
   exit 1
 fi
 unset CF_WEB_ANALYTICS_TOKEN
-export ARCHIVE_LOADOUT=off
+export ARCHIVE_LOADOUT=raid
 
 if [[ -n "${NETLIFY_CACHE_DIR:-}" ]]; then
   cache_root="${NETLIFY_CACHE_DIR}/archive-ocellus"

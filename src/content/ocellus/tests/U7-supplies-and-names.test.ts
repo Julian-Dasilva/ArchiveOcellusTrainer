@@ -17,7 +17,7 @@ describe("U7 item names and supplies", () => {
     drill.dispose();
 
     expect(helmMenu).toEqual(["Equip Inquisitor's great helm", "Drop Inquisitor's great helm", "Examine Inquisitor's great helm"]);
-    expect(new Set(carried.slice(9))).toEqual(new Set(["Drink Super combat potion", "Drink Bastion Potion", "Drink Saradomin Brew", "Drink Super Restore"]));
+    expect(new Set(carried.slice(9))).toEqual(new Set(["Drink Super combat potion(4)", "Drink Ranging potion(4)", "Drink Saradomin Brew", "Drink Super Restore"]));
     expect(carried.slice(0, 9)).toEqual([
       "Equip Tonalztics of Ralos",
       "Equip Scythe of Vitur",

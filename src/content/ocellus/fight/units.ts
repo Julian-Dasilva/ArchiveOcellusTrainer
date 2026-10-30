@@ -104,6 +104,10 @@ function overheadIcon(kind: BossOverhead): HTMLImageElement | null {
 
 /** One of Ocellus's bodies. The fight script moves and animates it; it never acts on its own. */
 export class BossForm extends Mob {
+  override get demonbaneMultiplier(): number {
+    return this.form === "p1" || this.form === "p3" ? OCELLUS_P4.boss.demonbaneMultiplier.value : 0;
+  }
+
   overhead: BossOverhead | null = null;
   hidden = false;
   attackable = true;

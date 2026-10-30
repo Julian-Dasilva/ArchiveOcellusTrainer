@@ -341,8 +341,8 @@ describe("phase 3 on the engine follows the recorded kill [K]", () => {
     };
     expect([0, 1].map(carried)).toEqual([{ name: "Tonalztics of Ralos", doses: null }, { name: "Scythe of Vitur", doses: null }]);
     expect([9, 10, 11, 12, 13].map(carried)).toEqual([
-      { name: "Super combat potion", doses: 4 }, { name: "Bastion Potion", doses: 4 }, { name: "Saradomin Brew", doses: 4 },
-      { name: "Super Restore", doses: 3 }, { name: "Super combat potion", doses: 4 },
+      { name: "Super combat potion(4)", doses: 4 }, { name: "Ranging potion(4)", doses: 4 }, { name: "Saradomin Brew", doses: 4 },
+      { name: "Super Restore", doses: 3 }, { name: "Super combat potion(4)", doses: 4 },
     ]);
     const { currentStats: stats } = player;
     expect([stats.hitpoint, stats.specialAttack, stats.run, { attack: stats.attack, strength: stats.strength, defence: stats.defence, range: stats.range, magic: stats.magic }]).toEqual([

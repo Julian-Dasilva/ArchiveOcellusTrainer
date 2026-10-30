@@ -48,7 +48,6 @@ START_OPTIONS_QUERY="?seed=6&practice=1&drained=1"
 START_DEFAULT_WEAPON=20997
 START_DRAINED_DEFENCE=150
 TIER_QUERY="?seed=6&practice=1&tier=low&weapon=twistedBow"
-TIER_LOW_WORN='{"weapon":12926,"offhand":null,"helmet":null,"chest":null,"legs":null,"gloves":7462,"cape":21295,"necklace":null,"feet":null,"ring":null,"ammo":11212}'
 EDITOR_QUERY="?seed=6&practice=1&tier=max&weapon=ralos"
 EDITOR_SHOP_ITEM="Saradomin Brew"
 EDITOR_SHOP_ITEM_ID=6685
@@ -57,7 +56,7 @@ DEFENCE_FLOOR_QUERY="?seed=20&weapon=blowpipe"
 DEFENCE_FLOOR_STEPS="[250,176,150]"
 DEFENCE_FLOOR_CLICK_TICK=12
 SUPPLY_QUERY="?seed=1&weapon=blowpipe"
-SUPPLY_INVENTORY='[28922,22325,24419,24420,24421,22981,21295,29801,25485,12695,22461,6685,3024,12695,22461,6685,3024,6685,6685,6685,3024,6685,6685,6685,3024,6685,20997,3024]'
+SUPPLY_INVENTORY='[28922,22325,24419,24420,24421,22981,21295,29801,25485,12695,2444,6685,3024,12695,2444,6685,3024,6685,6685,6685,3024,6685,6685,6685,3024,6685,20997,3024]'
 SUPPLY_NAMED_SLOT=0
 SUPPLY_NAMED_MENU='["Equip Tonalztics of Ralos","Drop Tonalztics of Ralos","Examine Tonalztics of Ralos"]'
 SUPPLY_BREW_SLOT=11
@@ -853,7 +852,13 @@ glaives_landed() {
     --timeout 15000 >/dev/null
 }
 
+loadout_expectations() {
+  TIER_LOADOUT_EXPECTATIONS="$(node_modules/.bin/tsx scripts/verify/loadout-expectations.ts)" || return 1
+  export TIER_LOADOUT_EXPECTATIONS
+}
+
 drive_loadouts() {
+  loadout_expectations || return 1
   local slot box
   ab open "${URL}${LOADOUT_QUERY}" >/dev/null || return 1
   fight_tick_at_least 9 120000 || { log "the loadout drill never stepped to P4 tick 9"; return 1; }
@@ -916,6 +921,7 @@ drive_loadouts() {
   fight_tick_at_least 1 120000 || { log "the max tier page never stepped to P4 tick 1"; return 1; }
   ab click "#loadout" >/dev/null || { log "Loadout was not clicked"; return 1; }
   ab wait --fn "document.getElementById('resume')?.checkVisibility() === true && document.getElementById('loadout_editor') !== null" --timeout 10000 >/dev/null || { log "Loadout did not pause the run and open the editor"; return 1; }
+  loadout_editor_fit >"$VERIFY_DIR/loadout-editor-fit.json" || { log "the editor fit was not measured"; return 1; }
   ab click "#loadout_editor [aria-label='Take ${EDITOR_SHOP_ITEM}']" >/dev/null || { log "the shop did not offer ${EDITOR_SHOP_ITEM}"; return 1; }
   ab --json eval "({ paused: document.getElementById('resume')?.checkVisibility() === true, preset: document.querySelector('#loadout_editor select')?.selectedOptions[0]?.text ?? null, shop: [...document.querySelectorAll('#loadout_editor [aria-label^=\"Take \"]')].map((entry) => entry.textContent) })" | json data.result >"$VERIFY_DIR/loadout-editor-draft.json"
   loaded="$(ab --json eval "performance.timeOrigin" | json data.result)" || return 1
@@ -924,6 +930,25 @@ drive_loadouts() {
   fight_tick_at_least 1 120000 || { log "the edited max tier never stepped to P4 tick 1"; return 1; }
   probe "log().header.loadout" >"$VERIFY_DIR/loadout-editor-applied.json"
   ab --json errors | json data.errors >"$VERIFY_DIR/loadout-editor-page-errors.json" || { log "page error capture failed"; return 1; }
+}
+
+loadout_editor_fit() {
+  ab --json eval "(() => {
+    const panel = document.getElementById('right_panel');
+    const editor = document.getElementById('loadout_editor');
+    const box = editor.getBoundingClientRect();
+    const contentRight = box.right - editor.clientLeft - parseFloat(getComputedStyle(editor).paddingRight);
+    const slot = (label) => editor.querySelector('[aria-label=\"' + label + '\"]').getBoundingClientRect();
+    const bag = [...editor.querySelectorAll('[aria-label^=\"Inventory slot \"]')].map((element) => element.getBoundingClientRect());
+    return {
+      panel: { scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth },
+      editorPastSidebar: Math.round(box.right - document.getElementById('sidebar').getBoundingClientRect().right),
+      pastEditor: [...editor.querySelectorAll('*')].filter((element) => element.getBoundingClientRect().right > contentRight + 0.5).map((element) => element.getAttribute('aria-label') ?? element.tagName.toLowerCase()),
+      wornRow: ['Weapon', 'Chest', 'Offhand'].map((label) => ({ left: Math.round(slot(label).left), top: Math.round(slot(label).top) })),
+      inventoryColumns: new Set(bag.map(({ left }) => Math.round(left))).size,
+      inventoryRows: new Set(bag.map(({ top }) => Math.round(top))).size,
+    };
+  })()" | json data.result
 }
 
 drive_defence_floor() {
@@ -2566,6 +2591,7 @@ ci_verdict() {
 }
 
 judge_evidence() {
+  loadout_expectations || return 1
   local dir=$1 unit units=("${@:2}")
   [[ ${#units[@]} -gt 0 ]] || mapfile -t units < <(ls "$dir/units")
   for unit in "${units[@]}"; do

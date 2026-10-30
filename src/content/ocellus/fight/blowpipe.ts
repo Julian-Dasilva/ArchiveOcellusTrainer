@@ -1,4 +1,5 @@
 import { AttackStyle, AttackStylesController, Weapon } from "osrs-sdk";
+import { CACHE_ASSETS } from "osrs-sdk/asset-manifest";
 import type { CatalogLoadout, Player } from "osrs-sdk";
 import type { AmmunitionClass, StartWeapon, Tier } from "../js/OcellusTimings";
 import { OCELLUS_P4 } from "../js/OcellusTimings";
@@ -14,6 +15,8 @@ export const PHASE_RANGED_DEFENCE = {
 export function ammunitionAgainst(itemId: number | "TODO" | null | undefined): AmmunitionClass {
   const table = OCELLUS_P4.gear.ammunition.value;
   if (itemId === OCELLUS_P4.gear.items.tonalzticsOfRalos.itemId.value) return table.tonalzticsOfRalos;
+  if (itemId === CACHE_ASSETS.items.dragonCrossbow.id) return table.dragonCrossbow;
+  if (itemId === CACHE_ASSETS.items.zaryteCrossbow.id) return table.zaryteCrossbow;
   if (itemId === blowpipe.value.itemId) return blowpipe.value.ammunition;
   return table.twistedBow;
 }
