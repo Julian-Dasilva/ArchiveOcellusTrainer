@@ -234,13 +234,13 @@ describe("the full fight page", () => {
         starts: ["blowpipe Toxic blowpipe"],
         chosen: "blowpipe",
         leftOut:
-          "Not simulated yet, so left out: Emberlight, Amulet of blood fury, Dragon crossbow, Blessed Dizana's quiver, Scorching bow, Dragon warhammer",
+          null,
         worn: [12926, 13199, 7462, 21295],
       },
       raidShown: { tier: "raid", starts: ["twistedBow Twisted bow (Masori)", "blowpipe Toxic blowpipe (Masori)", "melee Scythe (Inquisitor's)"], chosen: "blowpipe", leftOut: null, worn: [12926, 27235, 26235, 28951] },
       maxStarts: ["twistedBow Twisted bow (Masori)", "blowpipe Toxic blowpipe (Masori)", "ralos Tonalztics of Ralos (Inquisitor's)"],
       maxChosen: "blowpipe",
-      maxLeftOut: "Not simulated yet, so left out: Zaryte crossbow, Blessed Dizana's quiver, Lightbearer, Sanguine scythe of Vitur",
+      maxLeftOut: null,
       assigned: ["http://localhost/?seed=7&weapon=ralos&phase=4&tier=max&drained=0&tiles=1&markers=0&skip=0&pattern=0&vine=1&practice=0"],
     });
   });
@@ -627,7 +627,7 @@ function fightRegion(): FightRegion {
 
 const LOADOUTS_KEY = "osrs-sdk:loadouts:archive-ocellus";
 const MAX_WORN = { ammo: 33595, cape: 21295, chest: 24420, feet: 31097, gloves: 22981, helmet: 24419, legs: 24421, necklace: 29801, offhand: 25818, ring: 25485, weapon: 28922 };
-const MAX_BAG = [null, 26235, null, 27235, 33639, 27238, 27241, null, 12926, 20997, 2444, 2444, null, null, 23685, 12695, null, null, 3024, 3024, 6685, 6685, 3024, 3024, 6685, 6685, 10925, 27281];
+const MAX_BAG = [26374, 26235, 28955, 27235, 33639, 27238, 27241, 25975, 12926, 20997, 2444, 2444, 25739, null, 23685, 12695, null, null, 3024, 3024, 6685, 6685, 3024, 3024, 6685, 6685, 10925, 27281];
 const MAX_STARTS = ["Twisted bow (Masori)", "Toxic blowpipe (Masori)", "Tonalztics of Ralos (Inquisitor's)"];
 const RAID_BAG = [28922, 22325, 24419, 24420, 24421, 22981, 21295, 29801, 25485, 12695, 2444, 6685, 3024, 12695, 2444, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 6685, 6685, 3024, 6685, 12926, 3024];
 const RAID_STARTS = ["Twisted bow (Masori)", "Toxic blowpipe (Masori)", "Scythe (Inquisitor's)"];
@@ -673,9 +673,9 @@ describe("the loadout editor", () => {
       before: "Max",
       marked: "Max (edited)",
       assigned: ["http://localhost/?seed=1&tier=max&weapon=ralos&phase=4&drained=0&tiles=1&markers=0&skip=0&pattern=0&vine=1&practice=0"],
-      stored: { version: 1, values: { selected: "max", edits: { max: { presetRevision: 1, loadout: { equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) } } } } },
-      bag: withBag({ 0: 6685 }),
-      header: { preset: "max", edited: true, equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) },
+      stored: { version: 1, values: { selected: "max", edits: { max: { presetRevision: 2, loadout: { equipment: MAX_WORN, inventory: withBag({ 13: 6685 }) } } } } },
+      bag: withBag({ 13: 6685 }),
+      header: { preset: "max", edited: true, equipment: MAX_WORN, inventory: withBag({ 13: 6685 }) },
     });
   });
 
@@ -683,13 +683,13 @@ describe("the loadout editor", () => {
     {
       name: "guard: a build with ARCHIVE_LOADOUT=editor offers the tiers and Loadout, and starts on the saved edit",
       scope: "editor",
-      edit: { equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) },
-      shown: { picker: true, button: true, note: null, starts: MAX_STARTS, start: "ralos", bag: withBag({ 0: 6685 }), preset: "max", edited: true },
+      edit: { equipment: MAX_WORN, inventory: withBag({ 13: 6685 }) },
+      shown: { picker: true, button: true, note: null, starts: MAX_STARTS, start: "ralos", bag: withBag({ 13: 6685 }), preset: "max", edited: true },
     },
     {
       name: "a build with ARCHIVE_LOADOUT=tiers has no Loadout button and starts on the tier's preset",
       scope: "tiers",
-      edit: { equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) },
+      edit: { equipment: MAX_WORN, inventory: withBag({ 13: 6685 }) },
       shown: { picker: true, button: false, note: null, starts: MAX_STARTS, start: "ralos", bag: MAX_BAG, preset: "max", edited: false },
     },
     {
@@ -701,11 +701,11 @@ describe("the loadout editor", () => {
     {
       name: "a build with ARCHIVE_LOADOUT=raid has no Tier picker, ignores tier= and the stored tier, and starts on the Raid twisted bow",
       scope: "raid",
-      edit: { equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) },
+      edit: { equipment: MAX_WORN, inventory: withBag({ 13: 6685 }) },
       shown: { picker: false, button: false, note: null, starts: RAID_STARTS, start: "twistedBow", bag: RAID_BAG, preset: "raid", edited: false },
     },
   ])("$name, keeping the saved edit stored", ({ scope, edit, shown }) => {
-    const raw = savedMax({ presetRevision: 1, loadout: edit });
+    const raw = savedMax({ presetRevision: 2, loadout: edit });
     localStorage.setItem(LOADOUTS_KEY, raw);
     vi.stubEnv("ARCHIVE_LOADOUT", scope);
     try {
@@ -737,7 +737,7 @@ describe("the loadout editor", () => {
     { row: "more supplies than the tier and the shop allow", edit: { equipment: MAX_WORN, inventory: withBag({ 0: 6685, 2: 6685, 7: 6685, 10: 6685, 11: 6685, 12: 6685, 13: 6685 }) }, reason: "Your Max edit carries more than the supplies allow (Saradomin Brew 11 of 10)" },
     { row: "more of a supply the shop does not stock than the tier carries", edit: { equipment: MAX_WORN, inventory: Array<number>(28).fill(12695) }, reason: "Your Max edit carries more than the supplies allow (Super combat potion(4) 28 of 1)" },
   ])("a saved edit with $row starts on the preset, names why with Reset, and stays stored until Reset", ({ edit, reason }) => {
-    const raw = savedMax({ presetRevision: 1, loadout: edit });
+    const raw = savedMax({ presetRevision: 2, loadout: edit });
     localStorage.setItem(LOADOUTS_KEY, raw);
     const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
     const bag = dressedBag();
@@ -762,7 +762,7 @@ describe("the loadout editor", () => {
   });
 
   test("an edit of an older tier revision still starts the run, says the tier changed, and Reset returns to the tier", () => {
-    localStorage.setItem(LOADOUTS_KEY, savedMax({ presetRevision: 0, loadout: { equipment: MAX_WORN, inventory: withBag({ 0: 6685 }) } }));
+    localStorage.setItem(LOADOUTS_KEY, savedMax({ presetRevision: 0, loadout: { equipment: MAX_WORN, inventory: withBag({ 13: 6685 }) } }));
     const page = loadFullFight("/?seed=1&tier=max&weapon=ralos");
     const bag = dressedBag();
     page.click("loadout");
@@ -772,7 +772,7 @@ describe("the loadout editor", () => {
     page.close();
 
     expect({ bag, notices, after }).toEqual({
-      bag: withBag({ 0: 6685 }),
+      bag: withBag({ 13: 6685 }),
       notices: ["This tier changed since you edited it"],
       after: { edits: {}, notices: [], option: "Max" },
     });
@@ -832,7 +832,7 @@ describe("the loadout editor", () => {
       expect({ bag, notices, restarted: { edited: header?.edited, bag: header?.inventory } }).toEqual({
         bag: MAX_BAG,
         notices: ["This browser is not saving data, so edits won't be kept"],
-        restarted: { edited: true, bag: withBag({ 0: 6685 }) },
+        restarted: { edited: true, bag: withBag({ 13: 6685 }) },
       });
     } finally {
       if (own) Object.defineProperty(window, "localStorage", own);
@@ -863,7 +863,7 @@ describe("the loadout editor", () => {
         select.value = tier;
         select.dispatchEvent(new Event("change", { bubbles: true }));
       });
-    const firstSlot = () => document.querySelector('#loadout_editor [aria-label="Inventory slot 1"] img')?.getAttribute("alt") ?? null;
+    const firstSlot = () => document.querySelector('#loadout_editor [aria-label="Inventory slot 14"] img')?.getAttribute("alt") ?? null;
     choose("high");
     const high = { option: presetOption(), first: firstSlot() };
     choose("max");
@@ -906,7 +906,7 @@ describe("the loadout editor", () => {
         untouched: raw,
         saved: {
           version: 1,
-          values: { selected: "raid", note: "kept", edits: { high: { presetRevision: 1, loadout: expect.objectContaining({ inventory: expect.arrayContaining([6685]) }) } } },
+          values: { selected: "raid", note: "kept", edits: { high: { presetRevision: 2, loadout: expect.objectContaining({ inventory: expect.arrayContaining([6685]) }) } } },
           extension: "kept",
         },
       });
@@ -918,7 +918,7 @@ describe("the loadout editor", () => {
 
   test("Start with lists only the tier's starts the edit can make, and none means the run starts as worn", () => {
     const listed = (edit: unknown) => {
-      localStorage.setItem(LOADOUTS_KEY, savedMax({ presetRevision: 1, loadout: edit }));
+      localStorage.setItem(LOADOUTS_KEY, savedMax({ presetRevision: 2, loadout: edit }));
       const page = loadFullFight("/?seed=1&tier=max&weapon=twistedBow");
       const select = page.element("start_weapon");
       const shown = {

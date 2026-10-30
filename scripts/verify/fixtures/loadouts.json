@@ -1,0 +1,620 @@
+{
+  "source": "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/actions/runs/41118078313",
+  "env": {
+    "LOADOUT_RANGED_WORN": "{\"weapon\":12926,\"offhand\":null,\"helmet\":27235,\"chest\":27238,\"legs\":27241,\"gloves\":26235,\"cape\":28951,\"necklace\":33639,\"feet\":31097,\"ring\":28310,\"ammo\":11212}",
+    "LOADOUT_MELEE_WORN": "{\"weapon\":22325,\"offhand\":null,\"helmet\":24419,\"chest\":24420,\"legs\":24421,\"gloves\":22981,\"cape\":21295,\"necklace\":29801,\"feet\":31097,\"ring\":25485,\"ammo\":11212}",
+    "LOADOUT_DIVISION_DRAIN": "37",
+    "EXPLOSION_DAMAGE_REDUCTION_PERCENT": "60",
+    "LOADOUT_TRAINER_ICONS": "{\"24419\":\"27x30\",\"24420\":\"32x24\",\"24421\":\"16x31\",\"26235\":\"30x22\",\"27235\":\"19x27\",\"27238\":\"30x23\",\"27241\":\"13x26\",\"28922\":\"31x28\"}",
+    "START_DEFAULT_WEAPON": "20997",
+    "START_DRAINED_DEFENCE": "150",
+    "TIER_LOW_WORN": "{\"weapon\":12926,\"offhand\":null,\"helmet\":null,\"chest\":null,\"legs\":null,\"gloves\":7462,\"cape\":21295,\"necklace\":null,\"feet\":null,\"ring\":null,\"ammo\":11212}",
+    "EDITOR_SHOP_ITEM": "Saradomin Brew",
+    "EDITOR_SHOP_ITEM_ID": "6685",
+    "TIER_LOADOUT_EXPECTATIONS": "{\"low\":{\"worn\":{\"weapon\":12926,\"offhand\":null,\"helmet\":null,\"chest\":null,\"legs\":null,\"gloves\":7462,\"cape\":21295,\"necklace\":24780,\"feet\":null,\"ring\":null,\"ammo\":11212},\"starts\":[\"blowpipe\"],\"leftOut\":\"Not simulated yet, so left out: Ghommal's avernic defender 6, Magma helm, Eclipse Moon chestplate, Eclipse Moon tassets, Dragon boots, Berserker ring (i), Divine rune pouch, Necklace of anguish (or), Twisted buckler, Book of the Dead\"},\"maxInventory\":[26374,26235,28955,27235,33639,27238,27241,25975,12926,20997,2444,2444,25739,null,23685,12695,null,null,3024,3024,6685,6685,3024,3024,6685,6685,10925,null]}"
+  },
+  "captures": {
+    "loadout-before.json": {
+      "boss": {
+        "defence": 250,
+        "hp": 1313,
+        "maxHp": 5250,
+        "npcId": 16677,
+        "visible": true
+      },
+      "player": {
+        "equipped": {
+          "ammo": 11212,
+          "cape": 28951,
+          "chest": 27238,
+          "feet": 31097,
+          "gloves": 26235,
+          "helmet": 27235,
+          "legs": 27241,
+          "necklace": 33639,
+          "offhand": null,
+          "ring": 28310,
+          "weapon": 12926
+        },
+        "inventory": [
+          28922,
+          22325,
+          24419,
+          24420,
+          24421,
+          22981,
+          21295,
+          29801,
+          25485,
+          12695,
+          2444,
+          6685,
+          3024,
+          12695,
+          2444,
+          6685,
+          3024,
+          6685,
+          6685,
+          6685,
+          3024,
+          6685,
+          6685,
+          6685,
+          3024,
+          6685,
+          20997,
+          3024
+        ],
+        "specialEnergy": 100
+      },
+      "run": {
+        "kind": "running",
+        "phase": {
+          "boss": "present-out-of-melee-reach",
+          "cycle": 1,
+          "overhead": "deflect-melee",
+          "stage": "inner-void"
+        },
+        "tick": 9
+      }
+    },
+    "loadout-after.json": {
+      "boss": {
+        "defence": 250,
+        "hp": 1313,
+        "maxHp": 5250,
+        "npcId": 16677,
+        "visible": true
+      },
+      "player": {
+        "equipped": {
+          "ammo": 11212,
+          "cape": 21295,
+          "chest": 24420,
+          "feet": 31097,
+          "gloves": 22981,
+          "helmet": 24419,
+          "legs": 24421,
+          "necklace": 29801,
+          "offhand": null,
+          "ring": 25485,
+          "weapon": 22325
+        },
+        "inventory": [
+          28922,
+          12926,
+          27235,
+          27238,
+          27241,
+          26235,
+          28951,
+          33639,
+          28310,
+          12695,
+          2444,
+          6685,
+          3024,
+          12695,
+          2444,
+          6685,
+          3024,
+          6685,
+          6685,
+          6685,
+          3024,
+          6685,
+          6685,
+          6685,
+          3024,
+          6685,
+          20997,
+          3024
+        ],
+        "specialEnergy": 100
+      },
+      "run": {
+        "kind": "running",
+        "phase": {
+          "boss": "present-out-of-melee-reach",
+          "cycle": 1,
+          "overhead": "deflect-melee",
+          "stage": "inner-void"
+        },
+        "tick": 22
+      }
+    },
+    "loadout-spec.json": {
+      "boss": {
+        "defence": 250,
+        "hp": 1313,
+        "maxHp": 5250,
+        "npcId": 16677,
+        "visible": true
+      },
+      "player": {
+        "equipped": {
+          "ammo": 11212,
+          "cape": 21295,
+          "chest": 24420,
+          "feet": 31097,
+          "gloves": 22981,
+          "helmet": 24419,
+          "legs": 24421,
+          "necklace": 29801,
+          "offhand": null,
+          "ring": 25485,
+          "weapon": 28922
+        },
+        "inventory": [
+          22325,
+          12926,
+          27235,
+          27238,
+          27241,
+          26235,
+          28951,
+          33639,
+          28310,
+          12695,
+          2444,
+          6685,
+          3024,
+          12695,
+          2444,
+          6685,
+          3024,
+          6685,
+          6685,
+          6685,
+          3024,
+          6685,
+          6685,
+          6685,
+          3024,
+          6685,
+          20997,
+          3024
+        ],
+        "specialEnergy": 50
+      },
+      "run": {
+        "kind": "running",
+        "phase": {
+          "boss": "present-out-of-melee-reach",
+          "cycle": 1,
+          "overhead": "deflect-melee",
+          "stage": "inner-void"
+        },
+        "tick": 28
+      }
+    },
+    "loadout-selector.json": {
+      "boss": {
+        "defence": 250,
+        "hp": 1313,
+        "maxHp": 5250,
+        "npcId": 16677,
+        "visible": false
+      },
+      "player": {
+        "equipped": {
+          "ammo": 11212,
+          "cape": 21295,
+          "chest": 24420,
+          "feet": 31097,
+          "gloves": 22981,
+          "helmet": 24419,
+          "legs": 24421,
+          "necklace": 29801,
+          "offhand": null,
+          "ring": 25485,
+          "weapon": 22325
+        },
+        "inventory": [
+          28922,
+          20997,
+          27235,
+          27238,
+          27241,
+          26235,
+          28951,
+          33639,
+          28310,
+          12695,
+          2444,
+          6685,
+          3024,
+          12695,
+          2444,
+          6685,
+          3024,
+          6685,
+          6685,
+          6685,
+          3024,
+          6685,
+          6685,
+          6685,
+          3024,
+          6685,
+          12926,
+          3024
+        ],
+        "specialEnergy": 100
+      },
+      "run": {
+        "kind": "running",
+        "phase": {
+          "boss": "hidden",
+          "overhead": null,
+          "stage": "lead-in"
+        },
+        "tick": 1
+      }
+    },
+    "loadout-start-options.json": {
+      "boss": {
+        "defence": 150,
+        "hp": 1313,
+        "maxHp": 5250,
+        "npcId": 16677,
+        "visible": false
+      },
+      "player": {
+        "equipped": {
+          "ammo": 11212,
+          "cape": 28951,
+          "chest": 27238,
+          "feet": 31097,
+          "gloves": 26235,
+          "helmet": 27235,
+          "legs": 27241,
+          "necklace": 33639,
+          "offhand": null,
+          "ring": 28310,
+          "weapon": 20997
+        },
+        "inventory": [
+          28922,
+          22325,
+          24419,
+          24420,
+          24421,
+          22981,
+          21295,
+          29801,
+          25485,
+          12695,
+          2444,
+          6685,
+          3024,
+          12695,
+          2444,
+          6685,
+          3024,
+          6685,
+          6685,
+          6685,
+          3024,
+          6685,
+          6685,
+          6685,
+          3024,
+          6685,
+          12926,
+          3024
+        ],
+        "specialEnergy": 100
+      },
+      "run": {
+        "kind": "running",
+        "phase": {
+          "boss": "hidden",
+          "overhead": null,
+          "stage": "lead-in"
+        },
+        "tick": 1
+      }
+    },
+    "icons.json": {
+      "2444": {
+        "path": "/818f84f1313e1b95513f.png",
+        "size": "21x30"
+      },
+      "3024": {
+        "path": "/25999282f61594e19650.png",
+        "size": "21x30"
+      },
+      "6685": {
+        "path": "/a576a0f0be7654477a6a.png",
+        "size": "21x30"
+      },
+      "11212": {
+        "path": "/28cf0a2a68f651babc1a.png",
+        "size": "27x29"
+      },
+      "12695": {
+        "path": "/8fcc0e9f8e481a8e2bbb.png",
+        "size": "21x30"
+      },
+      "12926": {
+        "path": "/8c5cdb0e15f1a0d457b5.png",
+        "size": "29x28"
+      },
+      "20997": {
+        "path": "/b2079f07ece4024ef387.png",
+        "size": "29x30"
+      },
+      "21295": {
+        "path": "/727de56aa689bbba637d.png",
+        "size": "28x29"
+      },
+      "22325": {
+        "path": "/670ddc4f152a60d91516.png",
+        "size": "30x27"
+      },
+      "22981": {
+        "path": "/0865ae07961873a2ceb3.png",
+        "size": "28x26"
+      },
+      "24419": {
+        "path": "/osrs-assets/item-icons/24419.png",
+        "size": "27x30"
+      },
+      "24420": {
+        "path": "/osrs-assets/item-icons/24420.png",
+        "size": "32x24"
+      },
+      "24421": {
+        "path": "/osrs-assets/item-icons/24421.png",
+        "size": "16x31"
+      },
+      "25485": {
+        "path": "/e15c2dcd7da909808905.png",
+        "size": "22x31"
+      },
+      "26235": {
+        "path": "/osrs-assets/item-icons/26235.png",
+        "size": "30x22"
+      },
+      "27235": {
+        "path": "/osrs-assets/item-icons/27235.png",
+        "size": "19x27"
+      },
+      "27238": {
+        "path": "/osrs-assets/item-icons/27238.png",
+        "size": "30x23"
+      },
+      "27241": {
+        "path": "/osrs-assets/item-icons/27241.png",
+        "size": "13x26"
+      },
+      "28310": {
+        "path": "/458471ae38ecdb2321b4.png",
+        "size": "26x30"
+      },
+      "28922": {
+        "path": "/osrs-assets/item-icons/28922.png",
+        "size": "31x28"
+      },
+      "28951": {
+        "path": "/1d7154d5998b78d5ff03.png",
+        "size": "28x28"
+      },
+      "29801": {
+        "path": "/47d9dbb3595cd1eed6b4.png",
+        "size": "25x26"
+      },
+      "31097": {
+        "path": "/0df28a5ada37f11b11de.png",
+        "size": "31x25"
+      },
+      "33639": {
+        "path": "/0bcd207f10faf5eeac2d.png",
+        "size": "25x25"
+      }
+    },
+    "loadout-tier.json": {
+      "boss": {
+        "defence": 250,
+        "hp": 1313,
+        "maxHp": 5250,
+        "npcId": 16677,
+        "visible": false
+      },
+      "player": {
+        "equipped": {
+          "ammo": 11212,
+          "cape": 21295,
+          "chest": null,
+          "feet": null,
+          "gloves": 7462,
+          "helmet": null,
+          "legs": null,
+          "necklace": 24780,
+          "offhand": null,
+          "ring": null,
+          "weapon": 12926
+        },
+        "inventory": [
+          21902,
+          null,
+          28955,
+          null,
+          null,
+          null,
+          null,
+          null,
+          29591,
+          29589,
+          12695,
+          12695,
+          13576,
+          null,
+          2444,
+          2444,
+          null,
+          null,
+          3024,
+          3024,
+          6685,
+          6685,
+          3024,
+          3024,
+          6685,
+          6685,
+          3024,
+          10925
+        ],
+        "specialEnergy": 100
+      },
+      "run": {
+        "kind": "running",
+        "phase": {
+          "boss": "hidden",
+          "overhead": null,
+          "stage": "lead-in"
+        },
+        "tick": 1
+      }
+    },
+    "loadout-tier-panel.json": {
+      "leftOut": "Not simulated yet, so left out: Ghommal's avernic defender 6, Magma helm, Eclipse Moon chestplate, Eclipse Moon tassets, Dragon boots, Berserker ring (i), Divine rune pouch, Necklace of anguish (or), Twisted buckler, Book of the Dead",
+      "starts": [
+        "blowpipe"
+      ],
+      "tier": "low"
+    },
+    "loadout-editor-fit.json": {
+      "editorPastSidebar": 0,
+      "inventoryColumns": 4,
+      "inventoryRows": 7,
+      "panel": {
+        "clientWidth": 225,
+        "scrollWidth": 225
+      },
+      "pastEditor": [],
+      "wornRow": [
+        {
+          "left": 1079,
+          "top": 501
+        },
+        {
+          "left": 1135,
+          "top": 501
+        },
+        {
+          "left": 1190,
+          "top": 501
+        }
+      ]
+    },
+    "loadout-editor-draft.json": {
+      "paused": true,
+      "preset": "Max (edited)",
+      "shop": [
+        "Alliance log1 left",
+        "Leftovers1 left",
+        "Saradomin Brew5 left",
+        "Super Restore4 left",
+        "Prayer potion(4)4 left",
+        "Prayer potion(2)1 left",
+        "Ranging potion(2)1 left",
+        "Super combat potion1 left",
+        "Manta ray10 left",
+        "Halibut5 left",
+        "Giant krill10 left"
+      ]
+    },
+    "loadout-editor-applied.json": {
+      "edited": true,
+      "equipment": {
+        "ammo": 33595,
+        "cape": 21295,
+        "chest": 24420,
+        "feet": 31097,
+        "gloves": null,
+        "helmet": 24419,
+        "legs": 24421,
+        "necklace": 29801,
+        "offhand": null,
+        "ring": 25485,
+        "weapon": 28922
+      },
+      "inventory": [
+        26374,
+        26235,
+        28955,
+        27235,
+        33639,
+        27238,
+        27241,
+        25975,
+        12926,
+        20997,
+        2444,
+        2444,
+        25739,
+        6685,
+        23685,
+        12695,
+        null,
+        null,
+        3024,
+        3024,
+        6685,
+        6685,
+        3024,
+        3024,
+        6685,
+        6685,
+        10925,
+        null
+      ],
+      "preset": "max"
+    },
+    "loadout-spec-log.json": {
+      "rows": [
+        {
+          "events": [
+            {
+              "at": 28,
+              "kind": "player-hit-judged",
+              "outcome": "reduced",
+              "requested": 1,
+              "style": "ranged"
+            },
+            {
+              "at": 28,
+              "kind": "player-hit-judged",
+              "outcome": "reduced",
+              "requested": 0,
+              "style": "ranged"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

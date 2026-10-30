@@ -38,7 +38,7 @@
     },
     {
       "test": "src/content/ocellus/tests/OcellusLoadouts.test.ts::Ocellus loadouts > offer the raid preset by default and the five gear tiers, each holding exactly the tier's items the sim can build",
-      "reason": "TIER_IDS now includes the armour and utility items in their existing recipe slots. The base intentionally filters those unsupported items out."
+      "reason": "TIER_IDS now includes every supported weapon, accessory, armour and utility item in its recipe slot. The base intentionally filters those unsupported items out."
     }
   ]
 }
