@@ -7,9 +7,9 @@ const WEB_ANALYTICS_TOKEN = process.env.CF_WEB_ANALYTICS_TOKEN ?? "";
 if (WEB_ANALYTICS_TOKEN !== "" && !/^[0-9a-f]{32}$/.test(WEB_ANALYTICS_TOKEN)) {
   throw new Error("CF_WEB_ANALYTICS_TOKEN must be the 32 hex digit Web Analytics site token");
 }
-const LOADOUT_EDITOR = process.env.ARCHIVE_LOADOUT ?? "on";
-if (LOADOUT_EDITOR !== "on" && LOADOUT_EDITOR !== "off") {
-  throw new Error("ARCHIVE_LOADOUT must be on or off");
+const GEAR_SCOPE = process.env.ARCHIVE_LOADOUT ?? "editor";
+if (!["raid", "tiers", "editor"].includes(GEAR_SCOPE)) {
+  throw new Error("ARCHIVE_LOADOUT must be raid, tiers or editor");
 }
 
 module.exports = {
@@ -37,7 +37,7 @@ module.exports = {
     },
   },
   plugins: [
-    new DefinePlugin({ "process.env.CF_WEB_ANALYTICS_TOKEN": JSON.stringify(WEB_ANALYTICS_TOKEN), "process.env.ARCHIVE_LOADOUT": JSON.stringify(LOADOUT_EDITOR) }),
+    new DefinePlugin({ "process.env.CF_WEB_ANALYTICS_TOKEN": JSON.stringify(WEB_ANALYTICS_TOKEN), "process.env.ARCHIVE_LOADOUT": JSON.stringify(GEAR_SCOPE) }),
     new HtmlWebpackPlugin({ template: "src/index.html", inject: "body", scriptLoading: "blocking" }),
     new CopyPlugin({
       patterns: [

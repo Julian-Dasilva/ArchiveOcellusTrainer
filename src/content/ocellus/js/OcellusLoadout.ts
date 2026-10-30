@@ -166,7 +166,9 @@ function tierLoadout(store: LoadoutStore, storage: ActiveLoadout["storage"]): Ti
   return { tier, active: { preset, storage, source: "preset", loadout: preset.loadout, refusedEdit: [] }, overStock };
 }
 
-export type LoadoutEditing = "on" | "off";
+/** How much of the gear choice a build offers, each scope adding to the one before: the Raid gear alone, then the tiers, then the Loadout editor. */
+export const GEAR_SCOPES = ["raid", "tiers", "editor"] as const;
+export type GearScope = (typeof GEAR_SCOPES)[number];
 
 type Envelope = Readonly<Record<string, unknown>> & Readonly<{ values: Readonly<Record<string, unknown>> }>;
 
@@ -190,16 +192,16 @@ export class TierLoadouts {
   readonly #saved: SavedStorage;
   readonly #store: LoadoutStore;
   readonly #listeners = new Set<() => void>();
-  readonly editing: LoadoutEditing;
+  readonly scope: GearScope;
   #tier: Tier;
   #snapshot: TierLoadout;
 
-  constructor(saved: SavedStorage, tier: Tier, editing: LoadoutEditing) {
+  constructor(saved: SavedStorage, tier: Tier, scope: GearScope) {
     this.#saved = saved;
-    this.#tier = tier;
-    this.editing = editing;
-    this.#store = OCELLUS_LOADOUTS.store(editing === "on" ? { getItem: (key) => this.#read(key), setItem: (key, value) => this.#write(key, value) } : this.#presetOnlyStorage());
-    this.#store.select(tierPresetOf(tier).id);
+    this.scope = scope;
+    this.#tier = this.#offered(tier);
+    this.#store = OCELLUS_LOADOUTS.store(scope === "editor" ? { getItem: (key) => this.#read(key), setItem: (key, value) => this.#write(key, value) } : this.#presetOnlyStorage());
+    this.#store.select(tierPresetOf(this.#tier).id);
     this.#snapshot = this.#current();
   }
 
@@ -225,13 +227,17 @@ export class TierLoadouts {
   }
 
   select(id: PresetId): void {
-    this.#tier = parseTier(id);
-    this.#store.select(id);
+    this.#tier = this.#offered(parseTier(id));
+    this.#store.select(tierPresetOf(this.#tier).id);
     this.#changed();
   }
 
   selectTier(tier: Tier): void {
     this.select(tierPresetOf(tier).id);
+  }
+
+  #offered(tier: Tier): Tier {
+    return this.scope === "raid" ? "raid" : tier;
   }
 
   #unedited(): string {
