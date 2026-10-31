@@ -8,7 +8,7 @@ import { CHANGELOG } from "../content/ocellus/changelog";
 import type { ReleaseVersion } from "../releases";
 import { releaseDate } from "../releases";
 import { perfDataAllowed, setPerfDataAllowed } from "../telemetry/perfTelemetry";
-import { CONTRIBUTOR, CREDIT_LINE, MAKER, MAKER_LINKS } from "./credits";
+import { CONTRIBUTOR, CREDIT_LINE, MAKER, MAKER_LINKS, REPOSITORY_URL } from "./credits";
 
 const [LATEST_RELEASE] = CHANGELOG;
 
@@ -221,6 +221,7 @@ function About() {
             <ul>{notes.map((note) => <li key={note}>{note}</li>)}</ul>
           </article>
         ))}
+        <p><a href={`${REPOSITORY_URL}/releases`} target="_blank" rel="noopener noreferrer">Older releases</a></p>
         <button id="whats_new_close" type="button" onClick={hide}>Close</button>
       </section>
     </div>
