@@ -4,6 +4,8 @@ set -euo pipefail
 OSRS_SDK_REPO="${OSRS_SDK_REPO:-https://github.com/Julian-Dasilva/osrs-sdk.git}"
 OSRS_SDK_COMMIT="${OSRS_SDK_COMMIT:-9995966c094c4cd18ab8b05038c9890ab95a189f}"
 OSRS_SDK_PACKS="${OSRS_SDK_PACKS:-}"
+CACHE_ROOT="${NETLIFY_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/archive-ocellus"
+export NODE_COMPILE_CACHE="${NODE_COMPILE_CACHE:-${CACHE_ROOT}/node-compile-cache}"
 PACKAGES=(osrs-sdk osrs-sdk-assets osrs-sdk-react)
 PACKS=('osrs-sdk-[0-9]*.tgz' 'osrs-sdk-assets-*.tgz' 'osrs-sdk-react-*.tgz')
 
@@ -61,13 +63,21 @@ if [[ "${1:-}" == --check ]]; then
   exit
 fi
 
+cached_packs="${CACHE_ROOT}/sdk-packs/${OSRS_SDK_COMMIT}"
 if [[ -n "${OSRS_SDK_PACKS}" ]] && packs_at_pin "${OSRS_SDK_PACKS}"; then
   packs="${OSRS_SDK_PACKS}"
   echo "install-beta-sdk: using prebuilt packs from ${packs}"
+elif [[ -d "${cached_packs}" ]] && packs_at_pin "${cached_packs}"; then
+  packs="${cached_packs}"
+  echo "install-beta-sdk: using cached packs from ${packs}"
 else
-  work="$(mktemp -d)"
+  mkdir -p "${CACHE_ROOT}/sdk-packs"
+  work="$(mktemp -d "${CACHE_ROOT}/sdk-packs/.build.XXXXXX")"
+  trap 'rm -rf "${work}"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
   packs="${work}/packs"
-  mkdir -p "${packs}"
+  mkdir "${packs}"
   echo "install-beta-sdk: building ${OSRS_SDK_REPO} at ${OSRS_SDK_COMMIT}"
   git init --quiet "${work}/osrs-sdk"
   git -C "${work}/osrs-sdk" fetch --quiet --depth 1 "${OSRS_SDK_REPO}" "${OSRS_SDK_COMMIT}"
@@ -82,6 +92,17 @@ else
     npm pack --workspace osrs-sdk-assets --pack-destination "${packs}" --silent
     npm pack --workspace osrs-sdk-react --pack-destination "${packs}" --silent
   )
+  packs_at_pin "${packs}"
+  node - "${packs}" "${cached_packs}" <<'NODE'
+const fs = require('node:fs');
+try {
+  fs.renameSync(process.argv[2], process.argv[3]);
+} catch (error) {
+  if (error.code !== 'EEXIST' && error.code !== 'ENOTEMPTY') throw error;
+}
+NODE
+  packs="${cached_packs}"
+  packs_at_pin "${packs}"
 fi
 
 files=()
