@@ -39,6 +39,18 @@
     {
       "test": "src/content/ocellus/tests/OcellusLoadouts.test.ts::Ocellus loadouts > offer the raid preset by default and the five gear tiers, each holding exactly the tier's items the sim can build",
       "reason": "TIER_IDS now includes every supported weapon, accessory, armour and utility item in its recipe slot. The base intentionally filters those unsupported items out."
+    },
+    {
+      "test": "src/content/ocellus/tests/FullFightChrome.test.tsx::the loadout editor > storage the browser refuses still runs the tier, says edits won't be kept, and Apply's edit starts the next run in this tab",
+      "reason": "MAX_BAG now carries the Obligator in square 12 and the Ascension crossbows and Diamond ascension bolts (e) in squares 16 and 17. The base preset carries the Sanguine scythe in square 12 and supplies in 16 and 17. The storage fallback contract is unchanged."
+    },
+    {
+      "test": "src/content/ocellus/tests/OcellusLoadouts.test.ts::Ocellus loadouts > offer the raid preset by default and the five gear tiers, each holding exactly the tier's items the sim can build",
+      "reason": "The Max inventory now carries the Obligator, Ascension crossbows and Diamond ascension bolts (e) in place of the Sanguine scythe and two supplies, and the High inventory carries the Soulreaper axe (o) in place of the Dragon warhammer (cr). The base preset carries the old items."
+    },
+    {
+      "test": "src/content/ocellus/tests/OcellusLoadouts.test.ts::Ocellus loadouts > every worn tier item the sim builds has the wiki's bonuses, and an item left out has no class or other bonuses",
+      "reason": "WIKI_BONUSES replaces the Dragon warhammer (cr) row with the Soulreaper axe (o), Obligator, Ascension crossbows and Diamond ascension bolts (e). The base High tier still carries the Dragon warhammer (cr), which no longer has a row."
     }
   ]
 }
