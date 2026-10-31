@@ -295,7 +295,6 @@ type SdkIconKey = "masoriMaskF" | "masoriBodyF" | "masoriChapsF" | "zaryteVambra
 type InquisitorPiece = "inquisitorsGreatHelm" | "inquisitorsHauberk" | "inquisitorsPlateskirt";
 export type StanceSpeeds<T extends number = TickSpan> = Readonly<{ rapidSpeed: T; otherSpeed: T }>;
 
-/** The cache sequence and spotanims of one Ralos attack; each glaive flies and lands with its own pair. */
 type RalosGraphics = Readonly<{
   animation: number;
   cast: number;

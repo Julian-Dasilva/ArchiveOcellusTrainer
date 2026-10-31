@@ -55,9 +55,8 @@ LOADOUT_TRAINER_ICONS='{"24419":"27x30","24420":"32x24","24421":"16x31","26235":
 DEFENCE_FLOOR_QUERY="?seed=20&weapon=blowpipe"
 DEFENCE_FLOOR_STEPS="[250,176,150]"
 DEFENCE_FLOOR_CLICK_TICK=12
-# One attack per page, on a seed whose roll hits: name|link|weapon|item worn first|boss click tick|special energy, - for an
-# ordinary attack|graphics|effect|tick of the mid-attack shot. Ranged attacks fire in the lead-in on 12 and fly through 14; melee
-# ones go on 38, after the boss lands and Soul Split ends, when no overhead blocks melee, and swing on 39.
+# Each seed's roll hits. Ranged specials fire in the lead-in on tick 12 and land by 14. Melee specials wait for tick 38, after
+# the boss lands, Soul Split ends and no overhead blocks melee, then swing on 39 or 40.
 TIER_SPECS='zaryte_evoke|seed=4&tier=max&weapon=twistedBow|26374|-|12|75|1995,754|hit|14
 dragon_annihilate|seed=6&tier=high&weapon=blowpipe|21902|-|12|60|27|hit|14
 scorching_shackles|seed=4&tier=high&weapon=blowpipe|29591|-|12|25|2806,2807,2908|hit|14

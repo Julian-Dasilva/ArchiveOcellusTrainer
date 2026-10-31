@@ -34,7 +34,6 @@ type P4ProbeSnapshot = Readonly<{
   panel: Readonly<{ tab: string | null; keys: Readonly<Record<"inventory" | "spellbook" | "prayer" | "equipment" | "combat", string>> }>;
   menu: readonly string[] | null;
   icons: Readonly<Record<string, Readonly<{ path: string; size: string }>>>;
-  /** Cache spotanims the renderer is asked to draw: on the player, on the boss, and on projectiles flying at the boss. */
   graphics: Readonly<{ player: readonly number[]; boss: readonly number[]; inFlight: readonly number[] }>;
 }>;
 
