@@ -12,6 +12,7 @@ export type Side = "east" | "south" | "west" | "north";
 export type P1Cause =
   | Readonly<{ kind: "volley"; element: Element }>
   | Readonly<{ kind: "blast" }>
+  | Readonly<{ kind: "crack" }>
   | Readonly<{ kind: "strike" }>
   | Readonly<{ kind: "block" }>
   | Readonly<{ kind: "line" }>

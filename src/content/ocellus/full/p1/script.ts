@@ -382,6 +382,7 @@ export class P1Script<E extends Entries> implements Script<E, P1Types> {
     line.closed = true;
     this.lines = this.lines.filter((open) => open !== line);
     m.show({ kind: "cracks-end", tiles: line.tiles, growth: line.growth });
+    m.hit({ kind: "crack" }, V.closeChip);
     const blocked = line.tiles.some((tile) => same(tile, m.player.tile));
     if (blocked) {
       m.heal({ kind: "block" }, m.roll("block", V.blockHeal), "player");

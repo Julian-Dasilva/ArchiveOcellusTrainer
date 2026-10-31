@@ -151,7 +151,7 @@ describe("phase 1's corners", () => {
     });
   });
 
-  test("standing on a crack as it closes heals 10 and does not fill the meter; the next crack does", () => {
+  test("every crack that closes chips you 3 to 5; standing on it also heals you and does not fill the meter", () => {
     const f = startP1({ practice: false });
     close = f.close;
     f.tickTo(15);
@@ -168,10 +168,10 @@ describe("phase 1's corners", () => {
     }).toEqual({
       crack: at(5, 4),
       healed: [
-        [20, "player", 10, "block"],
+        [20, "player", 5, "block"],
         [22, "boss", 2, "line"],
       ],
-      hp: 81,
+      hp: 68,
       boss: 2500,
       meter: 2,
     });
@@ -183,7 +183,7 @@ describe("phase 1's corners", () => {
     f.tickTo(30);
     f.player().hop(at(5, 5));
     f.tickTo(34);
-    expect(hits(f, "blast")).toEqual([[34, 30, 41, null]]);
+    expect(hits(f, "blast")).toEqual([[34, 30, 11, null]]);
   });
 });
 
@@ -238,7 +238,7 @@ describe("phase 1's health thresholds", () => {
       middle: [4],
       strike: [[44, 1]],
       said: [[44, "Death... awaits..."]],
-      hits: [[47, 18, 81, "magic"]],
+      hits: [[47, 18, 53, "magic"]],
       // Fight logs L1, L3 to L8: his first volley 9 ticks after "Death... awaits...", 11 of 11.
       volley: [53],
     });
@@ -342,9 +342,10 @@ describe("phase 1 ends", () => {
   test("a lethal volley removes him when the death timer ends, and the dialog is the death line", () => {
     const f = startP1({ practice: false });
     close = f.close;
-    f.tickTo(77);
+    // Each closing crack chips 3 to 5 as well, so the volley at 45 is the lethal one.
+    f.tickTo(45);
     const fallen = f.player().currentStats.hitpoint;
-    f.tickTo(81);
+    f.tickTo(49);
     expect({
       fallen,
       players: f.region.players.length,
@@ -353,8 +354,8 @@ describe("phase 1 ends", () => {
     }).toEqual({
       fallen: 0,
       players: 0,
-      outcome: { kind: "lost", at: 81 },
-      chat: [{ text: "Oh dear, you are dead!", colour: "#000000", tick: 81 }],
+      outcome: { kind: "lost", at: 49 },
+      chat: [{ text: "Oh dear, you are dead!", colour: "#000000", tick: 49 }],
     });
   });
 

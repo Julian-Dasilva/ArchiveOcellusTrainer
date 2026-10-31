@@ -245,11 +245,12 @@ export const P1 = {
   blastRadius: 2,
   blastDamage: range(28, 30),
   /**
-   * Standing on a crack as it closes blocks it and heals you: +16, +9, +13 on the blocker in [V] duo 13:31-13:35;
-   * "it'll heal all of the chip damage" (Bubba OSRS guide 1:21). [R]'s 3-5 every 2 ticks on blockers matches a burn
-   * left over from the room before ("You have been set alight!"), not the cracks.
+   * A closing crack hits every raider 3-5 on its end graphic's tick, on it or not: 1,745 such hits on close ticks to
+   * 65 on other P1 ticks in L1, L2, L6 to L8, and 144 of 144 in a 2026-10-30 raid log. Not a burn.
    */
-  blockHeal: range(9, 16),
+  closeChip: range(3, 5),
+  /** Blocking a crack heals you after its chip: 3 to 14, median 5, uncapped, in 48 heals in a 2026-10-30 log; 16 in [V] 13:31. */
+  blockHeal: range(3, 16),
   meterPerLine: 2,
   healPerLine: 2,
   meterMax: 96,
