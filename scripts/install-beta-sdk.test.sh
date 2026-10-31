@@ -535,6 +535,7 @@ old_packs_are_pruned_after_installation() {
   ready
   install_sdk
   [[ ! -e "$XDG_CACHE_HOME/archive-ocellus/sdk-packs/$OTHER" ]] || fail "old SDK packs remain after installation"
+  [[ -d "$XDG_CACHE_HOME/archive-ocellus/sdk-packs/$PIN" ]] || fail "prune removed the active pin's packs"
   [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "pruning prevented installation at the pin"
   expect_no_installer_leftovers
 }
