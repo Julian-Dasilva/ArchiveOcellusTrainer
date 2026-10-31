@@ -41,7 +41,7 @@ pack() {
   local matches=("$1"/$2)
   if [[ ${#matches[@]} -ne 1 || ! -f "${matches[0]}" ]]; then
     echo "install-beta-sdk: expected exactly one $1/$2" >&2
-    exit 1
+    return 1
   fi
   echo "${matches[0]}"
 }
@@ -49,8 +49,8 @@ pack() {
 packs_at_pin() {
   local glob file commit
   for glob in "${PACKS[@]}"; do
-    file="$(pack "$1" "${glob}")" || exit 1
-    commit="$(tar -xzOf "${file}" package/package.json | built_commit)"
+    file="$(pack "$1" "${glob}")" || return 1
+    commit="$(tar -xzOf "${file}" package/package.json | built_commit)" || return 1
     if [[ "${commit}" != "${OSRS_SDK_COMMIT}" ]]; then
       echo "install-beta-sdk: refusing ${file}, built from ${commit}, not the pin ${OSRS_SDK_COMMIT}"
       return 1
@@ -63,6 +63,28 @@ if [[ "${1:-}" == --check ]]; then
   exit
 fi
 
+mkdir -p "${CACHE_ROOT}/sdk-packs"
+exec 8>"${CACHE_ROOT}/sdk-packs.lock"
+flock 8
+for stale in "${CACHE_ROOT}"/sdk-packs/.build.*; do
+  [[ -d "${stale}" ]] || continue
+  (
+    exec 9>"${stale}/.lock"
+    flock -n 9 || exit 0
+    rm -rf "${stale}"
+  )
+done
+
+cleanup() {
+  trap '' INT TERM
+  if [[ -n "${builder:-}" ]]; then wait "${builder}" 2>/dev/null || true; fi
+  exec 10>"${work}/.lock"
+  exec 9>&-
+  # A fresh descriptor waits for every descendant that inherited the build lease.
+  flock 10
+  rm -rf "${work}"
+}
+
 cached_packs="${CACHE_ROOT}/sdk-packs/${OSRS_SDK_COMMIT}"
 if [[ -n "${OSRS_SDK_PACKS}" ]] && packs_at_pin "${OSRS_SDK_PACKS}"; then
   packs="${OSRS_SDK_PACKS}"
@@ -71,11 +93,13 @@ elif [[ -d "${cached_packs}" ]] && packs_at_pin "${cached_packs}"; then
   packs="${cached_packs}"
   echo "install-beta-sdk: using cached packs from ${packs}"
 else
-  mkdir -p "${CACHE_ROOT}/sdk-packs"
   work="$(mktemp -d "${CACHE_ROOT}/sdk-packs/.build.XXXXXX")"
-  trap 'rm -rf "${work}"' EXIT
+  exec 9>"${work}/.lock"
+  flock 9
+  trap cleanup EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
+  flock -u 8
   packs="${work}/packs"
   mkdir "${packs}"
   echo "install-beta-sdk: building ${OSRS_SDK_REPO} at ${OSRS_SDK_COMMIT}"
@@ -91,16 +115,17 @@ else
     npm pack --pack-destination "${packs}" --silent
     npm pack --workspace osrs-sdk-assets --pack-destination "${packs}" --silent
     npm pack --workspace osrs-sdk-react --pack-destination "${packs}" --silent
-  )
+  ) &
+  builder=$!
+  wait "${builder}"
   packs_at_pin "${packs}"
-  node - "${packs}" "${cached_packs}" <<'NODE'
-const fs = require('node:fs');
-try {
-  fs.renameSync(process.argv[2], process.argv[3]);
-} catch (error) {
-  if (error.code !== 'EEXIST' && error.code !== 'ENOTEMPTY') throw error;
-}
-NODE
+  flock 8
+  if [[ -d "${cached_packs}" ]] && packs_at_pin "${cached_packs}"; then
+    echo "install-beta-sdk: using concurrently published packs from ${cached_packs}"
+  else
+    if [[ -e "${cached_packs}" ]]; then mv "${cached_packs}" "${work}/rejected"; fi
+    mv "${packs}" "${cached_packs}"
+  fi
   packs="${cached_packs}"
   packs_at_pin "${packs}"
 fi
