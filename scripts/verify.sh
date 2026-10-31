@@ -738,12 +738,16 @@ record_overhead_draws() {
   })()' >/dev/null
 }
 
+step_entry() {
+  echo "$(($2 - 1))|{ x: probe.snapshot().player.x + ($1), y: probe.snapshot().player.y }|click|0"
+}
+
 # Steps $1 tiles along the player's row on the tick before each mark, turning back each time.
 step_on_marks() {
   local dx="$1" mark plan=()
   shift
   for mark in "$@"; do
-    plan+=("$((mark - 1))|{ x: probe.snapshot().player.x + (${dx}), y: probe.snapshot().player.y }|click|0")
+    plan+=("$(step_entry "$dx" "$mark")")
     dx=$((-dx))
   done
   click_plan "steps before marks $*" "${plan[@]}"
@@ -2189,17 +2193,15 @@ click_tile_after_tick() {
 drive_recorded_fights() {
   ab open "${URL}${RECORDED_LEAD_IN_QUERY}" >/dev/null || return 1
   fight_tick_at_least 0 120000 || { log "the lead-in page never started"; return 1; }
-  click_tile_after_tick recorded-lead-in "$RECORDED_RING_TILE" 0 || return 1
-  click_tile_after_tick recorded-lead-in "$RECORDED_BOSS_TILE" "$RECORDED_LEAD_IN_SHOT_TICK" || return 1
+  click_plan recorded-lead-in "0+|${RECORDED_RING_TILE}|click|0" "${RECORDED_LEAD_IN_SHOT_TICK}+|${RECORDED_BOSS_TILE}|click|0" || return 1
   fight_tick_at_least "$RECORDED_LEAD_IN_LAST_TICK" 30000 || { log "the lead-in page never reached P4 tick ${RECORDED_LEAD_IN_LAST_TICK}"; return 1; }
   ab screenshot "$VERIFY_DIR/recorded-lead-in.png" >/dev/null || { log "lead-in hit screenshot failed"; return 1; }
   p3_page_done recorded-lead-in || return 1
 
   ab open "${URL}${RECORDED_ORB_QUERY}" >/dev/null || return 1
   fight_tick_at_least 0 120000 || { log "the waiting orb page never started"; return 1; }
-  click_tile_after_tick recorded-orb "$RECORDED_ORB_TILE" "$RECORDED_ORB_CLICK_TICK" || return 1
   # Off the orb for the first mark, so the explosions leave the drained player alive to take it on its glow tick.
-  step_on_marks 1 "$RECORDED_ORB_DODGE_MARK" && click_tile_after_tick recorded-orb "$RECORDED_ORB_TILE" "$RECORDED_ORB_DODGE_MARK" || return 1
+  click_plan recorded-orb "${RECORDED_ORB_CLICK_TICK}+|${RECORDED_ORB_TILE}|click|0" "$(step_entry 1 "$RECORDED_ORB_DODGE_MARK")" "${RECORDED_ORB_DODGE_MARK}+|${RECORDED_ORB_TILE}|click|0" || return 1
   shot_after_tick $((RECORDED_ORB_LAST_TICK - 2)) 0 recorded-orb-waiting.png || { log "waiting orb screenshot failed"; return 1; }
   fight_tick_at_least "$RECORDED_ORB_LAST_TICK" 30000 || { log "the waiting orb page never reached P4 tick ${RECORDED_ORB_LAST_TICK}"; return 1; }
   ab screenshot "$VERIFY_DIR/recorded-orb-returned.png" >/dev/null || { log "returned orb screenshot failed"; return 1; }
