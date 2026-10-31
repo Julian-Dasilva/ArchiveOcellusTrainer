@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-SCRIPT="$(cd "$(dirname "$0")" && pwd)/netlify-build.sh"
+SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -37,6 +37,9 @@ chmod +x "$WORK/bin/git" "$WORK/bin/npm"
 
 setup() {
   T="$(mktemp -d "$WORK/case.XXXXXX")"
+  mkdir -p "$T/app/scripts"
+  cp "$SCRIPTS/netlify-build.sh" "$T/app/scripts/"
+  cp "$SCRIPTS/../osrs-assets.config.ts" "$T/app/"
   CACHE_ROOT="$T/cache/archive-ocellus"
   READER="${CACHE_ROOT}/osrscachereader-1111111111111111111111111111111111111111"
 }
@@ -46,7 +49,7 @@ build() {
   T="$T" PATH="$WORK/bin:$PATH" NETLIFY_CACHE_DIR="$T/cache" \
     OSRS_CACHE_READER_REPO="https://example.invalid/osrscachereader.git" \
     OSRS_CACHE_READER_COMMIT="1111111111111111111111111111111111111111" \
-    bash "$SCRIPT"
+    bash "$T/app/scripts/netlify-build.sh"
   [[ -e "$T/reached-app-install" ]]
 }
 
@@ -80,11 +83,23 @@ changed_pin_removes_the_old_reader() {
   [[ "$(ls "$CACHE_ROOT" | tr '\n' ' ')" == "openrs2 osrscachereader-1111111111111111111111111111111111111111 " ]] || fail "cache root holds: $(ls "$CACHE_ROOT" | tr '\n' ' ')"
 }
 
+only_configured_openrs2_cache_is_kept() {
+  setup
+  echo 'export default { cache: { openrs2: 2747 } };' >"$T/app/osrs-assets.config.ts"
+  mkdir -p "$CACHE_ROOT/openrs2/2746" "$CACHE_ROOT/openrs2/2747" "$CACHE_ROOT/openrs2/2748"
+  echo keep >"$CACHE_ROOT/openrs2/2747/data"
+  ready
+  build || fail "build failed"
+  [[ "$(ls "$CACHE_ROOT/openrs2")" == 2747 ]] || fail "cache ids other than the configured id remain"
+  [[ "$(cat "$CACHE_ROOT/openrs2/2747/data")" == keep ]] || fail "the configured cache was changed"
+}
+
 failed=0
 for t in \
   failed_install_is_not_reused \
   installed_reader_is_reused \
-  changed_pin_removes_the_old_reader; do
+  changed_pin_removes_the_old_reader \
+  only_configured_openrs2_cache_is_kept; do
   if ("$t") >"$WORK/$t.log" 2>&1; then
     echo "PASS $t"
   else
