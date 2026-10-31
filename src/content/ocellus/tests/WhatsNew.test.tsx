@@ -1,17 +1,9 @@
 import { loadPage } from "./page";
 
 const SEEN_RELEASE_KEY = "archive-ocellus:seen-release";
-const FIRST_RELEASE = {
-  version: "2026.10.23",
-  date: "2026-10-23",
-  notes: [
-    "Hold Control and click a tile to walk there instead of running, like in game.",
-    "Healing orbs never form on void puddles. The outer orb forms opposite where you entered the 5x5, and the inner orb lingers into the attack you pray against.",
-    "In the melee phase you path around Ocellus instead of running under him.",
-    "The east edge by the brazier gets its extra tile: 3 straight tiles, then the diagonal.",
-    "Void puddles start stacked in the same corner tiles you'd use in game.",
-  ],
-};
+const SHOWN_VERSIONS = ["2026.10.29", "2026.10.28", "2026.10.27", "2026.10.26.2", "2026.10.26.1"];
+const TIMING_FIXES =
+  "In phase 3, a sever blocks your protection prayers for one tick, as in game, so Protect from Melee clicked straight back on is up for the next saw, and \"Your panic... is futile...\" now warns of a Void Vine, not his magic shot. In phase 1, he walks out of the middle a tick later after his strike.";
 
 const NEXT_RELEASE = {
   version: "2026.10.28",
@@ -63,14 +55,13 @@ describe("What's new", () => {
         menuDot: false,
         panelShown: true,
         expanded: "true",
-        releases: expect.arrayContaining([FIRST_RELEASE]),
+        releases: expect.any(Array),
       },
       closed: false,
       afterReload: { menuDot: false, panelShown: false, releases: expect.any(Array) },
       version: `v${versions[0]}`,
       newestFirst: true,
     });
-    expect(opened.releases.at(-1)).toEqual(FIRST_RELEASE);
   });
 
   test("a player who saw the last shipped release sees the dot again, and What's new opens on the unshipped releases, newest first, with the next shipped one below them", () => {
@@ -82,6 +73,19 @@ describe("What's new", () => {
     page.close();
     expect({ menuDot, unshipped: releases.slice(0, 1).map((release) => release.version), next: releases[1] }).toEqual({
       menuDot: true, unshipped: ["2026.10.29"], next: NEXT_RELEASE,
+    });
+  });
+
+  test("What's new lists the five newest releases, 2026.10.29 with the phase 1 and 3 timing fixes, and links the older ones to GitHub Releases", () => {
+    const page = loadPage("/");
+    page.click("whats_new");
+    const { releases } = whatsNew(page);
+    const older = [...page.element("whats_new_panel").querySelectorAll("a")].map((link) => [link.textContent, link.href, link.target, link.rel]);
+    page.close();
+    expect({ versions: releases.map((release) => release.version), newest: releases[0]?.notes, older }).toEqual({
+      versions: SHOWN_VERSIONS,
+      newest: expect.arrayContaining([TIMING_FIXES]),
+      older: [["Older releases", "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/releases", "_blank", "noopener noreferrer"]],
     });
   });
 
@@ -129,9 +133,9 @@ describe("What's new", () => {
     read.mockRestore();
     write.mockRestore();
 
-    expect({ onLoad: onLoad.menuDot, opened: [opened.menuDot, opened.panelShown, opened.releases.at(-1)] }).toEqual({
+    expect({ onLoad: onLoad.menuDot, opened: [opened.menuDot, opened.panelShown, opened.releases.map((release) => release.version)] }).toEqual({
       onLoad: true,
-      opened: [false, true, FIRST_RELEASE],
+      opened: [false, true, SHOWN_VERSIONS],
     });
   });
 });

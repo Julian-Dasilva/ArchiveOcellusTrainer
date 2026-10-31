@@ -78,6 +78,27 @@ repeated_version_is_rejected() {
   expect_rejected "newest version 2026.11.02 repeats an earlier release"
 }
 
+reordered_changelog_is_rejected() {
+  changelog '{ version: "2026.11.04", notes: ["Fourth fix.", "Another fix."] },
+{ version: "2026.11.01", notes: ["First fix.", "Older fix."] },
+{ version: "2026.11.03", notes: ["Third fix.", "Another fix."] },'
+  expect_rejected "2026.11.01 comes before 2026.11.03; the changelog must be newest first"
+}
+
+reordering_cannot_hide_a_removed_shipped_release() {
+  changelog '{ version: "2026.11.03", notes: ["Third fix.", "Another fix."] },
+{ version: "2026.11.02", notes: ["Second fix.", "Another fix."] },
+{ version: "2026.11.01", notes: ["First fix.", "Older fix."] },'
+  node "$SCRIPT" --record-shipped --since 2026.10.31 "$CHANGELOG" >/dev/null 2>"$WORK/err.txt" || { cat "$WORK/err.txt"; fail "release-notes did not record the three releases"; }
+  changelog '{ version: "2026.11.04", notes: ["Fourth fix.", "Another fix."] },
+{ version: "2026.11.01", notes: ["First fix.", "Older fix."] },
+{ version: "2026.11.03", notes: ["Third fix.", "Another fix."] },'
+  expect_rejected "2026.11.01 comes before 2026.11.03; the changelog must be newest first"
+  if node "$SCRIPT" --record-shipped --since 2026.11.03 "$CHANGELOG" >/dev/null 2>"$WORK/err.txt"; then fail "--record-shipped accepted the reordered changelog"; fi
+  grep -qF "the changelog must be newest first" "$WORK/err.txt" || { cat "$WORK/err.txt"; fail "--record-shipped did not report the order"; }
+  [[ "$(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))).join())' "$WORK/$t/shipped-releases.json")" == "2026.11.03,2026.11.02,2026.11.01" ]] || { cat "$WORK/$t/shipped-releases.json"; fail "a rejected changelog was recorded"; }
+}
+
 record_shipped() {
   node "$SCRIPT" --record-shipped "$CHANGELOG" >/dev/null 2>"$WORK/err.txt" || { cat "$WORK/err.txt"; fail "release-notes did not record the newest release"; }
 }
@@ -103,10 +124,24 @@ edited_shipped_release_is_rejected() {
 }
 
 removed_shipped_release_is_rejected() {
-  changelog '{ version: "2026.11.01", notes: ["First fix.", "Older fix."] },'
-  record_shipped
-  changelog '{ version: "2026.11.02", notes: ["Second fix.", "Third fix."] },'
+  changelog '{ version: "2026.11.01", notes: ["First fix.", "Older fix."] },
+{ version: "2026.10.31", notes: ["Oldest fix.", "Another fix."] },'
+  node "$SCRIPT" --record-shipped --since 2026.10.30 "$CHANGELOG" >/dev/null 2>"$WORK/err.txt" || { cat "$WORK/err.txt"; fail "release-notes did not record both releases"; }
+  changelog '{ version: "2026.11.02", notes: ["Second fix.", "Third fix."] },
+{ version: "2026.10.31", notes: ["Oldest fix.", "Another fix."] },'
   expect_rejected "2026.11.01 shipped but is missing from the changelog"
+}
+
+dropping_the_oldest_shipped_releases_is_accepted() {
+  changelog '{ version: "2026.11.01", notes: ["First fix.", "Older fix."] },
+{ version: "2026.10.31", notes: ["Oldest fix.", "Another fix."] },
+{ version: "2026.10.30", notes: ["Very old fix.", "Another one."] },'
+  node "$SCRIPT" --record-shipped --since 2026.10.29 "$CHANGELOG" >/dev/null 2>"$WORK/err.txt" || { cat "$WORK/err.txt"; fail "release-notes did not record the three releases"; }
+  changelog '{ version: "2026.11.02", notes: ["Second fix.", "Third fix."] },
+{ version: "2026.11.01", notes: ["First fix.", "Older fix."] },'
+  ready
+  node "$SCRIPT" "$CHANGELOG" >"$WORK/out.txt" 2>"$WORK/err.txt" || { cat "$WORK/err.txt"; fail "release-notes rejected a changelog that dropped its two oldest shipped releases"; }
+  [[ "$(cat "$WORK/out.txt")" == $'## 2026.11.02\n\n- Second fix.\n- Third fix.' ]] || { cat "$WORK/out.txt"; fail "unexpected notes"; }
 }
 
 recording_a_batch_freezes_every_release_it_publishes() {
@@ -148,9 +183,12 @@ for t in \
   zero_suffix_is_rejected \
   notes_since_a_version_include_every_later_release \
   repeated_version_is_rejected \
+  reordered_changelog_is_rejected \
+  reordering_cannot_hide_a_removed_shipped_release \
   recording_a_shipped_release_keeps_the_earlier_ones \
   edited_shipped_release_is_rejected \
   removed_shipped_release_is_rejected \
+  dropping_the_oldest_shipped_releases_is_accepted \
   recording_a_batch_freezes_every_release_it_publishes; do
   if ("$t") >"$WORK/$t.log" 2>&1; then
     echo "PASS $t"

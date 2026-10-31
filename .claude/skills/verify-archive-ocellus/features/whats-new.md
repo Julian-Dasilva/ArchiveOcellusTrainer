@@ -1,11 +1,11 @@
 # What's new and the version label
 
-The side panel's About section has a What's new button that opens a panel listing every release in `src/content/ocellus/changelog.ts`, newest first, each with its version and notes. A red dot on What's new marks a release the player has not opened yet. Opening the panel clears the dot and keeps the version in `localStorage` under `archive-ocellus:seen-release`, so a reload shows no dot until a newer release ships. The current version shows as `vYYYY.MM.DD` beside the credit line in the policy strip at the bottom of the page.
+The side panel's About section has a What's new button that opens a panel listing every release in `src/content/ocellus/changelog.ts`, newest first, each with its version and notes. The changelog holds at most five releases, and an **Older releases** link under them opens the GitHub Releases page. A red dot on What's new marks a release the player has not opened yet. Opening the panel clears the dot and keeps the version in `localStorage` under `archive-ocellus:seen-release`, so a reload shows no dot until a newer release ships. The current version shows as `vYYYY.MM.DD` beside the credit line in the policy strip at the bottom of the page.
 
 ## Sub-features
 
 - `unseen-dot` shows the dot on What's new until the newest release has been opened.
-- `whats-new-panel` opens from What's new, inside the About section, lists every release with the newest first, and fits across the viewport at 1280x800, 800x600 and phone width.
+- `whats-new-panel` opens from What's new, inside the About section, lists every release with the newest first, ends with the Older releases link, and fits across the viewport at 1280x800, 800x600 and phone width.
 - `whats-new-close` closes the panel on Close or Escape.
 - `whats-new-focus` moves keyboard focus to the panel's title on open, and back to What's new on Close or Escape.
 - `seen-release` keeps the dot cleared after a reload, and shows it again when the stored version is not the newest release.
@@ -24,7 +24,7 @@ Preconditions:
 - The browser session has never opened What's new. A new session starts with empty `localStorage`.
 
 - **Unseen.** Open `?seed=1` (`MENU_QUERY`). `#whats_new` sits inside `#sidebar_about`, `#whats_new .unseen_dot` is visible, the panel is hidden and `localStorage.getItem('archive-ocellus:seen-release')` is `null`. Run `agent-browser scrollintoview "#whats_new"` before a screenshot.
-- **Open.** `agent-browser click "#whats_new"`. `#whats_new_panel` is visible. Its first `article` has the `h3` and `li` lines that `node scripts/release-notes.mjs` prints. The dot is not visible, and the stored version is the newest one.
+- **Open.** `agent-browser click "#whats_new"`. `#whats_new_panel` is visible. Its first `article` has the `h3` and `li` lines that `node scripts/release-notes.mjs` prints. The dot is not visible, and the stored version is the newest one. The panel's only link reads `Older releases`, opens in a new tab and points to `https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/releases`.
 - **Fit.** With the panel open, `agent-browser set viewport 800 600`, then `set viewport 390 844`. The panel's left and right edges lie inside the viewport, and `document.documentElement.scrollWidth` does not exceed `innerWidth`. The panel may run below the screen, because the side panel scrolls.
 - **Close.** Click `#whats_new_close`; the panel is hidden. Click `#whats_new` again and press Escape; it is hidden again.
 - **Keyboard.** `agent-browser focus "#whats_new"`, then `press Enter`; the panel is visible and focus is on `#whats_new_title`. `agent-browser focus "#whats_new_close"` and `press Enter`; the panel is hidden and focus is on the visible `#whats_new`. Open it the same way and `press Escape`; focus is on `#whats_new` again.

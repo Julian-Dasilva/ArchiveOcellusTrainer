@@ -113,8 +113,16 @@
           "mutation": [{ "find": "if (notesDigest(release) !== digest) return", "replace": "if (false) return" }]
         },
         {
-          "policy": "a shipped release missing from the changelog fails",
-          "mutation": [{ "find": "if (release === undefined) return `${version} shipped but is missing from the changelog`;", "replace": "if (release === undefined) return null;" }]
+          "policy": "a shipped release missing from the changelog while an older one is listed fails",
+          "mutation": [{ "find": "if (release === undefined) return isAfter(oldest.version, version) ? null : `${version} shipped but is missing from the changelog`;", "replace": "if (release === undefined) return null;" }]
+        },
+        {
+          "policy": "a changelog that is not newest first fails",
+          "mutation": [{ "find": "index > 0 && !isAfter(CHANGELOG[index - 1].version, release.version)", "replace": "false" }]
+        },
+        {
+          "policy": "a shipped release older than every release in the changelog may be dropped",
+          "mutation": [{ "find": "return isAfter(oldest.version, version) ? null : `${version}", "replace": "return `${version}" }]
         },
         {
           "policy": "recording keeps the earlier shipped releases",
