@@ -24,6 +24,8 @@ jobs:
         with:
           path: ${{ runner.temp }}/netlify-cache
           key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          restore-keys: |
+            osrs-cache-
       - name: Extract the assets and build, as the deploy does
         env:
           NETLIFY_CACHE_DIR: ${{ runner.temp }}/netlify-cache

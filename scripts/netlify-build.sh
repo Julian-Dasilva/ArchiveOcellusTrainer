@@ -29,5 +29,6 @@ mkdir -p "${CACHE_ROOT}"
 prepare_reader
 npm ci --no-audit --no-fund
 scripts/install-beta-sdk.sh
-npm run assets -- --cache-dir "${CACHE_ROOT}/openrs2" --reader-path "${READER}"
+npm run assets -- \
+  --cache-dir "${CACHE_ROOT}/openrs2" --reader-path "${READER}"
 npm run build

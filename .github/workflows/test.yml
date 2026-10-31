@@ -53,6 +53,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: node review-ratchet/checks/replay-controls.mjs --base "$BASE"
       - run: scripts/netlify-build.test.sh
+      - run: node --test scripts/ci-cache.test.mjs scripts/assets.test.mjs
 
   perf:
     runs-on: ubuntu-latest
@@ -76,6 +77,8 @@ jobs:
         with:
           path: ${{ runner.temp }}/netlify-cache
           key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          restore-keys: |
+            osrs-cache-
       - name: Extract the assets and build, as the deploy does
         env:
           NETLIFY_CACHE_DIR: ${{ runner.temp }}/netlify-cache
@@ -145,6 +148,8 @@ jobs:
         with:
           path: ${{ runner.temp }}/netlify-cache
           key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          restore-keys: |
+            osrs-cache-
       - name: Extract the assets and build, as the deploy does
         env:
           NETLIFY_CACHE_DIR: ${{ runner.temp }}/netlify-cache
@@ -179,6 +184,8 @@ jobs:
         with:
           path: ${{ runner.temp }}/netlify-cache
           key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          restore-keys: |
+            osrs-cache-
       - name: Extract the head's assets and build, as the deploy does
         env:
           NETLIFY_CACHE_DIR: ${{ runner.temp }}/netlify-cache
@@ -227,6 +234,8 @@ jobs:
         with:
           path: ${{ runner.temp }}/netlify-cache
           key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          restore-keys: |
+            osrs-cache-
       - name: Extract the assets and build, as the deploy does
         env:
           NETLIFY_CACHE_DIR: ${{ runner.temp }}/netlify-cache
@@ -271,6 +280,8 @@ jobs:
         with:
           path: ${{ runner.temp }}/netlify-cache
           key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          restore-keys: |
+            osrs-cache-
       - name: Extract the assets and build, as the deploy does
         env:
           NETLIFY_CACHE_DIR: ${{ runner.temp }}/netlify-cache
@@ -302,6 +313,8 @@ jobs:
         with:
           path: ${{ runner.temp }}/netlify-cache
           key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          restore-keys: |
+            osrs-cache-
       - name: Install the cache the release build reads
         env:
           NETLIFY_CACHE_DIR: ${{ runner.temp }}/netlify-cache
