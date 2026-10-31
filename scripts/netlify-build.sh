@@ -3,7 +3,8 @@ set -euo pipefail
 
 OSRS_CACHE_READER_REPO="${OSRS_CACHE_READER_REPO:-https://github.com/Julian-Dasilva/osrscachereader.git}"
 OSRS_CACHE_READER_COMMIT="${OSRS_CACHE_READER_COMMIT:-8ba9131f1afd1193e7c6180db5a895ffe9e21fa8}"
-CACHE_ROOT="${NETLIFY_CACHE_DIR:-/opt/build/cache}/archive-ocellus"
+export NETLIFY_CACHE_DIR="${NETLIFY_CACHE_DIR:-/opt/build/cache}"
+CACHE_ROOT="${NETLIFY_CACHE_DIR}/archive-ocellus"
 READER="${CACHE_ROOT}/osrscachereader-${OSRS_CACHE_READER_COMMIT}"
 
 cd "$(dirname "$0")/.."
