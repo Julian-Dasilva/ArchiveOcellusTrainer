@@ -76,6 +76,20 @@ NODE
       interrupt) kill -INT "$(cat "$APP/installer.pid")"; exit 130 ;;
     esac
     ;;
+  "$APP:install")
+    touch "$APP/install-entered"
+    if [[ "${INSTALL_HOLD:-}" == 1 ]]; then
+      node - "$APP" <<'NODE'
+const fs = require('node:fs');
+const app = process.argv[2];
+fs.writeFileSync(`${app}/install-ready`, 'ready');
+const timer = setInterval(() => {
+  if (fs.existsSync(`${app}/install-release`)) { clearInterval(timer); process.exit(0); }
+}, 25);
+NODE
+    fi
+    exec "$REAL_NPM" "$@"
+    ;;
   *) exec "$REAL_NPM" "$@" ;;
 esac
 EOF
@@ -94,6 +108,15 @@ setup() {
   : >"$T/builds"
   : >"$T/fetches"
   : >"$T/registry-installs"
+  if [[ -n "${LOCK_TOOLSET:-}" ]]; then
+    mkdir "$T/host-bin"
+    local tool
+    for tool in bash cat chmod cp dirname env grep gzip head ln ls mkdir mktemp mv node npm paste rm sdk-source sed sh sort tail tar touch tr wc git; do
+      ln -s "$(command -v "$tool")" "$T/host-bin/$tool"
+    done
+    if [[ "$LOCK_TOOLSET" == perl ]]; then ln -s "$(command -v perl)" "$T/host-bin/perl"; fi
+    export PATH="$T/host-bin"
+  fi
 }
 
 packs() {
@@ -386,11 +409,11 @@ next_run_sweeps_a_killed_builder() {
 guard:live_builder_is_not_swept() {
   setup
   local builder work first_app="$APP" second_app="$T/second-app" unknown="$XDG_CACHE_HOME/archive-ocellus/sdk-packs/.build.unknown-owner"
+  ready
   start_held_builder
   work="$(cat "$APP/build-ready")"
   mkdir "$unknown"
   cp -R "$APP" "$second_app"
-  ready
   APP="$second_app" install_sdk
   [[ -d "$work" ]] || fail "concurrent install swept a live builder"
   [[ -d "$unknown" ]] || fail "concurrent install swept a builder with no ownership proof"
@@ -416,6 +439,74 @@ SH
   [[ "$(cat "$APP/child-cache" 2>/dev/null)" == /opt/build/cache ]] || { cat "$T/out.txt"; fail "Netlify did not export its default cache root to child commands"; }
 }
 
+without_flock_install_succeeds_and_cleans_up() {
+  LOCK_TOOLSET=perl successful_install_leaves_no_temp_directory
+}
+
+wait_for_installer_file() {
+  node - "$1" "$2" <<'NODE'
+const fs = require('node:fs');
+const [file, pid] = process.argv.slice(2);
+const deadline = Date.now() + 20000;
+const timer = setInterval(() => {
+  if (fs.existsSync(file)) { clearInterval(timer); process.exit(0); }
+  try { process.kill(Number(pid), 0); }
+  catch { console.error('installer exited before creating', file); process.exit(1); }
+  if (Date.now() > deadline) { console.error('installer did not create', file); process.exit(1); }
+}, 25);
+NODE
+}
+
+without_flock_concurrent_installs_serialize() {
+  LOCK_TOOLSET=perl setup
+  local first_app="$APP" second_app="$T/second-app" first_pid second_pid first_status second_status
+  cp -R "$APP" "$second_app"
+  packs "$T/prebuilt" "$PIN" || fail "could not seed prebuilt packs"
+  export OSRS_SDK_PACKS="$T/prebuilt"
+  ready
+  INSTALL_HOLD=1 bash "$first_app/scripts/install-beta-sdk.sh" >"$T/first.txt" 2>&1 &
+  first_pid=$!
+  trap 'touch "$first_app/install-release"; wait "$first_pid" 2>/dev/null || true' EXIT
+  wait_for_installer_file "$first_app/install-ready" "$first_pid" || { cat "$T/first.txt"; fail "first install did not reach package installation"; }
+  APP="$second_app" bash -c 'touch "$APP/started"; exec bash "$APP/scripts/install-beta-sdk.sh"' >"$T/second.txt" 2>&1 &
+  second_pid=$!
+  wait_for_installer_file "$second_app/started" "$second_pid" || fail "second installer did not start"
+  node - "$second_app/install-entered" <<'NODE'
+const fs = require('node:fs');
+const file = process.argv[2];
+setTimeout(() => {
+  if (fs.existsSync(file)) { console.error('second installer bypassed the held cache lock'); process.exit(1); }
+}, 500);
+NODE
+  local serialized=$?
+  touch "$first_app/install-release"
+  wait "$first_pid"; first_status=$?
+  wait "$second_pid"; second_status=$?
+  trap - EXIT
+  [[ $serialized == 0 ]] || fail "concurrent installs overlapped while the cache lock was held"
+  [[ $first_status == 0 && $second_status == 0 ]] || { cat "$T/first.txt" "$T/second.txt"; fail "concurrent installs returned $first_status and $second_status"; }
+  [[ -f "$second_app/install-entered" ]] || fail "second installer never resumed"
+  [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "first installer has wrong pin"
+  APP="$second_app"
+  [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "second installer has wrong pin"
+  expect_no_installer_leftovers
+}
+
+without_flock_live_builder_is_not_swept() {
+  LOCK_TOOLSET=perl guard:live_builder_is_not_swept
+}
+
+without_lock_tools_reports_actionable_error() {
+  LOCK_TOOLSET=none setup
+  ready
+  bash "$APP/scripts/install-beta-sdk.sh" >"$T/out.txt" 2>&1
+  local status=$?
+  [[ $status != 0 ]] || fail "installation succeeded without a locking tool"
+  grep -Eiq 'requires.*flock.*perl|requires.*perl.*flock' "$T/out.txt" || { cat "$T/out.txt"; fail "missing-tool error must name both flock and perl"; }
+  [[ "$(count "$T/fetches")" == 0 ]] || fail "installer fetched the SDK without a locking tool"
+  expect_no_installer_leftovers
+}
+
 failed=0
 for t in \
   install_at_the_pin_is_reused \
@@ -437,7 +528,12 @@ for t in \
   process_group_term_waits_for_writers_and_cleans_build \
   next_run_sweeps_a_killed_builder \
   guard:live_builder_is_not_swept \
-  netlify_default_cache_is_exported_to_children; do
+  netlify_default_cache_is_exported_to_children \
+  without_flock_install_succeeds_and_cleans_up \
+  without_flock_concurrent_installs_serialize \
+  without_flock_live_builder_is_not_swept \
+  without_lock_tools_reports_actionable_error; do
+  if [[ $# -gt 0 && " $* " != *" $t "* ]]; then continue; fi
   if ("$t") >"$WORK/$t.log" 2>&1; then
     echo "PASS $t"
   else
