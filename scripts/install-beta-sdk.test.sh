@@ -33,7 +33,7 @@ EOF
 cat >"$WORK/bin/git" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in
-  init) mkdir -p "$3" ;;
+  init) mkdir -p "$3"; echo "$PPID" >"$APP/installer.pid" ;;
   -C)
     case "$3" in
       fetch) echo "${@: -1}" >>"$T/fetches" ;;
@@ -47,7 +47,18 @@ cat >"$WORK/bin/npm" <<'EOF'
 #!/usr/bin/env bash
 case "$PWD:$1" in
   "$APP:ci") echo ci >>"$T/registry-installs"; rm -rf node_modules ;;
-  */osrs-sdk:ci | */osrs-sdk:run) ;;
+  */osrs-sdk:ci) ;;
+  */osrs-sdk:run)
+    echo build >>"$T/builds"
+    if [[ "${BUILD_BARRIER:-0}" == 1 ]]; then
+      echo ready >"$T/build-ready"
+      read -r release <"$APP/build-release"
+    fi
+    case "${BUILD_RESULT:-success}" in
+      failure) exit 42 ;;
+      interrupt) kill -INT "$(cat "$APP/installer.pid")"; exit 130 ;;
+    esac
+    ;;
   *) exec "$REAL_NPM" "$@" ;;
 esac
 EOF
@@ -57,11 +68,13 @@ export PATH="$WORK/bin:$PATH"
 setup() {
   T="$(mktemp -d "$WORK/case.XXXXXX")"
   APP="$T/app"
-  export T APP HOME="$T/home" VERIFY_DIR="$T/verify"
-  mkdir -p "$APP/scripts" "$HOME"
+  export T APP VERIFY_DIR="$T/verify" TMPDIR="$T/tmp" XDG_CACHE_HOME="$T/cache"
+  unset OSRS_SDK_PACKS NETLIFY_CACHE_DIR
+  mkdir -p "$APP/scripts" "$TMPDIR" "$XDG_CACHE_HOME"
   cp "$SCRIPTS/install-beta-sdk.sh" "$SCRIPTS/verify.sh" "$APP/scripts/"
   echo '{"name":"app","version":"0.0.0","private":true,"scripts":{"build":"node build.js"}}' >"$APP/package.json"
   echo 'for (const name of ["osrs-sdk", "osrs-sdk-assets", "osrs-sdk-react"]) require(name);' >"$APP/build.js"
+  : >"$T/builds"
   : >"$T/fetches"
   : >"$T/registry-installs"
 }
@@ -174,6 +187,88 @@ packs_at_the_pin_are_used() {
   grep -qxF "install-beta-sdk: installed osrs-sdk commit $PIN matches the pin" "$T/out.txt" || { cat "$T/out.txt"; fail "the install did not name the SDK commit it installed"; }
 }
 
+expect_no_installer_leftovers() {
+  local entries
+  entries="$(ls -A "$TMPDIR")"
+  [[ -z "$entries" ]] || fail "TMPDIR contains installer leftovers: $entries"
+  entries="$(ls -A "$XDG_CACHE_HOME/archive-ocellus/sdk-packs" 2>/dev/null | grep -v -x "$PIN")"
+  [[ -z "$entries" ]] || fail "cache contains unpublished build leftovers: $entries"
+}
+
+successful_install_leaves_no_temp_directory() {
+  setup
+  ready
+  install_sdk
+  expect_built_at_the_pin
+  expect_no_installer_leftovers
+}
+
+failed_build_leaves_no_temp_directory() {
+  setup
+  ready
+  BUILD_RESULT=failure bash "$APP/scripts/install-beta-sdk.sh" >"$T/out.txt" 2>&1
+  local status=$?
+  [[ $status == 42 ]] || { cat "$T/out.txt"; fail "build failure returned $status, expected 42"; }
+  [[ "$(count "$T/builds")" == 1 ]] || fail "failed build did not execute"
+  expect_no_installer_leftovers
+}
+
+interrupted_build_leaves_no_temp_directory() {
+  setup
+  ready
+  BUILD_RESULT=interrupt bash "$APP/scripts/install-beta-sdk.sh" >"$T/out.txt" 2>&1
+  local status=$?
+  [[ $status == 130 ]] || { cat "$T/out.txt"; fail "SIGINT returned $status, expected 130"; }
+  [[ "$(count "$T/builds")" == 1 ]] || fail "interrupted build did not execute"
+  expect_no_installer_leftovers
+}
+
+second_install_reuses_cached_packs_without_a_clone() {
+  setup
+  ready
+  install_sdk
+  rm -rf "$APP/node_modules"
+  install_sdk
+  [[ "$(count "$T/fetches")" == 1 ]] || fail "second install fetched the SDK again"
+  [[ "$(count "$T/builds")" == 1 ]] || fail "second install rebuilt the SDK"
+  [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "cache reuse did not install the pin"
+  expect_no_installer_leftovers
+}
+
+concurrent_installs_publish_one_valid_cache_entry() {
+  setup
+  local first_app="$APP" second_app="$T/second-app" first_pid second_pid first_status second_status
+  cp -R "$APP" "$second_app"
+  mkfifo "$T/build-ready" "$first_app/build-release" "$second_app/build-release"
+  exec 3<>"$T/build-ready"
+  export BUILD_BARRIER=1
+  ready
+  bash "$first_app/scripts/install-beta-sdk.sh" >"$T/first.txt" 2>&1 &
+  first_pid=$!
+  APP="$second_app" bash "$second_app/scripts/install-beta-sdk.sh" >"$T/second.txt" 2>&1 &
+  second_pid=$!
+  read -r first_ready <&3
+  read -r second_ready <&3
+  echo go >"$first_app/build-release"
+  echo go >"$second_app/build-release"
+  unset BUILD_BARRIER
+  exec 3>&-
+  wait "$first_pid"; first_status=$?
+  wait "$second_pid"; second_status=$?
+  [[ $first_status == 0 && $second_status == 0 ]] || { cat "$T/first.txt" "$T/second.txt"; fail "concurrent installs returned $first_status and $second_status"; }
+  [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "first concurrent install has wrong pin"
+  APP="$second_app"
+  [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "second concurrent install has wrong pin"
+  local cache="$XDG_CACHE_HOME/archive-ocellus/sdk-packs"
+  [[ "$(ls -A "$cache")" == "$PIN" ]] || fail "concurrent installs did not leave exactly one cache entry"
+  rm -rf "$APP/node_modules"
+  install_sdk
+  [[ "$(count "$T/fetches")" == 2 ]] || fail "concurrent cache entry did not avoid a later clone"
+  [[ "$(count "$T/builds")" == 2 ]] || fail "concurrent cache entry did not avoid a later build"
+  [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "published cache did not install the pin"
+  expect_no_installer_leftovers
+}
+
 failed=0
 for t in \
   install_at_the_pin_is_reused \
@@ -182,7 +277,12 @@ for t in \
   unreadable_installed_manifest_is_replaced \
   unrecorded_packs_are_refused \
   packs_from_another_commit_are_refused \
-  packs_at_the_pin_are_used; do
+  packs_at_the_pin_are_used \
+  successful_install_leaves_no_temp_directory \
+  failed_build_leaves_no_temp_directory \
+  interrupted_build_leaves_no_temp_directory \
+  second_install_reuses_cached_packs_without_a_clone \
+  concurrent_installs_publish_one_valid_cache_entry; do
   if ("$t") >"$WORK/$t.log" 2>&1; then
     echo "PASS $t"
   else
