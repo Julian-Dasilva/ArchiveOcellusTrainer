@@ -210,9 +210,7 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
       m.after(minus(drop, T.bombOverheadBefore), (n) => this.bombOverhead(n));
       m.after(minus(drop, T.bombDropAfter), (n) => this.bombs(n));
     }
-    this.riftTimer = null;
-    this.riftOwed = false;
-    if (this.segment > 0) this.rifting(m, T.riftsAfterLanding);
+    if (this.segment > 0) this.rifting(m, T.riftsAfter);
     this.riftKind = this.riftKind === null ? m.pick("rift-kind", RIFT_ORDER) : RIFT_ORDER[(RIFT_ORDER.indexOf(this.riftKind) + 1) % RIFT_ORDER.length];
     this.next(m, T.firstMove, (n) => this.swing(n, 0, 0));
   }
@@ -532,21 +530,17 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     });
   }
 
-  /** The next rift `wait` on, replacing any due; one that falls due during a spin waits for his next move. */
+  /** The next rift `wait` on, replacing any due or owed; one that falls due during a spin waits for his next move. */
   private rifting(m: P3Ctx<E>, wait: Sourced<TickSpan>): void {
     if (this.riftTimer !== null) m.cancel(this.riftTimer);
+    this.riftOwed = false;
     this.riftTimer = m.after(wait, (n) => {
-      this.riftTimer = null;
-      if (this.stage.kind === "spin") {
-        this.riftOwed = true;
-        return;
-      }
-      this.riftDue(n);
+      if (this.stage.kind === "spin") this.riftOwed = true;
+      else this.riftDue(n);
     });
   }
 
   private riftDue(m: P3Ctx<E>): void {
-    this.riftOwed = false;
     this.spawnRift(m);
     this.rifting(m, T.riftEvery);
   }
@@ -590,6 +584,7 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     else this.world.fighter.resetAttackDelay();
   }
 
+  /** His next rift is 3 after the slam lands, if the quadrant stands: a fall at U+31 ends the segment and drops it. */
   private untether(m: P3Ctx<E>): void {
     const q = this.quadrant;
     this.releaseVine(m, "lifted");
@@ -600,10 +595,8 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     m.boss.overhead("protect-melee");
     const zone = this.body(m);
     this.stage = { kind: "untether", quadrant: q, zone };
-    if (this.riftTimer !== null) m.cancel(this.riftTimer);
-    this.riftTimer = null;
-    this.riftOwed = false;
     const u = T.untether;
+    this.rifting(m, plus(u.slam, T.riftsAfter));
     m.show({ kind: "zone", body: zone, erupts: after(m.now, u.erupt.value), slams: after(m.now, u.slam.value) });
     m.afterPhase(T.poseLoopAfter, (n) => n.boss.hold(SEQ.p3UnleashLoop));
     each(u.pools).forEach((wave, n) => m.afterPhase(wave, (o) => this.untetherPools(o, zone, n > 0)));
@@ -661,7 +654,6 @@ export class P3Script<E extends Entries> implements Script<E, P3Types> {
     m.boss.hold(null);
     m.boss.overhead(null);
     m.boss.facePlayer();
-    this.rifting(m, minus(plus(T.untether.slam, T.riftsAfterLanding), T.untether.obliteration));
     this.next(m, minus(T.untether.swingsAgain, T.untether.obliteration), (n) => this.swing(n, 0, 0));
   }
 

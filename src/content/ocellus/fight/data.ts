@@ -383,8 +383,8 @@ export const P3 = {
    */
   first: { firstOther: "untether", bombs: [6, 9] },
   later: { firstOther: "insolence", bombs: [6] },
-  /** Rifts 3 into a later quadrant and 3 after a survived Untether lands, then every 48; one due in a spin waits. 10 raid logs. */
-  riftsAfterLanding: 3,
+  /** Rifts 3 into a later quadrant or after a survived Untether's slam, then every 48: 10 raid logs. */
+  riftsAfter: 3,
   riftEvery: 48,
   /** Swings hit everyone near him on the animation tick: 0-7 through Protect from Melee (10 raid logs). [R] [K] */
   basicHitProtected: range(0, 7),

@@ -147,11 +147,11 @@ export const p3Sourced = {
       ocellusSim("data.ts:327"),
     ),
   },
-  riftsAfterLanding: selected(
+  riftsAfter: selected(
     3,
     "inferred",
     "unscaled",
-    "Rifts 3 into a later quadrant and 3 after a survived Untether lands, then every 48; one due in a spin waits. 10 raid logs.",
+    "Rifts 3 into a later quadrant or after a survived Untether's slam, then every 48: 10 raid logs.",
     noWiki("the wiki's phase 3 text does not state this count"),
   ),
   riftEvery: selected(48, "inferred", "unscaled", "P3.riftEvery", noWiki("the wiki's phase 3 text does not state this count")),
@@ -847,7 +847,7 @@ export const P3 = {
     firstOther: p3Sourced.later.firstOther.value,
     bombs: p3Sourced.later.bombs.value,
   },
-  riftsAfterLanding: p3Sourced.riftsAfterLanding.value,
+  riftsAfter: p3Sourced.riftsAfter.value,
   riftEvery: p3Sourced.riftEvery.value,
   basicHitProtected: p3Sourced.basicHitProtected.value,
   basicHitUnprotected: p3Sourced.basicHitUnprotected.value,
