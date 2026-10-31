@@ -507,8 +507,28 @@ without_lock_tools_reports_actionable_error() {
   expect_no_installer_leftovers
 }
 
+guard:two_default_cache_checkouts_keep_both_pins() {
+  setup
+  local first_app="$APP" second_app="$T/second-app" cache="$XDG_CACHE_HOME/archive-ocellus/sdk-packs"
+  cp -R "$APP" "$second_app"
+  ready
+  install_sdk
+  APP="$second_app" OSRS_SDK_COMMIT="$OTHER" install_sdk
+  [[ -d "$cache/$PIN" && -d "$cache/$OTHER" ]] || fail "shared default cache did not retain both SDK pins"
+  rm -rf "$first_app/node_modules" "$second_app/node_modules"
+  install_sdk
+  [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "first checkout reused the wrong SDK pin"
+  APP="$second_app" OSRS_SDK_COMMIT="$OTHER" install_sdk
+  APP="$second_app"
+  [[ "$(installed_commits)" == "$OTHER $OTHER $OTHER" ]] || fail "second checkout reused the wrong SDK pin"
+  [[ "$(count "$T/fetches")" == 2 ]] || fail "alternating checkouts fetched an SDK pin again"
+  [[ "$(count "$T/builds")" == 2 ]] || fail "alternating checkouts rebuilt an SDK pin"
+  [[ -d "$cache/$PIN" && -d "$cache/$OTHER" ]] || fail "shared default cache lost an SDK pin after reuse"
+}
+
 old_packs_are_pruned_after_installation() {
   setup
+  export NETLIFY_CACHE_DIR="$XDG_CACHE_HOME"
   install_sdk
   mkdir -p "$XDG_CACHE_HOME/archive-ocellus/sdk-packs/$OTHER"
   echo stale >"$XDG_CACHE_HOME/archive-ocellus/sdk-packs/$OTHER/data"
@@ -521,6 +541,7 @@ old_packs_are_pruned_after_installation() {
 
 pruning_waits_for_an_install_using_another_pin() {
   setup
+  export NETLIFY_CACHE_DIR="$XDG_CACHE_HOME"
   install_sdk
   local first_app="$APP" second_app="$T/second-app" first_pid second_pid first_status second_status
   cp -R "$APP" "$second_app"
@@ -579,6 +600,7 @@ for t in \
   without_flock_concurrent_installs_serialize \
   without_flock_live_builder_is_not_swept \
   without_lock_tools_reports_actionable_error \
+  guard:two_default_cache_checkouts_keep_both_pins \
   old_packs_are_pruned_after_installation \
   pruning_waits_for_an_install_using_another_pin; do
   if [[ $# -gt 0 && " $* " != *" $t "* ]]; then continue; fi
