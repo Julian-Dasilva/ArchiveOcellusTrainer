@@ -149,7 +149,8 @@ describe("the mechanics guide", () => {
     test("a rift left alive is marked on its tile, counting down to its burst", () => {
       const f = secondQuadrant(1);
       const [[t, burst]] = f.looks("rift-detonated");
-      expect(warned(f.seen, t, /^Void Rift bursts/)).toMatchObject({ shownAt: t - P3.riftDetonatesAfter });
+      // Any kind bursts: which one a quadrant gets is seeded, and moves on with each quadrant.
+      expect(warned(f.seen, t, /^Void (Rift|Augmenter|Siphon) bursts/)).toMatchObject({ shownAt: t - P3.riftDetonatesAfter });
       expect(marked(f.at(t - 1), HARM).has(key(burst.tile))).toBe(true);
     });
 
