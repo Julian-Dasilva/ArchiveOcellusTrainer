@@ -507,6 +507,52 @@ without_lock_tools_reports_actionable_error() {
   expect_no_installer_leftovers
 }
 
+old_packs_are_pruned_after_installation() {
+  setup
+  install_sdk
+  mkdir -p "$XDG_CACHE_HOME/archive-ocellus/sdk-packs/$OTHER"
+  echo stale >"$XDG_CACHE_HOME/archive-ocellus/sdk-packs/$OTHER/data"
+  ready
+  install_sdk
+  [[ ! -e "$XDG_CACHE_HOME/archive-ocellus/sdk-packs/$OTHER" ]] || fail "old SDK packs remain after installation"
+  [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "pruning prevented installation at the pin"
+  expect_no_installer_leftovers
+}
+
+pruning_waits_for_an_install_using_another_pin() {
+  setup
+  install_sdk
+  local first_app="$APP" second_app="$T/second-app" first_pid second_pid first_status second_status
+  cp -R "$APP" "$second_app"
+  packs "$T/other-packs" "$OTHER" || fail "could not seed other pin"
+  ready
+  INSTALL_HOLD=1 bash "$first_app/scripts/install-beta-sdk.sh" >"$T/first.txt" 2>&1 &
+  first_pid=$!
+  trap 'touch "$first_app/install-release"; wait "$first_pid" 2>/dev/null || true' EXIT
+  wait_for_installer_file "$first_app/install-ready" "$first_pid" || fail "first install did not reach package installation"
+  APP="$second_app" OSRS_SDK_COMMIT="$OTHER" OSRS_SDK_PACKS="$T/other-packs" \
+    bash -c 'touch "$APP/started"; exec bash "$APP/scripts/install-beta-sdk.sh"' >"$T/second.txt" 2>&1 &
+  second_pid=$!
+  wait_for_installer_file "$second_app/started" "$second_pid" || fail "second installer did not start"
+  node - "$XDG_CACHE_HOME/archive-ocellus/sdk-packs/$PIN" <<'NODE'
+const fs = require('node:fs');
+setTimeout(() => {
+  if (!fs.existsSync(process.argv[2])) { console.error('active SDK packs were pruned'); process.exit(1); }
+}, 500);
+NODE
+  local protected=$?
+  touch "$first_app/install-release"
+  wait "$first_pid"; first_status=$?
+  wait "$second_pid"; second_status=$?
+  trap - EXIT
+  [[ $protected == 0 ]] || fail "pruning removed packs used by a concurrent installation"
+  [[ $first_status == 0 && $second_status == 0 ]] || { cat "$T/first.txt" "$T/second.txt"; fail "installs returned $first_status and $second_status"; }
+  [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "first install lost its packs"
+  APP="$second_app"
+  [[ "$(installed_commits)" == "$OTHER $OTHER $OTHER" ]] || fail "second install has the wrong pin"
+  [[ ! -e "$XDG_CACHE_HOME/archive-ocellus/sdk-packs/$PIN" ]] || fail "retired packs remain after the active installer finished"
+}
+
 failed=0
 for t in \
   install_at_the_pin_is_reused \
@@ -532,7 +578,9 @@ for t in \
   without_flock_install_succeeds_and_cleans_up \
   without_flock_concurrent_installs_serialize \
   without_flock_live_builder_is_not_swept \
-  without_lock_tools_reports_actionable_error; do
+  without_lock_tools_reports_actionable_error \
+  old_packs_are_pruned_after_installation \
+  pruning_waits_for_an_install_using_another_pin; do
   if [[ $# -gt 0 && " $* " != *" $t "* ]]; then continue; fi
   if ("$t") >"$WORK/$t.log" 2>&1; then
     echo "PASS $t"
