@@ -34,6 +34,7 @@ type P4ProbeSnapshot = Readonly<{
   panel: Readonly<{ tab: string | null; keys: Readonly<Record<"inventory" | "spellbook" | "prayer" | "equipment" | "combat", string>> }>;
   menu: readonly string[] | null;
   icons: Readonly<Record<string, Readonly<{ path: string; size: string }>>>;
+  graphics: Readonly<{ player: readonly number[]; boss: readonly number[]; inFlight: readonly number[] }>;
 }>;
 
 type LoadoutRecord = Readonly<{
@@ -78,6 +79,13 @@ export function exposeP4Probe(trainer: TrainerInstance, region: FightRegion, clo
         },
         menu: contextMenu.isActive ? contextMenu.menuOptions.map((option) => option.text.map((block) => `${block.text}`).join("")) : null,
         icons: player ? drawnIcons([...player.inventory, ...Object.values(player.equipment)]) : {},
+        graphics: p4
+          ? {
+              player: p4.player.spotAnims.map(({ id }) => id),
+              boss: p4.ocellus.spotAnims.map(({ id }) => id),
+              inFlight: p4.ocellus.incomingProjectiles.flatMap(({ options }) => (options.visuals.spotAnim ? [options.visuals.spotAnim.id] : [])),
+            }
+          : { player: [], boss: [], inFlight: [] },
       };
     },
     log: () => ({ header: { seed: config.seed, choices: config.choices, loadout: dressed }, rows: region.rows("p4"), pauses: clock.pauses() }),

@@ -55,6 +55,17 @@ LOADOUT_TRAINER_ICONS='{"24419":"27x30","24420":"32x24","24421":"16x31","26235":
 DEFENCE_FLOOR_QUERY="?seed=20&weapon=blowpipe"
 DEFENCE_FLOOR_STEPS="[250,176,150]"
 DEFENCE_FLOOR_CLICK_TICK=12
+# Each seed's roll hits. Ranged specials fire in the lead-in on tick 12 and land by 14. Melee specials wait for tick 38, after
+# the boss lands, Soul Split ends and no overhead blocks melee, then swing on 39 or 40.
+TIER_SPECS='zaryte_evoke|seed=4&tier=max&weapon=twistedBow|26374|-|12|75|1995,754|hit|14
+dragon_annihilate|seed=6&tier=high&weapon=blowpipe|21902|-|12|60|27|hit|14
+scorching_shackles|seed=4&tier=high&weapon=blowpipe|29591|-|12|25|2806,2807,2908|hit|14
+blowpipe_siphon|seed=4&tier=max&weapon=blowpipe|12926|-|12|50|1043|hit|14
+ralos_division|seed=6&tier=max&weapon=ralos|28922|-|12|50|2725,2727,2728,2731,2733|defence|14
+soulreaper_behead|seed=4&tier=high&weapon=blowpipe|33335|-|38|0|4008|hit|39
+warhammer_smash|seed=4&tier=high&weapon=blowpipe|13576|-|38|50|1292|defence|39
+emberlight_weaken|seed=4&tier=mid&weapon=blowpipe|29589|-|38|50|2810|defence|40
+ascension_crossbows|seed=4&tier=max&weapon=twistedBow|34681|34696|12|-|4439|hit|14'
 SUPPLY_QUERY="?seed=1&weapon=blowpipe"
 SUPPLY_INVENTORY='[28922,22325,24419,24420,24421,22981,21295,29801,25485,12695,2444,6685,3024,12695,2444,6685,3024,6685,6685,6685,3024,6685,6685,6685,3024,6685,20997,3024]'
 SUPPLY_NAMED_SLOT=0
@@ -972,6 +983,48 @@ drive_defence_floor() {
   ab screenshot "$VERIFY_DIR/defence-floor.png" >/dev/null || { log "defence floor screenshot failed"; return 1; }
   ab console >"$VERIFY_DIR/defence-floor-console.log" 2>&1 || { log "console capture failed"; return 1; }
   ab --json errors | json data.errors >"$VERIFY_DIR/defence-floor-page-errors.json" || { log "page error capture failed"; return 1; }
+}
+
+record_spec_graphics() {
+  ab eval "(() => {
+    const seen = (window.__specGraphics = {});
+    const read = () => {
+      const probe = window.__archiveOcellusProbe, snapshot = probe?.snapshot(), tick = snapshot?.fight?.run.tick ?? -1;
+      if (snapshot) for (const id of [...snapshot.graphics.player, ...snapshot.graphics.boss, ...snapshot.graphics.inFlight]) seen[id] ??= tick;
+      requestAnimationFrame(read);
+    };
+    requestAnimationFrame(read);
+  })()" >/dev/null
+}
+
+wield_carried() {
+  local slot
+  slot="$(probe "snapshot().fight.player.inventory.indexOf($1)")" || return 1
+  (( slot >= 0 )) || { log "item $1 is not carried"; return 1; }
+  click_inventory_slot "$slot" && ab wait 700 >/dev/null
+}
+
+drive_tier_specs() {
+  local name query weapon wear tick cost graphics effect shot
+  while IFS='|' read -r name query weapon wear tick cost graphics effect shot; do
+    ab open "${URL}?practice=1&${query}" >/dev/null || return 1
+    fight_tick_at_least 2 120000 || { log "${name}: the page never stepped to P4 tick 2"; return 1; }
+    click_panel "$LOADOUT_INVENTORY_TAB_X" "$LOADOUT_INVENTORY_TAB_Y" || return 1
+    ab wait 600 >/dev/null
+    [[ "$wear" == - ]] || wield_carried "$wear" || return 1
+    [[ "$(probe "snapshot().fight.player.equipped.weapon")" == "$weapon" ]] || wield_carried "$weapon" || return 1
+    probe "snapshot().fight" >"$VERIFY_DIR/tier-specs-${name}-before.json"
+    [[ "$cost" == - ]] || click_panel "$LOADOUT_SPECIAL_ORB_X" "$LOADOUT_SPECIAL_ORB_Y" || return 1
+    start_frame_clock && record_spec_graphics && arm_shot fight "$shot" 0.5 "tier-specs-${name}.png" || return 1
+    click_boss "tier-specs-${name}" "$tick" || { log "${name}: the boss was not clicked on P4 tick ${tick}"; return 1; }
+    take_shot "tier-specs-${name}.png" "$shot" || log "${name}: the mid-attack shot was not taken"
+    ab wait --fn "'${graphics}'.split(',').every((id) => window.__specGraphics[id] !== undefined)" --timeout 20000 >/dev/null || log "${name}: not every graphic was drawn"
+    fight_tick_at_least $(( shot + 5 )) 30000 || return 1
+    probe "snapshot().fight" >"$VERIFY_DIR/tier-specs-${name}-after.json"
+    probe "log().rows.filter((row) => row.tick >= ${tick})" >"$VERIFY_DIR/tier-specs-${name}-log.json"
+    ab --json eval "window.__specGraphics" | json data.result >"$VERIFY_DIR/tier-specs-${name}-graphics.json"
+    ab --json errors | json data.errors >"$VERIFY_DIR/tier-specs-${name}-page-errors.json" || { log "page error capture failed"; return 1; }
+  done <<<"$TIER_SPECS"
 }
 
 hover_inventory_slot() {

@@ -8,6 +8,10 @@ import { P4_ASSETS } from "./servedAssets";
 export { spriteFile } from "./servedAssets";
 
 const { gear, presentation } = OCELLUS_P4;
+const RALOS = gear.ralosGraphics.value;
+const ralosSpotAnims = Object.fromEntries(
+  [RALOS.throw, RALOS.division].flatMap(({ cast, glaives }) => [cast, ...glaives.flatMap(({ projectile, impact }) => [projectile, impact])]).map((id) => [`ralos_${id}`, { id }]),
+);
 
 /** The full fight's bodies are our NPCs 16674, 16675 and 16677, so its poses join ours under their own keys. */
 const fightPoses = (form: Readonly<{ animations: Readonly<Record<string, number>> }>) =>
@@ -26,8 +30,8 @@ export const ARCHIVE_OCELLUS_ASSETS = {
   },
   models: { ...P4_ASSETS.models, ...FIGHT_MODELS },
   items: P4_ASSETS.items,
-  spotAnims: { ...P4_ASSETS.spotAnims, ...FIGHT_ASSETS.spotAnims },
-  playerAnimations: FIGHT_ASSETS.playerAnimations,
+  spotAnims: { ...P4_ASSETS.spotAnims, ...FIGHT_ASSETS.spotAnims, ...ralosSpotAnims },
+  playerAnimations: { ...FIGHT_ASSETS.playerAnimations, ralosThrow: { id: RALOS.throw.animation }, ralosDivision: { id: RALOS.division.animation } },
   sounds: { ...P4_ASSETS.sounds, ...FIGHT_ASSETS.sounds },
 } as const satisfies CacheAssets;
 

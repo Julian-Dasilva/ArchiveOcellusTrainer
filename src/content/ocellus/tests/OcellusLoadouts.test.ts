@@ -18,11 +18,11 @@ const SUPPLIES_ROWS_5_TO_7 = [null, null, 3024, 3024, 6685, 6685, 3024, 3024, 66
 const TIER_IDS = {
   max: {
     equipment: { weapon: 28922, offhand: 25818, helmet: 24419, chest: 24420, legs: 24421, gloves: 22981, cape: 21295, necklace: 29801, feet: 31097, ring: 25485, ammo: 33595 },
-    inventory: [26374, 26235, 28955, 27235, 33639, 27238, 27241, 25975, 12926, 20997, 2444, 2444, 25739, null, 23685, 12695, ...SUPPLIES_ROWS_5_TO_7, 10925, 27281],
+    inventory: [26374, 26235, 28955, 27235, 33639, 27238, 27241, 25975, 12926, 20997, 2444, 2444, 34715, null, 23685, 12695, 34681, 34696, ...SUPPLIES_ROWS_5_TO_7.slice(2), 10925, 27281],
   },
   high: {
     equipment: { weapon: 13576, offhand: 25818, helmet: 30750, chest: 30753, legs: 30756, gloves: 7462, cape: 21295, necklace: 24780, feet: 31097, ring: 25485, ammo: 33595 },
-    inventory: [21902, 27238, 28955, 27281, 33639, 27241, 21000, 28035, 29591, 12926, 12695, 12695, null, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
+    inventory: [21902, 27238, 28955, 27281, 33639, 27241, 21000, 33335, 29591, 12926, 12695, 12695, null, null, 2444, 2444, ...SUPPLIES_ROWS_5_TO_7, 3024, 10925],
   },
   mid: {
     equipment: { weapon: 29589, offhand: 27552, helmet: 30750, chest: 30753, legs: 30756, gloves: 7462, cape: 21295, necklace: 29801, feet: 31097, ring: 25485, ammo: 33595 },
@@ -43,7 +43,10 @@ type OtherBonuses = readonly [meleeStrength: number, rangedStrength: number, mag
 
 const WIKI_BONUSES: readonly (readonly [id: number, page: string, attack: StyleBonuses, defence: StyleBonuses, other: OtherBonuses])[] = [
   [13576, "Dragon warhammer rev 15362680", [-4,-4,95,-4,0], [0,0,0,0,0], [85,0,0,0]],
-  [28035, "Dragon warhammer (cr) rev 15191336", [-4,-4,95,-4,0], [0,0,0,0,0], [85,0,0,0]],
+  [33335, "Soulreaper axe (o) rev 15273151", [28,134,66,0,0], [0,0,0,0,0], [125,0,0,0]],
+  [34715, "Obligator rev 15386629", [22,-8,120,0,0], [0,16,0,3,8], [40,0,0,3]],
+  [34681, "Ascension crossbows rev 15385929", [0,0,0,3,34], [-7,-5,0,10,0], [0,0,0,0]],
+  [34696, "Diamond ascension bolts (e) rev 15383819", [0,0,0,0,0], [0,0,0,0,0], [0,58,0,0]],
   [29589, "Emberlight rev 15358485", [63,70,0,0,0], [0,3,2,5,0], [13,0,0,0]],
   [25739, "Sanguine scythe of Vitur rev 15345737", [70,125,30,-6,0], [-2,8,10,0,0], [75,0,0,0]],
   [26374, "Zaryte crossbow rev 15382611", [0,0,0,0,110], [14,14,12,15,16], [0,0,0,1]],
@@ -192,8 +195,8 @@ for (const tier of ["max", "low"] as const) {
 }
 
 const WEAPON_SLICE: readonly (readonly [Tier, readonly number[]])[] = [
-  ["max", [26374, 28955, 25975, 25739]],
-  ["high", [13576, 24780, 21902, 28955, 28035, 29591]],
+  ["max", [26374, 28955, 25975, 34715, 34681, 34696]],
+  ["high", [13576, 24780, 21902, 28955, 33335, 29591]],
   ["mid", [29589, 21902, 28955, 29591, 13576]],
   ["low", [29589, 24780, 21902, 28955, 29591, 13576]],
   ["poor", [29589, 24780, 21902, 28955, 29591, 13576]],
@@ -250,6 +253,70 @@ test.each(CROSSBOW_AMMO)("the %s tier fires its crossbow from the carried quiver
     expect(player.equipment.cape?.bonuses.other.rangedStrength).toBe(4);
     expect(player.ammunitionFor(weapon)?.itemId).toBe(boltId);
     expect(player.equipment.ammo?.cacheItemId).toBe(11212);
+  } finally {
+    drill.dispose();
+  }
+});
+
+test("Max fires its Ascension crossbows once the carried diamond ascension bolts are worn", () => {
+  const drill = startDrill();
+  try {
+    const player = drill.player();
+    dressOcellus(player, presetChoice("max").loadout);
+    const carried = (id: number) => player.inventory.find((item) => item?.itemId === id);
+    carried(34681)?.inventoryLeftClick(player);
+    player.setAggro(drill.boss());
+    expect(player.equipment.weapon?.itemId).toBe(34681);
+    expect(player.attack()).toBe(false);
+    carried(34696)?.inventoryLeftClick(player);
+    player.setAggro(drill.boss());
+    expect(player.equipment.ammo?.itemId).toBe(34696);
+    expect(player.attack()).toBe(true);
+    expect(drill.boss().incomingProjectiles.at(-1)?.options.visuals.spotAnim?.id).toBe(4439);
+  } finally {
+    drill.dispose();
+  }
+});
+
+const TIER_SPECIALS: readonly (readonly [tier: Tier, weapon: number, cost: number, graphic: Readonly<{ animation: number; spotAnims: readonly number[] }>])[] = [
+  ["max", 26374, 75, { animation: 9168, spotAnims: [1995] }],
+  ["max", 28922, 50, { animation: 10914, spotAnims: [2725, 2727, 2728, 2731, 2733] }],
+  ["max", 12926, 50, { animation: 5061, spotAnims: [1043] }],
+  ["high", 33335, 0, { animation: 10173, spotAnims: [4008] }],
+  ["high", 13576, 50, { animation: 1378, spotAnims: [1292] }],
+  ["high", 21902, 60, { animation: 7552, spotAnims: [27] }],
+  ["high", 29591, 25, { animation: 11133, spotAnims: [2806, 2807, 2908] }],
+  ["mid", 29589, 50, { animation: 11138, spotAnims: [2810] }],
+];
+
+test.each(TIER_SPECIALS)("the %s tier's special %i spends %i energy, hits Ocellus and plays its cache graphics", (tier, weaponId, cost, graphic) => {
+  const drill = startDrill();
+  try {
+    const player = drill.player();
+    const boss = drill.boss();
+    dressOcellus(player, presetChoice(tier).loadout);
+    if (player.equipment.weapon?.itemId !== weaponId) player.inventory.find((item) => item?.itemId === weaponId)?.inventoryLeftClick(player);
+    expect(player.equipment.weapon?.itemId).toBe(weaponId);
+    const played: number[] = [];
+    player.setAnimationListener({ animationChanged: async (id: number) => void played.push(id), modelChanged: () => {} });
+    const shown = new Set<number>();
+    const seen = () => {
+      for (const { id } of [...player.spotAnims, ...boss.spotAnims]) shown.add(id);
+      for (const { options } of boss.incomingProjectiles) if (options.visuals.spotAnim) shown.add(options.visuals.spotAnim.id);
+    };
+    player.setAggro(boss);
+    player.useSpecialAttack = true;
+    expect(player.attack()).toBe(true);
+    player.didAttack();
+    seen();
+    expect(player.currentStats.specialAttack).toBe(100 - cost);
+    expect(played.at(-1)).toBe(graphic.animation);
+    const hits = boss.incomingProjectiles.length;
+    for (let tick = 0; tick < 24 && boss.incomingProjectiles.length > 0; tick++) {
+      boss.processIncomingAttacks();
+      seen();
+    }
+    expect({ landed: hits > 0 && boss.incomingProjectiles.length === 0, graphics: graphic.spotAnims.filter((id) => !shown.has(id)) }).toEqual({ landed: true, graphics: [] });
   } finally {
     drill.dispose();
   }

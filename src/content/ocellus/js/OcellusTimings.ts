@@ -34,7 +34,7 @@ const FIGHT_LOGS: Readonly<Record<FightLog, FightLogEntry>> = {
   L8: { recorded: "2026-10-23", fight: "raid", players: 7, reached: "a wipe in phase 3, after one quadrant fell", records: "as L6" },
 };
 
-type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24" | "2026-10-25" | "2026-10-27" | "2026-10-28";
+type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24" | "2026-10-25" | "2026-10-27" | "2026-10-28" | "2026-10-30";
 
 export type Source =
   | Readonly<{ kind: "fight-log"; log: FightLog; at: string }>
@@ -44,7 +44,8 @@ export type Source =
   | Readonly<{ kind: "cache"; build: 2746; record: string }>
   | Readonly<{ kind: "owner"; date: OwnerDate; topic: string }>
   | Readonly<{ kind: "guide"; url: string; at: string }>
-  | Readonly<{ kind: "ocellus-sim"; commit: "75bd193"; at: string }>;
+  | Readonly<{ kind: "ocellus-sim"; commit: "75bd193"; at: string }>
+  | Readonly<{ kind: "gameval"; commit: "7715a1d2"; name: string }>;
 
 export type Selected<T> = Readonly<{ kind: "selected"; value: T; evidence: Evidence<Source, Scale> }>;
 
@@ -70,6 +71,8 @@ const news = (url: string): Source => ({ kind: "news", url });
 export const cache = (record: string): Source => ({ kind: "cache", build: 2746, record });
 const owner = (topic: string, date: OwnerDate = "2026-10-21"): Source => ({ kind: "owner", date, topic });
 export const guide = (url: string, at: string): Source => ({ kind: "guide", url, at });
+/** A constant in RuneLite's gameval tables, which carry Jagex's own names for cache ids. */
+const gameval = (name: string): Source => ({ kind: "gameval", commit: "7715a1d2", name });
 /** Alessandro Rodi's ocellus-sim, github.com/alessandrorodi/ocellus-sim; its ids are read, never its code copied. */
 const ocellusSim = (at: string): Source => ({ kind: "ocellus-sim", commit: "75bd193", at });
 const STRATEGIES_P4 = wiki("https://oldschool.runescape.wiki/w/The_Fractured_Archive/Strategies", 15381030);
@@ -292,6 +295,12 @@ type SdkIconKey = "masoriMaskF" | "masoriBodyF" | "masoriChapsF" | "zaryteVambra
 type InquisitorPiece = "inquisitorsGreatHelm" | "inquisitorsHauberk" | "inquisitorsPlateskirt";
 export type StanceSpeeds<T extends number = TickSpan> = Readonly<{ rapidSpeed: T; otherSpeed: T }>;
 
+type RalosGraphics = Readonly<{
+  animation: number;
+  cast: number;
+  glaives: readonly [Readonly<{ projectile: number; impact: number }>, Readonly<{ projectile: number; impact: number }>];
+}>;
+
 type GearRecipe = Readonly<{
   items: Readonly<Record<TrainerItemKey, TrainerItem>>;
   sdkCacheIds: Readonly<{ necklaceOfRupture: Selected<number> }>;
@@ -304,8 +313,9 @@ type GearRecipe = Readonly<{
   twistedBow: Selected<StanceSpeeds<TwistedBow["attackSpeed"]>>;
   ralos: Selected<StanceSpeeds & Readonly<{ range: number; longrangeRange: number; hits: number; hitMaxFraction: number }>>;
   division: Selected<Readonly<{ energy: number; accuracyFactor: number; defenceDrainOfMagic: number }>>;
+  ralosGraphics: Selected<Readonly<Record<"throw" | "division", RalosGraphics>>>;
   quiverAmmo: Selected<Readonly<{ dragonCrossbow: number; zaryteCrossbow: number }>>;
-  ammunition: Selected<Readonly<{ twistedBow: AmmunitionClass; tonalzticsOfRalos: AmmunitionClass; dragonCrossbow: AmmunitionClass; zaryteCrossbow: AmmunitionClass }>>;
+  ammunition: Selected<Readonly<{ twistedBow: AmmunitionClass; tonalzticsOfRalos: AmmunitionClass; dragonCrossbow: AmmunitionClass; zaryteCrossbow: AmmunitionClass; ascensionCrossbows: AmmunitionClass }>>;
   inquisitorCrushPerMille: Selected<Readonly<Record<InquisitorPiece, number>>>;
   scytheStance: Selected<"jab">;
   scytheMaxHitsOnOneTarget: Selected<number>;
@@ -993,9 +1003,11 @@ const TIER_ITEMS = {
   seekingDragonArrow: tierItem(33595, "Seeking dragon arrow", "simulated", "Seeking_dragon_arrow", 15314450, "infobox item id; the SDK draws it as Dragon arrow 11212 and does not simulate its minimum hit of 3"),
   tonalzticsOfRalos: tierItem(28922, "Tonalztics of Ralos", "simulated", "Tonalztics_of_Ralos", 15368852),
   dragonWarhammer: tierItem(13576, "Dragon warhammer", "simulated", "Dragon_warhammer", 15362680),
-  dragonWarhammerCr: tierItem(28035, "Dragon warhammer (cr)", "simulated", "Dragon_warhammer_(cr)", 15191336, "infobox item id; the nearest match to the high tier's dark-headed warhammer with a red shaft, not confirmed"),
+  soulreaperAxeOrnament: tierItem(33335, "Soulreaper axe (o)", "simulated", "Soulreaper_axe_(o)", 15273151, "infobox item id; the high tier's ornamented axe, which the graphic's icon shows"),
+  obligator: tierItem(34715, "Obligator", "simulated", "Obligator", 15386629, "infobox id of the charged Obligator; Thrust's reach onto two more targets behind the first is not simulated"),
+  ascensionCrossbows: tierItem(34681, "Ascension crossbows", "simulated", "Ascension_crossbows", 15385929),
+  diamondAscensionBoltsE: tierItem(34696, "Diamond ascension bolts (e)", "simulated", "Diamond_ascension_bolts_(e)", 15383819),
   emberlight: tierItem(29589, "Emberlight", "simulated", "Emberlight", 15358485),
-  sanguineScytheOfVitur: tierItem(25739, "Sanguine scythe of Vitur", "simulated", "Sanguine_Scythe_of_Vitur", 15345737),
   twistedBow: tierItem(20997, "Twisted bow", "simulated", "Twisted_bow", 15363157),
   toxicBlowpipe: tierItem(12926, "Toxic blowpipe", "simulated", "Toxic_blowpipe", 15376390, "infobox item id; the sim's blowpipe is charged with dragon darts, Ranged strength +20 and +35"),
   zaryteCrossbow: tierItem(26374, "Zaryte crossbow", "simulated", "Zaryte_crossbow", 15382611),
@@ -1050,6 +1062,7 @@ const TIER_GRAPHIC = [
   noWiki("a community gear graphic, not game data"),
   owner("five gear tier screenshots; worn gear solved against each stats panel, the bag read row by row", "2026-10-25"),
   owner("use the icons where the icon and the stats panel disagree", "2026-10-28"),
+  owner("High's ornamented weapon is a Soulreaper axe, not a Dragon warhammer; the Obligator and Ascension crossbows count as max gear; the rest of the tiers are right", "2026-10-30"),
 ] as const;
 const gearTier = (recipe: TierRecipe, note: string): Selected<TierRecipe> =>
   selected(recipe, "inferred", "unscaled", `the worn melee setup and the bag four slots a row; an empty slot is one of the graphic's role squares for other bosses; ${note}`, ...TIER_GRAPHIC);
@@ -1063,8 +1076,8 @@ const TIERS_GEAR: GearRecipe["tiers"] = {
         I.zaryteCrossbow, I.zaryteVambraces, I.blessedDizanasQuiver, I.masoriMaskF,
         I.necklaceOfRupture, I.masoriBodyF, I.masoriChapsF, I.lightbearer,
         I.toxicBlowpipe, I.twistedBow, I.rangingPotion, I.rangingPotion,
-        I.sanguineScytheOfVitur, null, I.divineSuperCombatPotion, I.superCombatPotion,
-        null, null, I.superRestore, I.superRestore,
+        I.obligator, null, I.divineSuperCombatPotion, I.superCombatPotion,
+        I.ascensionCrossbows, I.diamondAscensionBoltsE, I.superRestore, I.superRestore,
         I.saradominBrew, I.saradominBrew, I.superRestore, I.superRestore,
         I.saradominBrew, I.saradominBrew, I.sanfewSerum, I.divineRunePouch,
       ],
@@ -1074,7 +1087,7 @@ const TIERS_GEAR: GearRecipe["tiers"] = {
         tierStart("ralos", "Inquisitor's", I.tonalzticsOfRalos),
       ],
     },
-    "the head is the icon's Inquisitor's great helm, where the panel sums only with a Torva full helm; the potion beside the ranging potion is lighter blue and read as a second ranging potion; the Divine rune pouch is inferred from a four-rune overlay",
+    "the head is the icon's Inquisitor's great helm, where the panel sums only with a Torva full helm; the potion beside the ranging potion is lighter blue and read as a second ranging potion; the Divine rune pouch is inferred from a four-rune overlay; the Obligator takes the Sanguine scythe's square and the Ascension crossbows and Diamond ascension bolts (e) two empty squares (inferred 2026-10-30 from the owner's note and the example max setup on the wiki's Strategies page, revision 15386591, which ranks the Obligator over the scythe; one square stays empty so a two-handed start has room for the Book of the Dead): the Zaryte crossbow keeps the quiver's ruby dragon bolts (e), and the ascension bolts are worn to fire the crossbows",
   ),
   high: gearTier(
     {
@@ -1082,7 +1095,7 @@ const TIERS_GEAR: GearRecipe["tiers"] = {
       equipment: { weapon: I.dragonWarhammer, offhand: I.bookOfTheDead, helmet: I.oathplateHelm, chest: I.oathplateChest, legs: I.oathplateLegs, gloves: I.barrowsGloves, cape: I.infernalCape, necklace: I.amuletOfBloodFury, feet: I.avernicTreadsMax, ring: I.ultorRing, ammo: I.seekingDragonArrow },
       inventory: [
         I.dragonCrossbow, I.masoriBodyF, I.blessedDizanasQuiver, I.divineRunePouch,
-        I.necklaceOfRupture, I.masoriChapsF, I.twistedBuckler, I.dragonWarhammerCr,
+        I.necklaceOfRupture, I.masoriChapsF, I.twistedBuckler, I.soulreaperAxeOrnament,
         I.scorchingBow, I.toxicBlowpipe, I.superCombatPotion, I.superCombatPotion,
         null, null, I.rangingPotion, I.rangingPotion,
         null, null, I.superRestore, I.superRestore,
@@ -1091,7 +1104,7 @@ const TIERS_GEAR: GearRecipe["tiers"] = {
       ],
       starts: [tierStart("blowpipe", "Masori", I.toxicBlowpipe, I.masoriBodyF, I.masoriChapsF, I.necklaceOfRupture)],
     },
-    "every worn slot's icon agrees with the panel; the warhammer in row 2 is the nearest match to a dark head on a red shaft, not confirmed",
+    "every worn slot's icon agrees with the panel; the ornamented weapon in row 2 is the Soulreaper axe (o), which the owner confirmed",
   ),
   mid: gearTier(
     {
@@ -1229,6 +1242,28 @@ const GEAR: GearRecipe = {
   twistedBow: selected({ rapidSpeed: 5, otherSpeed: 6 }, "spec-single", "unscaled", "attack speed by stance: 5 ticks on Rapid, 6 on Accurate and Longrange", TWISTED_BOW_PAGE),
   ralos: selected({ rapidSpeed: span(6), otherSpeed: span(7), range: 7, longrangeRange: 9, hits: 2, hitMaxFraction: 0.75 }, "spec-single", "unscaled", "charged, one-handed thrown: two independent hits, each 0 to 75% of the max ranged hit", RALOS_PAGE),
   division: selected({ energy: 50, accuracyFactor: 1.5, defenceDrainOfMagic: 0.125 }, "spec-single", "unscaled", "+50% accuracy; each hit that deals damage lowers Defence by 12.5% of Magic (10% before 2026-07-22) and, on NPCs, before the second roll; the drain applies as each glaive lands, so a hit the target rejects drains nothing (inferred); rounding not stated, floored (inferred)", RALOS_PAGE),
+  ralosGraphics: selected(
+    {
+      throw: { animation: 10923, cast: 2734, glaives: [{ projectile: 2729, impact: 2732 }, { projectile: 2730, impact: 2732 }] },
+      division: { animation: 10914, cast: 2725, glaives: [{ projectile: 2727, impact: 2731 }, { projectile: 2728, impact: 2733 }] },
+    },
+    "spec-confirmed",
+    "unscaled",
+    "the charged glaives' throw and Division: the wielder's sequence and spotanim, then each glaive's travel and impact spotanim; gameval names each id, and the cache pairs each spotanim with its sequence; the second regular glaive reuses the only regular impact",
+    RALOS_PAGE,
+    gameval("HUMAN_GLAIVE_RALOS01_CHARGED_THROW"),
+    gameval("HUMAN_GLAIVE_RALOS01_CHARGED_SPECIAL"),
+    gameval("VFX_GLAIVE_CHARGED_REGULAR"),
+    gameval("VFX_GLAIVE_CHARGED_SPECIAL"),
+    gameval("PROJANIM_GLAIVE_01_REGULAR"),
+    gameval("PROJANIM_GLAIVE_02_REGULAR"),
+    gameval("PROJANIM_GLAIVE_01_SPECIAL"),
+    gameval("PROJANIM_GLAIVE_02_SPECIAL"),
+    gameval("VFX_GLAIVE_01_IMPACT_REGULAR_01"),
+    gameval("VFX_GLAIVE_01_IMPACT_SPECIAL_01"),
+    gameval("VFX_GLAIVE_02_IMPACT_SPECIAL_01"),
+    cache("spotanims 2725 seq 10915, 2727 seq 10910, 2728 seq 10912, 2729 seq 10911, 2730 seq 10913, 2731 seq 10918, 2732 seq 10919, 2733 seq 10920, 2734 seq 10921"),
+  ),
   quiverAmmo: selected(
     { dragonCrossbow: 9242, zaryteCrossbow: 21944 },
     "inferred",
@@ -1240,7 +1275,7 @@ const GEAR: GearRecipe = {
     wiki("https://oldschool.runescape.wiki/w/Dizana%27s_quiver", 15376019),
     wiki("https://oldschool.runescape.wiki/w/Ruby_dragon_bolts_(e)", 15274049),
   ),
-  ammunition: selected({ twistedBow: "standard", tonalzticsOfRalos: "light", dragonCrossbow: "heavy", zaryteCrossbow: "heavy" }, "spec-single", "unscaled", "the Twisted Bow fires dragon arrows, and arrows roll against standard ranged defence; Ralos rolls against light; crossbow bolts roll against heavy", RANGED_PAGE, RALOS_PAGE),
+  ammunition: selected({ twistedBow: "standard", tonalzticsOfRalos: "light", dragonCrossbow: "heavy", zaryteCrossbow: "heavy", ascensionCrossbows: "heavy" }, "spec-single", "unscaled", "the Twisted Bow fires dragon arrows, and arrows roll against standard ranged defence; Ralos rolls against light; crossbow bolts, the ascension crossbows' among them, roll against heavy", RANGED_PAGE, RALOS_PAGE, wiki(`${OSRS_WIKI}Ascension_crossbows`, 15385929)),
   inquisitorCrushPerMille: selected({ inquisitorsGreatHelm: 5, inquisitorsHauberk: 10, inquisitorsPlateskirt: 10 }, "spec-single", "unscaled", "crush accuracy and damage per piece; the 2026-07-22 update moved the 1% set bonus onto the hauberk and plateskirt", wiki(`${OSRS_WIKI}Inquisitor%27s_hauberk`, 15352823), wiki(`${OSRS_WIKI}Inquisitor%27s_plateskirt`, 15352824), INQUISITOR_SET),
   scytheStance: selected("jab", "spec-single", "unscaled", "Jab is the scythe's crush style; the owner wants the Scythe setup on crush", SCYTHE_PAGE, owner("melee setup")),
   scytheMaxHitsOnOneTarget: selected(3, "spec-single", "unscaled", "one hit per tile of the target's width, up to three: a 1x1 target once, 2x2 twice, 3x3 or larger three times; other 1x1 targets in the 1x3 arc take their own hit", SCYTHE_PAGE),
