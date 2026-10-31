@@ -1106,7 +1106,7 @@ tile_pixel() {
 }
 
 # Each argument is one entry, after|tile|mode|rise, and the entries run in order in one eval, so no CLI turn separates two timed clicks.
-# An entry reads, and clicks when its mode is click, none, control, walk, or control-walk, on the first frame of tick $after, $rise pixels above the tile's centre. A click whose page is already past its tick is not sent, and the plan stops there, unless $after is written N+, which clicks on the first frame at or past tick N. The plan stays under agent-browser's 25 s eval timeout.
+# An entry reads, and clicks when its mode is click, none, control, walk, or control-walk, on the first frame of tick $after, $rise pixels above the tile's centre. A click whose page is already past its tick is not sent, and the plan stops there, unless $after is written N+, which clicks on the first frame at or past tick N. The eval arms the plan and returns at once, so no CLI turn sits between the wait for a tick and its click.
 # When $rise is boss, the height is the lowest one where the right-click menu offers Attack first, which is what a left click there does. The SDK builds that menu inside mousedown, so the search runs in the frame that clicks, on the boss's pose and camera at that tick.
 click_plan() {
   local page="$1" entry after tile mode rise first="" tiles=() plan="" read
@@ -1116,8 +1116,8 @@ click_plan() {
     first="${first:-$after}" tiles+=("$tile")
     plan+="{ after: '${after}', tile: () => (${tile}), mode: '${mode}', rise: '${rise}' },"
   done
-  [[ "$first" == now ]] || fight_tick_at_least $((${first%+} - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((${first%+} - 1))"; return 1; }
-  read="$(ab --json eval "new Promise((done) => {
+  read="$(ab --json eval "(() => {
+    const done = (outcome) => { window.__clickPlan = outcome; };
     const probe = window.__archiveOcellusProbe, plan = [${plan}], tick = () => probe.snapshot().fight?.run.tick ?? -1;
     const bossRise = (world, box, under) => {
       const fire = (type, x, y, button) => world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button, buttons: button === 2 ? 2 : 0, clientX: x, clientY: y }));
@@ -1150,8 +1150,14 @@ click_plan() {
       if (!point || !hit || ++index === plan.length) return done(result);
       read();
     };
+    window.__clickPlan = null;
     read();
-  })" | json data.result)" || { log "${page}: tile ${tiles[0]} was not read"; return 1; }
+    return window.__clickPlan;
+  })()" | json data.result)" || { log "${page}: tile ${tiles[0]} was not read"; return 1; }
+  if [[ "$read" == null ]]; then
+    ab wait --fn "window.__clickPlan !== null" --timeout 120000 >/dev/null || { log "${page}: the plan from P4 tick ${first%+} did not finish"; return 1; }
+    read="$(ab --json eval "window.__clickPlan" | json data.result)" || { log "${page}: the plan's outcome was not read"; return 1; }
+  fi
   tile="${tiles[$(json index <<<"$read")]}"
   [[ "$(json late <<<"$read")" == null ]] || { log "${page}: the click planned for P4 tick $(json planned <<<"$read") was armed on tick $(json late <<<"$read")"; return 1; }
   [[ "$(json boss <<<"$read")" != false ]] || { log "${page}: no point above ${tile} offered Attack"; return 1; }
