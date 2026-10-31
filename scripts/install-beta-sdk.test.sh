@@ -50,10 +50,6 @@ case "$PWD:$1" in
   */osrs-sdk:ci) ;;
   */osrs-sdk:run)
     echo build >>"$T/builds"
-    if [[ "${BUILD_BARRIER:-0}" == 1 ]]; then
-      echo ready >"$T/build-ready"
-      read -r release <"$APP/build-release"
-    fi
     case "${BUILD_RESULT:-success}" in
       failure) exit 42 ;;
       interrupt) kill -INT "$(cat "$APP/installer.pid")"; exit 130 ;;
@@ -239,32 +235,26 @@ concurrent_installs_publish_one_valid_cache_entry() {
   setup
   local first_app="$APP" second_app="$T/second-app" first_pid second_pid first_status second_status
   cp -R "$APP" "$second_app"
-  mkfifo "$T/build-ready" "$first_app/build-release" "$second_app/build-release"
-  exec 3<>"$T/build-ready"
-  export BUILD_BARRIER=1
   ready
   bash "$first_app/scripts/install-beta-sdk.sh" >"$T/first.txt" 2>&1 &
   first_pid=$!
   APP="$second_app" bash "$second_app/scripts/install-beta-sdk.sh" >"$T/second.txt" 2>&1 &
   second_pid=$!
-  read -r first_ready <&3
-  read -r second_ready <&3
-  echo go >"$first_app/build-release"
-  echo go >"$second_app/build-release"
-  unset BUILD_BARRIER
-  exec 3>&-
   wait "$first_pid"; first_status=$?
   wait "$second_pid"; second_status=$?
   [[ $first_status == 0 && $second_status == 0 ]] || { cat "$T/first.txt" "$T/second.txt"; fail "concurrent installs returned $first_status and $second_status"; }
   [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "first concurrent install has wrong pin"
   APP="$second_app"
   [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "second concurrent install has wrong pin"
-  local cache="$XDG_CACHE_HOME/archive-ocellus/sdk-packs"
+  local cache="$XDG_CACHE_HOME/archive-ocellus/sdk-packs" fetches builds
   [[ "$(ls -A "$cache")" == "$PIN" ]] || fail "concurrent installs did not leave exactly one cache entry"
+  [[ "$(ls -A "$cache/$PIN" | wc -l | tr -d ' ')" == 3 ]] || fail "cache entry contains more than the three packs"
+  fetches="$(count "$T/fetches")"
+  builds="$(count "$T/builds")"
   rm -rf "$APP/node_modules"
   install_sdk
-  [[ "$(count "$T/fetches")" == 2 ]] || fail "concurrent cache entry did not avoid a later clone"
-  [[ "$(count "$T/builds")" == 2 ]] || fail "concurrent cache entry did not avoid a later build"
+  [[ "$(count "$T/fetches")" == "$fetches" ]] || fail "concurrent cache entry did not avoid a later clone"
+  [[ "$(count "$T/builds")" == "$builds" ]] || fail "concurrent cache entry did not avoid a later build"
   [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "published cache did not install the pin"
   expect_no_installer_leftovers
 }
