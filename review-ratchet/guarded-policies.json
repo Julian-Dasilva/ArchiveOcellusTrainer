@@ -117,6 +117,10 @@
           "mutation": [{ "find": "if (release === undefined) return isAfter(oldest.version, version) ? null : `${version} shipped but is missing from the changelog`;", "replace": "if (release === undefined) return null;" }]
         },
         {
+          "policy": "a changelog that is not newest first fails",
+          "mutation": [{ "find": "index > 0 && !isAfter(CHANGELOG[index - 1].version, release.version)", "replace": "false" }]
+        },
+        {
           "policy": "a shipped release older than every release in the changelog may be dropped",
           "mutation": [{ "find": "return isAfter(oldest.version, version) ? null : `${version}", "replace": "return `${version}" }]
         },

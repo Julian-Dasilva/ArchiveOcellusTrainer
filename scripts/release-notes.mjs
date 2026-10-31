@@ -14,9 +14,10 @@ VERSION is YYYY.MM.DD or YYYY.MM.DD.N, and that release is not included.
 With --record-shipped, also adds every release it prints, each with the digest
 of its notes, to shipped-releases.json beside CHANGELOG.
 Exits 1 when the newest version is not YYYY.MM.DD or YYYY.MM.DD.N, repeats
-an earlier release's version, or when a release in shipped-releases.json is
-missing from CHANGELOG while an older release is still in it, or its notes no
-longer match their digest. Dropping the oldest releases is allowed.
+an earlier release's version, when CHANGELOG is not newest first, or when a
+release in shipped-releases.json is missing from CHANGELOG while an older
+release is still in it, or its notes no longer match their digest. Dropping
+the oldest releases is allowed.
 `;
 
 const VERSION = /^\d{4}\.\d{2}\.\d{2}(\.[1-9]\d*)?$/;
@@ -51,6 +52,7 @@ const file = path.resolve(positional[0] ?? path.join(root, "src/content/ocellus/
 const { CHANGELOG } = await tsImport(pathToFileURL(file).href, import.meta.url);
 const [newest, ...earlier] = CHANGELOG;
 const oldest = CHANGELOG.at(-1);
+const outOfOrder = CHANGELOG.findIndex((release, index) => index > 0 && !isAfter(CHANGELOG[index - 1].version, release.version));
 const shippedFile = path.join(path.dirname(file), "shipped-releases.json");
 const shipped = fs.existsSync(shippedFile) ? JSON.parse(fs.readFileSync(shippedFile, "utf8")) : {};
 
@@ -71,6 +73,7 @@ const problems = [
     : earlier.some((release) => release.version === newest.version)
       ? `newest version ${newest.version} repeats an earlier release`
       : null,
+  outOfOrder > 0 ? `${CHANGELOG[outOfOrder - 1].version} comes before ${CHANGELOG[outOfOrder].version}; the changelog must be newest first` : null,
   ...Object.entries(shipped).map(shippedProblem),
 ].filter((problem) => problem !== null);
 if (problems.length > 0) {
