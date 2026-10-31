@@ -60,8 +60,7 @@ export type P1Roll =
   | "shout"
   | "side"
   | "blast-graphic"
-  | "crack-sound"
-  | "strike-heal";
+  | "crack-sound";
 
 export type P1Types = Readonly<{
   tile: ATile;
