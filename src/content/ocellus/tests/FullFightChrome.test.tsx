@@ -40,6 +40,16 @@ function loadFullFight(url: string) {
   };
 }
 
+/** Opens the page for `body` and closes it even when `body` throws, so a failure cannot leave a page for the next test. */
+function withFullFight<T>(url: string, body: (page: ReturnType<typeof loadFullFight>) => T): T {
+  const page = loadFullFight(url);
+  try {
+    return body(page);
+  } finally {
+    page.close();
+  }
+}
+
 function captureAssign() {
   const real = window.location;
   const assigned: string[] = [];
@@ -343,22 +353,20 @@ describe("the full fight page", () => {
   });
 
   test("the prayer guide starts off, its toggle shows the card at once with the volley in the air, and a reload keeps the choice", () => {
-    const page = loadFullFight("/?mode=full&phase=1&seed=1");
-    const region = fightRegion();
     const card = () => document.getElementById("prayer_guide_card")?.textContent ?? null;
-    region.world.getReadyTimer = 0;
-    const told = () => region.rows("p1").some((row) => row.events.some((event) => event.kind === "prayer-told"));
-    for (let ticks = 0; ticks < 40 && !told(); ticks++) region.world.tickWorld();
-    const before = { checked: page.checked("prayer_guide"), inAids: page.element("learning_aids").contains(page.element("prayer_guide")), card: card() };
-    page.click("prayer_guide");
-    const on = { checked: page.checked("prayer_guide"), card: card(), search: window.location.search };
-    page.click("prayer_guide");
-    const off = { checked: page.checked("prayer_guide"), card: card(), search: window.location.search };
-    page.close();
-
-    const saved = loadFullFight("/?mode=full&phase=1&seed=1&prayer=1");
-    const kept = saved.checked("prayer_guide");
-    saved.close();
+    const { before, on, off } = withFullFight("/?mode=full&phase=1&seed=1", (page) => {
+      const region = fightRegion();
+      region.world.getReadyTimer = 0;
+      const told = () => region.rows("p1").some((row) => row.events.some((event) => event.kind === "prayer-told"));
+      for (let ticks = 0; ticks < 40 && !told(); ticks++) region.world.tickWorld();
+      const before = { checked: page.checked("prayer_guide"), inAids: page.element("learning_aids").contains(page.element("prayer_guide")), card: card() };
+      page.click("prayer_guide");
+      const on = { checked: page.checked("prayer_guide"), card: card(), search: window.location.search };
+      page.click("prayer_guide");
+      const off = { checked: page.checked("prayer_guide"), card: card(), search: window.location.search };
+      return { before, on, off };
+    });
+    const kept = withFullFight("/?mode=full&phase=1&seed=1&prayer=1", (saved) => saved.checked("prayer_guide"));
 
     expect({ before, on, off, kept }).toEqual({
       before: { checked: false, inAids: true, card: null },
@@ -369,22 +377,20 @@ describe("the full fight page", () => {
   });
 
   test("the mechanics guide starts off, its toggle lists what is coming at once, and a reload keeps the choice", () => {
-    const page = loadFullFight("/?mode=full&phase=1&seed=1");
-    const region = fightRegion();
     const card = () => document.getElementById("mechanics_guide_card")?.textContent ?? null;
-    region.world.getReadyTimer = 0;
-    const told = () => region.rows("p1").some((row) => row.events.some((event) => event.kind === "prayer-told"));
-    for (let ticks = 0; ticks < 40 && !told(); ticks++) region.world.tickWorld();
-    const before = { checked: page.checked("mechanics_guide"), inAids: page.element("learning_aids").contains(page.element("mechanics_guide")), card: card() };
-    page.click("mechanics_guide");
-    const on = { checked: page.checked("mechanics_guide"), card: card(), search: window.location.search };
-    page.click("mechanics_guide");
-    const off = { checked: page.checked("mechanics_guide"), card: card(), search: window.location.search };
-    page.close();
-
-    const saved = loadFullFight("/?mode=full&phase=1&seed=1&tells=1");
-    const kept = saved.checked("mechanics_guide");
-    saved.close();
+    const { before, on, off } = withFullFight("/?mode=full&phase=1&seed=1", (page) => {
+      const region = fightRegion();
+      region.world.getReadyTimer = 0;
+      const told = () => region.rows("p1").some((row) => row.events.some((event) => event.kind === "prayer-told"));
+      for (let ticks = 0; ticks < 40 && !told(); ticks++) region.world.tickWorld();
+      const before = { checked: page.checked("mechanics_guide"), inAids: page.element("learning_aids").contains(page.element("mechanics_guide")), card: card() };
+      page.click("mechanics_guide");
+      const on = { checked: page.checked("mechanics_guide"), card: card(), search: window.location.search };
+      page.click("mechanics_guide");
+      const off = { checked: page.checked("mechanics_guide"), card: card(), search: window.location.search };
+      return { before, on, off };
+    });
+    const kept = withFullFight("/?mode=full&phase=1&seed=1&tells=1", (saved) => saved.checked("mechanics_guide"));
 
     expect({ before, on, off, kept }).toEqual({
       before: { checked: false, inAids: true, card: null },
