@@ -277,4 +277,52 @@ describe("Ocellus arena", () => {
     });
     drill.dispose();
   });
+
+  test("Control inverts the run setting for one order: run on walks, run off runs, and the run orb stays as set", async () => {
+    const along = async (runOn: boolean, ctrlKey: boolean) => {
+      const drill = startDrill({ selection: NON_LETHAL });
+      drill.player().running = runOn;
+      await drill.click({ x: 9, y: 1 }, { ctrlKey });
+      drill.region.world.tickWorld();
+      const x = drill.player().location.x;
+      const running = drill.player().running;
+      drill.dispose();
+      return { x, running };
+    };
+    expect({
+      runOnClick: await along(true, false),
+      runOnControlClick: await along(true, true),
+      runOffClick: await along(false, false),
+      runOffControlClick: await along(false, true),
+    }).toEqual({
+      runOnClick: { x: 7, running: true },
+      runOnControlClick: { x: 6, running: true },
+      runOffClick: { x: 6, running: false },
+      runOffControlClick: { x: 7, running: false },
+    });
+  });
+
+  test("a Control-click with run off runs only that order: the next plain click walks a tile a tick", async () => {
+    const drill = startDrill({ selection: NON_LETHAL });
+    drill.player().running = false;
+    await drill.click({ x: 9, y: 1 }, { ctrlKey: true });
+    drill.region.world.tickWorld();
+    const ran = drill.player().location.x;
+    await drill.click({ x: 5, y: 1 });
+    drill.region.world.tickWorld();
+    const walked = drill.player().location.x;
+    drill.dispose();
+    expect({ ran, walked }).toEqual({ ran: 7, walked: 6 });
+  });
+
+  test("a Control-click with run off and no energy left walks", async () => {
+    const drill = startDrill({ selection: NON_LETHAL });
+    drill.player().running = false;
+    drill.player().currentStats.run = 0;
+    await drill.click({ x: 9, y: 1 }, { ctrlKey: true });
+    drill.region.world.tickWorld();
+    const x = drill.player().location.x;
+    drill.dispose();
+    expect(x).toBe(6);
+  });
 });

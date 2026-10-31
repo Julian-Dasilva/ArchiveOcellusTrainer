@@ -4,7 +4,7 @@ A free practice simulator for the Ocellus fight in The Fractured Archive.
 
 **Status: early development.** Mechanics come from the community wiki and release-day reports. Timings are unverified and will change.
 
-Play it at https://archive-ocellus-trainer.raid-sims.workers.dev. The site opens the full fight at phase 4. Pick another phase from **Start at** in the side panel and press **Start fight**. Tick **Practice** to play without dying. Hold Control while clicking a tile to walk there instead of running, as in game. The fight waits until you press **Start**, so you can set keybinds and settings first. Press **P** or **Pause** to pause; keybinds and settings work while paused, and the fight resumes on the same tick.
+Play it at https://archive-ocellus-trainer.raid-sims.workers.dev. The site opens the full fight at phase 4. Pick another phase from **Start at** in the side panel and press **Start fight**. Tick **Practice** to play without dying. Hold Control while clicking a tile to do the opposite of your run setting for that click: walk when run is on, run when it is off, as in game. The fight waits until you press **Start**, so you can set keybinds and settings first. Press **P** or **Pause** to pause; keybinds and settings work while paused, and the fight resumes on the same tick.
 
 Built on [osrs-sdk](https://github.com/OldSchoolSDK/osrs-sdk), following the layout of [ColosseumTrainer](https://github.com/Supalosa/ColosseumTrainer).
 
