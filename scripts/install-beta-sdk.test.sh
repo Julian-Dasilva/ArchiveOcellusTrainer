@@ -385,13 +385,16 @@ next_run_sweeps_a_killed_builder() {
 
 guard:live_builder_is_not_swept() {
   setup
-  local builder work first_app="$APP" second_app="$T/second-app"
+  local builder work first_app="$APP" second_app="$T/second-app" unknown="$XDG_CACHE_HOME/archive-ocellus/sdk-packs/.build.unknown-owner"
   start_held_builder
   work="$(cat "$APP/build-ready")"
+  mkdir "$unknown"
   cp -R "$APP" "$second_app"
   ready
   APP="$second_app" install_sdk
   [[ -d "$work" ]] || fail "concurrent install swept a live builder"
+  [[ -d "$unknown" ]] || fail "concurrent install swept a builder with no ownership proof"
+  rm -rf "$unknown"
   touch "$first_app/build-release"
   wait "$builder" || { cat "$T/builder.txt"; fail "live builder could not finish after concurrent install"; }
   [[ "$(installed_commits)" == "$PIN $PIN $PIN" ]] || fail "live builder installed the wrong pin"
