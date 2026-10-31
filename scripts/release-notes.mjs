@@ -15,7 +15,8 @@ With --record-shipped, also adds every release it prints, each with the digest
 of its notes, to shipped-releases.json beside CHANGELOG.
 Exits 1 when the newest version is not YYYY.MM.DD or YYYY.MM.DD.N, repeats
 an earlier release's version, or when a release in shipped-releases.json is
-missing from CHANGELOG or its notes no longer match their digest.
+missing from CHANGELOG while an older release is still in it, or its notes no
+longer match their digest. Dropping the oldest releases is allowed.
 `;
 
 const VERSION = /^\d{4}\.\d{2}\.\d{2}(\.[1-9]\d*)?$/;
@@ -49,6 +50,7 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const file = path.resolve(positional[0] ?? path.join(root, "src/content/ocellus/changelog.ts"));
 const { CHANGELOG } = await tsImport(pathToFileURL(file).href, import.meta.url);
 const [newest, ...earlier] = CHANGELOG;
+const oldest = CHANGELOG.at(-1);
 const shippedFile = path.join(path.dirname(file), "shipped-releases.json");
 const shipped = fs.existsSync(shippedFile) ? JSON.parse(fs.readFileSync(shippedFile, "utf8")) : {};
 
@@ -58,7 +60,7 @@ function notesDigest(release) {
 
 function shippedProblem([version, digest]) {
   const release = CHANGELOG.find((candidate) => candidate.version === version);
-  if (release === undefined) return `${version} shipped but is missing from the changelog`;
+  if (release === undefined) return isAfter(oldest.version, version) ? null : `${version} shipped but is missing from the changelog`;
   if (notesDigest(release) !== digest) return `${version} shipped, so its notes cannot change; put new notes in a newer release`;
   return null;
 }
