@@ -3,7 +3,7 @@ import type { SpriteFrame } from "./content/ocellus/js/OcellusTimings";
 import { OCELLUS_P4 } from "./content/ocellus/js/OcellusTimings";
 import { FIGHT_ASSETS, FIGHT_MODELS } from "./content/ocellus/fight/assets";
 import { PROTECT_MELEE_ICON } from "./content/ocellus/fight/data";
-import { P4_ASSETS } from "./servedAssets";
+import { P4_ASSETS, STATUS_BAR_SPRITES } from "./servedAssets";
 
 export { spriteFile } from "./servedAssets";
 
@@ -52,4 +52,5 @@ export const ARCHIVE_OCELLUS_SPRITES: readonly SpriteFrame[] = [
   ...Object.values(presentation.overheadIcons).map((icon) => icon.value),
   PROTECT_MELEE_ICON,
   ...FIXED_FRAME_SPRITES.map((archive) => ({ archive, frame: 0 })),
+  ...Object.values(STATUS_BAR_SPRITES),
 ];

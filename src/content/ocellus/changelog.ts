@@ -7,6 +7,7 @@ export const CHANGELOG: Changelog = [
       "Settings has an Anti-drag box under Controls. It sets how long a quick click on an inventory item stays a click instead of a drag, in client ticks (20 ms). It starts at 5 (100 ms), the game client's own delay. Set 0 to turn it off.",
       "The Anti-drag delay is saved in your browser, so it is still set the next time you open the trainer.",
       "Control-click a tile with run off and you run there, as in game; with run on it still walks. The run uses energy as usual and leaves your run orb as you set it.",
+      "Tick Status bars under Learning aids to show Hitpoints and Prayer bars beside the side panel, as RuneLite does.",
     ],
   },
   {

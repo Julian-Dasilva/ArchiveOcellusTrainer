@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { ControlPanelController, Settings, SoundCache } from "osrs-sdk";
 import type { SettingsState } from "osrs-sdk";
@@ -7,6 +7,7 @@ import { flushSync } from "react-dom";
 import { CHANGELOG } from "../content/ocellus/changelog";
 import type { ReleaseVersion } from "../releases";
 import { releaseDate } from "../releases";
+import { setStatusBarsEnabled, statusBarsEnabled, subscribeStatusBars } from "../statusBars";
 import { perfDataAllowed, setPerfDataAllowed } from "../telemetry/perfTelemetry";
 import { CONTRIBUTOR, CREDIT_LINE, MAKER, MAKER_LINKS, REPOSITORY_URL } from "./credits";
 
@@ -65,6 +66,17 @@ function AntiDrag() {
       Anti-drag
       <small>Client ticks (20 ms) an inventory press stays a click. 0 is off</small>
       <input id="anti_drag" type="number" min={0} max={ANTI_DRAG_MAX_TICKS} step={1} value={antiDrag} onChange={(event) => setAntiDrag(event.target.value)} />
+    </label>
+  );
+}
+
+function StatusBarsToggle() {
+  const on = useSyncExternalStore(subscribeStatusBars, statusBarsEnabled);
+  return (
+    <label>
+      Status bars
+      <small>Hitpoints and Prayer beside the panel</small>
+      <input id="status_bars" type="checkbox" checked={on} onChange={(event) => setStatusBarsEnabled(event.target.checked)} />
     </label>
   );
 }
@@ -281,6 +293,7 @@ export default function Sidebar({ fight, aids, tips }: SidebarSlots) {
           <Section id="learning_aids" title="Learning aids">
             {aids}
             <SettingToggles toggles={TILE_INDICATORS} />
+            <StatusBarsToggle />
             {tips}
           </Section>
           <Section id="sidebar_display" title="Display">
