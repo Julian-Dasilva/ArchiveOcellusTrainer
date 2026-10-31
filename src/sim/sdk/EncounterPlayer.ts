@@ -1,5 +1,5 @@
 import { Collision, MagicWeapon, MeleeWeapon, Player } from "osrs-sdk";
-import type { MovePace, Unit } from "osrs-sdk";
+import type { Item, MovePace, Unit } from "osrs-sdk";
 import type { Style } from "../combat";
 import type { Tile } from "../brands";
 import type { AttackTarget, Rules, Walk } from "../encounter";
@@ -40,6 +40,9 @@ function wieldedStyle(weapon: Player["equipment"]["weapon"]): Style {
 }
 
 export class EncounterPlayer extends Player {
+  /** Control-click with run off runs that one order, as in game. */
+  private ctrlRun = false;
+
   constructor(region: ConstructorParameters<typeof Player>[0], location: ConstructorParameters<typeof Player>[1], private readonly hooks: () => EncounterPlayerHooks) {
     super(region, location);
   }
@@ -78,15 +81,46 @@ export class EncounterPlayer extends Player {
   override moveTo(x: number, y: number, pace: MovePace = "run-setting"): void {
     const destination = this.local({ x, y });
     const decision = this.hooks().rules().walk(destination);
-    this.applyWalk(decision, x, y, pace);
-    this.hooks().host()?.input({ kind: "walk-ordered", destination, pace });
+    const inverts = pace === "walk" && !this.running && this.currentStats.run > 0;
+    const ordered: MovePace = inverts ? "run-setting" : pace;
+    this.applyWalk(decision, x, y, ordered);
+    // The SDK's moveTo clears the flag through setAggro, so it is set after.
+    this.ctrlRun = inverts && decision.kind === "sdk";
+    this.hooks().host()?.input({ kind: "walk-ordered", destination, pace: ordered });
+  }
+
+  override setAggro(mob: Unit | null): void {
+    this.ctrlRun = false;
+    super.setAggro(mob);
+  }
+
+  override setSeekingItem(item: Item): void {
+    this.ctrlRun = false;
+    super.setSeekingItem(item);
+  }
+
+  /** Runs this one order without touching the run orb; running out of energy ends it. */
+  override moveTowardsDestination(): void {
+    if (!this.ctrlRun) return super.moveTowardsDestination();
+    const runSetting = this.running;
+    this.running = true;
+    try {
+      super.moveTowardsDestination();
+    } finally {
+      this.running = runSetting;
+      if (this.currentStats.run === 0) this.ctrlRun = false;
+    }
   }
 
   /** The SDK redirects a blocked tile only when it is ordered, and a walk stops dead when its tile becomes blocked later. */
   override determineDestination(): void {
     super.determineDestination();
     const to = this.destinationLocation;
-    if (to && Collision.collideableEntitiesAtPoint(this.region, to.x, to.y, 1).length > 0) super.moveTo(to.x, to.y, this.pace);
+    if (to && Collision.collideableEntitiesAtPoint(this.region, to.x, to.y, 1).length > 0) {
+      const ctrlRun = this.ctrlRun;
+      super.moveTo(to.x, to.y, this.pace);
+      this.ctrlRun = ctrlRun;
+    }
   }
 
   override pretick(): void {

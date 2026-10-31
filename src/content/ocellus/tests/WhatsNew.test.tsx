@@ -1,7 +1,7 @@
 import { loadPage } from "./page";
 
 const SEEN_RELEASE_KEY = "archive-ocellus:seen-release";
-const SHOWN_VERSIONS = ["2026.10.29", "2026.10.28", "2026.10.27", "2026.10.26.2", "2026.10.26.1"];
+const SHOWN_VERSIONS = ["2026.10.31", "2026.10.29", "2026.10.28", "2026.10.27", "2026.10.26.2"];
 const TIMING_FIXES =
   "In phase 3, a sever blocks your protection prayers for one tick, as in game, so Protect from Melee clicked straight back on is up for the next saw, and \"Your panic... is futile...\" now warns of a Void Vine, not his magic shot. In phase 1, he walks out of the middle a tick later after his strike.";
 
@@ -71,8 +71,8 @@ describe("What's new", () => {
     page.click("whats_new");
     const { releases } = whatsNew(page);
     page.close();
-    expect({ menuDot, unshipped: releases.slice(0, 1).map((release) => release.version), next: releases[1] }).toEqual({
-      menuDot: true, unshipped: ["2026.10.29"], next: NEXT_RELEASE,
+    expect({ menuDot, unshipped: releases.slice(0, 2).map((release) => release.version), next: releases[2] }).toEqual({
+      menuDot: true, unshipped: ["2026.10.31", "2026.10.29"], next: NEXT_RELEASE,
     });
   });
 
@@ -82,7 +82,7 @@ describe("What's new", () => {
     const { releases } = whatsNew(page);
     const older = [...page.element("whats_new_panel").querySelectorAll("a")].map((link) => [link.textContent, link.href, link.target, link.rel]);
     page.close();
-    expect({ versions: releases.map((release) => release.version), newest: releases[0]?.notes, older }).toEqual({
+    expect({ versions: releases.map((release) => release.version), newest: releases[1]?.notes, older }).toEqual({
       versions: SHOWN_VERSIONS,
       newest: expect.arrayContaining([TIMING_FIXES]),
       older: [["Older releases", "https://github.com/Julian-Dasilva/ArchiveOcellusTrainer/releases", "_blank", "noopener noreferrer"]],

@@ -81,6 +81,27 @@ describe("the sidebar", () => {
     });
   });
 
+  test("Anti-drag starts at the SDK's 5 ticks, changes the SDK delay at once, saves it, and a reload keeps the saved delay", () => {
+    const first = loadPage("/?seed=1");
+    const onLoad = { box: first.value("anti_drag"), delay: Settings.antiDrag };
+    first.type("anti_drag", "6");
+    const afterTyping = { box: first.value("anti_drag"), delay: Settings.antiDrag, saved: JSON.parse(localStorage.getItem(SAVED_SETTINGS) ?? "{}").values.antiDrag };
+    first.type("anti_drag", "");
+    const afterClearing = { box: first.value("anti_drag"), delay: Settings.antiDrag };
+    first.type("anti_drag", "6");
+    first.close();
+    const second = loadPage("/?seed=1");
+    const afterReload = { box: second.value("anti_drag"), delay: Settings.antiDrag };
+    second.close();
+
+    expect({ onLoad, afterTyping, afterClearing, afterReload }).toEqual({
+      onLoad: { box: "5", delay: 5 },
+      afterTyping: { box: "6", delay: 6, saved: 6 },
+      afterClearing: { box: "0", delay: 0 },
+      afterReload: { box: "6", delay: 6 },
+    });
+  });
+
   test("Keybinds in the sidebar opens the key bindings", () => {
     const page = loadPage("/?seed=1&setup=ranged");
     page.click("keybinds");

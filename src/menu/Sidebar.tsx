@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { ControlPanelController, Settings, SoundCache } from "osrs-sdk";
 import type { SettingsState } from "osrs-sdk";
@@ -7,6 +7,7 @@ import { flushSync } from "react-dom";
 import { CHANGELOG } from "../content/ocellus/changelog";
 import type { ReleaseVersion } from "../releases";
 import { releaseDate } from "../releases";
+import { setStatusBarsEnabled, statusBarsEnabled, subscribeStatusBars } from "../statusBars";
 import { perfDataAllowed, setPerfDataAllowed } from "../telemetry/perfTelemetry";
 import { CONTRIBUTOR, CREDIT_LINE, MAKER, MAKER_LINKS, REPOSITORY_URL } from "./credits";
 
@@ -48,6 +49,36 @@ function SettingToggles({ toggles }: Readonly<{ toggles: readonly Toggle[] }>) {
       <input id={id} type="checkbox" checked={settings[setting]} onChange={(event) => setToggle(setting, event.target.checked)} />
     </label>
   ));
+}
+
+// The SDK holds an inventory press as a click for this many client ticks (20 ms), 5 by default, and saves the value itself.
+const ANTI_DRAG_MAX_TICKS = 50;
+
+function setAntiDrag(text: string) {
+  const ticks = Number.parseInt(text, 10);
+  Settings.set({ antiDrag: Number.isNaN(ticks) ? 0 : Math.min(Math.max(ticks, 0), ANTI_DRAG_MAX_TICKS) });
+}
+
+function AntiDrag() {
+  const { antiDrag } = useSettingsSnapshot();
+  return (
+    <label>
+      Anti-drag
+      <small>Client ticks (20 ms) an inventory press stays a click. 0 is off</small>
+      <input id="anti_drag" type="number" min={0} max={ANTI_DRAG_MAX_TICKS} step={1} value={antiDrag} onChange={(event) => setAntiDrag(event.target.value)} />
+    </label>
+  );
+}
+
+function StatusBarsToggle() {
+  const on = useSyncExternalStore(subscribeStatusBars, statusBarsEnabled);
+  return (
+    <label>
+      Status bars
+      <small>Hitpoints and Prayer beside the panel</small>
+      <input id="status_bars" type="checkbox" checked={on} onChange={(event) => setStatusBarsEnabled(event.target.checked)} />
+    </label>
+  );
 }
 
 const external = { target: "_blank", rel: "noopener noreferrer" } as const;
@@ -137,7 +168,7 @@ html.phone-overlay #policy_footer { position: relative; z-index: 1002; }
 #sidebar label:has(> input[type="checkbox"]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: center; }
 #sidebar label > input[type="checkbox"] { grid-column: 2; grid-row: 1 / span 2; margin: 0; }
 #sidebar label > small { grid-column: 1; font-size: 12px; color: #a89a78; }
-#sidebar select, #sidebar #seed { font: inherit; width: 100%; box-sizing: border-box; padding: 2px; border: 1px solid #6b5b3e; background: #2b2418; color: #fff; }
+#sidebar select, #sidebar #seed, #sidebar #anti_drag { font: inherit; width: 100%; box-sizing: border-box; padding: 2px; border: 1px solid #6b5b3e; background: #2b2418; color: #fff; }
 #sidebar button { width: 100%; }
 #sidebar #whats_new_panel { position: static; box-sizing: border-box; width: auto; max-height: none; overflow: visible; }
 #sidebar ul { margin: 0; padding-left: 16px; color: #e8dcc0; font-size: 13px; line-height: 15px; }
@@ -262,6 +293,7 @@ export default function Sidebar({ fight, aids, tips }: SidebarSlots) {
           <Section id="learning_aids" title="Learning aids">
             {aids}
             <SettingToggles toggles={TILE_INDICATORS} />
+            <StatusBarsToggle />
             {tips}
           </Section>
           <Section id="sidebar_display" title="Display">
@@ -271,6 +303,7 @@ export default function Sidebar({ fight, aids, tips }: SidebarSlots) {
             <SettingToggles toggles={SOUNDS} />
           </Section>
           <Section id="sidebar_controls" title="Controls">
+            <AntiDrag />
             <RuneScapeButton id="keybinds" type="button" onClick={openKeybinds}>Keybinds</RuneScapeButton>
           </Section>
           <Section id="sidebar_about" title="About">

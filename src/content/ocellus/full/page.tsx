@@ -27,6 +27,7 @@ import { toSdk } from "../fight/geometry";
 import { warmLaterPhases } from "../fight/warmup";
 import { FULL_FIGHT_CSS } from "../../../fullFightStyles";
 import { useKeepChatAboveInventory } from "../../../placeChat";
+import { installStatusBars } from "../../../statusBars";
 import type { P4Mount } from "../js/p4/phase";
 import type { RunState } from "../js/P4Types";
 import type { BossForm } from "../fight/units";
@@ -125,6 +126,7 @@ function createTrainer() {
   CacheRender.configure(new URL("osrs-assets/manifest.json", window.location.href).href);
   void CacheRender.bundle().then(({ manifest }) => reportUnservedAssets(manifest), (error: unknown) => console.error("assets: osrs-assets/manifest.json did not load", error));
   readSettings();
+  installStatusBars();
   const link = readParams();
   const loadouts = new TierLoadouts(saved, link.tier, GEAR_SCOPES.find((scope) => scope === process.env.ARCHIVE_LOADOUT) ?? "editor");
   const started = startingLoadout(loadouts.active(), link.weapon);

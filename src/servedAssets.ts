@@ -75,3 +75,9 @@ export const itemIconFile = (itemId: number) => `${ITEM_ICON_DIR}/${itemId}.png`
 export function spriteFile({ archive, frame }: SpriteFrame): string {
   return `sprites/${archive}-${frame}.png`;
 }
+
+/** Cache sprites 203 and 201 are the game's Hitpoints and Prayer skill icons. */
+export const STATUS_BAR_SPRITES = {
+  hitpoints: { archive: 203, frame: 0 },
+  prayer: { archive: 201, frame: 0 },
+} as const satisfies Readonly<Record<string, SpriteFrame>>;
