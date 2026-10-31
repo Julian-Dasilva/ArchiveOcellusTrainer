@@ -317,12 +317,13 @@ seed_damaged_cache() {
       mkdir -p "$T/padded/package"
       printf '{"name":"osrs-sdk","version":"0.1.8","gitHead":"%s"}\n' "$PIN" >"$T/padded/package/package.json"
       node -e 'require("node:fs").writeFileSync(process.argv[1], require("node:crypto").randomBytes(65536))' "$T/padded/package/padding"
-      tar -czf "$file" -C "$T/padded" package/package.json package/padding
-      head -c "$(( $(wc -c <"$file") / 2 ))" "$file" >"$file.part"
-      mv "$file.part" "$file"
+      tar --format=ustar -cf "$file.tar" -C "$T/padded" package/package.json package/padding
+      head -c "$(( $(wc -c <"$file.tar") / 2 ))" "$file.tar" | gzip >"$file"
+      rm "$file.tar"
       local manifest
       manifest="$(tar -xzOf "$file" package/package.json 2>/dev/null)"
       [[ "$manifest" == *"$PIN"* ]] || fail "fixture lost manifest before truncation"
+      if tar -tzf "$file" >/dev/null 2>&1; then fail "fixture is not a truncated archive"; fi
       ;;
   esac
 }
@@ -496,6 +497,10 @@ without_flock_live_builder_is_not_swept() {
   LOCK_TOOLSET=perl guard:live_builder_is_not_swept
 }
 
+guard:without_flock_next_run_sweeps_a_killed_builder() {
+  LOCK_TOOLSET=perl next_run_sweeps_a_killed_builder
+}
+
 without_lock_tools_reports_actionable_error() {
   LOCK_TOOLSET=none setup
   ready
@@ -600,6 +605,7 @@ for t in \
   without_flock_install_succeeds_and_cleans_up \
   without_flock_concurrent_installs_serialize \
   without_flock_live_builder_is_not_swept \
+  guard:without_flock_next_run_sweeps_a_killed_builder \
   without_lock_tools_reports_actionable_error \
   guard:two_default_cache_checkouts_keep_both_pins \
   old_packs_are_pruned_after_installation \
