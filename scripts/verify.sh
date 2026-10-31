@@ -738,12 +738,16 @@ record_overhead_draws() {
   })()' >/dev/null
 }
 
+step_entry() {
+  echo "$(($2 - 1))|{ x: probe.snapshot().player.x + ($1), y: probe.snapshot().player.y }|click|0"
+}
+
 # Steps $1 tiles along the player's row on the tick before each mark, turning back each time.
 step_on_marks() {
   local dx="$1" mark plan=()
   shift
   for mark in "$@"; do
-    plan+=("$((mark - 1))|{ x: probe.snapshot().player.x + (${dx}), y: probe.snapshot().player.y }|click|0")
+    plan+=("$(step_entry "$dx" "$mark")")
     dx=$((-dx))
   done
   click_plan "steps before marks $*" "${plan[@]}"
@@ -1106,7 +1110,7 @@ tile_pixel() {
 }
 
 # Each argument is one entry, after|tile|mode|rise, and the entries run in order in one eval, so no CLI turn separates two timed clicks.
-# An entry reads, and clicks when its mode is click, none, control, walk, or control-walk, on the first frame of tick $after, $rise pixels above the tile's centre. A click whose page is already past its tick is not sent, and the plan stops there, unless $after is written N+, which clicks on the first frame at or past tick N. The plan stays under agent-browser's 25 s eval timeout.
+# An entry reads, and clicks when its mode is click, none, control, walk, or control-walk, on the first frame of tick $after, $rise pixels above the tile's centre. A click whose page is already past its tick is not sent, and the plan stops there, unless $after is written N+, which clicks on the first frame at or past tick N. The eval arms the plan and returns at once, so no CLI turn sits between the wait for a tick and its click.
 # When $rise is boss, the height is the lowest one where the right-click menu offers Attack first, which is what a left click there does. The SDK builds that menu inside mousedown, so the search runs in the frame that clicks, on the boss's pose and camera at that tick.
 click_plan() {
   local page="$1" entry after tile mode rise first="" tiles=() plan="" read
@@ -1116,8 +1120,8 @@ click_plan() {
     first="${first:-$after}" tiles+=("$tile")
     plan+="{ after: '${after}', tile: () => (${tile}), mode: '${mode}', rise: '${rise}' },"
   done
-  [[ "$first" == now ]] || fight_tick_at_least $((${first%+} - 1)) 90000 || { log "${page}: the fight never reached P4 tick $((${first%+} - 1))"; return 1; }
-  read="$(ab --json eval "new Promise((done) => {
+  read="$(ab --json eval "(() => {
+    const done = (outcome) => { window.__clickPlan = outcome; };
     const probe = window.__archiveOcellusProbe, plan = [${plan}], tick = () => probe.snapshot().fight?.run.tick ?? -1;
     const bossRise = (world, box, under) => {
       const fire = (type, x, y, button) => world.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button, buttons: button === 2 ? 2 : 0, clientX: x, clientY: y }));
@@ -1150,8 +1154,14 @@ click_plan() {
       if (!point || !hit || ++index === plan.length) return done(result);
       read();
     };
+    window.__clickPlan = null;
     read();
-  })" | json data.result)" || { log "${page}: tile ${tiles[0]} was not read"; return 1; }
+    return window.__clickPlan;
+  })()" | json data.result)" || { log "${page}: tile ${tiles[0]} was not read"; return 1; }
+  if [[ "$read" == null ]]; then
+    ab wait --fn "window.__clickPlan !== null" --timeout 120000 >/dev/null || { log "${page}: the plan from P4 tick ${first%+} did not finish"; return 1; }
+    read="$(ab --json eval "window.__clickPlan" | json data.result)" || { log "${page}: the plan's outcome was not read"; return 1; }
+  fi
   tile="${tiles[$(json index <<<"$read")]}"
   [[ "$(json late <<<"$read")" == null ]] || { log "${page}: the click planned for P4 tick $(json planned <<<"$read") was armed on tick $(json late <<<"$read")"; return 1; }
   [[ "$(json boss <<<"$read")" != false ]] || { log "${page}: no point above ${tile} offered Attack"; return 1; }
@@ -2183,17 +2193,15 @@ click_tile_after_tick() {
 drive_recorded_fights() {
   ab open "${URL}${RECORDED_LEAD_IN_QUERY}" >/dev/null || return 1
   fight_tick_at_least 0 120000 || { log "the lead-in page never started"; return 1; }
-  click_tile_after_tick recorded-lead-in "$RECORDED_RING_TILE" 0 || return 1
-  click_tile_after_tick recorded-lead-in "$RECORDED_BOSS_TILE" "$RECORDED_LEAD_IN_SHOT_TICK" || return 1
+  click_plan recorded-lead-in "0+|${RECORDED_RING_TILE}|click|0" "${RECORDED_LEAD_IN_SHOT_TICK}+|${RECORDED_BOSS_TILE}|click|0" || return 1
   fight_tick_at_least "$RECORDED_LEAD_IN_LAST_TICK" 30000 || { log "the lead-in page never reached P4 tick ${RECORDED_LEAD_IN_LAST_TICK}"; return 1; }
   ab screenshot "$VERIFY_DIR/recorded-lead-in.png" >/dev/null || { log "lead-in hit screenshot failed"; return 1; }
   p3_page_done recorded-lead-in || return 1
 
   ab open "${URL}${RECORDED_ORB_QUERY}" >/dev/null || return 1
   fight_tick_at_least 0 120000 || { log "the waiting orb page never started"; return 1; }
-  click_tile_after_tick recorded-orb "$RECORDED_ORB_TILE" "$RECORDED_ORB_CLICK_TICK" || return 1
   # Off the orb for the first mark, so the explosions leave the drained player alive to take it on its glow tick.
-  step_on_marks 1 "$RECORDED_ORB_DODGE_MARK" && click_tile_after_tick recorded-orb "$RECORDED_ORB_TILE" "$RECORDED_ORB_DODGE_MARK" || return 1
+  click_plan recorded-orb "${RECORDED_ORB_CLICK_TICK}+|${RECORDED_ORB_TILE}|click|0" "$(step_entry 1 "$RECORDED_ORB_DODGE_MARK")" "${RECORDED_ORB_DODGE_MARK}+|${RECORDED_ORB_TILE}|click|0" || return 1
   shot_after_tick $((RECORDED_ORB_LAST_TICK - 2)) 0 recorded-orb-waiting.png || { log "waiting orb screenshot failed"; return 1; }
   fight_tick_at_least "$RECORDED_ORB_LAST_TICK" 30000 || { log "the waiting orb page never reached P4 tick ${RECORDED_ORB_LAST_TICK}"; return 1; }
   ab screenshot "$VERIFY_DIR/recorded-orb-returned.png" >/dev/null || { log "returned orb screenshot failed"; return 1; }
