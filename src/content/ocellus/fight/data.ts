@@ -243,17 +243,11 @@ export const P1 = {
   walkOnAt: 21,
   shouts: ["Pointless...", "You... fail...", "Unworthy..."],
   blastRadius: 2,
-  /** 25 to 35 on 41 raiders within 2 of him, the tick after his explosion, in ten raid logs. */
+  /** 25-35 on 41 raiders within 2 of him, ten raid logs. */
   blastDamage: range(25, 35),
-  /**
-   * A closing crack hits every raider 3-5 on its end graphic's tick, on it or not: 1,745 such hits on close ticks to
-   * 65 on other P1 ticks in L1, L2, L6 to L8, and 144 of 144 in a 2026-10-30 raid log. Not a burn.
-   */
+  /** A closing crack hits every raider 3-5, on it or not: 1,745 hits on close ticks to 65 off them in five logs. */
   closeChip: range(3, 5),
-  /**
-   * A crack nobody blocks heals him floor(8 / party) per raider off it, and that heal is the strike's meter: 2 a raider
-   * in parties of 3 and 4 (8 for a crack all four missed), 1 in 5 to 8, over ten raid logs. Solo misses all of it: 8.
-   */
+  /** An unblocked crack heals him, and fills the meter, floor(8 / party) per raider off it: ten raid logs. Solo: 8. */
   meterPerLine: 8,
   healPerLine: 8,
   meterMax: 96,
@@ -273,7 +267,7 @@ export const P1 = {
   strikeShoutAfterLastExplode: 2,
   strikeHitAfterShout: 3,
   strikeDamage: range(17, 19),
-  /** One more shot per 24 of meter: 22 healed gave 1 shot, 27, 30 and 44 gave 2, 58 gave 3, in ten raid logs. The rest land a tick after the first. */
+  /** One more shot per 24 of meter: 22 gave 1 shot, 27, 30 and 44 gave 2, 58 gave 3, ten raid logs. */
   meterPerExtraShot: 24,
   /**
    * After the strike's "Death... awaits..." his first volley comes 9 ticks on: 11 of 11 strikes in fight logs L1, L3 to
@@ -284,8 +278,8 @@ export const P1 = {
   routeWeights: { anticlockwise: 35, clockwise: 6, across: 14 },
   cornerLineLength: 9,
   /**
-   * His ending, from "You... will disappear...": at the middle he transforms 3 on (3 of 3 raid logs); elsewhere he
-   * teleports out 2 on, lands 3 after that and transforms 2 after landing (7 of 7). Phase 2 opens 7 after the transformation.
+   * From "You... will disappear...": in the middle he transforms 3 on; elsewhere he teleports 2 on, lands 3 later and
+   * transforms 2 after. Phase 2 opens 7 after the transformation: 10 of 10 raid logs.
    */
   transformAtMiddleAfter: 3,
   endingTeleportAfter: 2,
