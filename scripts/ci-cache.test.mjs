@@ -16,7 +16,7 @@ test("CI cache keys cover content inputs and restore previous entries", () => {
       const key = step.match(/^\s+key: (.+)$/m)?.[1];
       assert.ok(key, `${file} cache needs a key`);
       const restore = step.match(/^\s+restore-keys: \|\n((?:[ \t]+[^\n]*\n?)*)/m)?.[1]
-        ?.trim().split(/\s+/) ?? [];
+        ?.trim().split(/\s+/).filter(Boolean) ?? [];
       assert.ok(restore.some((prefix) => key.startsWith(prefix)),
         `${file} cache key must start with a restore-keys prefix`);
       const hashFiles = [...key.matchAll(/\$\{\{\s*hashFiles\(([^)]*)\)\s*\}\}/g)]

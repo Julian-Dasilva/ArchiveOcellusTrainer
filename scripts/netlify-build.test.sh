@@ -85,8 +85,7 @@ changed_pin_removes_the_old_reader() {
 
 only_configured_openrs2_cache_is_kept() {
   setup
-  sed 's/openrs2: 2746/openrs2: 2747/' "$T/app/osrs-assets.config.ts" >"$T/config"
-  mv "$T/config" "$T/app/osrs-assets.config.ts"
+  echo 'export default { cache: { openrs2: 2747 } };' >"$T/app/osrs-assets.config.ts"
   mkdir -p "$CACHE_ROOT/openrs2/2746" "$CACHE_ROOT/openrs2/2747" "$CACHE_ROOT/openrs2/2748"
   echo keep >"$CACHE_ROOT/openrs2/2747/data"
   ready
