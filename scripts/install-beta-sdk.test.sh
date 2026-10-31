@@ -383,7 +383,7 @@ next_run_sweeps_a_killed_builder() {
   expect_no_installer_leftovers
 }
 
-live_builder_is_not_swept() {
+guard:live_builder_is_not_swept() {
   setup
   local builder work first_app="$APP" second_app="$T/second-app"
   start_held_builder
@@ -433,7 +433,7 @@ for t in \
   cached_pack_truncated_after_manifest_is_rebuilt \
   process_group_term_waits_for_writers_and_cleans_build \
   next_run_sweeps_a_killed_builder \
-  live_builder_is_not_swept \
+  guard:live_builder_is_not_swept \
   netlify_default_cache_is_exported_to_children; do
   if ("$t") >"$WORK/$t.log" 2>&1; then
     echo "PASS $t"
