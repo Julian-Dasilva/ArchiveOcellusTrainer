@@ -4,7 +4,6 @@ import {
   Blowpipe,
   Chest,
   DragonWarhammer,
-  DragonWarhammerCr,
   SanguineScytheOfVitur,
   Helmet,
   ImageLoader,
@@ -15,6 +14,7 @@ import {
   MasoriMaskF,
   mergeProjectileOptions,
   NecklaceOfRupture,
+  Obligator,
   Projectile,
   RangedWeapon,
   ScytheOfVitur,
@@ -22,7 +22,7 @@ import {
   Unit,
   ZaryteVambraces,
 } from "osrs-sdk";
-import type { AttackBonuses, ProjectileOptions, UnitBonuses, UnitEquipment, Weapon } from "osrs-sdk";
+import type { AttackBonuses, AttackGraphics, CacheRenderSpotAnim, ProjectileOptions, UnitBonuses, UnitEquipment, Weapon } from "osrs-sdk";
 import type { StanceSpeeds, TrainerItemKey } from "../OcellusTimings";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import { itemIconFile } from "../../../../servedAssets";
@@ -260,6 +260,8 @@ class DivisionGlaive extends Projectile {
 }
 
 export class TonalzticsOfRalos extends RangedWeapon {
+  private glaive: 0 | 1 = 0;
+
   override inventorySprite = inventoryIcon(this.cacheItemId);
   override get inventoryImage(): string {
     return inventoryIconUrl(this.cacheItemId);
@@ -321,16 +323,32 @@ export class TonalzticsOfRalos extends RangedWeapon {
     return this.throwBoth(from, to, { ...bonuses, isSpecialAttack: true }, options);
   }
 
+  override get attackAnimationId(): number {
+    return gear.ralosGraphics.value.throw.animation;
+  }
+
+  override get attackSpotAnim(): CacheRenderSpotAnim {
+    return { id: gear.ralosGraphics.value.throw.cast };
+  }
+
+  override get specialAttackGraphics(): AttackGraphics {
+    const { animation, cast } = gear.ralosGraphics.value.division;
+    return { animation, cast, projectile: null, impact: null };
+  }
+
   override registerProjectile(from: Unit, to: Unit, bonuses: AttackBonuses, options: ProjectileOptions = {}): void {
-    if (!bonuses.isSpecialAttack) return super.registerProjectile(from, to, bonuses, options);
-    const own = { sound: this.attackSound ?? undefined, hitSound: this.attackLandingSound ?? undefined, visuals: { model: this.projectileModel ?? undefined } };
-    to.addProjectile(new DivisionGlaive(this, this.damage, from, to, "range", mergeProjectileOptions(own, this.projectileOptions, options)));
+    const { projectile, impact } = gear.ralosGraphics.value[bonuses.isSpecialAttack ? "division" : "throw"].glaives[this.glaive];
+    const glaive = mergeProjectileOptions(options, { visuals: { spotAnim: { id: projectile } }, impactSpotAnim: { id: impact } });
+    if (!bonuses.isSpecialAttack) return super.registerProjectile(from, to, bonuses, glaive);
+    const own = { sound: this.attackSound ?? undefined, hitSound: this.attackLandingSound ?? undefined };
+    to.addProjectile(new DivisionGlaive(this, this.damage, from, to, "range", mergeProjectileOptions(own, this.projectileOptions, glaive)));
   }
 
   /** The SDK rolls both glaives as they are thrown, so each throw rolls against the Defence the glaives already in flight leave once they land. */
   private throwBoth(from: Unit, to: Unit, bonuses: AttackBonuses, options: ProjectileOptions): boolean {
     let thrown = false;
     for (let hit = 0; hit < gear.ralos.value.hits; hit++) {
+      this.glaive = hit === 0 ? 0 : 1;
       if (!rollingAgainst(to, defenceAfterGlaivesInFlight(to), () => super.attack(from, to, rangedBonuses(this, bonuses), options))) return thrown;
       thrown = true;
     }
@@ -352,7 +370,7 @@ export class OcellusDragonWarhammer extends DragonWarhammer {
   }
 }
 
-export class OcellusDragonWarhammerCr extends DragonWarhammerCr {
+export class OcellusObligator extends Obligator {
   override attack(from: Unit, to: Unit, bonuses: AttackBonuses = {}, options: ProjectileOptions = {}): boolean {
     return super.attack(from, to, { ...bonuses, gearMeleeMultiplier: (bonuses.gearMeleeMultiplier ?? 1) * inquisitorFactor(from.equipment) }, options);
   }

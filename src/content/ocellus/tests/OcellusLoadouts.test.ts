@@ -18,7 +18,7 @@ const SUPPLIES_ROWS_5_TO_7 = [null, null, 3024, 3024, 6685, 6685, 3024, 3024, 66
 const TIER_IDS = {
   max: {
     equipment: { weapon: 28922, offhand: 25818, helmet: 24419, chest: 24420, legs: 24421, gloves: 22981, cape: 21295, necklace: 29801, feet: 31097, ring: 25485, ammo: 33595 },
-    inventory: [26374, 26235, 28955, 27235, 33639, 27238, 27241, 25975, 12926, 20997, 2444, 2444, 25739, 34715, 23685, 12695, 34681, 34696, ...SUPPLIES_ROWS_5_TO_7.slice(2), 10925, 27281],
+    inventory: [26374, 26235, 28955, 27235, 33639, 27238, 27241, 25975, 12926, 20997, 2444, 2444, 34715, null, 23685, 12695, 34681, 34696, ...SUPPLIES_ROWS_5_TO_7.slice(2), 10925, 27281],
   },
   high: {
     equipment: { weapon: 13576, offhand: 25818, helmet: 30750, chest: 30753, legs: 30756, gloves: 7462, cape: 21295, necklace: 24780, feet: 31097, ring: 25485, ammo: 33595 },
@@ -195,7 +195,7 @@ for (const tier of ["max", "low"] as const) {
 }
 
 const WEAPON_SLICE: readonly (readonly [Tier, readonly number[]])[] = [
-  ["max", [26374, 28955, 25975, 25739, 34715, 34681, 34696]],
+  ["max", [26374, 28955, 25975, 34715, 34681, 34696]],
   ["high", [13576, 24780, 21902, 28955, 33335, 29591]],
   ["mid", [29589, 21902, 28955, 29591, 13576]],
   ["low", [29589, 24780, 21902, 28955, 29591, 13576]],
@@ -298,7 +298,7 @@ test.each(TIER_SPECIALS)("the %s tier's special %i spends %i energy, hits Ocellu
     if (player.equipment.weapon?.itemId !== weaponId) player.inventory.find((item) => item?.itemId === weaponId)?.inventoryLeftClick(player);
     expect(player.equipment.weapon?.itemId).toBe(weaponId);
     const played: number[] = [];
-    player.setAnimationListener({ animationChanged: (id: number) => void played.push(id), spotAnimChanged: () => {} });
+    player.setAnimationListener({ animationChanged: async (id: number) => void played.push(id), modelChanged: () => {} });
     const shown = new Set<number>();
     const seen = () => {
       for (const { id } of [...player.spotAnims, ...boss.spotAnims]) shown.add(id);

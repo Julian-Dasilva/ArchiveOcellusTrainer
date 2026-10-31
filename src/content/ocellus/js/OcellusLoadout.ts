@@ -17,7 +17,7 @@ import {
   OcellusScythe,
   OcellusSanguineScythe,
   OcellusDragonWarhammer,
-  OcellusDragonWarhammerCr,
+  OcellusObligator,
   OcellusTwistedBow,
   OcellusZaryteVambraces,
   TonalzticsOfRalos,
@@ -52,6 +52,9 @@ export const OCELLUS_PRESETS: Readonly<Record<Tier, OcellusPreset>> = {
 
 const optionId = (tier: Tier, weapon: StartWeapon): string => `${tier}:${weapon}`;
 
+/** Raised whenever a release changes a preset's loadout, so a saved edit of the older loadout is offered as changed. */
+const PRESET_REVISIONS: Readonly<Record<Tier, number>> = { raid: 1, max: 3, high: 3, mid: 2, low: 2, poor: 2 };
+
 const ALLIANCE_SUPPLIES = gear.allianceSupplies.value.map(({ item, quantity }) => ({ item: item.value, quantity }));
 
 export const SHOP_NOT_SIMULATED: readonly Readonly<{ item: TierItem; quantity: number }>[] = ALLIANCE_SUPPLIES.filter(({ item }) => item.simulation !== "simulated");
@@ -63,7 +66,7 @@ export const OCELLUS_LOADOUTS = defineSimLoadouts({
     OcellusScythe,
     OcellusSanguineScythe,
     OcellusDragonWarhammer,
-    OcellusDragonWarhammerCr,
+    OcellusObligator,
     TonalzticsOfRalos,
     OcellusBlowpipe,
     OcellusMasoriMaskF,
@@ -77,7 +80,7 @@ export const OCELLUS_LOADOUTS = defineSimLoadouts({
   ],
   presets: TIERS.map((tier) => {
     const { label, loadout, starts } = OCELLUS_PRESETS[tier];
-    return { id: tier, label, revision: tier === "raid" ? 1 : 2, loadout, startOptions: starts.map(({ weapon }) => optionId(tier, weapon)) };
+    return { id: tier, label, revision: PRESET_REVISIONS[tier], loadout, startOptions: starts.map(({ weapon }) => optionId(tier, weapon)) };
   }),
   defaultPreset: "raid",
   supplyStock: ALLIANCE_SUPPLIES.flatMap(({ item, quantity }) => (item.simulation === "simulated" ? [{ id: item.id, quantity }] : [])),

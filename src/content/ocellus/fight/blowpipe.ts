@@ -17,6 +17,7 @@ export function ammunitionAgainst(itemId: number | "TODO" | null | undefined): A
   if (itemId === OCELLUS_P4.gear.items.tonalzticsOfRalos.itemId.value) return table.tonalzticsOfRalos;
   if (itemId === CACHE_ASSETS.items.dragonCrossbow.id) return table.dragonCrossbow;
   if (itemId === CACHE_ASSETS.items.zaryteCrossbow.id) return table.zaryteCrossbow;
+  if (itemId === CACHE_ASSETS.items.ascensionCrossbows.id) return table.ascensionCrossbows;
   if (itemId === blowpipe.value.itemId) return blowpipe.value.ammunition;
   return table.twistedBow;
 }
