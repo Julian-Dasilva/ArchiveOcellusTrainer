@@ -740,12 +740,13 @@ record_overhead_draws() {
 
 # Steps $1 tiles along the player's row on the tick before each mark, turning back each time.
 step_on_marks() {
-  local dx="$1" mark
+  local dx="$1" mark plan=()
   shift
   for mark in "$@"; do
-    tile_pixel "step-${mark}" "{ x: probe.snapshot().player.x + (${dx}), y: probe.snapshot().player.y }" $((mark - 1)) click || return 1
+    plan+=("$((mark - 1))|{ x: probe.snapshot().player.x + (${dx}), y: probe.snapshot().player.y }|click|0")
     dx=$((-dx))
   done
+  click_plan "steps before marks $*" "${plan[@]}"
 }
 
 drive_walk() {
@@ -1500,10 +1501,9 @@ drive_explosions() {
   arm_shot fight "${outside[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-before.png && arm_shot fight "${inner[0]}" "$EXPLOSION_GLOW_SHOT_FRACTION" explosion-left.png &&
     arm_shot fight "${outside[1]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-after.png && arm_shot fight "${outer[0]}" "$EXPLOSION_OVERHEAD_SHOT_FRACTION" explosion-standing.png ||
     { log "the explosion shots were not armed"; return 1; }
+  step_on_marks "$DODGE_STEP_TILES" "${inner[@]}" || { log "the dodges were not clicked"; return 1; }
   take_shot explosion-before.png "${outside[0]}" || { log "pre-series shot failed"; return 1; }
-  step_on_marks "$DODGE_STEP_TILES" "${inner[0]}" || { log "the first dodge was not clicked"; return 1; }
   take_shot explosion-left.png "${inner[0]}" || { log "left marker shot failed"; return 1; }
-  step_on_marks "-$DODGE_STEP_TILES" "${inner[@]:1}" || { log "the other dodges were not clicked"; return 1; }
   take_shot explosion-after.png "${outside[1]}" || { log "post-series shot failed"; return 1; }
   step_on_marks "$DODGE_STEP_TILES" $((outer[0] + 1)) || { log "the late step was not clicked"; return 1; }
   take_shot explosion-standing.png "${outer[0]}" || { log "the late step shot failed"; return 1; }
