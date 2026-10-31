@@ -76,7 +76,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/netlify-cache
-          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh', 'osrs-assets.config.ts', 'scripts/install-beta-sdk.sh') }}
           restore-keys: |
             osrs-cache-
       - name: Extract the assets and build, as the deploy does
@@ -147,7 +147,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/netlify-cache
-          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh', 'osrs-assets.config.ts', 'scripts/install-beta-sdk.sh') }}
           restore-keys: |
             osrs-cache-
       - name: Extract the assets and build, as the deploy does
@@ -183,7 +183,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/netlify-cache
-          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh', 'osrs-assets.config.ts', 'scripts/install-beta-sdk.sh') }}
           restore-keys: |
             osrs-cache-
       - name: Extract the head's assets and build, as the deploy does
@@ -195,7 +195,10 @@ jobs:
         env:
           NETLIFY_CACHE_DIR: ${{ runner.temp }}/netlify-cache
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: git worktree add --detach "$RUNNER_TEMP/base" "$BASE" && (cd "$RUNNER_TEMP/base" && bash scripts/netlify-build.sh)
+        run: |
+          cp -a "$NETLIFY_CACHE_DIR" "$RUNNER_TEMP/base-netlify-cache"
+          git worktree add --detach "$RUNNER_TEMP/base" "$BASE"
+          (cd "$RUNNER_TEMP/base" && NETLIFY_CACHE_DIR="$RUNNER_TEMP/base-netlify-cache" bash scripts/netlify-build.sh)
       - name: Compare the bundles and record the SDK pin
         run: |
           mkdir -p "$RUNNER_TEMP/assets"
@@ -233,7 +236,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/netlify-cache
-          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh', 'osrs-assets.config.ts', 'scripts/install-beta-sdk.sh') }}
           restore-keys: |
             osrs-cache-
       - name: Extract the assets and build, as the deploy does
@@ -279,7 +282,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/netlify-cache
-          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh', 'osrs-assets.config.ts', 'scripts/install-beta-sdk.sh') }}
           restore-keys: |
             osrs-cache-
       - name: Extract the assets and build, as the deploy does
@@ -312,7 +315,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/netlify-cache
-          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh') }}
+          key: osrs-cache-${{ hashFiles('scripts/netlify-build.sh', 'osrs-assets.config.ts', 'scripts/install-beta-sdk.sh') }}
           restore-keys: |
             osrs-cache-
       - name: Install the cache the release build reads

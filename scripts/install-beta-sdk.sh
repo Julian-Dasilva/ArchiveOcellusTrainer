@@ -164,3 +164,7 @@ for glob in "${PACKS[@]}"; do
 done
 npm install --no-save --no-audit --no-fund "${files[@]}"
 check_installed
+for retired in "${CACHE_ROOT}/sdk-packs/"*; do
+  [[ -d "${retired}" && "${retired}" != "${cached_packs}" ]] || continue
+  rm -rf "${retired}"
+done

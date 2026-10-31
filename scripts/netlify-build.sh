@@ -26,6 +26,15 @@ prepare_reader() {
 }
 
 mkdir -p "${CACHE_ROOT}"
+OPENRS2_CACHE_ID="$(node -e '
+  const config = require("node:fs").readFileSync("osrs-assets.config.ts", "utf8");
+  const ids = [...config.matchAll(/\bopenrs2:\s*(\d+)\b/g)];
+  if (ids.length !== 1) throw new Error("expected one configured OpenRS2 cache id");
+  console.log(ids[0][1]);
+')"
+if [[ -d "${CACHE_ROOT}/openrs2" ]]; then
+  find "${CACHE_ROOT}/openrs2" -mindepth 1 -maxdepth 1 -type d ! -name "${OPENRS2_CACHE_ID}" -exec rm -rf {} +
+fi
 prepare_reader
 npm ci --no-audit --no-fund
 scripts/install-beta-sdk.sh
