@@ -58,6 +58,23 @@ packs_at_pin() {
   done
 }
 
+lock_fd() {
+  if command -v flock >/dev/null 2>&1; then
+    flock "$@"
+  elif command -v perl >/dev/null 2>&1; then
+    perl -MFcntl=:flock -e '
+      my $operation = LOCK_EX;
+      $operation |= LOCK_NB if $ARGV[0] eq "-n";
+      $operation = LOCK_UN if $ARGV[0] eq "-u";
+      open(my $fh, ">&=", $ARGV[-1]) or die "fdopen: $!\n";
+      flock($fh, $operation) or exit 1;
+    ' -- "$@"
+  else
+    echo "install-beta-sdk: locking requires flock or perl; install either tool and retry" >&2
+    return 1
+  fi
+}
+
 if [[ "${1:-}" == --check ]]; then
   check_installed
   exit
@@ -65,7 +82,7 @@ fi
 
 mkdir -p "${CACHE_ROOT}/sdk-packs"
 exec 8>"${CACHE_ROOT}/sdk-packs.lock"
-flock 8
+lock_fd 8
 for stale in "${CACHE_ROOT}"/sdk-packs/.build.*; do
   [[ -d "${stale}" ]] || continue
   if [[ ! -f "${stale}/.lock" ]]; then
@@ -81,7 +98,7 @@ NODE
   fi
   (
     exec 9>"${stale}/.lock"
-    flock -n 9 || exit 0
+    lock_fd -n 9 || exit 0
     rm -rf "${stale}"
   )
 done
@@ -92,7 +109,7 @@ cleanup() {
   exec 10>"${work}/.lock"
   exec 9>&-
   # A fresh descriptor waits for every descendant that inherited the build lease.
-  flock 10
+  lock_fd 10
   rm -rf "${work}"
 }
 
@@ -106,11 +123,11 @@ elif [[ -d "${cached_packs}" ]] && packs_at_pin "${cached_packs}"; then
 else
   work="$(mktemp -d "${CACHE_ROOT}/sdk-packs/.build.$$.XXXXXX")"
   exec 9>"${work}/.lock"
-  flock 9
+  lock_fd 9
   trap cleanup EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
-  flock -u 8
+  lock_fd -u 8
   packs="${work}/packs"
   mkdir "${packs}"
   echo "install-beta-sdk: building ${OSRS_SDK_REPO} at ${OSRS_SDK_COMMIT}"
@@ -130,7 +147,7 @@ else
   builder=$!
   wait "${builder}"
   packs_at_pin "${packs}"
-  flock 8
+  lock_fd 8
   if [[ -d "${cached_packs}" ]] && packs_at_pin "${cached_packs}"; then
     echo "install-beta-sdk: using concurrently published packs from ${cached_packs}"
   else
