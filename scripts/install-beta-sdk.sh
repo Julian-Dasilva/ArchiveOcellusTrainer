@@ -68,6 +68,17 @@ exec 8>"${CACHE_ROOT}/sdk-packs.lock"
 flock 8
 for stale in "${CACHE_ROOT}"/sdk-packs/.build.*; do
   [[ -d "${stale}" ]] || continue
+  if [[ ! -f "${stale}/.lock" ]]; then
+    [[ "${stale##*/}" =~ ^\.build\.([0-9]+)\.[A-Za-z0-9]{6}$ ]] || continue
+    node - "${BASH_REMATCH[1]}" <<'NODE' || continue
+try {
+  process.kill(Number(process.argv[2]), 0);
+  process.exit(1);
+} catch (error) {
+  process.exit(error.code === 'ESRCH' ? 0 : 1);
+}
+NODE
+  fi
   (
     exec 9>"${stale}/.lock"
     flock -n 9 || exit 0
@@ -93,7 +104,7 @@ elif [[ -d "${cached_packs}" ]] && packs_at_pin "${cached_packs}"; then
   packs="${cached_packs}"
   echo "install-beta-sdk: using cached packs from ${packs}"
 else
-  work="$(mktemp -d "${CACHE_ROOT}/sdk-packs/.build.XXXXXX")"
+  work="$(mktemp -d "${CACHE_ROOT}/sdk-packs/.build.$$.XXXXXX")"
   exec 9>"${work}/.lock"
   flock 9
   trap cleanup EXIT
